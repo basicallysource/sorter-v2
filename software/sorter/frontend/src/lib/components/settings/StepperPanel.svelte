@@ -139,6 +139,8 @@
 	let sgEnabled = $state(false);
 	let sgThrs = $state(50);
 	let sgTcoolthrs = $state(150);
+	// Automatic tuning keeps the threshold and the speed floor while it is on.
+	let sgAuto = $state(false);
 	let tmcDrvStatus = $state<Record<string, any> | null>(null);
 	let tmcStalled = $state(false);
 	let tmcClearingStall = $state(false);
@@ -265,12 +267,10 @@
 				? payload.current_position_degrees
 				: null;
 		stepperMicrosteps =
-			typeof payload?.stepper_microsteps === 'number' &&
-			Number.isFinite(payload.stepper_microsteps)
+			typeof payload?.stepper_microsteps === 'number' && Number.isFinite(payload.stepper_microsteps)
 				? payload.stepper_microsteps
 				: null;
-		stepperStopped =
-			typeof payload?.stepper_stopped === 'boolean' ? payload.stepper_stopped : null;
+		stepperStopped = typeof payload?.stepper_stopped === 'boolean' ? payload.stepper_stopped : null;
 		if (
 			!(driverShown && directionRead) &&
 			typeof payload?.stepper_direction_inverted === 'boolean'
@@ -563,6 +563,7 @@
 			if (data.coolstep !== null) tmcCoolstep = data.coolstep;
 			if (data.stallguard) {
 				sgEnabled = !!data.stallguard.enabled;
+				sgAuto = !!data.stallguard.auto;
 				if (typeof data.stallguard.sgthrs === 'number') sgThrs = data.stallguard.sgthrs;
 				if (typeof data.stallguard.tcoolthrs === 'number') sgTcoolthrs = data.stallguard.tcoolthrs;
 			}
@@ -596,10 +597,9 @@
 		errorMsg = null;
 		statusMsg = '';
 		try {
-			const res = await fetch(
-				`${currentBackendBaseUrl()}/stepper/${stepperKey}/clear-stall`,
-				{ method: 'POST' }
-			);
+			const res = await fetch(`${currentBackendBaseUrl()}/stepper/${stepperKey}/clear-stall`, {
+				method: 'POST'
+			});
 			if (!res.ok) {
 				errorMsg = await readErrorMessage(res);
 				return;
@@ -651,11 +651,12 @@
 				{
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						sgthrs: sgThrs,
-						tcoolthrs: sgTcoolthrs,
-						enabled: sgEnabled
-					})
+					// A threshold or floor sent by hand would take them over from automatic tuning.
+					body: JSON.stringify(
+						sgAuto
+							? { enabled: sgEnabled }
+							: { sgthrs: sgThrs, tcoolthrs: sgTcoolthrs, enabled: sgEnabled }
+					)
 				}
 			);
 			if (!sgRes.ok) {
@@ -730,7 +731,9 @@
 
 {#snippet driverSettings()}
 	{#if tmcReadFailed}
-		<div class="flex flex-wrap items-center gap-3 px-(--pad-panel) py-(--pad-row) text-sm text-ink-muted">
+		<div
+			class="flex flex-wrap items-center gap-3 px-(--pad-panel) py-(--pad-row) text-sm text-ink-muted"
+		>
 			The driver settings could not be read.
 			<Button size="sm" onclick={loadTmcSettings}>Try again</Button>
 		</div>
@@ -748,6 +751,7 @@
 			bind:stepperDirectionInverted
 			cruiseSpeed={isChute ? chuteOperatingSpeed : null}
 			{stallguardHref}
+			{sgAuto}
 		/>
 	{/if}
 {/snippet}
@@ -794,7 +798,9 @@
 						<Badge tone="primary" dot>Moving</Badge>
 					{/if}
 					{#if isChute && chuteHomed !== null}
-						<Badge tone={chuteHomed ? 'success' : 'warning'} dot>{chuteHomed ? 'Homed' : 'Not homed'}</Badge>
+						<Badge tone={chuteHomed ? 'success' : 'warning'} dot
+							>{chuteHomed ? 'Homed' : 'Not homed'}</Badge
+						>
 					{/if}
 					{#if hasEndstop && endstopTriggered !== null}
 						<Badge tone={endstopTriggered ? 'success' : 'neutral'}>
@@ -812,7 +818,8 @@
 				</p>
 				{#if isChute}
 					<p class="num text-sm text-ink-muted">
-						Gear ratio {gearRatio.toFixed(2)}:1{chuteStepperDegrees !== null && chuteOutputAngle !== null
+						Gear ratio {gearRatio.toFixed(2)}:1{chuteStepperDegrees !== null &&
+						chuteOutputAngle !== null
 							? `: ${formatNumber(chuteStepperDegrees, 1)}° at the motor is ${formatNumber(chuteOutputAngle, 1)}° at the chute`
 							: ''}
 					</p>
@@ -839,10 +846,15 @@
 		{#if tmcStalled}
 			<div class="px-(--pad-panel) pb-3">
 				<Alert tone="danger" title="{displayLabel} stalled">
-					Stall detection halted this motor. Clear the jam, then clear the stall. Its home position was
-					dropped, so home it again before precise moves.
+					Stall detection halted this motor. Clear the jam, then clear the stall. Its home position
+					was dropped, so home it again before precise moves.
 					{#snippet actions()}
-						<Button variant="danger" size="sm" loading={tmcClearingStall} onclick={() => void clearStall()}>
+						<Button
+							variant="danger"
+							size="sm"
+							loading={tmcClearingStall}
+							onclick={() => void clearStall()}
+						>
 							Clear the stall
 						</Button>
 					{/snippet}
@@ -872,7 +884,11 @@
 
 		{#if !isChute}
 			<div class="divide-y divide-line border-t border-line">
-				<Disclosure title="Driver settings" help="Currents, microsteps, stall detection" bind:open={driverSettingsOpen}>
+				<Disclosure
+					title="Driver settings"
+					help="Currents, microsteps, stall detection"
+					bind:open={driverSettingsOpen}
+				>
 					{@render driverSettings()}
 					<div class="flex items-center justify-end gap-3 px-(--pad-panel) py-(--pad-row)">
 						<div class="mr-auto min-w-0 text-sm">{@render feedback('driver')}</div>

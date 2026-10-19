@@ -2,7 +2,8 @@
 	One motor's stall detection: on or off, how hard it must be loaded to count
 	as a stall (SGTHRS), and the speed floor under which the driver stops
 	looking (TCOOLTHRS). It is the same form in the motor's driver settings and
-	on its StallGuard tab. The parent pads it and saves it.
+	on its StallGuard tab. The parent pads it and saves it. While automatic
+	tuning is on, the threshold and floor are its, shown and not edited.
 -->
 <script lang="ts">
 	import Checkbox from '$lib/components/ui/Checkbox.svelte';
@@ -17,7 +18,8 @@
 		sgTcoolthrs = $bindable(),
 		microsteps,
 		cruiseSpeed = null,
-		tuneHref = undefined
+		tuneHref = undefined,
+		auto = false
 	}: {
 		sgEnabled: boolean;
 		sgThrs: number;
@@ -29,6 +31,8 @@
 		cruiseSpeed?: number | null;
 		// Where the threshold is tuned, when this form is not already there.
 		tuneHref?: string;
+		// Automatic tuning sets the threshold and the speed floor.
+		auto?: boolean;
 	} = $props();
 
 	// The driver checks for a stall only while TSTEP (its time per 1/256 step)
@@ -38,7 +42,9 @@
 		cruiseSpeed && cruiseSpeed > 0 ? tstepAtSpeed(cruiseSpeed, microsteps) : null
 	);
 	const minimumSpeed = $derived(sgTcoolthrs > 0 ? speedAtTstep(sgTcoolthrs, microsteps) : null);
-	const tooSlowToTrip = $derived(sgEnabled && cruiseTstep !== null && cruiseTstep > sgTcoolthrs);
+	const tooSlowToTrip = $derived(
+		sgEnabled && !auto && cruiseTstep !== null && cruiseTstep > sgTcoolthrs
+	);
 </script>
 
 {#snippet tune()}
@@ -55,40 +61,46 @@
 	</p>
 	{#if sgEnabled}
 		<div class="mt-3 ml-6.5 flex flex-col gap-3 rounded-control bg-well p-3">
-			<div class="flex items-center justify-between gap-3">
-				<label for="tmc-sgthrs" class="text-sm text-ink">Threshold (SGTHRS)</label>
-				<div class="flex items-center gap-2">
-					<input
-						type="range"
-						min="0"
-						max="255"
-						bind:value={sgThrs}
-						aria-label="Threshold"
-						class="w-28 accent-primary"
-					/>
+			{#if auto}
+				<p class="text-sm text-ink">
+					Set by automatic tuning{#if tuneHref}, on the StallGuard tab{/if}.
+				</p>
+			{:else}
+				<div class="flex items-center justify-between gap-3">
+					<label for="tmc-sgthrs" class="text-sm text-ink">Threshold (SGTHRS)</label>
+					<div class="flex items-center gap-2">
+						<input
+							type="range"
+							min="0"
+							max="255"
+							bind:value={sgThrs}
+							aria-label="Threshold"
+							class="w-28 accent-primary"
+						/>
+						<Input
+							id="tmc-sgthrs"
+							type="number"
+							size="sm"
+							min={0}
+							max={255}
+							bind:value={sgThrs}
+							class="w-20"
+						/>
+					</div>
+				</div>
+				<div class="flex items-center justify-between gap-3">
+					<label for="tmc-tcoolthrs" class="text-sm text-ink">Speed floor (TCOOLTHRS)</label>
 					<Input
-						id="tmc-sgthrs"
+						id="tmc-tcoolthrs"
 						type="number"
 						size="sm"
 						min={0}
-						max={255}
-						bind:value={sgThrs}
-						class="w-20"
+						bind:value={sgTcoolthrs}
+						unit="TSTEP"
+						class="w-32"
 					/>
 				</div>
-			</div>
-			<div class="flex items-center justify-between gap-3">
-				<label for="tmc-tcoolthrs" class="text-sm text-ink">Speed floor (TCOOLTHRS)</label>
-				<Input
-					id="tmc-tcoolthrs"
-					type="number"
-					size="sm"
-					min={0}
-					bind:value={sgTcoolthrs}
-					unit="TSTEP"
-					class="w-32"
-				/>
-			</div>
+			{/if}
 			<p class="num text-sm text-ink-muted">
 				Trips when SG_RESULT is {sgThrs * 2} or less, only at cruising speed (TSTEP up to {sgTcoolthrs}).
 			</p>

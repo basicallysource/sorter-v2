@@ -265,7 +265,9 @@ def test_stall_detection_saved_through_the_api_is_armed_at_start(machine) -> Non
     stepper_routes.set_tmc_settings("carousel", stepper_routes.TmcSettingsRequest(coolstep=True))
     stallguard_routes.set_stallguard_config("chute", stallguard_routes.StallGuardConfigBody(enabled=False))
 
-    assert _saved(machine)["stepper_stallguard"]["carousel"] == {"enabled": True, "sgthrs": 90, "tcoolthrs": 180}
+    assert _saved(machine)["stepper_stallguard"]["carousel"] == {
+        "enabled": True, "auto": False, "sgthrs": 90, "tcoolthrs": 180,
+    }
     board = _Board(SOCKETS)
     _start(board)
     carousel = board.drivers["carousel"]

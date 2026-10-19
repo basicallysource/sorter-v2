@@ -21,7 +21,8 @@
 		sgTcoolthrs = $bindable(),
 		stepperDirectionInverted = $bindable(),
 		cruiseSpeed = null,
-		stallguardHref = undefined
+		stallguardHref = undefined,
+		sgAuto = false
 	}: {
 		loading: boolean;
 		tmcIrun: number;
@@ -38,10 +39,18 @@
 		cruiseSpeed?: number | null;
 		// The motor's StallGuard tab, where it has one.
 		stallguardHref?: string;
+		// Automatic tuning sets the threshold and the speed floor.
+		sgAuto?: boolean;
 	} = $props();
 </script>
 
-{#snippet current(id: string, label: string, help: string, get: () => number, set: (v: number) => void)}
+{#snippet current(
+	id: string,
+	label: string,
+	help: string,
+	get: () => number,
+	set: (v: number) => void
+)}
 	<SettingRow {label} {help} for={id}>
 		<input
 			type="range"
@@ -71,8 +80,20 @@
 	</div>
 {:else}
 	<div class="divide-y divide-line">
-		{@render current('tmc-irun', 'Run current', 'IRUN, 0 to 31.', () => tmcIrun, (v) => (tmcIrun = v))}
-		{@render current('tmc-ihold', 'Hold current', 'IHOLD, 0 to 31.', () => tmcIhold, (v) => (tmcIhold = v))}
+		{@render current(
+			'tmc-irun',
+			'Run current',
+			'IRUN, 0 to 31.',
+			() => tmcIrun,
+			(v) => (tmcIrun = v)
+		)}
+		{@render current(
+			'tmc-ihold',
+			'Hold current',
+			'IHOLD, 0 to 31.',
+			() => tmcIhold,
+			(v) => (tmcIhold = v)
+		)}
 		<SettingRow label="Microstepping" for="tmc-microsteps">
 			<div class="w-28">
 				<Select
@@ -80,7 +101,10 @@
 					size="sm"
 					value={String(tmcMicrosteps)}
 					onchange={(v) => (tmcMicrosteps = Number(v))}
-					options={[1, 2, 4, 8, 16, 32, 64, 128, 256].map((ms) => ({ value: String(ms), label: `1/${ms}` }))}
+					options={[1, 2, 4, 8, 16, 32, 64, 128, 256].map((ms) => ({
+						value: String(ms),
+						label: `1/${ms}`
+					}))}
 				/>
 			</div>
 		</SettingRow>
@@ -97,6 +121,7 @@
 				microsteps={tmcMicrosteps}
 				{cruiseSpeed}
 				tuneHref={stallguardHref}
+				auto={sgAuto}
 			/>
 		</div>
 	</div>

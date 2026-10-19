@@ -882,6 +882,11 @@ def main() -> None:
             daemon=True,
             name="stall-monitor",
         ).start()
+        # And keeps the threshold and speed floor of each motor with automatic
+        # tuning on set from what its load reads in normal running.
+        import stallguard_tuner
+
+        stallguard_tuner.start(gc)
     elif DISABLE_STALLGUARD:
         gc.logger.info("StallGuard monitor not started (DISABLE_STALLGUARD=1).")
 

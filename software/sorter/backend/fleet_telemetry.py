@@ -76,7 +76,10 @@ _DRV_FLAGS = (
     ("otpw", 0), ("ot", 1), ("s2ga", 2), ("s2gb", 3), ("s2vsa", 4), ("s2vsb", 5),
     ("ola", 6), ("olb", 7), ("t120", 8), ("t143", 9), ("t150", 10), ("t157", 11),
 )
-_SETTING_FIELDS = ("irun", "ihold", "microsteps", "stealthchop", "coolstep", "stallguard", "sgthrs", "tcoolthrs")
+_SETTING_FIELDS = (
+    "irun", "ihold", "microsteps", "stealthchop", "coolstep",
+    "stallguard", "stallguard_auto", "sgthrs", "tcoolthrs",
+)
 
 
 def _sorting(gc: Any) -> bool:

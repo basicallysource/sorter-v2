@@ -126,23 +126,33 @@ def test_the_classification_channel_keeps_its_own_inner_edge() -> None:
     assert found.zones.ring.inner_center is None
 
 
-def _walled(openings: list[tuple[float, float]], seed: int = 0) -> np.ndarray:
+def _wedge(img: np.ndarray, c: tuple[int, int], start: float, end: float, color: tuple[int, int, int]) -> None:
+    # A polygon, not cv2.ellipse, which rounds its angles to whole degrees.
+    rim_side = [(c[0] + 420 * math.cos(math.radians(a)), c[1] + 420 * math.sin(math.radians(a))) for a in np.linspace(start, end, 200)]
+    cv2.fillPoly(img, [np.array([c] + rim_side, np.float64).round().astype(np.int32)], color)
+
+
+def _walled(openings: list[tuple[float, float]], seed: int = 0, face: float = 0.0) -> np.ndarray:
     """A channel whose rotor's edge is a dark line between a light disc and a
     light wall top, broken where the wall is open: there the next channel's
-    dark chute shows past the rim."""
+    dark chute shows past the rim. For ``face`` degrees past each opening's
+    end, the camera sees the wall's end face at an angle: darkest at its edge,
+    it shades into the wall top and hides the rim's line."""
     rng = np.random.default_rng(seed)
     img = np.full((720, 1280, 3), 120, np.uint8)
     c = (int(CENTER[0]), int(CENTER[1]))
     cv2.circle(img, c, 420, (190, 190, 190), -1)
     for start, end in openings:
-        # A polygon, not cv2.ellipse, which rounds its angles to whole degrees.
-        rim_side = [(c[0] + 420 * math.cos(math.radians(a)), c[1] + 420 * math.sin(math.radians(a))) for a in np.linspace(start, end, 200)]
-        cv2.fillPoly(img, [np.array([c] + rim_side, np.float64).round().astype(np.int32)], (60, 60, 60))
+        _wedge(img, c, start, end, (60, 60, 60))
+        steps = int(face / 0.25)
+        for k in range(steps):
+            shade = int(25 + (190 - 25) * (k + 0.5) / steps)
+            _wedge(img, c, end + k * face / steps, end + (k + 1) * face / steps, (shade, shade, shade))
     cv2.circle(img, c, int(RIM), (205, 205, 205), -1)
     wall_line = np.zeros(img.shape[:2], np.uint8)
     cv2.circle(wall_line, c, int(RIM), 255, 5)
     for start, end in openings:
-        cv2.ellipse(wall_line, c, (int(RIM), int(RIM)), 0, start, end, 0, 9)
+        cv2.ellipse(wall_line, c, (int(RIM), int(RIM)), 0, start, end + face, 0, 9)
     img[wall_line > 0] = (80, 80, 80)
     cv2.circle(img, c, 60, (230, 230, 230), -1)
     noise = rng.normal(0, 3, img.shape)
@@ -184,6 +194,15 @@ def test_the_exits_ends_sit_on_the_walls_end_face_past_the_rim() -> None:
     # Found at the rim in whole degrees, the opening's ends can be a degree off:
     # each moves onto the sharp edge past the rim.
     frames = [_walled([(170.7, 211.3)], seed) for seed in range(4)]
+    found = findZones(3, frames, _current(CENTER))
+    assert found.zones.exit.start == pytest.approx(170.7, abs=0.2)
+    assert found.zones.exit.end == pytest.approx(211.3, abs=0.2)
+
+
+def test_an_end_face_seen_at_an_angle_does_not_widen_the_exit() -> None:
+    # The face hides the rim's line for 4.5 degrees past the end, so at the rim
+    # the opening reads that much wider; the end still sits on the face's edge.
+    frames = [_walled([(170.7, 211.3)], seed, face=4.5) for seed in range(4)]
     found = findZones(3, frames, _current(CENTER))
     assert found.zones.exit.start == pytest.approx(170.7, abs=0.2)
     assert found.zones.exit.end == pytest.approx(211.3, abs=0.2)

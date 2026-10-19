@@ -294,7 +294,28 @@ class CollectorScheduleTests(_StateTestCase):
         self.assertEqual(120.0, status["interval_s"])
         self.assertEqual(120.0, status["local_settings"]["burst_interval_s"])
         saved = self.local_state.get_sample_collection_state()
-        self.assertEqual((120.0, 120.0), (saved["interval_s"], saved["burst_interval_s"]))
+        # Raised to the minimum, the rate is the default, so it is not kept.
+        self.assertNotIn("interval_s", saved)
+        self.assertEqual((True, 120.0), (saved["enabled"], saved["burst_interval_s"]))
+
+    def test_only_chosen_settings_are_kept_and_the_rest_follow_hive(self) -> None:
+        # Saved before only choices were kept: every setting, chosen or not.
+        self.local_state.set_sample_collection_state({"enabled": False, "annotate": False, "interval_s": 120.0, "decay_enabled": True})
+        collector = self._collector()
+        self.assertEqual(["annotate"], collector.status()["chosen"])
+        import hive_defaults
+
+        hive_defaults.keep("a", "v1", {"sample_capture": {"enabled": True, "annotate": True, "interval_s": 300}})
+        try:
+            status = collector.status()
+            self.assertEqual((True, False, 300.0), (status["enabled"], status["annotate"], status["interval_s"]))
+            self.assertEqual({"enabled": True, "annotate": True, "interval_s": 300.0, "decay_enabled": True}, status["defaults"])
+            # Choosing the default is no choice: the setting follows Hive again.
+            collector.setAnnotate(True)
+            self.assertEqual([], collector.status()["chosen"])
+        finally:
+            hive_defaults.keep("a", "v0", {})
+            hive_defaults.invalidate()
 
     def test_slower_local_settings_win_and_null_follows_hive_again(self) -> None:
         collector = self._collector()

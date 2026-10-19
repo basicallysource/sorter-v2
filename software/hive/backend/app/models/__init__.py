@@ -31,6 +31,7 @@ from app.models.kit import Kit  # noqa: E402, F401
 from app.models.machine_config_backup import MachineConfigBackup  # noqa: E402, F401
 from app.models.machine_hardware_report import MachineHardwareReport  # noqa: E402, F401
 from app.models.machine_telemetry import MachineTelemetryRecord  # noqa: E402, F401
+from app.models.machine_default_override import MachineDefaultOverride  # noqa: E402, F401
 from app.models.detection_model import DetectionModel, DetectionModelVariant  # noqa: E402, F401
 from app.models.model_dataset_sample import ModelDatasetMachineCount, ModelDatasetSample  # noqa: E402, F401
 from app.models.model_default import ModelDefault  # noqa: E402, F401

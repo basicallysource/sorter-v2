@@ -40,6 +40,7 @@ from app.routers import (
     leaderboard,
     link_models,
     machine_config_backups,
+    machine_defaults,
     machine_lookup,
     machine_models,
     machine_parts,
@@ -122,6 +123,7 @@ app.include_router(review.router)
 app.include_router(stats.router)
 app.include_router(models_router.router)
 app.include_router(model_defaults.router)
+app.include_router(machine_defaults.router)
 app.include_router(machine_models.router)
 app.include_router(machine_parts.router)
 app.include_router(machine_parts.catalog_router)

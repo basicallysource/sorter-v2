@@ -67,7 +67,7 @@ Nothing here needs soldering. If you would rather solder a joint, the connector 
 
 **Take the mark under two turns rather than the one over it.** Strip past two turns has nowhere to sit: it lifts out from under the cover and the light leaves the lamp at an odd angle. A small gap where the ends do not quite meet does not show.
 
-Leave the blue protective film on until the strip is going where it lives. It is the only thing keeping grease off the adhesive.
+Leave the blue protective film on, in the lamp too: the hooks hold the strip, it is not stuck down.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-strip-cut-marks-plain-full-3351d6e9340e.png" alt="Diagram of a COB LED strip seen from above with a scissors symbol over each of two cut points, and the copper pads at each cut point labelled +24V on the top row and minus on the bottom">

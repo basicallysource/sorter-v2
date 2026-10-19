@@ -3,7 +3,7 @@
 	sliver before the exit where they are let off one at a time (precise), and
 	where they leave (exit). Each says how big it is, can be made wider or
 	narrower, says where it came from (drawn, found in the picture, learned from
-	the pieces) and can be locked, so neither Find nor the machine moves it.
+	the pieces) and can be locked, so Find does not move it.
 -->
 <script lang="ts">
 	import Check from '@lucide/svelte/icons/check';
@@ -36,7 +36,7 @@
 		saving = false,
 		selected = null,
 		note = '',
-		learning = '',
+		watch = '',
 		onchange,
 		onselect,
 		onfind,
@@ -52,8 +52,8 @@
 		selected?: Part | null;
 		// What Find found, or went wrong, in a sentence.
 		note?: string;
-		// What the machine has learned from its pieces, in a sentence.
-		learning?: string;
+		// What the machine has seen of its pieces while running, in a sentence.
+		watch?: string;
 		onchange: (zones: ChannelZones) => void;
 		onselect?: (part: Part | null) => void;
 		onfind: () => void;
@@ -179,8 +179,7 @@
 
 	{#snippet footer()}
 		<p class="mr-auto text-sm text-ink-muted">
-			{learning ||
-				'While it runs, the machine moves the drop and exit toward where its pieces really land and leave. Locked zones stay put.'}
+			{watch || 'The zones change only when someone saves them. Lock a part to keep Find from moving it.'}
 		</p>
 	{/snippet}
 </Panel>

@@ -42,6 +42,7 @@ def channelGeometry(zones: ChannelZones, role: str) -> dict[str, Any]:
         "polygon": [[round(x, 1), round(y, 1)] for x, y in channelPolygon(zones)],
         "center": [round(ring.center[0], 2), round(ring.center[1], 2)],
         "inner_radius": round(ring.inner_radius, 2),
+        "inner_center": None if ring.inner_center is None else [round(ring.inner_center[0], 2), round(ring.inner_center[1], 2)],
         "outer_radius": round(ring.outer_radius, 2),
         "exit_outer_radius": round(ring.exit_radius, 2),
         "section_zero_angle_deg": round(zones.reference_angle, 3),

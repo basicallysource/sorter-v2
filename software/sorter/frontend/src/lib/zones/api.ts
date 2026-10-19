@@ -8,17 +8,16 @@ export type FindReport = {
 	notes: string[];
 };
 
-export type Learning = {
+// What the machine has seen of its pieces while running (backend/zones/watch.py).
+export type PieceWatch = {
 	running: boolean;
-	apply_changes?: boolean;
 	channels?: Record<
 		string,
 		{
+			falls?: number;
 			handoffs?: number;
 			frames?: number;
 			landing_delay_s?: { p50: number; p90: number };
-			learned_exit?: { start: number; end: number };
-			[key: string]: unknown;
 		}
 	>;
 };
@@ -66,6 +65,6 @@ export async function defaultZones(channel: number): Promise<ChannelZones> {
 	return body.zones;
 }
 
-export async function loadLearning(): Promise<Learning> {
-	return json(await fetch(`${getBackendHttpBase()}/api/zones/learning`, { cache: 'no-store' }));
+export async function loadPieceWatch(): Promise<PieceWatch> {
+	return json(await fetch(`${getBackendHttpBase()}/api/zones/watch`, { cache: 'no-store' }));
 }

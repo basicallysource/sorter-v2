@@ -144,12 +144,12 @@ class PulsePerceptionFeeding(BaseState):
         return success
 
     def _noteFall(self, channel: int, gate: DispenseGate) -> None:
-        # Which piece fell off the exit, for the zones learned from the pieces.
+        # Which piece fell off the exit, so the landing that follows can be timed.
         if gate.fell_track_id is None:
             return
-        from zones import learner
+        from zones import watch
 
-        learner.noteFall(channel, gate.fell_track_id)
+        watch.noteFall(channel, gate.fell_track_id)
 
     def _on_ch3_dispense(self) -> None:
         try:

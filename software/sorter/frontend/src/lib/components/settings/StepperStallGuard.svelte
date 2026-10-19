@@ -570,7 +570,9 @@
 
 	<Panel
 		title="Tune StallGuard"
-		description="Finds where a stall starts, at the speed {label} runs."
+		description={auto
+			? 'Optional while it tunes itself: a recorded stall to check it against.'
+			: `Finds where a stall starts, at the speed ${label} runs.`}
 		flush
 	>
 		{#snippet actions()}
@@ -578,6 +580,8 @@
 				<Badge tone="warning">It would trip</Badge>
 			{:else if done[3]}
 				<Badge tone="success">Tuned</Badge>
+			{:else if auto}
+				<Badge>Optional</Badge>
 			{:else}
 				<Badge tone="primary">Step {currentStep} of 5</Badge>
 			{/if}

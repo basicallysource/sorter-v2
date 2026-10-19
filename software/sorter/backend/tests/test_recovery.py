@@ -12,7 +12,7 @@ import pytest
 
 import incidents
 import recovery
-from recovery.judges import channelEmpty, pieceGoneFrom, turnIntoExit
+from recovery.judges import exitEmpty, pieceGoneFrom, turnIntoExit
 from recovery.procedures import C4_SHAKE_OFF, LANDING_HELD
 from recovery.runner import FREED, GAVE_UP, RUNNING, STOPPED, Recovery
 
@@ -215,8 +215,8 @@ def _perception(ts, pieces, channel=3, channel_def=None):
     return SimpleNamespace(read_states=lambda: {channel: state}, channels=lambda: {channel: channel_def})
 
 
-def _piece(box, fwd=200.0):
-    return SimpleNamespace(bbox=box, com_forward_to_exit_deg=fwd)
+def _piece(box, fwd=200.0, track=None):
+    return SimpleNamespace(bbox=box, com_forward_to_exit_deg=fwd, sv_bt_track_id=track)
 
 
 def test_a_held_piece_is_free_once_nothing_sits_where_it_sat() -> None:
@@ -224,13 +224,37 @@ def test_a_held_piece_is_free_once_nothing_sits_where_it_sat() -> None:
     assert pieceGoneFrom(_perception(10.0, [_piece(box)]), 3, box)(11.0) is None  # an older picture
     assert pieceGoneFrom(_perception(12.0, [_piece((503, 302, 562, 361))]), 3, box)(11.0) is False
     assert pieceGoneFrom(_perception(12.0, [_piece((560, 300, 620, 360))]), 3, box)(11.0) is True
-    assert channelEmpty(_perception(12.0, []), 3)(11.0) is True
+
+
+_C4 = SimpleNamespace(exit_sections=frozenset(range(100, 227)), precise_sections=frozenset(range(100, 185)))
+_WIDTH = 227 - 185
+
+
+def _c4(*pieces):
+    return _perception(1.0, [_piece((0, 0, 1, 1), fwd=f, track=t) for t, f in pieces], channel=4, channel_def=_C4)
 
 
 def test_turning_into_the_exit_takes_the_shorter_way() -> None:
-    channel_def = SimpleNamespace(exit_sections=frozenset(range(100, 227)), precise_sections=frozenset(range(100, 185)))
-    width = 227 - 185
-    behind = _perception(1.0, [_piece((0, 0, 1, 1), fwd=10.0)], channel=4, channel_def=channel_def)
-    assert turnIntoExit(behind, 4) == pytest.approx(10.0 + width / 2)
-    past = _perception(1.0, [_piece((0, 0, 1, 1), fwd=290.0)], channel=4, channel_def=channel_def)
-    assert turnIntoExit(past, 4) == pytest.approx(290.0 + width / 2 - 360.0)
+    assert turnIntoExit(_c4((1, 10.0)), 4) == pytest.approx(10.0 + _WIDTH / 2)
+    assert turnIntoExit(_c4((1, 290.0)), 4) == pytest.approx(290.0 + _WIDTH / 2 - 360.0)
+
+
+def test_turning_into_the_exit_never_carries_another_piece_through_it() -> None:
+    # The stuck piece (track 7) came back around; another waits 70 degrees
+    # short of the exit. Backwards (49) is shorter and keeps it clear.
+    assert turnIntoExit(_c4((3, 70.0), (7, 290.0)), 4, target_track=7) == pytest.approx(-49.0)
+    # Backwards would carry the other piece into the exit too, so forward, the
+    # long way, which keeps it clear.
+    assert turnIntoExit(_c4((3, 310.0), (7, 200.0)), 4, target_track=7) == pytest.approx(221.0)
+    assert turnIntoExit(_c4((3, 250.0), (7, 10.0)), 4, target_track=7) == pytest.approx(31.0)
+    # Just behind it, the other piece reaches the exit either way: by hand.
+    assert turnIntoExit(_c4((3, 300.0), (7, 290.0)), 4, target_track=7) is None
+    # A piece already in the exit, or a target that is not there: by hand.
+    assert turnIntoExit(_c4((3, -5.0), (7, 290.0)), 4, target_track=7) is None
+    assert turnIntoExit(_c4((3, 100.0)), 4, target_track=7) is None
+
+
+def test_freed_once_nothing_is_in_the_exit() -> None:
+    assert exitEmpty(_c4((3, 70.0)), 4)(0.5) is True
+    assert exitEmpty(_c4((3, 70.0), (7, -20.0)), 4)(0.5) is False
+    assert exitEmpty(_c4((3, 70.0)), 4)(2.0) is None

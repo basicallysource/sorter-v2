@@ -2586,6 +2586,10 @@
 		(uuid "d893a28f-2acc-4ee3-9a32-ed74a4407599")
 	)
 	(no_connect
+		(at 215.9 151.13)
+		(uuid "1a823636-73f7-46f3-9815-509f6290f1ae")
+	)
+	(no_connect
 		(at 165.1 48.26)
 		(uuid "2d1028d2-b240-45c1-be1c-406d2cfe6633")
 	)
@@ -2596,10 +2600,6 @@
 	(no_connect
 		(at 95.25 76.2)
 		(uuid "83df4b67-7a41-4f03-8085-ea16593eff45")
-	)
-	(no_connect
-		(at 215.9 151.13)
-		(uuid "1a823636-73f7-46f3-9815-509f6290f1ae")
 	)
 	(wire
 		(pts
@@ -3401,17 +3401,6 @@
 		)
 		(uuid "5bc3033e-5ef2-4496-a78a-b7a7b7c2a5b2")
 	)
-	(hierarchical_label "MS1"
-		(shape input)
-		(at 104.14 60.96 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "16c8b6fc-4adb-4263-b9b2-c03b473165a7")
-	)
 	(label "~{EN}"
 		(at 210.82 138.43 0)
 		(effects
@@ -3542,17 +3531,6 @@
 		)
 		(uuid "d4ec4274-a65f-4e4f-b6a6-3df844a0340f")
 	)
-	(hierarchical_label "MS2"
-		(shape input)
-		(at 104.14 63.5 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "580c2d65-eff9-4840-a552-60f0eafbccbf")
-	)
 	(label "A_1"
 		(at 200.66 71.12 0)
 		(effects
@@ -3613,6 +3591,17 @@
 		)
 		(uuid "fb3faa4d-6ab3-4d1f-a9e5-94416ae0057e")
 	)
+	(hierarchical_label "MS1"
+		(shape input)
+		(at 104.14 60.96 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "16c8b6fc-4adb-4263-b9b2-c03b473165a7")
+	)
 	(hierarchical_label "DIR"
 		(shape input)
 		(at 106.68 49.53 180)
@@ -3634,6 +3623,17 @@
 			(justify right)
 		)
 		(uuid "5095c718-5a0c-4cf2-b5ae-a702c02478f7")
+	)
+	(hierarchical_label "MS2"
+		(shape input)
+		(at 104.14 63.5 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "580c2d65-eff9-4840-a552-60f0eafbccbf")
 	)
 	(hierarchical_label "UART"
 		(shape bidirectional)

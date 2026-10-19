@@ -268,7 +268,7 @@
       "internal_id": "",
       "mfg": "",
       "mpn": "",
-      "sch_revision": "1.3"
+      "sch_revision": "1.4"
     },
     "layer_pairs": [],
     "layer_presets": [],
@@ -1097,7 +1097,7 @@
         "uuid": "d53c8c01-e754-4310-8a73-7d7c95e64cd3"
       }
     ],
-    "used_designators": "#PWR106,#PWR120",
+    "used_designators": "#PWR75,#PWR106,#PWR120,R21-22,R27-28,R61-64,R67-68",
     "variants": []
   },
   "sheets": [

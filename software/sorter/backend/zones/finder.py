@@ -64,14 +64,17 @@ WALL_VALLEY_MIN = 8.0
 FALL_NEAR_DEG = 20.0
 PRIOR_NEAR_DEG = 45.0
 # Each end of the opening is the wall's end face: a sharp straight line from
-# the rim outward. Found at the rim, an end can be a degree off; so each moves
-# to the sharpest line within EDGE_NEAR_DEG of it: the angle where the picture
-# changes most across the angle, summed from just past the rim out to the area's
-# outer edge. It is taken where it stands EDGE_SHARPNESS times above the
-# median change, over at least EDGE_RADII radii in the picture; an end the
-# picture does not show stays where it was. On the classification channel,
-# whose exit no valley finds, the drawn exit's ends move the same way.
-EDGE_NEAR_DEG = 4.0
+# the rim outward. Found at the rim, an end can be several degrees off: the
+# valley is read in whole degrees, and where the camera sees an end face at an
+# angle, the face is dark where the rim's line would be and reads as opening.
+# So each end moves to the sharpest line within EDGE_NEAR_DEG of it: the angle
+# where the picture changes most across the angle, summed from just past the
+# rim out to the area's outer edge. It is taken where it stands EDGE_SHARPNESS
+# times above the median change, over at least EDGE_RADII radii in the
+# picture; an end the picture does not show stays where it was. On the
+# classification channel, whose exit no valley finds, the drawn exit's ends
+# move the same way.
+EDGE_NEAR_DEG = 8.0
 EDGE_STEP_DEG = 0.05
 EDGE_SHARPNESS = 6.0
 EDGE_RADII = 5

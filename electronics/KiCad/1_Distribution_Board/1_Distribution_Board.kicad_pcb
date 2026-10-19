@@ -42926,7 +42926,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "2x9 socket, 15 mm (hand-fit)"
+		(property "Value" "ESW-109-33-G-D (hand-fit)"
 			(at -1.27 -23.09 90)
 			(layer "B.Fab")
 			(uuid "5f588daa-541e-44bf-8823-062f70668141")
@@ -42938,7 +42938,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://suddendocs.samtec.com/catalog_english/esw_th.pdf"
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -42975,7 +42975,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Notes" "Under the board, onto the Orange Pi 5 pins 1-18. Hand-fit: 15 mm body for the 20 mm stack."
+		(property "Notes" "Under the board, onto the Orange Pi 5 pins 1-18. Samtec ESW-109-33-G-D: a 16.13 mm body, so on 20 mm standoffs the Pi's pins go about 4.6 mm in (Samtec: 3.68 to 6.35 mm). Fitted by hand."
 			(at 0 0 90)
 			(layer "B.SilkS")
 			(hide yes)

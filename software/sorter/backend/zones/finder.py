@@ -63,6 +63,18 @@ OPENING_DEG = (15, 100)
 WALL_VALLEY_MIN = 8.0
 FALL_NEAR_DEG = 20.0
 PRIOR_NEAR_DEG = 45.0
+# Each end of the opening is the wall's end face: a sharp straight line from
+# the rim outward. Found at the rim, an end can be a degree off; so each moves
+# to the sharpest line within EDGE_NEAR_DEG of it: the angle where the picture
+# changes most across the angle, summed from just past the rim out to the area's
+# outer edge. It is taken where it stands EDGE_SHARPNESS times above the
+# median change, over at least EDGE_RADII radii in the picture; an end the
+# picture does not show stays where it was. On the classification channel,
+# whose exit no valley finds, the drawn exit's ends move the same way.
+EDGE_NEAR_DEG = 4.0
+EDGE_STEP_DEG = 0.05
+EDGE_SHARPNESS = 6.0
+EDGE_RADII = 5
 
 
 @dataclass(frozen=True)
@@ -157,18 +169,28 @@ def findZones(
 
     base = current.scaledTo((w, h)) if current is not None else defaultZones(channel, (w, h))
     if "ring" in base.locked:
+        # A locked ring is kept as it is, and an exit that is not locked is
+        # still found on it.
         notes.append("the ring is locked, so it was kept")
-        return Found(zones=base, center_score=center_score, rim_score=rim_score, frames=len(small), notes=notes)
-    # The zones stay where they were on the band pieces ride, locked or not:
-    # only their angles are measured from the new center.
-    zones = base.withRing(Ring(center, inner_px, outer_px, rim_px, hub_px), "found")
-    if channel != 4 and "exit" not in zones.locked:
+        zones = base
+    else:
+        # The zones stay where they were on the band pieces ride, locked or
+        # not: only their angles are measured from the new center.
+        zones = base.withRing(Ring(center, inner_px, outer_px, rim_px, hub_px), "found")
+    ring = zones.ring
+    if "exit" not in zones.locked:
         # The wall's edge and the guide are a pixel or two wide: look for the
         # opening at the camera's own size.
-        fell = [_angleAround(center, (x, y)) for x, y in falls]
-        opening, note = _findOpening(_fullMedian(frames, (w, h)), center[0], center[1], rim_px, fell, zones.exit.middle)
-        if opening is not None:
-            zones = replace(zones, exit=opening, source={**dict(zones.source), "exit": "found"})
+        full = _fullMedian(frames, (w, h))
+        if channel != 4:
+            fell = [_angleAround(ring.center, (x, y)) for x, y in falls]
+            opening, note = _findOpening(full, ring.center[0], ring.center[1], ring.exit_radius, fell, zones.exit.middle)
+            if opening is not None:
+                zones = replace(zones, exit=opening, source={**dict(zones.source), "exit": "found"})
+            notes.append(note)
+        edged, note = _onTheEdges(full, ring.center[0], ring.center[1], ring.exit_radius, ring.outer_radius, zones.exit)
+        if edged is not None:
+            zones = replace(zones, exit=edged, source={**dict(zones.source), "exit": "found"})
         notes.append(note)
     return Found(zones=zones, center_score=center_score, rim_score=rim_score, frames=len(small), notes=notes)
 
@@ -464,6 +486,47 @@ def _findOpening(
     if gap(prior, best) <= PRIOR_NEAR_DEG:
         return Span(best[0], best[0] + best[1]), "the exit is the wall's opening nearest the old exit; run pieces and find again to place it by where they fall"
     return None, "no opening near the old exit, so it was kept"
+
+
+def _onTheEdges(
+    img: np.ndarray, cx: float, cy: float, rim: float, outer: float, exit_span: Span
+) -> tuple[Span | None, str]:
+    """``exit_span`` with each end moved onto the wall's end face nearest it
+    (see EDGE_NEAR_DEG), or None when neither end shows one; and a sentence
+    on what was done."""
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    gray = cv2.GaussianBlur(gray.astype(np.float32), (0, 0), max(1.0, gray.shape[1] / 1280.0))
+    start = _edgeNear(gray, cx, cy, rim, outer, exit_span.start)
+    end = _edgeNear(gray, cx, cy, rim, outer, exit_span.end)
+    if start is None and end is None:
+        return None, "the opening's ends show no sharp edge past the rim, so they were kept"
+    moved = Span(exit_span.start if start is None else start, exit_span.end if end is None else end)
+    if not OPENING_DEG[0] <= moved.width <= OPENING_DEG[1]:
+        return None, "the edges past the rim do not make an opening, so the exit was kept"
+    which = "both ends sit" if start is not None and end is not None else ("start sits" if start is not None else "end sits")
+    return moved, f"the exit's {which} on the wall's end face past the rim"
+
+
+def _edgeNear(gray: np.ndarray, cx: float, cy: float, rim: float, outer: float, angle: float) -> float | None:
+    h, w = gray.shape
+    angles = np.arange(angle - EDGE_NEAR_DEG, angle + EDGE_NEAR_DEG + 1e-9, EDGE_STEP_DEG)
+    rad = np.radians(angles)
+    total = np.zeros(len(angles))
+    radii = 0
+    for r in np.arange(rim * 1.02, outer, 2.0):
+        xs = (cx + r * np.cos(rad)).astype(np.float32)
+        ys = (cy + r * np.sin(rad)).astype(np.float32)
+        if not ((xs >= 1) & (xs < w - 2) & (ys >= 1) & (ys < h - 2)).all():
+            continue
+        values = cv2.remap(gray, xs.reshape(1, -1), ys.reshape(1, -1), cv2.INTER_LINEAR).ravel()
+        total += np.abs(np.gradient(values))
+        radii += 1
+    if radii < EDGE_RADII:
+        return None
+    best = int(np.argmax(total))
+    if total[best] < EDGE_SHARPNESS * max(float(np.median(total)), 1e-6):
+        return None
+    return float(angles[best]) % 360.0
 
 
 def _findWall(median: np.ndarray, cx: float, cy: float, rim: float) -> float | None:

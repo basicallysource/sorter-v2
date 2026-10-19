@@ -135,7 +135,9 @@ def _walled(openings: list[tuple[float, float]], seed: int = 0) -> np.ndarray:
     c = (int(CENTER[0]), int(CENTER[1]))
     cv2.circle(img, c, 420, (190, 190, 190), -1)
     for start, end in openings:
-        cv2.ellipse(img, c, (420, 420), 0, start, end, (60, 60, 60), -1)
+        # A polygon, not cv2.ellipse, which rounds its angles to whole degrees.
+        rim_side = [(c[0] + 420 * math.cos(math.radians(a)), c[1] + 420 * math.sin(math.radians(a))) for a in np.linspace(start, end, 200)]
+        cv2.fillPoly(img, [np.array([c] + rim_side, np.float64).round().astype(np.int32)], (60, 60, 60))
     cv2.circle(img, c, int(RIM), (205, 205, 205), -1)
     wall_line = np.zeros(img.shape[:2], np.uint8)
     cv2.circle(wall_line, c, int(RIM), 255, 5)
@@ -176,3 +178,21 @@ def test_a_locked_exit_or_a_wall_with_no_opening_keeps_the_exit() -> None:
     locked = replace(current, locked=frozenset({"exit"}))
     found = findZones(3, [_walled([(60, 90)], seed) for seed in range(4)], locked)
     assert (found.zones.exit.start, found.zones.exit.end) == pytest.approx((current.exit.start, current.exit.end), abs=1)
+
+
+def test_the_exits_ends_sit_on_the_walls_end_face_past_the_rim() -> None:
+    # Found at the rim in whole degrees, the opening's ends can be a degree off:
+    # each moves onto the sharp edge past the rim.
+    frames = [_walled([(170.7, 211.3)], seed) for seed in range(4)]
+    found = findZones(3, frames, _current(CENTER))
+    assert found.zones.exit.start == pytest.approx(170.7, abs=0.2)
+    assert found.zones.exit.end == pytest.approx(211.3, abs=0.2)
+
+
+def test_the_classification_channels_exit_moves_onto_its_edges_too() -> None:
+    frames = [_walled([(169.4, 210.6)], seed) for seed in range(4)]
+    current = replace(_current(CENTER), channel=4, exit=Span(168.0, 212.0))
+    found = findZones(4, frames, current)
+    assert found.zones.exit.start == pytest.approx(169.4, abs=0.2)
+    assert found.zones.exit.end == pytest.approx(210.6, abs=0.2)
+

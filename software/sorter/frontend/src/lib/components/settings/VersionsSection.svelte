@@ -198,7 +198,9 @@
 				Update
 			</Button>
 		{:else}
-			<span class="mr-auto text-sm text-ink-muted">Up to date.</span>
+			<span class="mr-auto text-sm text-ink-muted">
+				{currentChannel || !payload ? 'Up to date.' : 'Not on a release.'}
+			</span>
 		{/if}
 	{/snippet}
 </Panel>
@@ -257,7 +259,7 @@
 						</p>
 						{#if !entry.is_current && entry.behind}
 							<p class="text-sm text-ink-muted">
-								Older than the software on this machine{payload.current.release_version
+								Older than this machine's software{payload.current.release_version
 									? ` (v${payload.current.release_version})`
 									: ''}. It can switch once {entry.channel ?? 'this'} has a newer release.
 							</p>
@@ -268,10 +270,11 @@
 							</p>
 						{/if}
 					</div>
-					{#if !entry.is_current && !entry.behind}
+					{#if !entry.is_current}
+						<!-- Refused, the button stays, greyed out: the line beside it says why. -->
 						<Button
 							size="sm"
-							disabled={updatingRef !== null}
+							disabled={entry.behind || updatingRef !== null}
 							loading={updatingRef === `${entry.kind}:${entry.name}`}
 							onclick={() => void applyUpdate(entry)}
 						>

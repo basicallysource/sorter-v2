@@ -67,18 +67,26 @@ PRIOR_NEAR_DEG = 45.0
 # the rim outward. Found at the rim, an end can be far off: the valley is read
 # in whole degrees; where the camera sees an end face at an angle, the face is
 # dark where the rim's line would be and reads as opening; and the opening
-# runs on to where the rim leaves the picture. So each end is the sharpest
-# line on its side of the opening's middle, out to EDGE_PAST_DEG past the
-# valley's end: the angle where the picture changes most across the angle,
-# summed from just past the rim out to the area's outer edge, over the radii
-# the picture shows (at least EDGE_RADII). It is taken where it stands
-# EDGE_SHARPNESS times above the median change; an end the picture does not
-# show stays where it was. On the classification channel, whose exit no
-# valley finds, the drawn exit's ends move the same way.
+# runs on to where the rim leaves the picture. A line is where the picture
+# changes most across the angle, summed from just past the rim out to the
+# area's outer edge over the radii the picture shows (at least EDGE_RADII),
+# and sharp where that stands EDGE_SHARPNESS times above its median and
+# EDGE_PROMINENCE times above its median on each side within EDGE_LOCAL_DEG
+# (a face's shading changes as much over degrees, and is no line). Through
+# the opening the next channel shows, with sharp lines of its own (its parts
+# stand still while the machine is paused); the end faces bound them. So each
+# end is the sharp line furthest from the opening's middle on its side, out
+# to EDGE_PAST_DEG past the valley's end; an end the picture does not show
+# stays where it was. On the classification channel, whose exit no valley
+# finds, the drawn exit's ends move the same way.
 EDGE_PAST_DEG = 8.0
 EDGE_STEP_DEG = 0.05
 EDGE_SHARPNESS = 6.0
 EDGE_RADII = 5
+# A line is the sharpest change within EDGE_PEAK_DEG of itself.
+EDGE_PEAK_DEG = 0.5
+EDGE_PROMINENCE = 3.0
+EDGE_LOCAL_DEG = 2.0
 
 
 @dataclass(frozen=True)
@@ -503,19 +511,28 @@ def _onTheEdges(
     into = np.arange(-EDGE_PAST_DEG, exit_span.width + EDGE_PAST_DEG + 1e-9, EDGE_STEP_DEG)
     change = _radialChange(gray, cx, cy, rim, outer, exit_span.start + into)
     seen = ~np.isnan(change)
-    median = max(float(np.median(change[seen])), 1e-6) if seen.any() else 0.0
-
-    def sharpest(side: np.ndarray) -> float | None:
-        side = side & seen
-        if not side.any():
-            return None
-        best = int(np.flatnonzero(side)[np.argmax(change[side])])
-        if change[best] < EDGE_SHARPNESS * median:
-            return None
-        return float(exit_span.start + into[best]) % 360.0
-
-    start = sharpest(into < exit_span.width / 2.0)
-    end = sharpest(into > exit_span.width / 2.0)
+    if not seen.any():
+        return None, "the opening's ends are out of the picture, so they were kept"
+    filled = np.where(seen, change, 0.0)
+    peak = int(round(EDGE_PEAK_DEG / EDGE_STEP_DEG))
+    highest = np.lib.stride_tricks.sliding_window_view(np.pad(filled, peak), 2 * peak + 1).max(axis=1)
+    # The usual change on each side of each angle, the larger of the two.
+    local = int(round(EDGE_LOCAL_DEG / EDGE_STEP_DEG))
+    windows = np.lib.stride_tricks.sliding_window_view(np.pad(change, local, constant_values=np.nan), local)
+    beside = np.full(len(change), 1e-6)
+    for side in (windows[: len(change)], windows[local + 1 : local + 1 + len(change)]):
+        shown = ~np.isnan(side).all(axis=1)
+        beside[shown] = np.maximum(beside[shown], np.nanmedian(side[shown], axis=1))
+    lines = (
+        seen
+        & (filled >= highest)
+        & (filled >= EDGE_SHARPNESS * max(float(np.median(change[seen])), 1e-6))
+        & (filled >= EDGE_PROMINENCE * beside)
+    )
+    starts = np.flatnonzero(lines & (into < exit_span.width / 2.0))
+    ends = np.flatnonzero(lines & (into > exit_span.width / 2.0))
+    start = float(exit_span.start + into[starts[0]]) % 360.0 if len(starts) else None
+    end = float(exit_span.start + into[ends[-1]]) % 360.0 if len(ends) else None
     if start is None and end is None:
         return None, "the opening's ends show no sharp edge past the rim, so they were kept"
     moved = Span(exit_span.start if start is None else start, exit_span.end if end is None else end)

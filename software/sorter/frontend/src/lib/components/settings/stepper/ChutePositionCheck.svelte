@@ -131,7 +131,8 @@
 		const s = status;
 		if (!s) return [];
 		const items: { label: string; value: string }[] = [];
-		if (last) items.push({ label: 'Last check', value: `${driftText(last)}, ${fmtTime(last.checked_at)}` });
+		if (last)
+			items.push({ label: 'Last check', value: `${driftText(last)}, ${fmtTime(last.checked_at)}` });
 		if (s.checks > 0) {
 			items.push({ label: 'Lost steps found', value: `${s.lost_steps} of ${s.checks} checks` });
 			if (s.largest_deg !== null)
@@ -207,7 +208,12 @@
 	</div>
 	{#snippet footer()}
 		<span class="mr-auto text-sm text-ink-muted">Pause the machine to check now.</span>
-		<Button variant="ghost" loading={running} disabled={!status || status.checking} onclick={checkNow}>
+		<Button
+			variant="ghost"
+			loading={running}
+			disabled={!status || status.checking}
+			onclick={checkNow}
+		>
 			Check now
 		</Button>
 	{/snippet}

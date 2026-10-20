@@ -9,8 +9,8 @@
 	(paper "A4")
 	(title_block
 		(title "1_Distribution Board")
-		(date "2026-10-14")
-		(rev "1.4")
+		(date "2026-10-20")
+		(rev "1.4.1")
 		(company "basically")
 	)
 	(layers
@@ -192,6 +192,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "5150dc7d-d777-4c88-8506-69f90179b01c")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "c2d807ba-c861-404b-9fd8-d44eff28d152")
 			(effects
 				(font
 					(size 1 1)
@@ -1761,6 +1774,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "92d96b61-0354-4fb3-a30b-19d9a3f2b7bc")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "f37f2361-851d-4f59-a13e-a63b754be45c")
 			(effects
 				(font
 					(size 1 1)
@@ -3706,6 +3732,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "4fb2318d-c436-48c1-8bd0-8a8ef37a5d61")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/aa124a9b-4ca6-4e8b-864b-f6c7e5891937/d3a07899-400e-4709-8be1-b7c9a853329a")
 		(sheetname "/Switch_LED/")
 		(sheetfile "Level_Shifters.kicad_sch")
@@ -4079,6 +4118,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "adb0e998-b6ac-4859-92ca-ecda36c749ba")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/02dc68e7-469d-4169-b9e6-1742ced64b14/50a6a7cd-2392-4cb3-8257-1e64a237f2f5")
 		(sheetname "/Stepper Module/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -4411,6 +4463,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "17f48f29-51b6-42f0-ae94-2862377345de")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "a03f3e72-0d61-4057-a83b-5b4bd4f2e548")
 			(effects
 				(font
 					(size 1 1)
@@ -7184,6 +7249,19 @@
 			)
 		)
 		(property ki_fp_filters "Q_*")
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "3a94623a-7599-4484-aacb-bc29bb445cd5")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/aa124a9b-4ca6-4e8b-864b-f6c7e5891937/7c6d23a7-cd81-4a07-80ed-a90469c2e098")
 		(sheetname "/Switch_LED/")
 		(sheetfile "Level_Shifters.kicad_sch")
@@ -9071,6 +9149,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "5e003465-e42e-4790-9cc2-3b5a8c8e209c")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/22523adc-9142-4362-af29-41502b0f3187/0fe38c06-3b08-4581-be29-b7c7d605856a")
 		(sheetname "/Stepper Module4/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -10058,6 +10149,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "1b447a7f-99ba-4f32-88e3-e1b15646d507")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/7a480abb-9b9a-47ac-a44b-24d5185d46e0/81ca76e9-c20f-4b7c-97f5-4bfa1d1be0f7")
 		(sheetname "/Stepper Module1/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -10329,6 +10433,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "c07e4566-880a-4293-866d-c5fde6745d06")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/aa124a9b-4ca6-4e8b-864b-f6c7e5891937/1fe81d45-b3ce-42b7-b760-53d512857a87")
 		(sheetname "/Switch_LED/")
 		(sheetfile "Level_Shifters.kicad_sch")
@@ -10702,6 +10819,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "121c3786-c060-43f7-b130-ccea22ab2ea0")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/aa124a9b-4ca6-4e8b-864b-f6c7e5891937/46056982-4ef4-4d82-8c08-920b1d9de004")
 		(sheetname "/Switch_LED/")
 		(sheetfile "Level_Shifters.kicad_sch")
@@ -11873,6 +12003,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "abe70466-ae18-4d34-8fa0-3a6338ecf332")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "8acc9ce7-d202-41c4-a1eb-fd80341588ae")
 			(effects
 				(font
 					(size 1 1)
@@ -15021,6 +15164,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "11d82dea-1ad8-471d-8bda-2c10f10cdd37")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/22523adc-9142-4362-af29-41502b0f3187/3fca29ab-b208-456f-928e-c0d6e032db5f")
 		(sheetname "/Stepper Module4/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -15549,6 +15705,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_2x??_*")
+		(property "FT Rotation Offset" "-90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "83d51b9a-f4b3-4604-b321-1609cb26e465")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/4f60e607-b8a0-4b26-ada7-74dd2d095020/28b277d2-f40f-43dd-aa1f-59dbbece0ab7")
 		(sheetname "/PCA9685 Module/")
 		(sheetfile "815.kicad_sch")
@@ -17569,6 +17738,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "cc9a7534-7c0e-41d4-b716-14b02e290380")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/ec0756a4-872d-4fc6-b758-9ad2624703a8/0fe38c06-3b08-4581-be29-b7c7d605856a")
 		(sheetname "/Stepper Module2/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -18838,6 +19020,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "5b010ee0-f902-4be0-81f9-d41928815125")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/be0591dd-6b80-4d9a-a31b-18ff19c250bb/3fca29ab-b208-456f-928e-c0d6e032db5f")
 		(sheetname "/Stepper Module3/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -19135,6 +19330,19 @@
 			)
 		)
 		(property ki_fp_filters "SSOP*2.95x2.8mm*P0.65mm* VSSOP*2.3x2mm*P0.5mm* X2SON*1.4x1mm*P0.35mm*")
+		(property "FT Rotation Offset" "-90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "b442ce59-38b1-484b-813f-b2ec3f1d9c6f")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/4f60e607-b8a0-4b26-ada7-74dd2d095020/14076ba9-7f4d-4f05-bdc1-a346cef91a7a")
 		(sheetname "/PCA9685 Module/")
 		(sheetfile "815.kicad_sch")
@@ -19870,6 +20078,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "8bbf7992-e7c7-431f-8747-bbcdb6bf7e90")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/aa124a9b-4ca6-4e8b-864b-f6c7e5891937/62641f67-a2ec-48ad-8314-21a7dcc89fe8")
 		(sheetname "/Switch_LED/")
 		(sheetfile "Level_Shifters.kicad_sch")
@@ -22629,6 +22850,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "54af09a9-f9de-4647-b4db-5c7a48622307")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/7a480abb-9b9a-47ac-a44b-24d5185d46e0/0fe38c06-3b08-4581-be29-b7c7d605856a")
 		(sheetname "/Stepper Module1/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -23999,6 +24233,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "f7f92b69-1f86-4043-8196-be0f4453f32e")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/be0591dd-6b80-4d9a-a31b-18ff19c250bb/81ca76e9-c20f-4b7c-97f5-4bfa1d1be0f7")
 		(sheetname "/Stepper Module3/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -24264,6 +24511,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "0054d5e8-9fab-44ca-9a51-a86488fa9a60")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "d1412b5c-83d2-4362-a485-d331e857bb5b")
 			(effects
 				(font
 					(size 1 1)
@@ -25366,6 +25626,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "b50051d9-56bb-4433-ae0c-f8ec38bf7f4f")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/02dc68e7-469d-4169-b9e6-1742ced64b14/0fe38c06-3b08-4581-be29-b7c7d605856a")
 		(sheetname "/Stepper Module/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -28401,6 +28674,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "0f18af04-524a-479b-b217-10eb154f1439")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/aa124a9b-4ca6-4e8b-864b-f6c7e5891937/18e1c9fb-e6fc-46e4-aa4f-7cf30106b6c6")
 		(sheetname "/Switch_LED/")
 		(sheetfile "Level_Shifters.kicad_sch")
@@ -34861,6 +35147,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "8316f1ff-832a-4ab6-a64d-21f1d75b695c")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/ec0756a4-872d-4fc6-b758-9ad2624703a8/3fca29ab-b208-456f-928e-c0d6e032db5f")
 		(sheetname "/Stepper Module2/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -38270,6 +38569,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "8c9fef3c-261c-41fb-8ee8-ae5d3c15bccb")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/02dc68e7-469d-4169-b9e6-1742ced64b14/5910b268-80bc-4f66-8d7a-6f21c58e69f5")
 		(sheetname "/Stepper Module/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -40250,6 +40562,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "f3697a8e-c552-4ad1-af09-b7b00f043f72")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/be0591dd-6b80-4d9a-a31b-18ff19c250bb/5910b268-80bc-4f66-8d7a-6f21c58e69f5")
 		(sheetname "/Stepper Module3/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -40589,6 +40914,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "e2794a8f-d4ae-4ae0-97d2-4611ac673b72")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/aa124a9b-4ca6-4e8b-864b-f6c7e5891937/88d2a52e-9295-4094-a9cf-93137f67eb5a")
 		(sheetname "/Switch_LED/")
 		(sheetfile "Level_Shifters.kicad_sch")
@@ -42554,6 +42892,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "557bbdf6-c444-4d5d-afb0-e590ab71a76d")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/7a480abb-9b9a-47ac-a44b-24d5185d46e0/50a6a7cd-2392-4cb3-8257-1e64a237f2f5")
 		(sheetname "/Stepper Module1/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -43835,6 +44186,19 @@
 			)
 		)
 		(property ki_fp_filters "Q_*")
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "70161fe1-3527-40b5-852e-2e4b8ec22919")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/aa124a9b-4ca6-4e8b-864b-f6c7e5891937/9a5a4d45-67b6-4f72-8f06-5a6dfc3ee93b")
 		(sheetname "/Switch_LED/")
 		(sheetfile "Level_Shifters.kicad_sch")
@@ -44518,6 +44882,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "3bb23432-5711-40a8-9d55-7d727fa0a107")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/7a480abb-9b9a-47ac-a44b-24d5185d46e0/5910b268-80bc-4f66-8d7a-6f21c58e69f5")
 		(sheetname "/Stepper Module1/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -44857,6 +45234,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "babeb66d-f132-45ce-b5a8-6c34d0373ba8")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/be0591dd-6b80-4d9a-a31b-18ff19c250bb/0fe38c06-3b08-4581-be29-b7c7d605856a")
 		(sheetname "/Stepper Module3/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -45781,6 +46171,19 @@
 			)
 		)
 		(property ki_fp_filters "Q_*")
+		(property "FT Rotation Offset" "180"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "498702c2-272f-4b1f-bdc9-fb7474469b70")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/aa124a9b-4ca6-4e8b-864b-f6c7e5891937/f6d5f87a-1862-4fb8-9119-fde6751792d1")
 		(sheetname "/Switch_LED/")
 		(sheetfile "Level_Shifters.kicad_sch")
@@ -46713,6 +47116,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "56dea4f1-a22e-43c8-9fef-f39066977fad")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "6bc59fbe-b89d-4322-9a63-2a12bb7c32ab")
 			(effects
 				(font
 					(size 1 1)
@@ -47869,6 +48285,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "b4487d75-f148-41e2-9455-0c5f732e3bd7")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/7a480abb-9b9a-47ac-a44b-24d5185d46e0/3fca29ab-b208-456f-928e-c0d6e032db5f")
 		(sheetname "/Stepper Module1/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -48136,6 +48565,19 @@
 			)
 		)
 		(property ki_fp_filters "Connector*:*_1x??_*")
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "d350e649-008c-4594-a537-136816ddc911")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/02dc68e7-469d-4169-b9e6-1742ced64b14/3fca29ab-b208-456f-928e-c0d6e032db5f")
 		(sheetname "/Stepper Module/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -54190,6 +54632,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "baa268d2-672c-4616-af04-ec9ee2f8c734")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/ec0756a4-872d-4fc6-b758-9ad2624703a8/50a6a7cd-2392-4cb3-8257-1e64a237f2f5")
 		(sheetname "/Stepper Module2/")
 		(sheetfile "Stepper_Module.kicad_sch")
@@ -54522,6 +54977,19 @@
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "c053313b-c09b-4f95-bab4-6069c1b43c41")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 0)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "a65884bf-0406-4c8d-b292-cb3f2e67dd68")
 			(effects
 				(font
 					(size 1 1)
@@ -56497,7 +56965,7 @@
 		(layer "Edge.Cuts")
 		(uuid "824d3760-eddf-47a5-b8b5-56146fd16071")
 	)
-	(gr_text "1_Distribution_Board\nPCB REV 1.4"
+	(gr_text "1_Distribution_Board\nPCB REV 1.4.1"
 		(at 88.15 55 90)
 		(layer "B.Cu")
 		(uuid "3dbe4395-a28d-40bf-91bf-186563e537ea")
@@ -56750,7 +57218,7 @@
 			(justify bottom)
 		)
 	)
-	(gr_text "1_Distribution_Board\nREV 1.4"
+	(gr_text "1_Distribution_Board\nREV 1.4.1"
 		(at 92.75 83.3 0)
 		(layer "F.SilkS")
 		(uuid "8818071a-6ae6-4e40-b933-cf51f68c9cff")

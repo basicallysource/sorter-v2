@@ -48,7 +48,7 @@ The bins sit in a grid around the tower:
   <li>A <strong>bin</strong> is where a layer and a section meet. A half-size layer has 2 bins in each section, a third-size layer has 3.</li>
 </ul>
 
-Bin numbers start again at 1 on every layer. So a bin is named by its layer and its number, for example Layer 3, bin 4.
+Bin numbers start again at 1 on every layer. So a bin is named by its layer and its number, for example Layer 3, bin 4. Seen from outside the tower, the numbers count up from right to left: the bins of a third-size section read 3, 2, 1 from left to right.
 
 The chute turns to point at a section, and the layer whose door is closed catches the piece.
 

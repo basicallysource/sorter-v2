@@ -1097,7 +1097,7 @@
         "uuid": "d53c8c01-e754-4310-8a73-7d7c95e64cd3"
       }
     ],
-    "used_designators": "#PWR75,#PWR106,#PWR120,R21-22,R27-28,R61-64,R67-68",
+    "used_designators": "#PWR64,#PWR75,#PWR106,#PWR120,J6-7,J11,J14-15,R12,R15,R21-22,R27-28,R33,R35,R37,R61-64,R67-68,U8-10",
     "variants": []
   },
   "sheets": [
@@ -1111,7 +1111,7 @@
     ],
     [
       "aa124a9b-4ca6-4e8b-864b-f6c7e5891937",
-      "Hall_Switch_LED"
+      "Switch_LED"
     ],
     [
       "4f60e607-b8a0-4b26-ada7-74dd2d095020",

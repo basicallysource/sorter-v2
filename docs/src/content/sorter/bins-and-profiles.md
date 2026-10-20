@@ -80,6 +80,16 @@ Use it to:
 
 The page tells you how to turn, zoom and move the view.
 
+## Homing the chute
+
+The chute aims at a bin by counting from its home. It never homes again by itself while it sorts, however long it runs.
+
+<ul class="bulleted-list">
+  <li><strong>After a stall</strong> the chute no longer knows where it is. The machine stops and shows <strong>Chute needs homing</strong>. Press <strong>Home chute</strong> on that card.</li>
+  <li><strong>To home it yourself</strong>, pause the machine first, then press <strong>Home the chute</strong> at the top of the Bins page.</li>
+  <li><strong>If pieces start landing in the wrong bin</strong>, pause the machine and home the chute before you try anything else. If that does not fix it, see <a href="{{ '/sorter/chute-calibration/' | relative_url }}">Chute calibration</a>.</li>
+</ul>
+
 ## How a category gets a bin
 
 **When you activate a profile.** A profile from Hive starts with every bin unassigned. A profile you uploaded on the **Profiles** page asks you to choose:

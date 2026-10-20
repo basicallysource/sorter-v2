@@ -1590,16 +1590,16 @@
         "chute core mount"
       ],
       "description": "The mount that carries the chute's drive gear and the Lazy Susan bearing (top-interface.md steps 6-7); the chute itself bolts to its free ring.",
-      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Top interface chute mount; it is not joined to -1 or -2. Carries 4× M4 inserts, plus 7× M3: 2 for the cable clamp and 5 on the underside that the chute gear screws down into. Counted on the physical part by barthel 2026-08-21 and confirmed against the STL (7 x 4.20 mm bores, ruthex's recommended M3 insert hole, re-measured with the detection thresholds loosened in case any were missed). The previous count of 9 added 2 for the layer connector, which the published model does not have; resolves the docs-merge-2026-08-21 conflict.",
+      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Top interface chute mount; it is not joined to -1 or -2. Carries 4× M4 inserts, plus 7× M3: 2 for the cable clamp and 5 on the underside that the chute gear screws down into. Counted on the physical part by barthel 2026-08-21 and confirmed against the STL (7 x 4.20 mm bores, ruthex's recommended M3 insert hole, re-measured with the detection thresholds loosened in case any were missed). The previous count of 9 added 2 for the layer connector, which the published model does not have; resolves the docs-merge-2026-08-21 conflict. Re-exported 2026-10-20 at daddyosbricksbill's report, rotated 180 degrees about X so the flange plate lies on the bed (it had no flat contact before, and the slicer built 400 g of support under it); the mesh is otherwise identical.",
       "version": "1",
       "created_at": "2026-07-03",
-      "updated_at": "2026-07-03",
+      "updated_at": "2026-10-20",
       "quantities": {
         "interface": 1
       },
       "assembly": null,
       "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/05b09a7158dd399ac6f8e446/e/12bfe1cca4fda5bc5763c0c9",
-      "stl_hash": "11f50ca23d809c133d2f409908e19b0e6c277e995a6d06e1c11da81bfe5dd6e1",
+      "stl_hash": "acdad77936ee39c30fe6420e5a99782f86a017c0a22b564c34c6d66e96219822",
       "color": {
         "role": "chute-core"
       },

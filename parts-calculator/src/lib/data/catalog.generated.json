@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-678914035839.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-a6335a81dab2.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-231e9beb6050.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-bf020132c050.zip"
 	},
 	"sections": [
 		{
@@ -14604,7 +14604,7 @@
 			"description": "The mount that carries the chute's drive gear and the Lazy Susan bearing (top-interface.md steps 6-7); the chute itself bolts to its free ring.",
 			"version": "1",
 			"created_at": "2026-07-03",
-			"updated_at": "2026-07-03",
+			"updated_at": "2026-10-20",
 			"versions": [
 				{
 					"version": "1",
@@ -14612,17 +14612,17 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-11f50ca23d80.stl",
-					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-full-4cc66f4b00eb.png",
-					"grams": 588.15
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-acdad77936ee.stl",
+					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-full-2168f05dc67e.png",
+					"grams": 212.76
 				}
 			],
 			"attributes": [],
-			"grams": 588.15,
-			"support_grams": 400.62,
-			"support_used": true,
+			"grams": 212.76,
+			"support_grams": 0.0,
+			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 46282,
+			"print_seconds": 18213,
 			"color": {
 				"role": "chute-core"
 			},
@@ -14645,21 +14645,41 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-11f50ca23d80.stl",
-			"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-full-4cc66f4b00eb.png",
+			"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-acdad77936ee.stl",
+			"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-full-2168f05dc67e.png",
 			"stamped": [
 				{
-					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-top-7006f78cea97.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-bottom-06e8bcfe4467.stl",
 					"normal": [
-						-0.0,
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						8.37,
+						-108.32,
+						-0.0
+					],
+					"size": [
+						12.48,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-top-5aaf4d3a6184.stl",
+					"normal": [
+						0.0,
 						0.0,
 						1.0
 					],
 					"center": [
 						-3.78,
 						-108.82,
-						253.18
+						10.5
 					],
 					"size": [
 						12.48,
@@ -14670,16 +14690,16 @@
 				},
 				{
 					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-plus-x-side-f7cbc5105a79.stl",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-plus-x-side-6a1f69d0e1b3.stl",
 					"normal": [
 						1.0,
-						0.0,
-						-0.0
+						-0.0,
+						0.0
 					],
 					"center": [
 						60.0,
 						-52.38,
-						162.1
+						91.08
 					],
 					"size": [
 						12.48,
@@ -14690,36 +14710,16 @@
 				},
 				{
 					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-minus-x-side-edb5e255e56e.stl",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-minus-x-side-38fec14031e3.stl",
 					"normal": [
 						-1.0,
 						0.0,
-						0.0
+						-0.0
 					],
 					"center": [
 						55.0,
 						0.0,
-						194.42
-					],
-					"size": [
-						12.48,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-minus-y-side-9a7e9d74a2d7.stl",
-					"normal": [
-						0.0,
-						-1.0,
-						0.0
-					],
-					"center": [
-						42.28,
-						55.0,
-						176.14
+						58.76
 					],
 					"size": [
 						12.48,

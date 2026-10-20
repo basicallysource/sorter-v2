@@ -278,6 +278,8 @@ sections:
             children:
               - title: Floating chute stack
                 url: /lab/concepts/floating-chute-stack/
+              - title: Funnel split into hood and floor tray
+                url: /lab/concepts/funnel-split-hood-and-floor-tray/
           - title: Abandoned ideas
             url: /lab/variants/abandoned/
             children:

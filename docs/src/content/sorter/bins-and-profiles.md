@@ -38,12 +38,27 @@ Hive's profile summary also counts rules as categories, and [Build your first so
 
 A category on the machine is not a BrickLink category, unless your **Everything else** sorts by BrickLink category.
 
-## The Bins page
+## Layers, sections and bins
 
-The page shows each storage layer: **Layer 1**, **Layer 2**, and so on. A layer has sections, and a section has bins. Each bin shows its number, its categories, and the pieces in it. A bin with no category says **Unassigned**.
+The bins sit in a grid around the tower:
 
 <ul class="bulleted-list">
-  <li>You can turn off a layer or a section. It then gets no pieces.</li>
+  <li>A <strong>layer</strong> is one level of the tower, all the way round: <strong>Layer 1</strong>, <strong>Layer 2</strong>, and so on. Each layer has its own door.</li>
+  <li>A <strong>section</strong> is a column going up the tower. <strong>Section 1</strong> is in the same place on every layer.</li>
+  <li>A <strong>bin</strong> is where a layer and a section meet. A half-size layer has 2 bins in each section, a third-size layer has 3.</li>
+</ul>
+
+Bin numbers start again at 1 on every layer. So a bin is named by its layer and its number, for example Layer 3, bin 4.
+
+The chute turns to point at a section, and the layer whose door is closed catches the piece.
+
+## The Bins page
+
+The page shows each layer, its sections, and their bins. Each bin shows its number, its categories, and the pieces in it. A bin with no category says **Unassigned**.
+
+<ul class="bulleted-list">
+  <li>You can turn off a layer, or one section of a layer. It then gets no pieces.</li>
+  <li><strong>Sections across all layers</strong> turns a whole column off on every layer at once, or points the chute at it so you can find it.</li>
   <li>A layer in <strong>Not-in-inventory mode</strong> only takes pieces that are not in your active BrickLink inventory (<code>.bsx</code>).</li>
   <li>Pieces in the profile's <strong>Everything else</strong> do not go in a bin. They drop into the <strong>Discard bin</strong>, the bucket under the tower.</li>
   <li>A piece longer than 10 studs (80 mm) drops into the Discard bin. A smaller piece can still be too big for some bins: see <a href="#how-big-a-piece-each-layer-takes">How big a piece each layer takes</a>.</li>

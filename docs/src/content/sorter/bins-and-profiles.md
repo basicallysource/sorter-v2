@@ -46,7 +46,7 @@ The page shows each storage layer: **Layer 1**, **Layer 2**, and so on. A layer 
   <li>You can turn off a layer or a section. It then gets no pieces.</li>
   <li>A layer in <strong>Not-in-inventory mode</strong> only takes pieces that are not in your active BrickLink inventory (<code>.bsx</code>).</li>
   <li>Pieces in the profile's <strong>Everything else</strong> do not go in a bin. They drop into the <strong>Discard bin</strong>, the bucket under the tower.</li>
-  <li>A piece that is too big for its bin's layer also drops into the Discard bin. <a href="{{ '/hive/first-profile/send-it-to-your-machine/' | relative_url }}">Send it to your machine</a> has the sizes.</li>
+  <li>A piece longer than 10 studs (80 mm) drops into the Discard bin. A smaller piece can still be too big for some bins: see <a href="#how-big-a-piece-each-layer-takes">How big a piece each layer takes</a>.</li>
 </ul>
 
 ## The 3D page
@@ -85,6 +85,19 @@ You can only assign categories from the active profile. You cannot set up the bi
 A category can have more than one bin. The machine then puts each piece in one of them at random.
 
 A bin can have more than one category if **Allow multiple categories per bin** is on.
+
+## How big a piece each layer takes
+
+The funnels on a layer set the biggest piece its bins can take:
+
+<ul class="bulleted-list">
+  <li><strong>Third-size layer</strong> (18 bins): up to 6 studs (48 mm).</li>
+  <li><strong>Half-size layer</strong> (12 bins): up to 8 studs (64 mm).</li>
+</ul>
+
+Give a category whose pieces can be bigger than 6 studs a bin on a half-size layer. Do not count on the machine to stop a big piece going into a third-size bin.
+
+The machine looks up the size of every part it identifies. A piece longer than 10 studs (80 mm) always goes to the Discard bin. A piece between 8 and 10 studs is still sent to its bin, and can get stuck even in a half-size funnel.
 
 ## Switch profiles and keep your bins
 

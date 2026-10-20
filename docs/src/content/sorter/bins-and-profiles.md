@@ -5,7 +5,7 @@ type: explanation
 section: sorter
 slug: sorter-bins-and-profiles
 kicker: "SorterOS: Operate"
-lede: Which bin each rule goes in, how to keep a profile's bins when you switch profiles, and what happens when a bin is full.
+lede: Which bin each category goes in, what Hive and the machine each call things, how to keep a profile's bins when you switch profiles, and what happens when a bin is full.
 permalink: /sorter/bins-and-profiles/
 author: brickcyclealice
 warning: >-
@@ -14,30 +14,50 @@ warning: >-
   button's name, or where it is, may have changed since this page was written.
 ---
 
-A profile is a list of rules. It never says which bin a rule goes in. The machine decides that, and you can change it on the **Bins** page.
+A profile never says which bin a category goes in. The machine decides that, and you can change it on the **Bins** page.
 
-The machine's buttons call rules *categories*, for example **Assign categories**. They mean the same thing. If your profile sorts **Everything else** by BrickLink category, Rebrickable category or colour, each group it makes counts as a rule on this page.
+## The same thing, different names
+
+Hive and the machine use different names for the same things. One piece goes this way:
+
+<p><strong>Rule</strong> in Hive &rarr; <strong>category</strong> on the machine &rarr; <strong>bin</strong> on the tower</p>
+
+<table class="stack-table stack-table-long">
+  <thead><tr><th>In Hive</th><th>On the machine</th><th>What it is</th></tr></thead>
+  <tbody>
+    <tr><td data-label="In Hive"><strong>Profile</strong>, with versions (v1, v2, ...)</td><td data-label="On the machine"><strong>Profile</strong>, on the <strong>Profiles</strong> page. You <strong>activate</strong> it.</td><td data-label="What it is">All the sorting instructions.</td></tr>
+    <tr><td data-label="In Hive"><strong>Rule</strong>. A rule for a whole set is a <strong>kit</strong>.</td><td data-label="On the machine"><strong>Category</strong></td><td data-label="What it is">A group of pieces that go in the same bin.</td></tr>
+    <tr><td data-label="In Hive">The groups <strong>Everything else</strong> makes when it is set to <strong>BrickLink categories</strong>, <strong>Rebrickable categories</strong> or <strong>Color</strong></td><td data-label="On the machine">One <strong>category</strong> for each of those groups</td><td data-label="What it is">Groups for the pieces no rule takes.</td></tr>
+    <tr><td data-label="In Hive"><strong>Everything else</strong>: the pieces nothing else takes</td><td data-label="On the machine"><strong>Discard bin</strong></td><td data-label="What it is">The bucket under the tower. It is not a real bin.</td></tr>
+    <tr><td data-label="In Hive">Not in Hive</td><td data-label="On the machine"><strong>Bin</strong>, in a <strong>section</strong>, on a <strong>Layer</strong></td><td data-label="What it is">A place on the tower that catches pieces.</td></tr>
+    <tr><td data-label="In Hive">Not in Hive</td><td data-label="On the machine"><strong>Bin layout</strong></td><td data-label="What it is">Which categories each bin takes, saved for one profile.</td></tr>
+  </tbody>
+</table>
+
+Hive's profile summary also counts rules as categories, and [Build your first sorting profile]({{ '/hive/first-profile/' | relative_url }}) calls them boxes. All three are the same thing.
+
+A category on the machine is not a BrickLink category, unless your **Everything else** sorts by BrickLink category.
 
 ## The Bins page
 
-The page shows each storage layer: **Layer 1**, **Layer 2**, and so on. A layer has sections, and a section has bins. Each bin shows its number, its rules, and the pieces in it. A bin with no rule says **Unassigned**.
+The page shows each storage layer: **Layer 1**, **Layer 2**, and so on. A layer has sections, and a section has bins. Each bin shows its number, its categories, and the pieces in it. A bin with no category says **Unassigned**.
 
 <ul class="bulleted-list">
   <li>You can turn off a layer or a section. It then gets no pieces.</li>
   <li>A layer in <strong>Not-in-inventory mode</strong> only takes pieces that are not in your active BrickLink inventory (<code>.bsx</code>).</li>
-  <li>Pieces in the profile's <strong>Everything else</strong> do not go in a bin. They drop into the bucket under the tower.</li>
-  <li>A piece that is too big for its bin's layer also drops into the bucket. <a href="{{ '/hive/first-profile/send-it-to-your-machine/' | relative_url }}">Send it to your machine</a> has the sizes.</li>
+  <li>Pieces in the profile's <strong>Everything else</strong> do not go in a bin. They drop into the <strong>Discard bin</strong>, the bucket under the tower.</li>
+  <li>A piece that is too big for its bin's layer also drops into the Discard bin. <a href="{{ '/hive/first-profile/send-it-to-your-machine/' | relative_url }}">Send it to your machine</a> has the sizes.</li>
 </ul>
 
 ## The 3D page
 
-The **3D** page draws your machine with every bin where it really is on the tower. Each bin shows its number, its rules, and the last 4 pieces that went in. A bin you cannot use is faded: its layer or section is off, or the chute cannot reach it.
+The **3D** page draws your machine with every bin where it really is on the tower. Each bin shows its number, its categories, and the last 4 pieces that went in. A bin you cannot use is faded: its layer or section is off, or the chute cannot reach it.
 
 Use it to:
 
 <ul class="bulleted-list">
   <li><strong>Find a bin on the machine.</strong> The Bins page gives a bin's number. The 3D page shows you which bin on the tower that is, before you empty it.</li>
-  <li><strong>See what a bin takes.</strong> Click a bin to see its rules, its layer, its section and its number.</li>
+  <li><strong>See what a bin takes.</strong> Click a bin to see its categories, its layer, its section and its number.</li>
   <li><strong>Check the chute lines up with a bin.</strong> Pause the machine, click the bin, and press <strong>Point the chute here</strong>. The chute must be homed first.</li>
   <li><strong>See which layer catches the next piece.</strong> The <strong>Machine</strong> panel shows where the chute points and which layer's door is closed. The layer with the closed door catches the next piece.</li>
   <li><strong>See the chute and the doors.</strong> Turn on <strong>See inside</strong> to look through the frame and the bins.</li>
@@ -45,30 +65,30 @@ Use it to:
 
 The page tells you how to turn, zoom and move the view.
 
-## How a rule gets a bin
+## How a category gets a bin
 
 **When you activate a profile.** A profile from Hive starts with every bin unassigned. A profile you uploaded on the **Profiles** page asks you to choose:
 
 <ul class="bulleted-list">
   <li><strong>Reset the bins</strong>: every bin starts unassigned.</li>
-  <li><strong>Pre-assign from the rules</strong>: the first rule goes in the first bin of Layer 1, the second rule in the next bin, and so on.</li>
+  <li><strong>Pre-assign from the rules</strong>: the first rule's category goes in the first bin of Layer 1, the second rule's in the next bin, and so on.</li>
 </ul>
 
-**When the first piece arrives.** A rule with no bin gets the first unassigned bin.
+**When the first piece arrives.** A category with no bin gets the first unassigned bin.
 
-**By hand.** On the Bins page, open a bin and choose **Assign categories**. If the rule was in another bin, it moves to this one.
+**By hand.** On the Bins page, open a bin and choose **Assign categories**. If the category was in another bin, it moves to this one.
 
-**Auto-assign.** The rules with the most pieces in the last 7 days get the biggest bins. This replaces the current assignments. A profile you have not sorted with yet has no pieces to count, so Auto-assign cannot help there.
+**Auto-assign.** The categories with the most pieces in the last 7 days get the biggest bins. This replaces the current assignments. A profile you have not sorted with yet has no pieces to count, so Auto-assign cannot help there.
 
-You can only assign rules from the active profile. You cannot set up the bins of a profile the machine is not running.
+You can only assign categories from the active profile. You cannot set up the bins of a profile the machine is not running.
 
-A rule can have more than one bin. The machine then puts each piece in one of them at random.
+A category can have more than one bin. The machine then puts each piece in one of them at random.
 
-A bin can have more than one rule if **Allow multiple categories per bin** is on.
+A bin can have more than one category if **Allow multiple categories per bin** is on.
 
 ## Switch profiles and keep your bins
 
-Activating a different profile removes every bin's rules and sets every bin's count to zero. Save the bins before you switch, and you can bring them back later.
+Activating a different profile removes every bin's categories and sets every bin's count to zero. Save the bins before you switch, and you can bring them back later.
 
 **Save the bins**
 
@@ -78,7 +98,7 @@ Activating a different profile removes every bin's rules and sets every bin's co
   <li>Type a name, for example the profile's name, and save.</li>
 </ol>
 
-The saved layout belongs to the active profile. It keeps each bin's rules and the layer settings.
+The saved layout belongs to the active profile. It keeps each bin's categories and the layer settings.
 
 If the bins change after you save, for example during a sort run, **Bin layout** shows **Unsaved**. Press **Save changes** to save the bins as they are now.
 
@@ -100,13 +120,13 @@ The machine restarts its software. This takes a few seconds. You can only choose
 
 ## Update a profile to a newer version
 
-A newer version of the same profile can keep its bins. A rule you edit or move in Hive is still the same rule, so it keeps its bin.
+A newer version of the same profile can keep its bins. A rule you edit or move in Hive is still the same rule, so its category keeps its bin.
 
 <ul class="bulleted-list">
-  <li><strong>To keep the bins</strong>, run the older version, then press <strong>Update</strong> on the <strong>Profiles</strong> page. <strong>Update</strong> appears when Hive has a newer version. The bins keep their rules and their counts.</li>
+  <li><strong>To keep the bins</strong>, run the older version, then press <strong>Update</strong> on the <strong>Profiles</strong> page. <strong>Update</strong> appears when Hive has a newer version. The bins keep their categories and their counts.</li>
   <li><strong>If you choose the version on the profile's card instead</strong>, the bins are reset, the same as switching profiles. Then bring back the layout you saved. A saved layout works for every version of its profile.</li>
-  <li><strong>A new rule</strong> gets a bin when its first piece arrives. You can also assign it a bin by hand.</li>
-  <li><strong>A rule you deleted</strong> keeps its bin, and no other rule gets that bin. Empty the bin, then open its <strong>⋯</strong> menu and choose <strong>Reset this bin and clear its assignment</strong>.</li>
+  <li><strong>A new rule's category</strong> gets a bin when its first piece arrives. You can also assign it a bin by hand.</li>
+  <li><strong>A rule you deleted</strong> leaves its category in its bin, and no other category gets that bin. Empty the bin, then open its <strong>⋯</strong> menu and choose <strong>Reset this bin and clear its assignment</strong>.</li>
   <li>A rule you delete and then make again is a new rule.</li>
 </ul>
 
@@ -114,16 +134,16 @@ A newer version of the same profile can keep its bins. A rule you edit or move i
 
 A bin is full when it reaches its layer's **Bin limit**. Set the limit in **Settings**, **Storage layers**. It is the same for every bin on that layer. With no limit, a bin is never full. The machine counts pieces. It does not see how full the bin really is.
 
-When a rule's bin is full, the next piece goes to:
+When a category's bin is full, the next piece goes to:
 
 <ol class="numbered-steps">
-  <li>Another bin with that rule that is not full.</li>
-  <li>If there is none, the first unassigned bin. That bin now also has the rule.</li>
-  <li>If there is none, and <strong>Allow multiple categories per bin</strong> is on: the bin with the fewest rules that is not full.</li>
-  <li>If there is none: the bucket under the tower. Sorting continues.</li>
+  <li>Another bin with that category that is not full.</li>
+  <li>If there is none, the first unassigned bin. That bin now also has the category.</li>
+  <li>If there is none, and <strong>Allow multiple categories per bin</strong> is on: the bin with the fewest categories that is not full.</li>
+  <li>If there is none: the Discard bin. Sorting continues.</li>
 </ol>
 
-After step 2, the rule has two bins. When you empty the first bin, its pieces go into both bins at random.
+After step 2, the category has two bins. When you empty the first bin, its pieces go into both bins at random.
 
 To make the machine stop at step 4 instead, go to **Settings**, **Incidents**, and set **No bin for this piece** to **Call the operator**.
 
@@ -136,10 +156,10 @@ To make the machine stop at step 4 instead, go to **Settings**, **Incidents**, a
   <li>On the Bins page, open the bin's <strong>⋯</strong> menu and choose <strong>Empty this bin</strong>.</li>
 </ol>
 
-The count goes back to zero, and the bin keeps its rules. If you skip step 2, a full bin stays full, because the machine cannot see that the bin is empty.
+The count goes back to zero, and the bin keeps its categories. If you skip step 2, a full bin stays full, because the machine cannot see that the bin is empty.
 
 To empty more bins at once, use **Empty the layer** or **Empty all bins**.
 
-**Reset this bin and clear its assignment**, **Reset the layer** and **Reset all bins** also remove the rules. Use them when you want those bins assigned again from the start.
+**Reset this bin and clear its assignment**, **Reset the layer** and **Reset all bins** also remove the categories. Use them when you want those bins assigned again from the start.
 
 Before you empty the bins, you can keep a record of what was in them with **Snapshots** or **Export CSV** on the Bins page. [Exporting what the machine sorted]({{ '/sorter/export-counts/' | relative_url }}) explains both.

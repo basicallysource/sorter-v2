@@ -9257,6 +9257,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 270)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "5748749d-2079-4a75-8d7a-fe85465ee6b5")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/7a480abb-9b9a-47ac-a44b-24d5185d46e0/3fca29ab-b208-456f-928e-c0d6e032db5f")
 		(sheetname "/Stepper Module1/")
 		(attr through_hole)
@@ -13340,6 +13353,19 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 270)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "af2fad88-3e92-45f0-8255-9b4ecaccd376")
+			(effects
+				(font
+					(size 1 1)
 					(thickness 0.15)
 				)
 			)
@@ -33401,6 +33427,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 270)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "e791cc90-c540-481d-814e-f61aed53479a")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/22523adc-9142-4362-af29-41502b0f3187/3fca29ab-b208-456f-928e-c0d6e032db5f")
 		(sheetname "/Stepper Module4/")
 		(attr through_hole)
@@ -33656,6 +33695,19 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 270)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "89c1c04f-cdb4-4e1d-bc23-c6d0d121ea95")
+			(effects
+				(font
+					(size 1 1)
 					(thickness 0.15)
 				)
 			)
@@ -34845,6 +34897,19 @@
 			(effects
 				(font
 					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "90"
+			(at 0 0 270)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "707cb013-a54b-4c35-948b-4bac710f1aa8")
+			(effects
+				(font
+					(size 1 1)
 					(thickness 0.15)
 				)
 			)

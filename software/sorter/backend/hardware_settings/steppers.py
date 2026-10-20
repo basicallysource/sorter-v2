@@ -88,21 +88,20 @@ FIELDS: dict[str, Field] = {
 
 # Built-in values that differ by motor; the rest are FIELDS' defaults. The
 # C-channel rotors run cool, and the chute and the carousel come with
-# StallGuard tuned on the first machines. The chute tunes its own.
+# StallGuard tuned on the first machines.
 MOTOR_DEFAULTS: dict[str, dict[str, Any]] = {
     "c_channel_1": {"irun": 4, "ihold": 1},
     "c_channel_2": {"irun": 4, "ihold": 1},
     "c_channel_3": {"irun": 4, "ihold": 1},
     "carousel": {"irun": 8, "ihold": 1, "stallguard": True, "sgthrs": 148, "tcoolthrs": 150},
-    "chute": {"stallguard": True, "stallguard_auto": True, "sgthrs": 55, "tcoolthrs": 150},
+    "chute": {"stallguard": True, "sgthrs": 55, "tcoolthrs": 150},
 }
 
 # What a motor's entry in these tables has always meant for a key it leaves
-# out, whatever the motor's built-in default, so existing files read the same:
-# an entry from before automatic tuning holds a threshold someone saved.
+# out, whatever the motor's built-in default, so existing files read the same.
 ENTRY_DEFAULTS: dict[str, dict[str, Any]] = {
     CURRENTS: {"irun": 16, "ihold": 4, "ihold_delay": 8},
-    STALLGUARD: {"stallguard": True, "stallguard_auto": False, "tcoolthrs": TCOOLTHRS_EVERY_SPEED},
+    STALLGUARD: {"stallguard": True, "tcoolthrs": TCOOLTHRS_EVERY_SPEED},
 }
 
 

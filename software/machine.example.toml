@@ -118,7 +118,7 @@ classification_channel = 2
 
 # [stepper_stallguard.chute_stepper]
 # enabled = true
-# auto = true
+# auto = false
 # sgthrs = 55
 # tcoolthrs = 150
 

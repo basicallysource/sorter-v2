@@ -204,12 +204,12 @@ def test_a_threshold_set_by_hand_turns_tuning_off(machine):
     assert not readStepperSettings(CHUTE).stallguard_auto
 
 
-def test_an_entry_saved_before_tuning_existed_keeps_its_threshold(tmp_path, monkeypatch):
+def test_tuning_is_off_until_turned_on(tmp_path, monkeypatch):
     toml = tmp_path / "machine.toml"
     toml.write_text("[stepper_stallguard.chute_stepper]\nsgthrs = 10\ntcoolthrs = 201\nenabled = true\n")
     monkeypatch.setenv("MACHINE_SPECIFIC_PARAMS_PATH", str(toml))
     monkeypatch.setenv("LOCAL_STATE_DB_PATH", str(tmp_path / "state.sqlite"))
     hive_defaults.invalidate()
     assert not readStepperSettings(CHUTE).stallguard_auto
-    assert readStepperSettings(CHUTE, {}).stallguard_auto
+    assert not readStepperSettings(CHUTE, {}).stallguard_auto
     hive_defaults.invalidate()

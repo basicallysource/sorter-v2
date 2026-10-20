@@ -5,7 +5,7 @@ type: explanation
 section: sorter
 slug: sorter-bins-and-profiles
 kicker: "SorterOS: Operate"
-lede: Which bin each category goes in, how to keep a profile's bins when you switch profiles, and what happens when a bin is full.
+lede: Which bin each rule goes in, how to keep a profile's bins when you switch profiles, and what happens when a bin is full.
 permalink: /sorter/bins-and-profiles/
 author: brickcyclealice
 warning: >-
@@ -14,11 +14,13 @@ warning: >-
   button's name, or where it is, may have changed since this page was written.
 ---
 
-A profile sorts pieces into categories. It never says which bin a category goes in. The machine decides that, and you can change it on the **Bins** page.
+A profile is a list of rules. It never says which bin a rule goes in. The machine decides that, and you can change it on the **Bins** page.
+
+The machine's buttons call rules *categories*, for example **Assign categories**. They mean the same thing. If your profile sorts **Everything else** by BrickLink category, Rebrickable category or colour, each group it makes counts as a rule on this page.
 
 ## The Bins page
 
-The page shows each storage layer: **Layer 1**, **Layer 2**, and so on. A layer has sections, and a section has bins. Each bin shows its number, its categories, and the pieces in it. A bin with no category says **Unassigned**.
+The page shows each storage layer: **Layer 1**, **Layer 2**, and so on. A layer has sections, and a section has bins. Each bin shows its number, its rules, and the pieces in it. A bin with no rule says **Unassigned**.
 
 <ul class="bulleted-list">
   <li>You can turn off a layer or a section. It then gets no pieces.</li>
@@ -27,7 +29,7 @@ The page shows each storage layer: **Layer 1**, **Layer 2**, and so on. A layer 
   <li>A piece that is too big for its bin's layer also drops into the bucket. <a href="{{ '/hive/first-profile/send-it-to-your-machine/' | relative_url }}">Send it to your machine</a> has the sizes.</li>
 </ul>
 
-## How a category gets a bin
+## How a rule gets a bin
 
 **When you activate a profile.** A profile from Hive starts with every bin unassigned. A profile you uploaded on the **Profiles** page asks you to choose:
 
@@ -36,21 +38,21 @@ The page shows each storage layer: **Layer 1**, **Layer 2**, and so on. A layer 
   <li><strong>Pre-assign from the rules</strong>: the first rule goes in the first bin of Layer 1, the second rule in the next bin, and so on.</li>
 </ul>
 
-**When the first piece arrives.** A category with no bin gets the first unassigned bin.
+**When the first piece arrives.** A rule with no bin gets the first unassigned bin.
 
-**By hand.** On the Bins page, open a bin and choose **Assign categories**. If the category was in another bin, it moves to this one.
+**By hand.** On the Bins page, open a bin and choose **Assign categories**. If the rule was in another bin, it moves to this one.
 
-**Auto-assign.** The categories with the most pieces in the last 7 days get the biggest bins. This replaces the current assignments. A profile you have not sorted with yet has no pieces to count, so Auto-assign cannot help there.
+**Auto-assign.** The rules with the most pieces in the last 7 days get the biggest bins. This replaces the current assignments. A profile you have not sorted with yet has no pieces to count, so Auto-assign cannot help there.
 
-You can only assign categories from the active profile. You cannot set up the bins of a profile the machine is not running.
+You can only assign rules from the active profile. You cannot set up the bins of a profile the machine is not running.
 
-A category can have more than one bin. The machine then puts each piece in one of them at random.
+A rule can have more than one bin. The machine then puts each piece in one of them at random.
 
-A bin can have more than one category if **Allow multiple categories per bin** is on.
+A bin can have more than one rule if **Allow multiple categories per bin** is on.
 
 ## Switch profiles and keep your bins
 
-Activating a different profile removes every bin's categories and sets every bin's count to zero. Save the bins before you switch, and you can bring them back later.
+Activating a different profile removes every bin's rules and sets every bin's count to zero. Save the bins before you switch, and you can bring them back later.
 
 **Save the bins**
 
@@ -60,7 +62,7 @@ Activating a different profile removes every bin's categories and sets every bin
   <li>Type a name, for example the profile's name, and save.</li>
 </ol>
 
-The saved layout belongs to the active profile. It keeps each bin's categories and the layer settings.
+The saved layout belongs to the active profile. It keeps each bin's rules and the layer settings.
 
 If the bins change after you save, for example during a sort run, **Bin layout** shows **Unsaved**. Press **Save changes** to save the bins as they are now.
 
@@ -85,10 +87,10 @@ The machine restarts its software. This takes a few seconds. You can only choose
 A newer version of the same profile can keep its bins. A rule you edit or move in Hive is still the same rule, so it keeps its bin.
 
 <ul class="bulleted-list">
-  <li><strong>To keep the bins</strong>, run the older version, then press <strong>Update</strong> on the <strong>Profiles</strong> page. <strong>Update</strong> appears when Hive has a newer version. The bins keep their categories and their counts.</li>
+  <li><strong>To keep the bins</strong>, run the older version, then press <strong>Update</strong> on the <strong>Profiles</strong> page. <strong>Update</strong> appears when Hive has a newer version. The bins keep their rules and their counts.</li>
   <li><strong>If you choose the version on the profile's card instead</strong>, the bins are reset, the same as switching profiles. Then bring back the layout you saved. A saved layout works for every version of its profile.</li>
   <li><strong>A new rule</strong> gets a bin when its first piece arrives. You can also assign it a bin by hand.</li>
-  <li><strong>A rule you deleted</strong> keeps its bin, and no other category gets that bin. Empty the bin, then open its <strong>⋯</strong> menu and choose <strong>Reset this bin and clear its assignment</strong>.</li>
+  <li><strong>A rule you deleted</strong> keeps its bin, and no other rule gets that bin. Empty the bin, then open its <strong>⋯</strong> menu and choose <strong>Reset this bin and clear its assignment</strong>.</li>
   <li>A rule you delete and then make again is a new rule.</li>
 </ul>
 
@@ -96,16 +98,16 @@ A newer version of the same profile can keep its bins. A rule you edit or move i
 
 A bin is full when it reaches its layer's **Bin limit**. Set the limit in **Settings**, **Storage layers**. It is the same for every bin on that layer. With no limit, a bin is never full. The machine counts pieces. It does not see how full the bin really is.
 
-When a category's bin is full, the next piece goes to:
+When a rule's bin is full, the next piece goes to:
 
 <ol class="numbered-steps">
-  <li>Another bin with that category that is not full.</li>
-  <li>If there is none, the first unassigned bin. That bin now also has the category.</li>
-  <li>If there is none, and <strong>Allow multiple categories per bin</strong> is on: the bin with the fewest categories that is not full.</li>
+  <li>Another bin with that rule that is not full.</li>
+  <li>If there is none, the first unassigned bin. That bin now also has the rule.</li>
+  <li>If there is none, and <strong>Allow multiple categories per bin</strong> is on: the bin with the fewest rules that is not full.</li>
   <li>If there is none: the bucket under the tower. Sorting continues.</li>
 </ol>
 
-After step 2, the category has two bins. When you empty the first bin, its pieces go into both bins at random.
+After step 2, the rule has two bins. When you empty the first bin, its pieces go into both bins at random.
 
 To make the machine stop at step 4 instead, go to **Settings**, **Incidents**, and set **No bin for this piece** to **Call the operator**.
 
@@ -118,10 +120,10 @@ To make the machine stop at step 4 instead, go to **Settings**, **Incidents**, a
   <li>On the Bins page, open the bin's <strong>⋯</strong> menu and choose <strong>Empty this bin</strong>.</li>
 </ol>
 
-The count goes back to zero, and the bin keeps its categories. If you skip step 2, a full bin stays full, because the machine cannot see that the bin is empty.
+The count goes back to zero, and the bin keeps its rules. If you skip step 2, a full bin stays full, because the machine cannot see that the bin is empty.
 
 To empty more bins at once, use **Empty the layer** or **Empty all bins**.
 
-**Reset this bin and clear its assignment**, **Reset the layer** and **Reset all bins** also remove the categories. Use them when you want those bins assigned again from the start.
+**Reset this bin and clear its assignment**, **Reset the layer** and **Reset all bins** also remove the rules. Use them when you want those bins assigned again from the start.
 
 Before you empty the bins, you can keep a record of what was in them with **Snapshots** or **Export CSV** on the Bins page. [Exporting what the machine sorted]({{ '/sorter/export-counts/' | relative_url }}) explains both.

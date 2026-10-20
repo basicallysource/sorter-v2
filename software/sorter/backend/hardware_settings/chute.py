@@ -1,5 +1,7 @@
 """The chute's settings, kept in [chute]: its aiming geometry, its home switch
-(input and polarity) and its operating speed.
+(input and polarity), its operating speed, and its position check (whether and
+how often it checks itself against its home switch, see
+subsystems/distribution/position_check.py).
 
 readChuteSettings is the only reader (start-up and the routes) and
 saveChuteSettings the only writer; applyChuteSettings puts the settings on the
@@ -28,12 +30,16 @@ DEFAULT_OPERATING_SPEED_MICROSTEPS_PER_SEC = 3000
 DEFAULT_HOME_PIN_CHANNEL = 3
 # For boards whose profile names no polarity (see BoardProfile).
 DEFAULT_ENDSTOP_ACTIVE_HIGH = True
+DEFAULT_POSITION_CHECK = False
+DEFAULT_POSITION_CHECK_EVERY = 50
 
 GEOMETRY = ("num_sections", "section_width_deg", "first_section_offset_deg")
 LEGACY_GEOMETRY = ("first_bin_center", "pillar_width_deg")
 CHANGEABLE = GEOMETRY + LEGACY_GEOMETRY + (
     "endstop_active_high",
     "operating_speed_microsteps_per_second",
+    "position_check",
+    "position_check_every",
 )
 
 
@@ -45,6 +51,9 @@ class ChuteSettings:
     endstop_active_high: bool
     home_pin_channel: int
     operating_speed_microsteps_per_second: int
+    # Check the chute's position against its home switch every this many pieces.
+    position_check: bool
+    position_check_every: int
     # The settings machine.toml holds; the others are defaults.
     saved: frozenset[str] = frozenset()
 
@@ -61,7 +70,8 @@ class ChuteSettings:
             f"{self.num_sections} sections {self.section_width_deg:.2f}° wide, the first at "
             f"{self.first_section_offset_deg:.2f}°, endstop on input {self.home_pin_channel} "
             f"active {'high' if self.endstop_active_high else 'low'}, operating speed "
-            f"{self.operating_speed_microsteps_per_second} µsteps/s; from machine.toml: "
+            f"{self.operating_speed_microsteps_per_second} µsteps/s, position check "
+            f"{f'every {self.position_check_every} pieces' if self.position_check else 'off'}; from machine.toml: "
             f"{', '.join(sorted(self.saved)) or 'none, all defaults'}"
         )
 
@@ -142,6 +152,10 @@ def readChuteSettings(
             "operating_speed_microsteps_per_second", DEFAULT_OPERATING_SPEED_MICROSTEPS_PER_SEC,
             _positiveInt, "a whole number of µsteps/s above 0",
         ),
+        position_check=read("position_check", DEFAULT_POSITION_CHECK, _isBool, "true or false"),
+        position_check_every=read(
+            "position_check_every", DEFAULT_POSITION_CHECK_EVERY, _positiveInt, "a whole number of pieces above 0",
+        ),
         saved=frozenset(saved),
     )
 
@@ -184,6 +198,12 @@ def saveChuteSettings(
         polarity = changes.get("endstop_active_high")
         if polarity is not None and not _isBool(polarity):
             raise ValueError("endstop_active_high must be true or false.")
+        check = changes.get("position_check")
+        if check is not None and not _isBool(check):
+            raise ValueError("position_check must be true or false.")
+        every = changes.get("position_check_every")
+        if every is not None and not _positiveInt(every):
+            raise ValueError("position_check_every must be a whole number of pieces above 0.")
 
         chute = config.get(CHUTE)
         if not isinstance(chute, dict):
@@ -201,6 +221,10 @@ def saveChuteSettings(
             chute["endstop_active_high"] = polarity
         if speed is not None:
             chute["operating_speed_microsteps_per_second"] = speed
+        if check is not None:
+            chute["position_check"] = check
+        if every is not None:
+            chute["position_check_every"] = every
     return readChuteSettings(
         config, home_pin_channel=home_pin_channel, endstop_active_high=endstop_active_high
     )
@@ -216,6 +240,7 @@ def applyChuteSettings(chute: Any, settings: ChuteSettings) -> None:
         settings.endstop_active_high,
     )
     chute.setOperatingSpeed(settings.operating_speed_microsteps_per_second)
+    chute.setPositionCheck(settings.position_check, settings.position_check_every)
 
 
 def _isNumber(value: Any) -> bool:

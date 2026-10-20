@@ -1175,5 +1175,7 @@ def _bindHardware(irl_interface: IRLInterface, config: IRLConfig, gc: GlobalConf
         first_section_offset_deg=chute_settings.first_section_offset_deg,
         endstop_active_high=chute_settings.endstop_active_high,
         operating_speed_microsteps_per_second=chute_settings.operating_speed_microsteps_per_second,
+        position_check=chute_settings.position_check,
+        position_check_every=chute_settings.position_check_every,
     )
     gc.logger.info(f"Chute configured: {chute_settings.describe()}")

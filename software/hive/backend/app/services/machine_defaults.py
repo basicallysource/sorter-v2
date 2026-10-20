@@ -64,7 +64,7 @@ BASE_DEFAULTS: dict[str, Any] = {
         "c_channel_2": {"irun": 4, "ihold": 1},
         "c_channel_3": {"irun": 4, "ihold": 1},
         "carousel": {"irun": 8, "ihold": 1, "stallguard": True, "sgthrs": 148, "tcoolthrs": 150},
-        "chute": {"stallguard": True, "stallguard_auto": True, "sgthrs": 55, "tcoolthrs": 150},
+        "chute": {"stallguard": True, "sgthrs": 55, "tcoolthrs": 150},
     },
     "sample_capture": {
         "enabled": False,

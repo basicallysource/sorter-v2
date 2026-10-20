@@ -33,6 +33,7 @@ With SorterOS running, flash it from **Settings** &rarr; **Control board**: pick
 ## Operate
 
 - **[Build your first sorting profile]({{ '/hive/first-profile/' | relative_url }})** — decide your boxes, have Hive's assistant write the rules, and assign the result to the machine.
+- **[Bins and profiles]({{ '/sorter/bins-and-profiles/' | relative_url }})**: what Hive and the machine each call things, how bins get their categories, the 3D page, keeping a profile's bins when you switch profiles, and what happens when a bin is full.
 - **[Shutting down the machine]({{ '/sorter/safe-shutdown/' | relative_url }})** — the two proper ways to power it down, and why pulling the plug is a last resort.
 - **[SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }})** — symptom-led entries for install, first-run, and runtime problems.
 

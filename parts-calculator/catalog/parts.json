@@ -1420,7 +1420,7 @@
           "date": "2026-09-07",
           "message": "Full v2 reset of the cable-cage bracket set (sorter-v2 #403): the underside raises ~2mm (foot 212.5 -> 214.5, boss underside 210.0 -> 212.0), same change as interface-cage-bracket-cable's v2, moving the cage from the 25mm-tall 'temp catcher wall' Onshape branch to the 23mm-tall main branch. Bolt pattern and cage-plate rebate unchanged, so an old print still bolts in the same place.",
           "breaking": false,
-          "commit": "47a5e5a5",
+          "commit": "6bcb3c0e",
           "onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/ea31e1c51b28dfab1e6024f5/e/1850f7f376b0cfba64f9e367"
         }
       ],
@@ -11646,7 +11646,7 @@
           "date": "2026-09-07",
           "message": "Both cage brackets moved to v2 (sorter-v2 #403, the 25mm 'temp catcher wall' to 23mm 'main' Onshape reset), and the cable-mount bracket + ribbon clamp + their M3 now nest as the new cage-bracket-cable-clamp sub-assembly instead of three flat lines. No change to what the six brackets are or how they stack; the regular brackets and their M5s stay flat lines here.",
           "breaking": false,
-          "commit": "47a5e5a5",
+          "commit": "6bcb3c0e",
           "lines": [
             {
               "part": "interface-cage-bracket",
@@ -12375,7 +12375,7 @@
           "date": "2026-09-05",
           "breaking": false,
           "message": "The stack is n bin layers plus one top interface, not n - 2 layers between two interfaces. The layer node now runs non-bottom-layers (n - 1) and the new bottom-layer node runs once, because the lowest layer carries foot covers instead of bracket covers and bottom verticals. Brings the tree onto the same counts the 3D-parts and framing models already used: n + 1 hexagons, 12n bin retainers, 6 foot covers. No physical change.",
-          "commit": "36826f49",
+          "commit": "de693213",
           "lines": [
             {
               "part": "top-plate",
@@ -14904,7 +14904,7 @@
           "date": "2026-09-05",
           "breaking": false,
           "message": "The 24 bin-retainer screws are M5 x 16, not M5 x 12: the retainer's bore is 12.8 mm, so an M5 x 12 reaches the extrusion face with nothing left for the T-nut. Reported by BrickCycleAlice, who tried them on a build; confirmed by measuring the STL. Merged into the existing scr-m5-16-shcs line, 12 + 24 = 36, and the joint recorded in connections with its measured through_mm.",
-          "commit": "1ce549ec"
+          "commit": "dc1f661e"
         },
         {
           "version": "4",
@@ -15149,7 +15149,7 @@
           "date": "2026-09-05",
           "breaking": false,
           "message": "Dropped the layer-frame: the bottom interface hangs under the lowest bin layer's frame and does not get a hexagon of its own (bottom two layers, step 6). Dropped the layer connector too: the spare one belongs to the top interface, which slides onto the external bracket on that hex ring. No physical change.",
-          "commit": "36826f49",
+          "commit": "de693213",
           "lines": [
             {
               "assembly": "lazy-susan",

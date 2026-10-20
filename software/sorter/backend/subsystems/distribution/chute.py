@@ -6,12 +6,15 @@ from hardware_settings.chute import (
     DEFAULT_FIRST_SECTION_OFFSET_DEG,
     DEFAULT_NUM_SECTIONS,
     DEFAULT_OPERATING_SPEED_MICROSTEPS_PER_SEC,
+    DEFAULT_POSITION_CHECK,
+    DEFAULT_POSITION_CHECK_EVERY,
     DEFAULT_SECTION_WIDTH_DEG,
 )
 from irl.bin_layout import DistributionLayout
 
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor, DigitalInputPin
+    from .position_check import PositionCheck
 
 GEAR_RATIO = 120 / 25  # 25T motor gear -> 25T idle gear -> 120T chute gear
 CHUTE_MAX_ANGLE = 350
@@ -67,6 +70,8 @@ class Chute:
         first_section_offset_deg: float = DEFAULT_FIRST_SECTION_OFFSET_DEG,
         endstop_active_high: bool = True,
         operating_speed_microsteps_per_second: int = DEFAULT_OPERATING_SPEED_MICROSTEPS_PER_SEC,
+        position_check: bool = DEFAULT_POSITION_CHECK,
+        position_check_every: int = DEFAULT_POSITION_CHECK_EVERY,
     ):
         self.gc = gc
         self.logger = gc.logger
@@ -79,6 +84,12 @@ class Chute:
         self.endstop_active_high = endstop_active_high
         self.operating_speed_microsteps_per_second = operating_speed_microsteps_per_second
         self._homed: bool = False
+        # The position check (position_check.py): whether it runs, every how
+        # many pieces, how many have gone since, and whether one is running.
+        self.position_check = position_check
+        self.position_check_every = max(1, int(position_check_every))
+        self.pieces_since_check = 0
+        self.checking = False
 
     @property
     def homed(self) -> bool:
@@ -129,6 +140,54 @@ class Chute:
         self.first_section_offset_deg = float(first_section_offset_deg)
         if endstop_active_high is not None:
             self.endstop_active_high = endstop_active_high
+
+    def setPositionCheck(self, enabled: bool, every: int) -> None:
+        self.position_check = bool(enabled)
+        self.position_check_every = max(1, int(every))
+
+    def positionCheckDue(self) -> bool:
+        return (
+            self.position_check
+            and self._homed
+            and not self.checking
+            and not self.gc.disable_chute
+            and self.pieces_since_check >= self.position_check_every
+        )
+
+    def checkPosition(self) -> "PositionCheck":
+        """Find the home switch and say how far the chute had drifted, putting
+        it back on its true position (position_check.py). Blocks for about two
+        seconds, so a caller on the main loop runs it on a thread."""
+        from .position_check import checkPosition, recordCheck
+
+        self.checking = True
+        try:
+            check = checkPosition(self)
+        finally:
+            self.checking = False
+            self.pieces_since_check = 0
+        if not check.ok:
+            self.logger.error(f"Chute: position check failed: {check.error}; the chute needs homing.")
+        elif check.beyond_range:
+            self.logger.error(
+                f"Chute: position check found the switch at once: off by {check.drift_deg:g}° or more. "
+                "The chute is back on its true position."
+            )
+        elif check.lost_steps:
+            self.logger.warning(
+                f"Chute: position check found {check.drift_deg:+.2f}° ({check.drift_steps:+d} µsteps) of drift "
+                "since the last check: it lost steps. The chute is back on its true position."
+            )
+        else:
+            self.logger.info(
+                f"Chute: position check: {check.drift_deg:+.2f}° ({check.drift_steps:+d} µsteps), "
+                f"read to {check.precision_deg}°, in {check.duration_s} s."
+            )
+        try:
+            recordCheck(check)
+        except Exception as e:
+            self.logger.warning(f"Chute: could not record the position check: {e}")
+        return check
 
     def setOperatingSpeed(self, operating_speed_microsteps_per_second: int) -> None:
         self.operating_speed_microsteps_per_second = max(1, int(operating_speed_microsteps_per_second))
@@ -238,7 +297,10 @@ class Chute:
         self.logger.info(
             f"Chute: moveToBin layer={address.layer_index} section={address.section_index} bin={address.bin_index} -> {target:.2f}°"
         )
-        return self.moveToAngle(target)
+        estimated_ms = self.moveToAngle(target)
+        if estimated_ms is not None:
+            self.pieces_since_check += 1
+        return estimated_ms
 
     def moveToAngleBlocking(self, target: float, timeout_buffer_ms: int = 0) -> int | None:
         """Move and wait; the estimated duration in ms, or None if it was refused or did not finish."""
@@ -318,4 +380,5 @@ class Chute:
             return False
         self.logger.info("Chute: homed successfully")
         self._homed = True
+        self.pieces_since_check = 0
         return True

@@ -1,6 +1,7 @@
 import time
 import queue
 import random
+import threading
 from typing import Optional
 import server.shared_state as shared_state
 from states.base_state import BaseState
@@ -83,6 +84,8 @@ class Positioning(BaseState):
         self._blocked_layers: set[int] = set()
         self._servo_offline_layers: set[int] = set()
         self._servo_bus_pause_enqueued: bool = False
+        # A position check runs on a thread before the move that falls due.
+        self._check_done = threading.Event()
 
     def _setOccupancyState(self, state_name: str) -> None:
         if self._occupancy_state == state_name:
@@ -99,6 +102,10 @@ class Positioning(BaseState):
         now = time.monotonic()
 
         if self._phase == "init":
+            if self.chute.checking:
+                # One left running when this state was last cleaned up.
+                self._setOccupancyState("positioning.check_chute_position")
+                return None
             if not self._doorsStopped(now):
                 self._setOccupancyState("positioning.wait_doors_stopped")
                 return None
@@ -302,6 +309,9 @@ class Positioning(BaseState):
             if not self.gc.disable_servos:
                 self._door_servo_index = address.layer_index
             self._target_address = address
+            if self.chute.positionCheckDue():
+                self._startPositionCheck()
+                return None
             self._startChuteMove()
             # Re-read the clock: `now` was taken at the top of step(), and the
             # init phase above (bin lookup, servo selection, the move command
@@ -322,6 +332,21 @@ class Positioning(BaseState):
                 self._moving_started_at = time.monotonic()
             return None
 
+        if self._phase == "checking":
+            self._setOccupancyState("positioning.check_chute_position")
+            if not self._check_done.is_set():
+                return None
+            # A failed check leaves the chute unhomed, and the stall monitor
+            # holds the machine until it is homed; the piece then goes on.
+            self._phase = "wait_homed"
+
+        if self._phase == "wait_homed":
+            if not self.chute.homed:
+                return None
+            self._startChuteMove()
+            self._moving_started_at = time.monotonic()
+            return None
+
         if self._phase == "moving":
             self._setOccupancyState("positioning.wait_servo_and_chute_motion")
             chute_stopped = self.chute.stepper.stopped
@@ -340,6 +365,22 @@ class Positioning(BaseState):
             return DistributionState.READY
 
         return None
+
+    def _startPositionCheck(self) -> None:
+        self.logger.info("Positioning: checking the chute's position against its home switch first")
+        self._phase = "checking"
+        self._check_done.clear()
+
+        def run() -> None:
+            try:
+                self.chute.checkPosition()
+            except Exception as e:
+                self.chute.markUnhomed(f"position check: {e}")
+                self.logger.error(f"Positioning: the chute's position check failed: {e}")
+            finally:
+                self._check_done.set()
+
+        threading.Thread(target=run, daemon=True, name="chute-position-check").start()
 
     def _startChuteMove(self) -> None:
         assert self._target_address is not None

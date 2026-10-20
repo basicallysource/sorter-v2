@@ -29,6 +29,22 @@ The page shows each storage layer: **Layer 1**, **Layer 2**, and so on. A layer 
   <li>A piece that is too big for its bin's layer also drops into the bucket. <a href="{{ '/hive/first-profile/send-it-to-your-machine/' | relative_url }}">Send it to your machine</a> has the sizes.</li>
 </ul>
 
+## The 3D page
+
+The **3D** page draws your machine with every bin where it really is on the tower. Each bin shows its number, its rules, and the last 4 pieces that went in. A bin you cannot use is faded: its layer or section is off, or the chute cannot reach it.
+
+Use it to:
+
+<ul class="bulleted-list">
+  <li><strong>Find a bin on the machine.</strong> The Bins page gives a bin's number. The 3D page shows you which bin on the tower that is, before you empty it.</li>
+  <li><strong>See what a bin takes.</strong> Click a bin to see its rules, its layer, its section and its number.</li>
+  <li><strong>Check the chute lines up with a bin.</strong> Pause the machine, click the bin, and press <strong>Point the chute here</strong>. The chute must be homed first.</li>
+  <li><strong>See which layer catches the next piece.</strong> The <strong>Machine</strong> panel shows where the chute points and which layer's door is closed. The layer with the closed door catches the next piece.</li>
+  <li><strong>See the chute and the doors.</strong> Turn on <strong>See inside</strong> to look through the frame and the bins.</li>
+</ul>
+
+The page tells you how to turn, zoom and move the view.
+
 ## How a rule gets a bin
 
 **When you activate a profile.** A profile from Hive starts with every bin unassigned. A profile you uploaded on the **Profiles** page asks you to choose:

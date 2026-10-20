@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-678914035839.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-a6335a81dab2.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-0bb2ca5daf83.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-d7d201a8998f.zip"
 	},
 	"sections": [
 		{
@@ -12083,7 +12083,7 @@
 			"description": "Part of the external distribution-frame bracket (3-part assembly).",
 			"version": "1",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-17",
 			"versions": [
 				{
 					"version": "1",
@@ -12092,17 +12092,17 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
-					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-313397afb08f.stl",
-					"render": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-full-9d75356a3cf1.png",
-					"grams": 50.66
+					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-4093f897918e.stl",
+					"render": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-full-7f067d2b17a9.png",
+					"grams": 43.53
 				}
 			],
 			"attributes": [],
-			"grams": 50.66,
-			"support_grams": 10.41,
-			"support_used": true,
+			"grams": 43.53,
+			"support_grams": 0.0,
+			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 8759,
+			"print_seconds": 6912,
 			"color": {
 				"role": "frame"
 			},
@@ -12116,21 +12116,41 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-313397afb08f.stl",
-			"render": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-full-9d75356a3cf1.png",
+			"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-4093f897918e.stl",
+			"render": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-full-7f067d2b17a9.png",
 			"stamped": [
 				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-xgzj-stamped-angled-face-064b49d91f5e.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-xgzj-stamped-bottom-81435eeafee5.stl",
 					"normal": [
-						-0.7071,
-						0.7071,
-						0.0
+						-0.0,
+						0.0,
+						-1.0
 					],
 					"center": [
-						7.3,
-						-373.79,
-						-58.42
+						30.55,
+						4.69,
+						0.0
+					],
+					"size": [
+						12.34,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-xgzj-stamped-angled-face-b723a925f157.stl",
+					"normal": [
+						-0.7071,
+						-0.7071,
+						-0.0
+					],
+					"center": [
+						35.04,
+						38.51,
+						3.19
 					],
 					"size": [
 						12.34,
@@ -12141,16 +12161,16 @@
 				},
 				{
 					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-xgzj-stamped-angled-face-2-d18fda73aa9f.stl",
+					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-xgzj-stamped-angled-face-2-ac981b5af9a5.stl",
 					"normal": [
 						0.7071,
-						0.7071,
-						0.0
+						-0.7071,
+						-0.0
 					],
 					"center": [
-						-7.3,
-						-373.79,
-						-58.42
+						20.43,
+						34.88,
+						3.19
 					],
 					"size": [
 						12.34,
@@ -12161,36 +12181,16 @@
 				},
 				{
 					"face": "angled face 3",
-					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-xgzj-stamped-angled-face-3-9f9a33af21f7.stl",
+					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-xgzj-stamped-angled-face-3-29a3239bf204.stl",
 					"normal": [
+						-0.7071,
 						0.7071,
-						-0.7071,
 						0.0
 					],
 					"center": [
-						-7.3,
-						-359.5,
-						-56.53
-					],
-					"size": [
-						12.34,
-						3.63
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "angled face 4",
-					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-xgzj-stamped-angled-face-4-8c8145281382.stl",
-					"normal": [
-						-0.7071,
-						-0.7071,
-						0.0
-					],
-					"center": [
-						7.3,
-						-359.5,
-						-56.53
+						38.67,
+						24.21,
+						3.19
 					],
 					"size": [
 						12.34,

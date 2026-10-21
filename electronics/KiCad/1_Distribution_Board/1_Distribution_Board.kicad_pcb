@@ -13363,7 +13363,7 @@
 				)
 			)
 		)
-		(property "Value" "5.1kΩ"
+		(property "Value" "10kΩ"
 			(at 0 1.65 0)
 			(layer "F.Fab")
 			(uuid "35c2980f-7521-4e65-a39a-bd261cc09b89")
@@ -13387,7 +13387,7 @@
 				)
 			)
 		)
-		(property "Description" "125mW Thick Film Resistors 150V ±100ppm/°C ±1% 5.1kΩ 0805 Chip Resistor - Surface Mount ROHS"
+		(property "Description" "125mW Thick Film Resistors 150V ±100ppm/°C ±1% 10kΩ 0805 Chip Resistor - Surface Mount ROHS"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -13400,7 +13400,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C27834"
+		(property "LCSC" "C17414"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -13413,7 +13413,7 @@
 				)
 			)
 		)
-		(property "Stock" "2790335"
+		(property "Stock" ""
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -13426,7 +13426,7 @@
 				)
 			)
 		)
-		(property "Price" "0.005USD"
+		(property "Price" ""
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -13517,7 +13517,7 @@
 				)
 			)
 		)
-		(property "Part" "0805W8F5101T5E"
+		(property "Part" "0805W8F1002T5E"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -13530,7 +13530,7 @@
 				)
 			)
 		)
-		(property "Resistance" "5.1kΩ"
+		(property "Resistance" "10kΩ"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")

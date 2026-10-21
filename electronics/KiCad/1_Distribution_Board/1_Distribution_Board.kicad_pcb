@@ -5681,8 +5681,9 @@
 		(descr "SOT, 3 Pin (https://www.jedec.org/system/files/docs/to-236h.pdf variant AB), generated with kicad-footprint-generator ipc_gullwing_generator.py")
 		(tags "SOT TO_SOT_SMD")
 		(property "Reference" "Q2"
-			(at -2.61 0 0)
+			(at -3.06 0 0)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "9298fb48-d403-4e52-86bc-0bf1aced365e")
 			(effects
 				(font
@@ -44208,7 +44209,7 @@
 	(gr_text "PI GND"
 		(at 36.599999 35.3 0)
 		(layer "F.SilkS")
-		(uuid "8d82a9c1-97a0-4042-b653-c1f48a30bcbe")
+		(uuid "dd68c4f0-e549-4d58-8e76-6f5082c0961d")
 		(effects
 			(font
 				(size 0.8 0.8)
@@ -44217,9 +44218,9 @@
 		)
 	)
 	(gr_text "G"
-		(at 41.625 96.574999 0)
+		(at 41.825 96.574999 0)
 		(layer "F.SilkS")
-		(uuid "8f2a7d04-687a-46d0-889b-f629f0786244")
+		(uuid "33288489-5ef9-43b7-9b45-dcbf7549ae68")
 		(effects
 			(font
 				(size 0.8 0.8)
@@ -44228,9 +44229,9 @@
 		)
 	)
 	(gr_text "D"
-		(at 41.625 99.115 0)
+		(at 41.825 99.115 0)
 		(layer "F.SilkS")
-		(uuid "d95817f7-37ae-4759-ba38-e40fe9dff9ac")
+		(uuid "b310f6e5-cd1c-422f-a6c3-a1ddc207df17")
 		(effects
 			(font
 				(size 0.8 0.8)
@@ -48468,6 +48469,14 @@
 		(uuid "b03e271c-3de9-4c2d-8dea-8a0cf3a2361c")
 	)
 	(segment
+		(start 35.099999 99.6)
+		(end 40.175 99.115)
+		(width 0.25)
+		(layer "F.Cu")
+		(net "/SERVO_DATA")
+		(uuid "5f564267-0c7f-4c7c-a8ac-e306c026a904")
+	)
+	(segment
 		(start 34.239999 93)
 		(end 34.239999 93.82)
 		(width 0.25)
@@ -48490,14 +48499,6 @@
 		(layer "F.Cu")
 		(net "/SERVO_DATA")
 		(uuid "963a49b6-5f8d-4a14-bafa-46010b3c316c")
-	)
-	(segment
-		(start 35.099999 99.6)
-		(end 40.175 99.115)
-		(width 0.25)
-		(layer "F.Cu")
-		(net "/SERVO_DATA")
-		(uuid "a746489d-7563-4b16-afe7-740270e5dafc")
 	)
 	(segment
 		(start 35.099999 93.82)
@@ -49561,15 +49562,7 @@
 		(width 1.2)
 		(layer "F.Cu")
 		(net "/Power/SERVO_PWR")
-		(uuid "277739f8-d02b-4b49-9c83-4af48e33d72a")
-	)
-	(via
-		(at 83.575 101.175)
-		(size 0.8)
-		(drill 0.4)
-		(layers "F.Cu" "B.Cu")
-		(net "/Power/SERVO_PWR")
-		(uuid "36ab7386-a5dc-4e96-99c0-da20aa4b2caa")
+		(uuid "8826f336-071a-4871-88a3-1e0054c7326c")
 	)
 	(via
 		(at 83.575 102.074999)
@@ -49577,7 +49570,15 @@
 		(drill 0.4)
 		(layers "F.Cu" "B.Cu")
 		(net "/Power/SERVO_PWR")
-		(uuid "acde4ed7-87f6-4429-944a-857f9da01b57")
+		(uuid "0afada4e-0562-4b0c-934a-b56d83e16611")
+	)
+	(via
+		(at 83.575 101.175)
+		(size 0.8)
+		(drill 0.4)
+		(layers "F.Cu" "B.Cu")
+		(net "/Power/SERVO_PWR")
+		(uuid "243a53d9-7ed4-4906-ae67-0eecf589e7d6")
 	)
 	(segment
 		(start 83.575 102.375)
@@ -49588,20 +49589,20 @@
 		(uuid "208282f8-5a47-42c3-9956-d290413ab944")
 	)
 	(segment
+		(start 83.575 101.175)
+		(end 83.575 102.375)
+		(width 1.2)
+		(layer "B.Cu")
+		(net "/Power/SERVO_PWR")
+		(uuid "2a772030-c3fa-4cf1-ad07-911ba3fff7be")
+	)
+	(segment
 		(start 32.599999 102.375)
 		(end 32.599999 99.6)
 		(width 1.2)
 		(layer "B.Cu")
 		(net "/Power/SERVO_PWR")
 		(uuid "a1400b67-97a2-4077-a4ea-98942eb85302")
-	)
-	(segment
-		(start 83.575 101.175)
-		(end 83.575 102.375)
-		(width 1.2)
-		(layer "B.Cu")
-		(net "/Power/SERVO_PWR")
-		(uuid "fbc2c0cf-8a8d-49ce-8a3a-71825cfb7593")
 	)
 	(segment
 		(start 91.289999 91.6)
@@ -49636,14 +49637,6 @@
 		(uuid "3579e27f-987c-4fd6-a024-19bc0ff4d880")
 	)
 	(segment
-		(start 83.575 93.125)
-		(end 83.575 95.024999)
-		(width 0.8)
-		(layer "F.Cu")
-		(net "+ServoV")
-		(uuid "7e8d6c8a-bff3-4ef9-9641-3ba4d506e4b6")
-	)
-	(segment
 		(start 96.475 82.699999)
 		(end 94.85 82.699999)
 		(width 1.5)
@@ -49658,6 +49651,14 @@
 		(layer "F.Cu")
 		(net "+ServoV")
 		(uuid "bd9aebfb-ce96-42ef-9a8a-8c66e684bd00")
+	)
+	(segment
+		(start 83.575 93.125)
+		(end 83.575 95.024999)
+		(width 0.8)
+		(layer "F.Cu")
+		(net "+ServoV")
+		(uuid "c202d934-ce61-4860-b345-d3906661e8a5")
 	)
 	(segment
 		(start 91.289999 93.125)

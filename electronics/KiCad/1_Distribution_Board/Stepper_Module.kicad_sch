@@ -5139,7 +5139,7 @@
 				)
 			)
 		)
-		(property "Description" "Polarized capacitor, US symbol"
+		(property "Description" "Panasonic EEE-FT1V101AP, 100uF 35V, 260 mohm and 300 mA at 100 kHz"
 			(at 170.18 33.02 0)
 			(hide yes)
 			(show_name no)
@@ -5150,7 +5150,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C2836442"
+		(property "LCSC" "C128464"
 			(at 170.18 33.02 0)
 			(hide yes)
 			(show_name no)

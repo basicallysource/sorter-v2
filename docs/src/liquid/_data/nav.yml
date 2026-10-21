@@ -278,6 +278,8 @@ sections:
             children:
               - title: Floating chute stack
                 url: /lab/concepts/floating-chute-stack/
+              - title: Push-button power manager
+                url: /lab/concepts/power-manager/
           - title: Abandoned ideas
             url: /lab/variants/abandoned/
             children:

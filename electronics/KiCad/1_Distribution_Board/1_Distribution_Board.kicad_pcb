@@ -2121,7 +2121,7 @@
 				)
 			)
 		)
-		(property "Value" "100Ω"
+		(property "Value" "0Ω"
 			(at 0 1.43 270)
 			(layer "F.Fab")
 			(uuid "c97340ee-8076-49ac-86ad-905cc9ede70f")
@@ -2145,7 +2145,7 @@
 				)
 			)
 		)
-		(property "Description" "100mW Thick Film Resistors 75V ±1% ±200ppm/°C 100Ω 0603 Chip Resistor - Surface Mount ROHS"
+		(property "Description" "Jumper 0Ω 0603 Chip Resistor - Surface Mount"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -2158,7 +2158,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C22775"
+		(property "LCSC" "C21189"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -2171,7 +2171,7 @@
 				)
 			)
 		)
-		(property "Stock" "8202320"
+		(property "Stock" ""
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -2184,7 +2184,7 @@
 				)
 			)
 		)
-		(property "Price" "0.004USD"
+		(property "Price" ""
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -2275,7 +2275,7 @@
 				)
 			)
 		)
-		(property "Part" "0603WAF1000T5E"
+		(property "Part" "0603WAF0000T5E"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -2288,7 +2288,7 @@
 				)
 			)
 		)
-		(property "Resistance" "100Ω"
+		(property "Resistance" "0Ω"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")

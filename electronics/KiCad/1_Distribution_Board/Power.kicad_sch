@@ -5329,7 +5329,7 @@
 		)
 		(uuid "f75762a8-7534-4e4a-b58b-5b110f22df21")
 	)
-	(text "!WARNING!\nIf this is done, all ServoV listed on SCH\nWill be 7.2V!"
+	(text "A servo supply fed into CN2 pin 2 instead\nreaches only the servos: D11 keeps it out of U5."
 		(exclude_from_sim no)
 		(at 250.952 114.3 0)
 		(effects
@@ -5360,7 +5360,7 @@
 		)
 		(uuid "9d3d7fde-d0d6-4542-a934-af39cd0f4906")
 	)
-	(text "For Waveshare Servos\nCan be used as 24V out and 7.2V in\nfrom DC BUCK Adapter (7.2V) SKU:27380"
+	(text "CN2 V+ is SERVO_PWR: U5's 6.5 V through D11,\nabout 6.1 V at 1.5 A. CN2 carries no 24 V."
 		(exclude_from_sim no)
 		(at 252.222 106.68 0)
 		(effects

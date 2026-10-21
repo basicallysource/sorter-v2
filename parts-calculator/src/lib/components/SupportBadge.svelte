@@ -1,5 +1,5 @@
 <script lang="ts">
-	// The "Supports" marking: a part that has to be printed with support
+	// The "Support needed" marking: a part that has to be printed with support
 	// material. One component so the calculator rows, the assembly pages and the
 	// part viewer all carry the same tag. Renders nothing for a part that prints
 	// without supports.
@@ -10,5 +10,5 @@
 </script>
 
 {#if part.support_intentional}
-	<Badge variant="info" tipText="Printed with support material — included in this part's grams">Supports</Badge>
+	<Badge variant="info" tipText="Printed with support material, included in this part's grams">Support needed</Badge>
 {/if}

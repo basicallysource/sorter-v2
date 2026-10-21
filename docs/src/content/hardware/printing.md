@@ -85,7 +85,7 @@ designed, not the way they print. Check each part before you slice it.
 
 **Supports are off for almost everything.** A handful of parts need them, and the
 [parts calculator](https://parts-calculator.basically.website/) badges each one
-**Supports**. Check the part there before you slice it.
+**Support needed**. Check the part there before you slice it.
 
 Turn support on for those, `normal (auto)`, with the overhang threshold at 10
 degrees. That is what the filament weights on the calculator assume.

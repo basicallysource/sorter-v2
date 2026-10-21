@@ -12,6 +12,119 @@
 		(comment 1 "Orange Pi 5 link: isolated UART and reset")
 	)
 	(lib_symbols
+		(symbol "PCM_SparkFun-Connector:TestPoint_PTH"
+					(pin_numbers
+						(hide yes)
+					)
+					(pin_names
+						(offset 0.762)
+						(hide yes)
+					)
+					(exclude_from_sim no)
+					(in_bom yes)
+					(on_board yes)
+					(in_pos_files yes)
+					(duplicate_pin_numbers_are_jumpers no)
+					(property "Reference" "TP"
+						(at 0 5.08 0)
+						(show_name no)
+						(do_not_autoplace yes)
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(property "Value" "PTH"
+						(at 0 -3.81 0)
+						(show_name no)
+						(do_not_autoplace no)
+						(hide yes)
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(property "Footprint" "PCM_SparkFun-Connector:1x01"
+						(at -1.27 -6.35 0)
+						(show_name no)
+						(do_not_autoplace no)
+						(hide yes)
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(property "Datasheet" ""
+						(at 0 -7.62 0)
+						(show_name no)
+						(do_not_autoplace no)
+						(hide yes)
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(property "Description" "Test Point"
+						(at 0 -10.16 0)
+						(show_name no)
+						(do_not_autoplace no)
+						(hide yes)
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(property "ki_fp_filters" "Pin* Test*"
+						(at 0 0 0)
+						(show_name no)
+						(do_not_autoplace no)
+						(hide yes)
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(symbol "TestPoint_PTH_0_1"
+						(circle
+							(center 0 3.302)
+							(radius 0.762)
+							(stroke
+								(width 0)
+								(type default)
+							)
+							(fill
+								(type none)
+							)
+						)
+					)
+					(symbol "TestPoint_PTH_1_1"
+						(pin passive line
+							(at 0 0 90)
+							(length 2.54)
+							(name "1"
+								(effects
+									(font
+										(size 1.27 1.27)
+									)
+								)
+							)
+							(number "1"
+								(effects
+									(font
+										(size 1.27 1.27)
+									)
+								)
+							)
+						)
+					)
+					(embedded_fonts no)
+				)
 		(symbol "Connector_Generic:Conn_02x09_Odd_Even"
 				(pin_names
 					(offset 1.016)
@@ -4018,6 +4131,94 @@
 			(justify left bottom)
 		)
 		(uuid "da8bc16a-5073-4ff3-9ed6-2d26b76b2dae")
+	)
+	(symbol
+		(lib_id "PCM_SparkFun-Connector:TestPoint_PTH")
+		(at 55.88 50.8 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "5d52bf4f-a598-4ef9-9511-c1ebadffd41d")
+		(property "Reference" "TP_GND_PI_1"
+			(at 55.88 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "PTH"
+			(at 58.42 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_THTPad_D2.0mm_Drill1.0mm"
+			(at 55.88 50.8 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 55.88 50.8 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 55.88 50.8 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "646e8b11-37e8-4f7f-a5bd-87f5ec0a20fc")
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/82c0cf1b-d902-4f9c-a05a-257f324ec865"
+					(reference "TP_GND_PI_1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(wire
+		(pts
+			(xy 55.88 50.8) (xy 55.88 53.339999999999996)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fa070482-2fc2-4248-85b9-39ff5178aff4")
+	)
+	(label "GND_PI"
+		(at 55.88 53.339999999999996 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "2188a7ad-54b2-476d-a0b6-6c3977934e22")
 	)
 	(embedded_fonts no)
 )

@@ -20521,6 +20521,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "180"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "7219edfd-9626-4dd7-ac27-0dde08cbd629")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property "Value" "BAS316"
 			(at 0.1 1.9 90)
 			(layer "F.Fab")
@@ -27231,6 +27244,19 @@
 				)
 			)
 		)
+		(property "FT Rotation Offset" "180"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "0b6dce01-0b6f-40ee-801c-7ec64f943c56")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
 		(property "Value" "BAS316"
 			(at 0.1 1.9 90)
 			(layer "F.Fab")
@@ -33382,6 +33408,19 @@
 			(layer "F.SilkS")
 			(hide yes)
 			(uuid "dc4f6725-5e22-4744-b195-4c3a0f64d6db")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "180"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "9b08e5b5-12fb-4f36-81c6-0c3d9a31f948")
 			(effects
 				(font
 					(size 1 1)
@@ -41273,6 +41312,19 @@
 			(layer "F.SilkS")
 			(hide yes)
 			(uuid "311acffa-b93a-467d-96da-946adae2413c")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "FT Rotation Offset" "180"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "7c47c3ea-c3ef-421a-b27d-7d8dd4a56843")
 			(effects
 				(font
 					(size 1 1)

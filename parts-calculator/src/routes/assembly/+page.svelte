@@ -18,6 +18,7 @@
 	import DropdownMenu from '$lib/components/DropdownMenu.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
+	import SupportBadge from '$lib/components/SupportBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
@@ -949,6 +950,7 @@
 								<span class="text-sm font-semibold text-text">{part.name}</span>
 								<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
 									>3D printed</span>
+								<SupportBadge {part} />
 								{#if line.part}{@render tagChips(line.part)}{/if}
 							</div>
 							<div class="text-xs text-text-muted">{part.slice_failed ? 'not sliced' : `${(part.grams ?? 0).toFixed(0)} g each`}</div>

@@ -14,6 +14,7 @@
 	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
 	import RequiredColorBadge from '$lib/components/RequiredColorBadge.svelte';
+	import SupportBadge from '$lib/components/SupportBadge.svelte';
 	import { getBambuColor } from '$lib/bambu-colors';
 	import { SITE_URL } from '$lib/seo';
 	import { copyText } from '$lib/clipboard';
@@ -136,7 +137,7 @@
 					{:else}
 						{#if part.description}<CatalogText text={part.description} class="text-text" />{/if}
 					{/if}
-					<RequiredColorBadge {part} />
+					<div class="flex flex-wrap gap-1.5"><RequiredColorBadge {part} /><SupportBadge {part} /></div>
 					{#if part.attributes?.length}
 						<div class="flex flex-wrap gap-1.5">
 							{#each part.attributes as a}<span class="border border-border bg-[var(--color-bg)] px-1.5 py-0.5 text-xs text-text-muted">{a.label}: <span class="text-text">{a.value}</span></span>{/each}

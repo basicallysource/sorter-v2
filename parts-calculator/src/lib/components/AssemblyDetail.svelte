@@ -5,6 +5,7 @@
 	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import SupportBadge from '$lib/components/SupportBadge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import HardwareIcon from '$lib/components/HardwareIcon.svelte';
@@ -152,6 +153,7 @@
 			<span class="ad-body">
 				<span class="ad-name">
 					{part.name} <Badge variant="neutral">3D printed</Badge>
+					<SupportBadge {part} />
 					<ChangeStatus kind="parts" id={part.id} name={part.name} />
 				</span>
 				<span class="ad-meta" use:tip={part.slice_failed ? `Not sliced: ${part.slice_failed}` : undefined}>{part.slice_failed ? 'not sliced' : `${(part.grams ?? 0).toFixed(0)} g each`} · {part.uid}</span>

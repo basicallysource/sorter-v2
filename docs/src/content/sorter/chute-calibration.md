@@ -27,7 +27,7 @@ It takes about fifteen minutes. Everything happens in **Settings**, and nothing 
 
 **A section is one bay of bins on one layer: the bins between two of the tower's vertical columns.** There are six bays around the hexagon, so six sections per layer, each holding two or three bins depending on that layer's size.
 
-**Set the bin count for each layer first**, in **Settings → Storage layers** (under **Hardware** in the left sidebar): set **Bins** to how many bins sit around the chute on that layer, 12 on a half-size layer and 18 on a third-size one. The chute aims from those numbers, so a wrong count sends pieces to the wrong bin.
+**Set the bin count for each layer first**, in **Settings → Storage layers** (under **Hardware** in the left sidebar): set **Bins** to how many bins sit around the chute on that layer, 12 on a half-size layer and 18 on a third-size one. The chute aims from those numbers, so a wrong count sends pieces to the wrong bin. If you change one, press **Save the layers**, then **Restart the backend** from the **⋯** menu at the top right: the change only takes effect after a restart.
 
 **Check which way the chute homes.** Seen from above, the chute turns counter-clockwise to find home, so it reaches the home switch from the clockwise side, and from home it turns clockwise to reach the bins. If yours homes the other way, every bin comes out the same distance off and no calibration fixes it. Flip it with **Flip the direction** in [step 5 of the setup wizard]({{ '/sorter/first-setup/' | relative_url }}#step-5-chute-endstop-and-geometry), or tick **Invert the direction** under **Driver settings** on **Settings → Chute** and save. Then start this page from step 1.
 

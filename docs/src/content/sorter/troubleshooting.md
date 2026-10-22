@@ -182,6 +182,53 @@ A lamp stays off with its channel's **LED** panel set, or the panel's **Output**
 
 ---
 
+## Chute: the endstop always reads triggered, or never does
+
+The chute's endstop reading does not follow the switch. It shows on the **Chute endstop** row in [step 5 of the setup wizard]({{ '/sorter/first-setup/' | relative_url }}#step-5-chute-endstop-and-geometry), as **Endstop triggered** or **Endstop clear** on **Settings → Chute**, and as **Endstop** on the **Chute aiming** tab.
+
+- **Always triggered:** homing stops at once, wherever the chute happens to be, and calls that home. Every bin is then off, and the **Chute aiming** jog will not take the chute below that false 0°.
+- **Never triggered:** homing turns the chute without stopping at the switch, then gives up with "Chute homing stopped before the endstop triggered". If the chute keeps turning, press **Stop the motion** in the wizard or **Cancel** on **Settings → Chute**.
+
+**Cause:** The lead is wired so the circuit is closed while the lever is free and opens when the chute presses it. Anything that breaks the circuit therefore reads exactly like a pressed switch, so **always triggered is nearly always a connection**, not the switch: a crimp, the housing on the board the wrong way round, or a wire broken where the lead flexes.
+
+**Fix:** To move the chute while you work on it, use **CCW** and **CW** on **Settings → Chute**. They move it whatever the endstop reads, and without homing. Then, in order:
+
+<ol class="numbered-steps">
+  <li><strong>Press the switch's lever by hand and watch the reading.</strong> If it changes, but the wrong way round (triggered while free), press <strong>Flip the polarity</strong> in wizard step 5. If it never changes, carry on.</li>
+  <li><strong>Check the hammer and the lever.</strong> Nothing should rest on the lever, and the chute's hammer should press the roller as the chute reaches home.</li>
+  <li><strong>Check the housing on <code>J5</code>.</strong> It is not keyed. The empty position goes over the pin the board marks <code>3.3V</code>; turned over, the machine never sees the switch change. <a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}#putting-the-housing-on-the-board">Putting the housing on the board</a>.</li>
+  <li><strong>Check the crimps.</strong> Tug each wire where it enters the housing and at each receptacle on the switch. Re-crimp any that pulls out or moves.</li>
+  <li><strong>Meter the lead.</strong> Unplug the housing from the board and put a multimeter on its two contacts on the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">continuity setting</a>. It should beep with the lever free and go silent when you press it. Silent both ways: the break is in the lead or the switch, so check each wire end to end. Silent while free and beeping while pressed: the receptacles are on <code>COM</code> and <code>NO</code>, so move one along to <code>NC</code>. Beeping both ways: strands are crossing at a crimp. <a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}#check-the-lead">Checking the lead</a>.</li>
+</ol>
+
+**Verify:** The reading flips each time you press and release the lever, and **Find the chute endstop** turns the chute counter-clockwise, seen from above, until it reaches the switch.
+
+---
+
+## Flaps: a flap will not reach open or closed, or its servo spins freely
+
+On **Settings → Storage layers**, a flap stops short of lying flat in the chute wall or of crossing the chute, and the arrows will not take it further. Or a flap that locked fine before has drifted, so pieces bounce past a closed one. Or the angle between the arrows changes but the flap does not move, or it flops loosely.
+
+**Cause:** The flap is coupled to its MG995 servo through the plastic horn inside the servo adapter. Forcing the flap, by hand or by leaving the servo pushing against the chute wall, does one of two things:
+
+- **The horn's teeth round off** and it slips on the servo's shaft, a few teeth at a time. The flap's swing then sits partly outside the servo's 0° to 180°, so one end is out of reach. Nothing in the software can move the servo further than that.
+- **The servo breaks.** It spins freely, or does not move at all.
+
+**Fix:** In order:
+
+<ol class="numbered-steps">
+  <li><strong>Take the servo bracket off the chute core:</strong> the 2 M3x12 countersunk screws through the side arm and the 1 through the lower arm, as in <a href="{{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }}">the door module, step 8</a>. Draw the bracket back so the servo adapter comes off the flap's hex.</li>
+  <li><strong>Look at the horn's splined sleeve</strong> in the middle of the adapter's servo side. If its teeth are worn round, rebuild the adapter around a fresh horn from the servo's bag.</li>
+  <li><strong>If the servo spins freely, or no longer moves with the arrows, replace it.</strong> Take out the cover's 2 screws, slide the servo out and the new one in, and plug it into the same socket on the layer adapter board. Do the cover screws up evenly: they are all that holds the servo.</li>
+  <li><strong>Set the servo to the middle of its travel.</strong> With the adapter off the flap, move that layer's servo with the arrows until the angle between them reads 90°. It holds there while the machine is on.</li>
+  <li><strong>Re-couple at the middle of the flap's swing.</strong> Push the adapter onto the servo's spline at whichever tooth lines its hex up with the flap held halfway between open and closed. Then drive the small screw from the servo's bag into the middle of the horn, through the hex socket, so the horn cannot creep off the spline. Bolt the bracket back on with the hex going onto the flap's shaft.</li>
+  <li><strong>Lock open and closed again</strong> for that layer. The old angles no longer apply.</li>
+</ol>
+
+**Verify:** The layer reads **Calibrated**, the flap lies flat at open and crosses the chute at closed, and the servo is quiet at both.
+
+---
+
 ## Carousel keeps rotating past the part — classification never completes
 
 **Cause:** The classification detector returns `found=false` every attempt. Two real causes: OpenRouter API key missing or rate-limited, or the classification region polygon is misaligned with where the carousel actually presents parts.

@@ -163,15 +163,24 @@ On the standard control board the servos run from the board itself. The step say
 <ol class="numbered-steps">
   <li>Press <strong>Add a layer</strong> once for each layer, and set each layer's <strong>Bins</strong> to the bins fitted on it.</li>
   <li>Turn on <strong>Advanced</strong>, beside <strong>Add a layer</strong>. Each layer's <strong>Channel</strong> box only shows while it is on. Pick the servo channel that layer's flap is plugged into.</li>
-  <li>Press <strong>Save the layers</strong>, then home the machine: the <strong>⋯</strong> menu at the top right, then <strong>Home</strong> (<strong>Re-home</strong> if it has homed before). A flap cannot move until its layer is saved and the machine has homed since.</li>
+  <li>Press <strong>Save the layers</strong>. Then restart the backend: the <strong>⋯</strong> menu at the top right, then <strong>Restart the backend</strong>. A layer you added, or whose <strong>Bins</strong> you changed, only takes effect after a restart. Homing alone is not enough, even though the page says to home.</li>
+  <li>When the page is back, home the machine from the same menu: <strong>Home</strong> (<strong>Re-home</strong> if it has homed before). A flap cannot move until then.</li>
   <li>For each layer, move the flap with the arrows until it lies flat in the chute wall, then press <strong>Lock open</strong>. Then move it until it crosses the chute and nothing can fall past, and press <strong>Lock closed</strong>. The layer reads <strong>Calibrated</strong> once both are locked.</li>
 </ol>
 
 **You need a torch** to see the flaps inside the chute.
 
+**Never turn a flap by hand.** The servo's gearbox barely turns backwards, so forcing a flap rounds off the teeth inside the horn, or breaks the servo so that it spins freely. Move it only with the arrows.
+
+**The first press swings the flap to one end.** Until a flap has moved since the machine was switched on, the machine does not know where it is, and the first press of either arrow sends it to 0° at full speed. Keep your fingers out of the chute. If it hums or clicks there, press the right arrow (**Move toward a higher angle**) until it stops.
+
 **Watch the flap, not the arrows.** One arrow moves it towards a lower angle and the other towards a higher one, and which of those opens it depends on how its servo sits.
 
-**A clicking noise means you have gone too far.** Step back the other way until it stops, then lock the angle there.
+**A clicking noise means you have gone too far.** Step back the other way until it stops, then lock the angle there. Never leave a servo pushing against the chute wall.
+
+A flap that will not reach open or closed, or a servo that spins freely: [troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}#flaps-a-flap-will-not-reach-open-or-closed-or-its-servo-spins-freely).
+
+**A choice that does not stay after a save was refused.** The reason is at the very bottom of the page, below the speed settings.
 
 **Continue** is blocked with "Configure servos before continuing" until the servos are set up. When every layer is calibrated, press **Servo setup looks correct**.
 

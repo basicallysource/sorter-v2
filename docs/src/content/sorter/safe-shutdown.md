@@ -7,6 +7,10 @@ slug: sorter-safe-shutdown
 kicker: SorterOS — Operations
 lede: Two proper ways to power the machine down, and why pulling the plug is a last resort.
 permalink: /sorter/safe-shutdown/
+warning: >-
+  **SorterOS changes quickly.** This page describes what each step does, but a
+  button's name, or where it is, may have changed since this page was written,
+  so it keeps screenshots to a minimum.
 ---
 
 The machine's computer writes files continuously while it runs. Cutting power mid-write can corrupt those files and leave the machine unable to start. Use one of the two shutdowns below, then cut power.

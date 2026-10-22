@@ -6,6 +6,10 @@ slug: sorter-troubleshooting
 kicker: SorterOS — Operations
 lede: Symptom-led entries for install, first-run, and runtime problems. Search this page (Cmd-F) for the error message you are seeing.
 permalink: /sorter/troubleshooting/
+warning: >-
+  **SorterOS changes quickly.** This page describes what each fix does, but a
+  button's name, or where it is, may have changed since this page was written,
+  so it keeps screenshots to a minimum.
 ---
 
 Each entry: what you see → cause → fix → how to verify. For the install procedure itself, see [Installation]({{ '/sorter/installation/' | relative_url }}).

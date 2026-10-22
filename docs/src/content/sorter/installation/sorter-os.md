@@ -7,6 +7,10 @@ slug: installation-sorter-os
 kicker: Installation — SorterOS image
 lede: Flash an SD card, power on the Orange Pi, and put it on your WiFi from your phone. The Pi sets up the rest.
 permalink: /sorter/installation/sorter-os/
+warning: >-
+  **SorterOS changes quickly.** This page describes what each step does, but a
+  button's name, or where it is, may have changed since this page was written,
+  so it keeps screenshots to a minimum.
 og_image: https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png
 audience: self-hosting operator
 applies_to: sorteros v4.x

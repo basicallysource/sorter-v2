@@ -11,13 +11,10 @@ lede: The setup wizard step by step, from opening the machine's UI in a browser 
 permalink: /sorter/first-setup/
 og_image: https://assets.basically.website/sorter-docs/sorter-dashboard-ready-brickcycle-w1600-ac437d39209c.jpg
 warning: >-
-  **AI-generated first draft.** Written from the SorterOS UI's own source and from
-  the UI running here, not from setting up a real machine. The screenshots are of
-  steps 1 to 3, step 7 and Settings; steps 4 to 6, 8 and 9 need hardware
-  attached, so their screenshots are still missing and their wording has not
-  been checked against a machine that has boards, servos and cameras on it.
-  Step 7 has been. SorterOS changes quickly: a button's name, or where it is, may
-  have changed since this page was written, so it keeps screenshots to a minimum.
+  **SorterOS changes quickly.** This page describes what each step does, but a
+  button's name, or where it is, may have changed since this page was written.
+contributors: [brickcyclealice]
+last_verified: 2026-10-22
 ---
 
 The software is installed and the machine has booted. This page takes you from opening its UI in a browser to a machine that is ready to sort. Everything here happens in the browser, so there are no commands to type.

@@ -140,6 +140,27 @@ The wizard's Controller Discovery step lists no controllers, and the issue banne
 
 ---
 
+## Cameras: a camera only offers small modes, or runs at 5 fps
+
+In the camera's **Picture** panel (**Picture tuning** in the setup wizard), the **Mode** list has nothing at 1280x720, only small sizes such as 640x480 at 5 fps down to 160x120. Or the size and frame rate in the bottom-right corner of its live view are well below [the modes in first setup]({{ '/sorter/first-setup/' | relative_url }}#picture-tuning). At 5 fps a channel misses small pieces such as Technic pins and pushes them on without seeing them.
+
+**Cause:** A slow USB link, not a faulty camera. The cameras on the hub share one cable to the Orange Pi, and when that link drops to its slowest speed, every camera on the hub only offers the small modes. A damaged cable between the hub and the Orange Pi has caused it. If whichever camera you plug into the hub gets the short list, it is the link.
+
+**Fix:** In order, checking the mode list after each:
+
+<ol class="numbered-steps">
+  <li>Push every USB plug fully home: each camera's lead at the camera and at the hub, and the hub's cable at both ends. The hub's power light should be on, and the light beside each camera's port steady.</li>
+  <li>Check the hub's cable goes into the Orange Pi's blue USB 3 port.</li>
+  <li>Replace the cable between the hub and the Orange Pi. The one that comes with the hub is easily damaged while routing it.</li>
+  <li>Plug the slow camera straight into a free USB port on the Orange Pi instead of the hub. Move one camera, not all of them: the hub has its own power so the cameras don't pull the Orange Pi's voltage down (<a href="{{ '/lab/usb/' | relative_url }}">why</a>).</li>
+</ol>
+
+After moving any camera, check each channel's page in **Settings** still shows its own camera. If not, press **Change camera** and pick the right one.
+
+**Verify:** The **Mode** list offers 1280x720 at 30 fps, and the corner of the live view shows it once picked.
+
+---
+
 ## Carousel keeps rotating past the part — classification never completes
 
 **Cause:** The classification detector returns `found=false` every attempt. Two real causes: OpenRouter API key missing or rate-limited, or the classification region polygon is misaligned with where the carousel actually presents parts.

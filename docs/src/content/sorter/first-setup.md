@@ -174,6 +174,13 @@ There are three cards, one per camera, and each one needs a camera:
 - **C-channel 3**
 - **Classification C-channel (C4)**
 
+Before you pick any cameras:
+
+<ul class="bulleted-list">
+  <li><strong>Take the cap off the classification camera's lens.</strong></li>
+  <li><strong>Put a LEGO piece on the C-channel 2 rotor and a different-coloured one on the C-channel 3 rotor</strong>, for example a white piece on C2 and a green one on C3. The two channel cameras look alike in the list, and the piece in the picture tells you which one you are looking at.</li>
+</ul>
+
 For each card, pick a camera from the dropdown. The card then shows what that camera sees, so you can tell them apart. Both a channel's drop zone and its exit should be visible in the frame. If they are not, you may need to move the camera lamp to a different dovetail on its C-channel. One camera can serve more than one area if its view covers both.
 
 <div class="callout callout-warning">
@@ -225,6 +232,10 @@ Set the mode on each camera:
 | Classification C-Channel (C4) | 3840x2160 at 30 fps |
 
 On all C-Channels, set **Pixel Format** to MJPG.
+
+**If a camera's mode list has nothing at 1280x720**, only small sizes such as 640x480 at 5 fps, that camera is on a slow USB link. At 5 fps a channel misses small pieces such as Technic pins. See [a camera only offers small modes]({{ '/sorter/troubleshooting/' | relative_url }}#cameras-a-camera-only-offers-small-modes-or-runs-at-5-fps) before you go on.
+
+If the picture's sliders push the live view off the bottom of the screen, zoom the browser out (Ctrl and minus, or Cmd and minus on a Mac) so you can see both while you adjust.
 
 The camera's automatic settings should be enough for everything else, and manual settings are there if you need them. Click **Confirm**.
 

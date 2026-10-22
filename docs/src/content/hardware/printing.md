@@ -69,7 +69,7 @@ designed, not the way they print. Check each part before you slice it.
 <ol class="numbered-steps">
   <li><strong>Drop the part on the plate and look at what touches it.</strong> If it rests on a flat face, print it as it is.</li>
   <li><strong>If it balances on an edge or a corner, turn it.</strong> Use <strong>Place on face</strong> in Bambu Studio or Orca and pick the largest flat face. The bins are the clearest case. The ready made <a href="https://parts-calculator.basically.website/?tab=plates">bins plate</a> has them turned already.</li>
-  <li><strong>If the part's card on the parts calculator has a Print orientation line, follow it.</strong> That line wins over everything above.</li>
+  <li><strong>If the part has a Turn before printing tag on the parts calculator, follow it.</strong> Click the tag to see the part on the plate the way it prints. That tag wins over everything above.</li>
   <li><strong>Not sure which face goes down?</strong> Ask on <a href="https://discord.gg/6PZtqkwtaS">Discord</a> with the part name.</li>
 </ol>
 

@@ -11175,7 +11175,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Corner down, legs rising at 45\u00b0 like a V, no supports. The file rests on no face; as exported it needs supports under the T-shaped key"
+					"value": "Corner down, legs rising at 45\u00b0 like a V, no supports. The file rests on no face; as exported it needs supports under the T-shaped key",
+					"image_url": "https://assets.basically.website/sorter-parts/frame-90deg-bracket-print-orientation-full-004d30d57e54.png"
 				}
 			],
 			"grams": 13.62,
@@ -21694,7 +21695,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Upside down, top face on the bed"
+					"value": "Upside down, top face on the bed",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-print-orientation-full-36dd3a93ac7a.png"
 				}
 			],
 			"grams": 52.44,
@@ -21831,7 +21833,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-print-orientation-full-cb8c4c2f6449.png"
 				}
 			],
 			"grams": 8.48,
@@ -21928,7 +21931,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-east-print-orientation-full-4a5d7818cef6.png"
 				}
 			],
 			"grams": 8.2,
@@ -22025,7 +22029,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-print-orientation-full-e9977fd35c2a.png"
 				}
 			],
 			"grams": 13.76,
@@ -22164,7 +22169,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-print-orientation-full-01ea46b73c1c.png"
 				}
 			],
 			"grams": 12.05,

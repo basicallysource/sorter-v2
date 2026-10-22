@@ -408,6 +408,24 @@ export type PartStamp = {
 	surface?: { axis: number[]; point: number[]; r0: number; slope: number; sign: number };
 };
 
+/** A labelled line on a part's card. `image_url` is an optional picture of it. */
+export type PartAttribute = { label: string; value: string; image_url?: string };
+
+/** The one attribute that is an instruction rather than a characteristic: the
+ *  STL is not exported the way it prints, and the value says how to turn it.
+ *  Put it only on a part whose file needs turning; it renders as the "Turn
+ *  before printing" tag (PrintOrientationBadge), not as a pill. */
+export const PRINT_ORIENTATION = 'Print orientation';
+
+export function printOrientation(p: { attributes?: PartAttribute[] }): PartAttribute | null {
+	return p.attributes?.find((a) => a.label === PRINT_ORIENTATION) ?? null;
+}
+
+/** Every attribute that renders as a plain `Label: value` pill. */
+export function pillAttributes(p: { attributes?: PartAttribute[] }): PartAttribute[] {
+	return (p.attributes ?? []).filter((a) => a.label !== PRINT_ORIENTATION);
+}
+
 export type Part = {
 	id: string;
 	uid: string; // the current version's id -- what a print is engraved with
@@ -427,7 +445,7 @@ export type Part = {
 	versions?: PartVersion[]; // archetype history, newest last
 	candidates?: PartCandidate[]; // revisions under test for this slot, oldest first
 	images?: CatalogImage[]; // extra pictures beyond the render
-	attributes?: { label: string; value: string }[]; // variant characteristics shown in the app
+	attributes?: PartAttribute[]; // variant characteristics shown in the app
 	grams: number | null; // total incl. any support; null when no slicer could do it
 	support_grams: number | null; // the support portion of `grams`; null with it
 	support_used: boolean; // slicer used support to slice this (may be auto-forced)

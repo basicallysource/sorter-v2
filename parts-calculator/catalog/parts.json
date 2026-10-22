@@ -842,7 +842,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Corner down, legs rising at 45° like a V, no supports. The file rests on no face; as exported it needs supports under the T-shaped key"
+          "value": "Corner down, legs rising at 45° like a V, no supports. The file rests on no face; as exported it needs supports under the T-shaped key",
+          "image_url": "https://assets.basically.website/sorter-parts/frame-90deg-bracket-print-orientation-full-004d30d57e54.png"
         }
       ],
       "internal_notes": "12 per frame (per layer); interface qty ASSUMED 12 (Spencer said 'one set per interface' - confirm). Frame color. File: inner_90_bracket.",
@@ -3204,7 +3205,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Upside down, top face on the bed"
+          "value": "Upside down, top face on the bed",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-print-orientation-full-36dd3a93ac7a.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -3231,7 +3233,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Lay flat on the bed; the file has it standing up"
+          "value": "Lay flat on the bed; the file has it standing up",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-print-orientation-full-cb8c4c2f6449.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -3258,7 +3261,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Lay flat on the bed; the file has it standing up"
+          "value": "Lay flat on the bed; the file has it standing up",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-east-print-orientation-full-4a5d7818cef6.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -3285,7 +3289,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Lay flat on the bed; the file has it standing up"
+          "value": "Lay flat on the bed; the file has it standing up",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-print-orientation-full-e9977fd35c2a.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -3312,7 +3317,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Lay flat on the bed; the file has it standing up"
+          "value": "Lay flat on the bed; the file has it standing up",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-print-orientation-full-01ea46b73c1c.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",

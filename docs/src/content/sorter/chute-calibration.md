@@ -14,7 +14,7 @@ warning: >-
 last_verified: 2026-09-18
 ---
 
-The chute is the arm that drops each part into a bin. It does not know where your bins are until you tell it. You do that from the UI, in three parts: home the chute, capture two bins, then test where it can reach.
+The chute is the stack in the middle of the bins. It turns as one piece to face a bin, and each layer's flap decides which layer a part leaves at. It does not know where your bins are until you tell it. You do that from the UI, in three parts: home the chute, capture two bins, then test where it can reach.
 
 It takes about fifteen minutes. Everything happens in **Settings**, and nothing here needs a terminal.
 

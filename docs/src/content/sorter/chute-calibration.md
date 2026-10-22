@@ -58,7 +58,7 @@ Wait for **Homed.** next to the button.
 
 ## 2. Aim at the first bin of the first section
 
-**Use the first section clockwise from home**, the section to the left of the control board, on a third-size layer. A capture in any other section puts every bin in the wrong place. A half-size layer, with 2 bins a section, is not enough.
+**Use the first section clockwise from home**, the section to the left of the control board. A capture in any other section puts every bin in the wrong place. Measure it on a third-size layer, with 3 bins a section: the page offers 3 to 6 bins and has no 2, so it cannot measure a half-size layer. If every layer on your machine is half-size, this page cannot calibrate it yet.
 
 Set **Bins in this section** to 3. The page says more is more accurate, but the number must match the one section you measure. Do not measure across two sections.
 

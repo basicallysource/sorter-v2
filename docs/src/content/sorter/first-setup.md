@@ -21,12 +21,13 @@ The software is installed and the machine has booted. This page takes you from o
 
 ## Before you start
 
+- The machine is the standard Sorter V2, built from the [parts calculator](https://parts-calculator.basically.website/): C-channels 1 to 3 feed the pieces, C-channel 4 is the classification channel, and the chute drops each piece into its bin. This is the only build SorterOS sets up, so there is no build to choose in the UI.
 - The machine is assembled, wired and powered on.
 - SorterOS is installed and running. See [Installation]({{ '/sorter/installation/' | relative_url }}).
 - **The control board is flashed.** Step 3 below only lists boards that already answer on USB serial, so a board with no firmware on it does not appear there at all. [Flashing the control board]({{ '/sorter/' | relative_url }}#flash-the-control-board-before-the-wizard) has the route, including the one for a board that has never been flashed.
 - Your phone, tablet or computer is on the same network as the machine.
-- The machine is empty: no parts in the C-channels, the carousel, the classification chamber or the chute. The wizard turns the motors.
-- Nothing is resting against the chute or the carousel.
+- The machine is empty: no parts in the C-channels or the chute. The wizard turns the motors.
+- Nothing is resting against the chute or the C-channels.
 
 Set aside about an hour. You can stop between steps and come back later.
 
@@ -48,7 +49,7 @@ There is nothing to log into. The machine UI has no account and no password, so 
 
 If the page does not appear at all, or it appears and every button fails, see [SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}).
 
-**The first time you open the UI it shows the setup wizard.** Leave it for now: the next two sections come first, and the wizard after them. Open **Settings** from the bar at the top of the page. On a narrow screen it is in the **Pages** menu there.
+**The first time you open the UI it shows the setup wizard.** Leave it for now: update the software first, then open the wizard again. Open **Settings** from the bar at the top of the page. On a narrow screen it is in the **Pages** menu there.
 
 ## Update the software first
 
@@ -64,22 +65,6 @@ The software changes often, so the version on a new machine can be weeks old. Up
 The same panel says which version you are on: **Channel** is the release the machine follows, and **Commit** and **Made** are the version and its date. Give all three when you ask for help.
 
 **Stable or canary.** The **Release channels** panel lists both. **Stable** is the tested release. **Canary** is newer and less tested. Stay on stable unless a fix you need is only on canary. Switching keeps your settings and data, but once you are on canary you cannot switch back to stable until stable catches up.
-
-## Tell the machine which build it is
-
-The machine has to know which build it is before the wizard checks anything that moves. Open **Settings** → **General** → **Machine setup** and pick the one that matches what you built:
-
-| Setup | What it is |
-|---|---|
-| C-Channels + Classification Channel | A dedicated classification C-channel in place of the carousel and chamber. |
-| FIDA + Carousel + Classification Chamber | C-channel feeding, carousel handoff, chamber classification. |
-| Operator-fed carousel | You place each part into the carousel dropzone yourself. |
-
-<div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-settings-machine-setup-w1600-b2f27a36fe48.jpg" alt="The top of the General settings page, showing the connection, the machine name and the three machine setup choices"><figcaption>Settings, General. The three machine setups are the third block down. <cite>UI screenshot. Render: Balloon.</cite></figcaption></figure>
-</div>
-
-The choice is saved on the machine and decides what the wizard asks you in steps 5 and 7, so set it before you start. Changing it later takes effect after a reset and a re-home.
 
 ## Open the setup wizard
 
@@ -143,39 +128,35 @@ The wizard's own wording, and the screenshot below, still name a feeder and a di
 
 ## Step 4: Motion direction check
 
-This step turns the motors a little to check which way each one runs. The steppers power on when you open the step: wait for "Powering on steppers…" to clear before you press anything.
+This step turns the motors a little to check which way each one runs. The steppers power on when you open the step: wait for "Powering on the steppers…" to clear before you press anything.
 
-One card per axis: C-Channel 1, C-Channel 2, C-Channel 3, the carousel (or the classification channel), and the chute.
+One card per axis: C-Channel 1, C-Channel 2, C-Channel 3, C-Channel 4 and the Chute. Each card has a picture of that axis seen from above, with an arrow showing clockwise.
 
 <ol class="numbered-steps">
   <li>Press <strong>Jog</strong> on the first card. The axis moves a small amount.</li>
-  <li>Look down on it from above, then press <strong>Clockwise</strong> or <strong>Counter-Clockwise</strong> to say which way it turned. On a C-channel, watch the rotor, the part the pieces ride on.</li>
-  <li>The card turns green and reads <strong>Verified</strong>. If it turned counter-clockwise, the wizard reverses that motor in software and the card reads <strong>Inverted</strong>. That is expected: the motor is wired the other way round.</li>
+  <li>Look down on it from above, then press <strong>Clockwise</strong> or <strong>Counterclockwise</strong> to say which way it turned. On a C-channel, watch the rotor, the part the pieces ride on.</li>
+  <li>The card reads <strong>Checked</strong>. If it turned counterclockwise, the wizard reverses that motor in software and the card reads <strong>Inverted</strong>. That is expected: the motor is wired the other way round.</li>
   <li>Repeat for every card.</li>
 </ol>
 
-**Show wiring help** opens a diagram of the control board and a table of which stepper port each axis uses. Use it if an axis does not move at all.
+**Show the wiring** opens a diagram of the control board and a list of which stepper port each axis uses. Use it if an axis does not move at all.
 
-When every card is verified, press **Directions look correct**.
+When every card is checked, press **Directions look correct**.
 
-## Step 5: Endstops and geometry
+## Step 5: Chute endstop and geometry
 
-Each axis that homes has a sensor at its home position. Here you check that the machine reads each sensor the right way round, then let it find home.
+The chute has a sensor at its home position. Here you check that the machine reads it the right way round, then let the chute find home. The wizard checks only the chute here.
 
 <ol class="numbered-steps">
-  <li>Block the carousel sensor by hand at the home position. The <strong>Carousel endstop</strong> panel should flip to <strong>Triggered</strong>.</li>
-  <li>If it stays <strong>Not triggered</strong>, press <strong>Trigger state looks inverted? Flip polarity</strong> and block the sensor again.</li>
-  <li>Do the same for the <strong>Chute endstop</strong> panel.</li>
-  <li>Press <strong>Home carousel</strong>. The carousel turns until it finds its sensor and stops.</li>
-  <li>Press <strong>Find chute endstop</strong>. The chute does the same. If it runs the wrong way, press <strong>Chute moves the wrong way? Flip direction</strong> and try again.</li>
-  <li>Press <strong>Endstops and geometry look correct</strong>.</li>
+  <li>Trigger the chute's endstop by hand. The <strong>Chute endstop</strong> row should read <strong>Triggered</strong>.</li>
+  <li>If it stays <strong>Not triggered</strong>, press <strong>Flip the polarity</strong> and trigger it again.</li>
+  <li>Press <strong>Find the chute endstop</strong>. The chute turns until it finds its sensor and stops. If it runs the wrong way, press <strong>Flip the direction</strong> and try again.</li>
+  <li>Press <strong>Chute endstop and geometry look correct</strong>.</li>
 </ol>
 
-**Stop motion** on either panel halts that axis at once.
+**Stop the motion** halts the chute at once. **Show the wiring** shows which header on the control board the endstop plugs into.
 
 Leave **First bin center** and **Pillar width** at the values already in the fields. They are saved when you continue, and you set them properly later, on [Homing and calibrating the chute]({{ '/sorter/chute-calibration/' | relative_url }}).
-
-A machine built with a classification channel instead of a carousel has no carousel sensor. That panel is replaced by a note, and only the chute is checked here.
 
 ## Step 6: Servo configuration
 
@@ -187,15 +168,11 @@ The wizard discovers the servos on the bus, then takes them one at a time: calib
 
 ## Step 7: Cameras
 
-Every camera the machine needs gets a card here. On a standard machine:
+There are three cards, one per camera, and each one needs a camera:
 
-| Area | Needed |
-|---|---|
-| C-Channel 2 | yes |
-| C-Channel 3 | yes |
-| Carousel, or Classification C-Channel (C4) | yes |
-| Classification Top | optional |
-| Classification Bottom | optional |
+- **C-channel 2**
+- **C-channel 3**
+- **Classification C-channel (C4)**
 
 For each card, pick a camera from the dropdown. The card then shows what that camera sees, so you can tell them apart. Both a channel's drop zone and its exit should be visible in the frame. If they are not, you may need to move the camera lamp to a different dovetail on its C-channel. One camera can serve more than one area if its view covers both.
 
@@ -251,7 +228,7 @@ On all C-Channels, set **Pixel Format** to MJPG.
 
 The camera's automatic settings should be enough for everything else, and manual settings are there if you need them. Click **Confirm**.
 
-Press **Save Camera Setup** when every required area has a camera.
+Press **Save the cameras** when every card has a camera.
 
 ## Step 8: Hive
 

@@ -35,14 +35,14 @@ The chute is the stack in the middle of the bins. It turns as one piece to face 
   <figure><img src="https://assets.basically.website/sorter-docs/chute-calibration-sections-full-97422dc47536.png" alt="Two top-down diagrams of one layer each, the chute in the middle and a column at each corner of the hexagonal frame. On the half-size layer one section, between two neighbouring columns, is shaded and holds 2 bins; on the third-size layer the same section holds 3 bins."><figcaption>From above: one section shaded on each layer size. <cite>Diagram. Render: Balloon.</cite></figcaption></figure>
 </div>
 
-Open **Settings**, then **Chute** (under **Hardware** in the left sidebar), then its **Chute aiming** tab.
-
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>Every step on this page turns the chute. Keep your hands out of the bins while it moves.</p>
 </div>
 
 ## 1. Home the chute
+
+Open **Settings**, then **Chute** (under **Hardware** in the left sidebar), then its **Chute aiming** tab. Every step on this page is on that tab.
 
 Watch the chute from above, then press **Home the chute**.
 

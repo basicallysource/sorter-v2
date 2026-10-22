@@ -48,6 +48,8 @@ Watch the chute from above, then press **Home the chute**.
 
 **It should turn counter-clockwise** until it reaches its home switch. That point becomes 0&deg;. Then it turns back clockwise and stops at about the first bin, the one you aim at in step 2. From home, the chute always turns clockwise to reach the bins.
 
+The switch is on the far side of the machine, above the PSU: the hammer on the back of the chute presses it. So at home, the chute itself points at the section to the left of the control board.
+
 **If it turns clockwise instead,** press **Cancel**. Every bin would come out the same distance off, and no calibration fixes that. Reverse it: on **Settings → Chute**, tick **Invert the direction** under **Driver settings** and press **Apply the driver settings**. Then come back and home again.
 
 Wait for **Homed.** next to the button.
@@ -56,14 +58,14 @@ Wait for **Homed.** next to the button.
 
 ## 2. Aim at the first bin of the first section
 
-**Use the first section clockwise from home**, on a third-size layer. A capture in any other section puts every bin in the wrong place. A half-size layer, with 2 bins a section, is not enough.
+**Use the first section clockwise from home**, the section to the left of the control board, on a third-size layer. A capture in any other section puts every bin in the wrong place. A half-size layer, with 2 bins a section, is not enough.
 
 Set **Bins in this section** to 3. The page says more is more accurate, but the number must match the one section you measure. Do not measure across two sections.
 
 **The first bin is the one the chute reaches first as it turns clockwise from home.** First and last do not mean left and right. Capturing them the wrong way round is refused.
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/chute-calibration-first-section-aim-full-6072118ccff1.png" alt="Top-down diagram of a third-size layer: the chute in the middle, the home switch beside the column at the top, the first section clockwise from it shaded with its bins numbered 1, 2 and 3, a green arrow from the chute into the middle of bin 1, and a dashed blue arrow turning clockwise past bin 2 to bin 3"><figcaption>Step 2 aims into bin 1. Step 3 jogs clockwise, past bin 2, to bin 3. <cite>Diagram. Render: Balloon.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/chute-calibration-first-section-aim-full-87d0722c4b6e.png" alt="Top-down diagram of a third-size layer: the chute in the middle, its home direction at the column at the top, the home switch on the far side above the PSU, and the first section clockwise from home, left of the control board, shaded with its bins numbered 1, 2 and 3. A green arrow goes from the chute into the middle of bin 1, and a dashed blue arrow turns clockwise past bin 2 to bin 3."><figcaption>Step 2 aims into bin 1. Step 3 jogs clockwise, past bin 2, to bin 3. <cite>Diagram. Render: Balloon.</cite></figcaption></figure>
 </div>
 
 Jog the chute until it points at the middle of the first bin:

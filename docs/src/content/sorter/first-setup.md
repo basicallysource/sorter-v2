@@ -151,7 +151,7 @@ The chute has a sensor at its home position. Here you check that the machine rea
 </ol>
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step5-chute-homing-direction-full-5a036623450e.png" alt="Top-down diagram of the machine: the chute in the middle of a ring of bins, the home switch above it, a green arrow turning counter-clockwise from the chute's current position to the switch and reaching it from the right, and a crossed-out red arrow turning clockwise"><figcaption>Which way the chute should turn when it finds the endstop, seen from above. <cite>Diagram. Render: Balloon.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step5-chute-homing-direction-full-98b90169e207.png" alt="Top-down diagram of the machine: the chute in the middle of a ring of bins, its opening on one side and the hammer on the other. The home switch, above the PSU, sits ahead of the hammer. A green arrow takes the hammer counter-clockwise to the switch, reaching it from its clockwise side; a crossed-out red arrow turns clockwise."><figcaption>Which way the chute should turn when it finds the endstop, seen from above. The hammer on the back of the chute presses the switch, so at home the chute's opening points the other way. <cite>Diagram. Render: Balloon.</cite></figcaption></figure>
 </div>
 
 **Stop the motion** halts the chute at once. **Show the wiring** shows which header on the control board the endstop plugs into.

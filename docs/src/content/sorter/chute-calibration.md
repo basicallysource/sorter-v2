@@ -42,7 +42,7 @@ The chute is the stack in the middle of the bins. It turns as one piece to face 
 
 ## 1. Home the chute
 
-Open **Settings**, then **Chute** (under **Hardware** in the left sidebar), then its **Chute aiming** tab. Every step on this page is on that tab.
+Open **Settings**, then **Chute** (under **Hardware** in the left sidebar), then its **Chute aiming** tab. Steps 1 to 5 all happen on that tab.
 
 Watch the chute from above, then press **Home the chute**.
 

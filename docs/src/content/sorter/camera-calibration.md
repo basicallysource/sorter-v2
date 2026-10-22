@@ -42,7 +42,7 @@ This preview isn't sized to print, it's just scaled to fit the column. Click it 
 Do this for every camera on the machine, one at a time. Some steps happen at the machine and some in the UI, and each step says which.
 
 <ol class="numbered-steps">
-  <li><strong>At the machine:</strong> lay the Siemens Star flat where that camera looks at parts. On a channel camera that is the <strong>rotor</strong>, the part the pieces ride on, at the point where the camera sees them. On a machine with a classification chamber it is the chamber tray, centred where parts sit.</li>
+  <li><strong>At the machine:</strong> lay the Siemens Star flat on that channel's <strong>rotor</strong>, the part the pieces ride on, at the point where the camera sees them.</li>
   <li><strong>In the UI:</strong> open <strong>Settings</strong>, and under <strong>Hardware</strong> pick that camera's channel: <strong>C-channel 2</strong>, <strong>C-channel 3</strong> or <strong>Classification channel</strong>. The live view shows the star.</li>
   <li><strong>In the UI:</strong> check that the channel's lamp is on, so you focus in the same light the camera sorts in. If it is off, press <strong>LED</strong> on the same page and pick its <strong>Output</strong>.</li>
   <li><strong>At the camera:</strong> loosen the lens lock ring and turn the lens until the <strong>centre spokes resolve sharply</strong> in the live view, the point where the individual black and white wedges stay separate all the way in to the middle. It is possible to turn too far and lose it again. Keep your hand where the camera can still see the star, so you can watch it on screen while you turn.</li>
@@ -68,6 +68,8 @@ Every camera on the machine sharp, with the centre of the star resolving cleanly
 <div class="img-row">
   <figure><img src="https://assets.basically.website/sorter-docs/siemens-star-focus-live-view-full-e4a416d7d9ef.png" alt="The classification channel camera's live view in Settings, with the Siemens Star on the rotor and its spokes separate all the way to the centre"><figcaption>The classification channel camera in focus, with the star's spokes separate in to the middle. <cite>Screenshot courtesy of BrickCycleAlice.</cite></figcaption></figure>
 </div>
+
+Finer camera tuning can be done during operation: open **Settings**, pick the channel under **Hardware** and press **Picture**. Its **Manual settings** hold the camera's own controls, such as exposure.
 
 ## Next
 

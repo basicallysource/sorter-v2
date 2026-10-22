@@ -80,7 +80,7 @@ Press **Capture the first bin**. The angle appears next to the button.
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/chute-calibration-step2-first-bin-w1600-e100bf1a3b6f.jpg" alt="Step 2 of the calibration, with the jog pad showing 16.88 degrees, a bin count of 3 selected, and the Capture first bin button">
+    <img src="https://assets.basically.website/sorter-docs/chute-calibration-step2-first-bin-full-a33d44409ff8.jpg" alt="Step 2 of the calibration, saying pick any layer with more than 2 bins, with the jog pad showing 16.88 degrees, a bin count of 3 selected, and the Capture first bin button">
     <figcaption>Jog to the middle of the bin, set the bin count, then capture. <cite>UI screenshot. Render: Balloon.</cite></figcaption>
   </figure>
 </div>

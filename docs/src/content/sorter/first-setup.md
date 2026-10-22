@@ -146,9 +146,13 @@ The chute has a sensor at its home position. Here you check that the machine rea
 <ol class="numbered-steps">
   <li>Trigger the chute's endstop by hand. The <strong>Chute endstop</strong> row should read <strong>Triggered</strong>.</li>
   <li>If it stays <strong>Not triggered</strong>, press <strong>Flip the polarity</strong> and trigger it again.</li>
-  <li>Press <strong>Find the chute endstop</strong>. The chute turns until it finds its sensor and stops. Seen from above, it should turn counter-clockwise, so it reaches the sensor from the clockwise side. If it runs the other way, press <strong>Flip the direction</strong> and try again.</li>
+  <li>Press <strong>Find the chute endstop</strong>. The chute turns until it finds its sensor and stops. Seen from above, it should turn counter-clockwise, so it reaches the sensor from the clockwise side. If it runs the other way, press <strong>Stop the motion</strong>, then <strong>Flip the direction</strong>, and try again.</li>
   <li>Press <strong>Chute endstop and geometry look correct</strong>.</li>
 </ol>
+
+<div class="img-row">
+  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step5-chute-homing-direction-full-5a036623450e.png" alt="Top-down diagram of the machine: the chute in the middle of a ring of bins, the home switch above it, a green arrow turning counter-clockwise from the chute's current position to the switch and reaching it from the right, and a crossed-out red arrow turning clockwise"><figcaption>Which way the chute should turn when it finds the endstop, seen from above. <cite>Diagram. Render: Balloon.</cite></figcaption></figure>
+</div>
 
 **Stop the motion** halts the chute at once. **Show the wiring** shows which header on the control board the endstop plugs into.
 

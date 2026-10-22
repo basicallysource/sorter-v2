@@ -7,6 +7,7 @@ slug: helper-door-servo-coupling
 kicker: Helpers — Coupling a chute door
 lede: Fitting the servo adapter between a chute door and its MG995, with the servo at 0° and the door fully open. Done at first setup, once per layer.
 permalink: /hardware/helpers/door-servo-coupling/
+og_image: https://assets.basically.website/sorter-docs/chute-v3-door-module-coupled-servo-side-full-ab81e16a36f1.png
 author: brickcyclealice
 contributors: [daddyosbricksbill]
 tools_needed: ["Hex key, 2 mm", Small Phillips screwdriver]
@@ -38,6 +39,9 @@ Never turn the door by hand once it is coupled. Move it only with the arrows.
 
 Every layer's door coupled, its bracket bolted on, and the layer reading **Calibrated** in the flap panel with open at or just above 0&deg;.
 
-<div class="img-placeholder">Photo of a coupled door module on a built machine, from the servo side: the bracket bolted to the core, the servo adapter between the bracket and the bearing cover, and the horn's centre screw visible in the hex socket.</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-module-coupled-servo-side-full-ab81e16a36f1.png" alt="Render of a door module on its chute core seen from the servo side: the blue servo bracket on the long wall, the pink and purple servo adapter between the bracket and the bearing cover, the purple race under the opening and the orange door lying open inside it">
+  <figcaption>A coupled module from the servo side, door open. The servo itself has no model, so the bracket shows empty. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
 
 Back to [first setup, step 6]({{ '/sorter/first-setup/' | relative_url }}#step-6-servo-configuration).

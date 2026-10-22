@@ -151,7 +151,7 @@ The chute has a sensor at its home position. Here you check that the machine rea
 </ol>
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step5-chute-homing-direction-full-98b90169e207.png" alt="Top-down diagram of the machine: the chute in the middle of a ring of bins, its opening on one side and the hammer on the other. The home switch, above the PSU, sits ahead of the hammer. A green arrow takes the hammer counter-clockwise to the switch, reaching it from its clockwise side; a crossed-out red arrow turns clockwise."><figcaption>Which way the chute should turn when it finds the endstop, seen from above. The hammer on the back of the chute presses the switch, so at home the chute's opening points the other way. <cite>Diagram. Render: Balloon.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step5-chute-homing-direction-full-b77a67a68ff7.png" alt="Top-down diagram of the machine: the chute in the middle of a ring of bins, its funnel on one side and a hammer-shaped tab on the other. A green arrow takes the funnel counter-clockwise to where it ends at home, a dashed outline at the section left of the control board, while the hammer turns counter-clockwise to the home switch above the PSU. A crossed-out red arrow off the funnel turns clockwise."><figcaption>Which way the chute should turn when it finds the endstop, seen from above. Watch the funnel: the hammer on the far side of the chute is what presses the switch. <cite>Diagram. Render: Balloon.</cite></figcaption></figure>
 </div>
 
 **Stop the motion** halts the chute at once. **Show the wiring** shows which header on the control board the endstop plugs into.

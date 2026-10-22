@@ -28,7 +28,11 @@ The chute is the stack in the middle of the bins. It turns as one piece to face 
 **A section is the bins between two of the frame's upright columns, on one layer.** There are six sections per layer, with 2 bins each on a half-size layer and 3 on a third-size one.
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/chute-calibration-sections-full-97422dc47536.png" alt="Two top-down diagrams of one layer each, the chute in the middle and a column at each corner of the hexagonal frame. On the half-size layer one section, between two neighbouring columns, is shaded and holds 2 bins; on the third-size layer the same section holds 3 bins."><figcaption>One section shaded on each layer size. <cite>Diagram. Render: Balloon.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/chute-calibration-sections-front-full-a1bb34517965.png" alt="The machine seen from the front at eye level: four upright columns, three layers of bins on shelves between them, the face square-on in the middle and the faces either side at an angle. On the middle layer the three bins between the two middle columns are shaded and bracketed as 1 section. The top two layers are third-size with 3 bins a section, the bottom layer half-size with 2."><figcaption>From the front: one section is the bins between two neighbouring columns, on one layer. <cite>Diagram. Render: Balloon.</cite></figcaption></figure>
+</div>
+
+<div class="img-row">
+  <figure><img src="https://assets.basically.website/sorter-docs/chute-calibration-sections-full-97422dc47536.png" alt="Two top-down diagrams of one layer each, the chute in the middle and a column at each corner of the hexagonal frame. On the half-size layer one section, between two neighbouring columns, is shaded and holds 2 bins; on the third-size layer the same section holds 3 bins."><figcaption>From above: one section shaded on each layer size. <cite>Diagram. Render: Balloon.</cite></figcaption></figure>
 </div>
 
 Open **Settings**, then **Chute** (under **Hardware** in the left sidebar), then its **Chute aiming** tab.

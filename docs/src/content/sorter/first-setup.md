@@ -166,7 +166,7 @@ On the standard control board the servos run from the board itself. The step say
 <ol class="numbered-steps">
   <li>Press <strong>Add a layer</strong> once for each layer, and set each layer's <strong>Bins</strong> to the bins fitted on it.</li>
   <li>Turn on <strong>Advanced</strong>, beside <strong>Add a layer</strong>. Each layer's <strong>Channel</strong> box only shows while it is on. Pick the servo channel that layer's flap is plugged into.</li>
-  <li>Press <strong>Save the layers</strong>, then home the machine. A flap cannot move until its layer is saved and the machine has homed since.</li>
+  <li>Press <strong>Save the layers</strong>, then home the machine: the <strong>⋯</strong> menu at the top right, then <strong>Home</strong> (<strong>Re-home</strong> if it has homed before). A flap cannot move until its layer is saved and the machine has homed since.</li>
   <li>For each layer, move the flap with the arrows until it lies flat in the chute wall, then press <strong>Lock open</strong>. Then move it until it crosses the chute and nothing can fall past, and press <strong>Lock closed</strong>. The layer reads <strong>Calibrated</strong> once both are locked.</li>
 </ol>
 

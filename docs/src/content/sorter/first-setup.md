@@ -168,7 +168,7 @@ On the standard control board the servos run from the board itself. The step say
   <li>For each layer, move the flap with the arrows until it lies flat in the chute wall, then press <strong>Lock open</strong>. Then move it until it crosses the chute and nothing can fall past, and press <strong>Lock closed</strong>. The layer reads <strong>Calibrated</strong> once both are locked.</li>
 </ol>
 
-**You need a torch** to see the flaps inside the chute.
+**You need a torch** to see the flaps inside the chute. It is easier with one section opened up: in the section the chute points at, lift out the bins and slide each layer's funnel off its brackets. Neither is screwed in. Then shine the torch in at the flaps. Afterwards, slide each funnel back until it meets the core and push every bin fully back into its bay.
 
 **Never turn a flap by hand.** The servo's gearbox barely turns backwards, so forcing a flap rounds off the teeth inside the horn, or breaks the servo so that it spins freely. Move it only with the arrows.
 

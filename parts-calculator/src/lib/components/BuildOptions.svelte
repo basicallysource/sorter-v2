@@ -5,7 +5,7 @@
 	// alternatives). Print bins is the one page-owned setting, so a page that
 	// has it passes `printBins`, and a page that does not leaves it out and the
 	// toggle is not shown.
-	import { PARTS, COLOR_ROLES } from '$lib/filament';
+	import { PARTS, COLOR_ROLES, machineHeight, feetInches, LAYER_PITCH_MM } from '$lib/filament';
 	import { getBambuColor } from '$lib/bambu-colors';
 	import { layerStore, addLayer as addLayerStore, removeLayerAt, setSize, setSizes } from '$lib/layers.svelte';
 	import { colorStore, resetRoleColors } from '$lib/colors.svelte';
@@ -29,6 +29,7 @@
 
 	const funnelSizes = $derived(layerStore.sizes);
 	const layers = $derived(funnelSizes.length);
+	const height = $derived(machineHeight(layers));
 	const roleColors = $derived(colorStore.roles);
 	const partsById = new Map(PARTS.map((p) => [p.id, p]));
 	const render = (id: string) => partsById.get(id)?.render ?? '';
@@ -43,6 +44,7 @@
 		[
 			`${layers} layer${layers === 1 ? '' : 's'}`,
 			`${funnelSizes.map((sz) => (sz === 'half' ? '12' : '18')).join('/')} bins`,
+			`${(height.bucket / 1000).toFixed(2)} m tall`,
 			...(printBins === undefined ? [] : [printBins ? 'bins included' : 'bins not printed']),
 			COLOR_ROLES.map((r) => getBambuColor(roleColors[r.id])?.name ?? roleColors[r.id]).join(', ')
 		].join('  ·  ')
@@ -110,6 +112,16 @@
 				</label>
 			{/if}
 		</div>
+		<p class="mb-3 flex items-center gap-1.5 text-sm text-text-muted">
+			<span><b class="text-text">{height.bucket} mm</b> ({feetInches(height.bucket)}) tall to the top of the bulk bucket, {height.plate} mm ({feetInches(height.plate)}) to the top plate.</span>
+			<Popover width="18rem" label="About the machine height">
+				Floor to the top, standing on its casters. Each layer adds {LAYER_PITCH_MM} mm ({(LAYER_PITCH_MM / 25.4).toFixed(1)} in).
+				<span class="mt-2 block border-t border-border pt-2">
+					The bulk bucket is the highest point and it is where you pour the LEGO in, so measure your
+					space against that figure, and check you can reach into it.
+				</span>
+			</Popover>
+		</p>
 		<div class="flex flex-col gap-2">
 			{#each funnelSizes as size, i (i)}
 				{@const pv = sizePreview[size]}

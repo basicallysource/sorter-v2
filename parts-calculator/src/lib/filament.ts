@@ -1192,6 +1192,22 @@ export function buyList(
 export function grams(n: number): string {
 	return n >= 1000 ? `${(n / 1000).toFixed(2)} kg` : `${Math.round(n)} g`;
 }
+
+/** How tall the machine stands, in mm, on its casters. Measured on a finished
+ *  5 layer machine: 1270 to the top plate, 1772 to the top of the bulk bucket.
+ *  Each layer is one C vertical, 160 mm, whatever its bin size; the bucket and
+ *  feeder stand on the top plate, so their 502 mm does not scale. The docs
+ *  Overview page quotes the same figures. */
+export const LAYER_PITCH_MM = 160;
+export function machineHeight(layers: number): { plate: number; bucket: number } {
+	const plate = 1270 + (layers - 5) * LAYER_PITCH_MM;
+	return { plate, bucket: plate + 502 };
+}
+/** 1270 -> "4 ft 2 in", to the nearest inch, for planning a room. */
+export function feetInches(mm: number): string {
+	const inches = Math.round(mm / 25.4);
+	return `${Math.floor(inches / 12)} ft ${inches % 12} in`;
+}
 export function money(n: number): string {
 	return `$${n.toFixed(2)}`;
 }

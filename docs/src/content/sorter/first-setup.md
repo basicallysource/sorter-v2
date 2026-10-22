@@ -149,7 +149,7 @@ The chute has a sensor at its home position. Here you check that the machine rea
 <ol class="numbered-steps">
   <li>Trigger the chute's endstop by hand. The <strong>Chute endstop</strong> row should read <strong>Triggered</strong>.</li>
   <li>If it stays <strong>Not triggered</strong>, press <strong>Flip the polarity</strong> and trigger it again.</li>
-  <li>Press <strong>Find the chute endstop</strong>. The chute turns until it finds its sensor and stops. If it runs the wrong way, press <strong>Flip the direction</strong> and try again.</li>
+  <li>Press <strong>Find the chute endstop</strong>. The chute turns until it finds its sensor and stops. Seen from above, it should turn counter-clockwise, so it reaches the sensor from the clockwise side. If it runs the other way, press <strong>Flip the direction</strong> and try again.</li>
   <li>Press <strong>Chute endstop and geometry look correct</strong>.</li>
 </ol>
 
@@ -159,11 +159,24 @@ Leave **First bin center** and **Pillar width** at the values already in the fie
 
 ## Step 6: Servo configuration
 
-The bin doors are driven by servos on one bus, and each servo has to be told which storage layer it belongs to.
+Each storage layer has a flap in the chute, driven by a servo. Closed, the flap crosses the chute and pieces slide into that layer's bins. Open, it lies flat in the chute wall and pieces fall past to the layers below.
 
-The wizard discovers the servos on the bus, then takes them one at a time: calibrate the door, assign it to a layer, move to the next. Work up the machine in the order that suits you, but give every layer a servo.
+On the standard control board the servos run from the board itself. The step says **No Waveshare servo bus found, so a PCA9685 on a control board is assumed**, and shows the same flap panel as **Settings → Storage layers**.
 
-**Continue** is blocked with "Configure servos before continuing" until the assignment is complete. When it is, press **Servo setup looks correct**.
+<ol class="numbered-steps">
+  <li>Press <strong>Add a layer</strong> once for each layer, and set each layer's <strong>Bins</strong> to the bins fitted on it.</li>
+  <li>Turn on <strong>Advanced</strong>, beside <strong>Add a layer</strong>. Each layer's <strong>Channel</strong> box only shows while it is on. Pick the servo channel that layer's flap is plugged into.</li>
+  <li>Press <strong>Save the layers</strong>, then home the machine. A flap cannot move until its layer is saved and the machine has homed since.</li>
+  <li>For each layer, move the flap with the arrows until it lies flat in the chute wall, then press <strong>Lock open</strong>. Then move it until it crosses the chute and nothing can fall past, and press <strong>Lock closed</strong>. The layer reads <strong>Calibrated</strong> once both are locked.</li>
+</ol>
+
+**You need a torch** to see the flaps inside the chute.
+
+**Watch the flap, not the arrows.** One arrow moves it towards a lower angle and the other towards a higher one, and which of those opens it depends on how its servo sits.
+
+**A clicking noise means you have gone too far.** Step back the other way until it stops, then lock the angle there.
+
+**Continue** is blocked with "Configure servos before continuing" until the servos are set up. When every layer is calibrated, press **Servo setup looks correct**.
 
 ## Step 7: Cameras
 

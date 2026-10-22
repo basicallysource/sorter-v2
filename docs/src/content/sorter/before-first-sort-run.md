@@ -32,9 +32,9 @@ It has to match the machine you built. If it is wrong, change it here before you
 
 ## 2. Set the storage layers
 
-Open **Settings** &rarr; **Storage Layers**. Each layer needs four things: switched on, its number of sections, the number of bins in a section, and the servo that opens its doors.
+Open **Settings** &rarr; **Storage layers**. Each layer needs its **Bins** count and a flap that reads **Calibrated**.
 
-The setup wizard assigned the servos, and you set the counts at [chute calibration]({{ '/sorter/chute-calibration/' | relative_url }}). This is the check: if your chute test aim landed centred every time, the counts are already right.
+The setup wizard calibrated the flaps, and you set the counts at [chute calibration]({{ '/sorter/chute-calibration/' | relative_url }}). This is the check: if your chute test aim landed centred every time, the counts are already right.
 
 ## 3. Check the detection model
 
@@ -68,7 +68,7 @@ You need no account and no key for this. The **OpenRouter** key on the Settings 
 
 ## Home the chute before every run
 
-The aiming is saved. The homing is not. Home the chute from **Settings** &rarr; **Chute** &rarr; **Home to Endstop** before each run, and again after any stall. Until it is homed, the aiming numbers mean nothing.
+The aiming is saved. The homing is not. Home the chute from **Settings** &rarr; **Chute** &rarr; **Home to the endstop** before each run, and again after any stall. Until it is homed, the aiming numbers mean nothing.
 
 ## The finished result
 

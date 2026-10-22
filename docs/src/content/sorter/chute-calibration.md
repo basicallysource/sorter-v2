@@ -7,6 +7,10 @@ slug: sorter-chute-calibration
 kicker: SorterOS — Operate
 lede: Home the chute, teach it where the bins are, and test every bin it can reach. Do this once on a new machine, after the cameras are focused.
 permalink: /sorter/chute-calibration/
+warning: >-
+  **SorterOS changes quickly.** This page describes what each step does, but a
+  button's name, or where it is, may have changed since this page was written,
+  so it keeps screenshots to a minimum.
 last_verified: 2026-09-18
 ---
 
@@ -21,11 +25,13 @@ It takes about fifteen minutes. Everything happens in **Settings**, and nothing 
 - Nothing is resting in the chute.
 - You can stand where you can see one whole section of bins.
 
-**A section is one bay of bins on one layer.** There are six bays around the hexagon, so six sections per layer, each holding two or three bins depending on that layer's size.
+**A section is one bay of bins on one layer: the bins between two of the tower's vertical columns.** There are six bays around the hexagon, so six sections per layer, each holding two or three bins depending on that layer's size.
 
-**Set the bin count for each layer first**, in **Settings → Storage Layers**: switch the layer on, and give it its number of sections and its number of bins in a section. The chute aims from those numbers, so a wrong count sends pieces to the wrong bin.
+**Set the bin count for each layer first**, in **Settings → Storage layers** (under **Hardware** in the left sidebar): set **Bins** to how many bins sit around the chute on that layer, 12 on a half-size layer and 18 on a third-size one. The chute aims from those numbers, so a wrong count sends pieces to the wrong bin.
 
-Open **Settings → Chute Aiming** from the left sidebar. The top of the page shows the numbers the machine aims with today. Calibration replaces them.
+**Check which way the chute homes.** Seen from above, the chute turns counter-clockwise to find home, so it reaches the home switch from the clockwise side, and from home it turns clockwise to reach the bins. If yours homes the other way, every bin comes out the same distance off and no calibration fixes it. Flip it with **Flip the direction** in [step 5 of the setup wizard]({{ '/sorter/first-setup/' | relative_url }}#step-5-chute-endstop-and-geometry), or tick **Invert the direction** under **Driver settings** on **Settings → Chute** and save. Then start this page from step 1.
+
+Open **Settings → Chute**, then its **Chute aiming** tab. Chute is under **Hardware** in the left sidebar. The top of the page shows the numbers the machine aims with today. Calibration replaces them.
 
 <div class="img-row">
   <figure>
@@ -41,9 +47,9 @@ Open **Settings → Chute Aiming** from the left sidebar. The top of the page sh
 
 ## 1. Home the chute
 
-Press **Home chute**. The chute turns slowly until it reaches its home switch. That point becomes 0&deg;.
+Press **Home the chute**. The chute turns slowly until it reaches its home switch. That point becomes 0&deg;.
 
-Wait for the step to turn green and read **Homed**. **Endstop** changes to `triggered`.
+Wait for the step to turn green and read **Homed.** **Endstop** changes to **Triggered**.
 
 If the wrong motor starts to move, press **Cancel**.
 
@@ -54,11 +60,11 @@ If the wrong motor starts to move, press **Cancel**.
   </figure>
 </div>
 
-## 2. Aim at the first bin of a section
+## 2. Aim at the first bin of the first section
 
-Pick one section on one layer that you can see all of. A section with 3 or 5 bins gives the best result. A section with 2 bins is not enough.
+**Use the first section the chute reaches from home**, not any section. The machine works out where every other bin is from this one, and it counts from the first section, so a capture in a later section puts every bin in the wrong place. Any layer works, as long as its sections have more than 2 bins: a third-size layer, with 3 bins a section, is the usual choice.
 
-Set **Bins in this section** to the number of bins in the section you picked.
+Set **Bins in this section** to the number of bins in that one section, 3 on a third-size layer. The control offers up to 6 and says more is more accurate, but the number must match the section you measure. Do not measure across two sections to get a higher count.
 
 Now jog the chute until it points at the middle of the first bin of that section:
 
@@ -66,7 +72,7 @@ Now jog the chute until it points at the middle of the first bin of that section
 - **&uarr;** and **&darr;** move 0.25&deg;.
 - The arrow keys on your keyboard do the same, and repeat if you hold them.
 
-Press **Capture first bin**. The captured angle appears next to the button.
+Press **Capture the first bin**. The captured angle appears next to the button.
 
 <div class="img-row">
   <figure>
@@ -84,7 +90,7 @@ Press **Capture first bin**. The captured angle appears next to the button.
 
 Jog to the middle of the last bin of that same section. Do not change the layer or the section.
 
-Press **Capture last bin**.
+Press **Capture the last bin**.
 
 <div class="img-row">
   <figure>
@@ -97,7 +103,7 @@ Press **Capture last bin**.
 
 The page works out the section width and the offset from home from your two captures, and shows them.
 
-Type a label if you want to recognise this calibration later. Press **Derive & lock in**.
+Type a label if you want to recognise this calibration later. Press **Work it out and lock it in**.
 
 <div class="img-row">
   <figure>
@@ -106,11 +112,11 @@ Type a label if you want to recognise this calibration later. Press **Derive & l
   </figure>
 </div>
 
-The calibration is saved at the bottom of the page and marked **ACTIVE**. Old calibrations stay in that list. To return to one, press **Lock in** on its row.
+The calibration is saved under **Saved calibrations** and marked **Active**. Old calibrations stay in that list. To return to one, press **Lock in** on its row.
 
 ## 5. Test the range of motion
 
-Scroll down to **Reachable bins by layer size**. Each circle is one layer layout, from 1 bin per section up to 5, and each small ring on it is one bin.
+Scroll down to **Reachable bins by layout**. Each circle is one layer layout, from 1 bin per section up to 5, and each small ring on it is one bin.
 
 Click a bin that is not crossed out, then press **Test aim at this bin**. The chute turns to it. Watch the machine: the chute should stop centred over the bin you clicked.
 
@@ -138,7 +144,7 @@ If a bin is not centred, run steps 1 to 4 again and take the two captures as car
   </figure>
 </div>
 
-Homing is on that page too, under **Homing**, so you can re-home without opening the calibration. **Cancel Homing** stops every stepper.
+Homing is on that page too, **Home to the endstop**, so you can re-home without opening the calibration. **Cancel** stops it.
 
 <div class="img-row">
   <figure>
@@ -147,7 +153,7 @@ Homing is on that page too, under **Homing**, so you can re-home without opening
   </figure>
 </div>
 
-If the chute jammed, the page shows a red stall message. Clear the jam by hand, press **Clear stall**, then home the chute again. A stall throws away the home reference, so the aim means nothing until you re-home.
+If the chute jammed, the page shows a red stall message. Clear the jam by hand, press **Clear the stall**, then home the chute again. A stall throws away the home reference, so the aim means nothing until you re-home.
 
 ## Run this again when
 
@@ -158,7 +164,7 @@ If the chute jammed, the page shows a red stall message. Clear the jam by hand, 
 
 ## The finished result
 
-One calibration saved and marked **ACTIVE**, and a test aim landing the chute centred over every bin you tried.
+One calibration saved and marked **Active**, and a test aim landing the chute centred over every bin you tried.
 
 <div class="img-row">
   <figure>

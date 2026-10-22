@@ -119,6 +119,8 @@ sections:
             url: /hardware/helpers/pulley-gear-mod/
           - title: Soldering Pico headers
             url: /hardware/helpers/pico-headers/
+          - title: Coupling a chute door to its servo
+            url: /hardware/helpers/door-servo-coupling/
           - title: Preparing the 3D printed cable cage plates
             url: /hardware/helpers/cable-cage-plates/
           - title: Preparing the LED strips (LED2a to LED4a, LED2 to LED4)

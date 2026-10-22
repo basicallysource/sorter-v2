@@ -9,6 +9,7 @@ slug: sorter-first-setup
 kicker: SorterOS — Operate
 lede: The setup wizard step by step, from opening the machine's UI in a browser to a machine ready for its first sort run.
 permalink: /sorter/first-setup/
+og_image: https://assets.basically.website/sorter-docs/sorter-dashboard-ready-brickcycle-w1600-ac437d39209c.jpg
 warning: >-
   **AI-generated first draft.** Written from the SorterOS UI's own source and from
   the UI running here, not from setting up a real machine. The screenshots are of
@@ -43,6 +44,8 @@ Type the machine's address into your browser. Which address depends on how you i
 
 If you gave the machine a different hostname during the install, use that name instead of `sorter`. If no `.local` address answers, use the machine's IP address from your router.
 
+**Type the `http://` part.** The machine only answers on `http`. Some browsers change the address to `https://` by themselves, and then the page does not load. Check the address bar for an extra `s`, and remove it.
+
 There is nothing to log into. The machine UI has no account and no password, so anyone on your network who opens the address sees the same screens you do. The only sign-in on this page is Hive, in step 8, and that is optional.
 
 The first time you open the UI it opens the setup wizard.
@@ -52,6 +55,21 @@ The first time you open the UI it opens the setup wizard.
 </div>
 
 If the page does not appear at all, or it appears and every button fails, see [SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}).
+
+## Update the software first
+
+The software changes often, so the version on a new machine can be weeks old. Update it before you start the wizard.
+
+<ol class="numbered-steps">
+  <li>Open <strong>Settings</strong>, then <strong>Versions</strong>.</li>
+  <li>Press <strong>Check for updates</strong>, at the top of the <strong>This machine</strong> panel.</li>
+  <li>Read the bottom of that panel. If it says <strong>Up to date.</strong>, there is nothing to do. If it says <strong>A new version is out</strong>, press <strong>Update</strong>.</li>
+  <li>Wait. The machine gets the new version, builds it and restarts, which takes a few minutes. If the page goes blank, wait five minutes, then reload it.</li>
+</ol>
+
+The same panel says which version you are on: **Channel** is the release the machine follows, and **Commit** and **Made** are the version and its date. Give all three when you ask for help.
+
+**Stable or canary.** The **Release channels** panel lists both. **Stable** is the tested release. **Canary** is newer and less tested. Stay on stable unless a fix you need is only on canary. Switching keeps your settings and data, but once you are on canary you cannot switch back to stable until stable catches up.
 
 ## Tell the machine which build it is
 
@@ -75,7 +93,7 @@ The choice is saved on the machine and decides what the wizard asks you in steps
 - **Continue** at the bottom takes you to the next step. When it is greyed out, the line beside it says what is still missing.
 - A step stays locked until the steps before it are done.
 - You can close the browser and come back. The wizard remembers how far you got on this machine.
-- After you finish, reopen it any time from **Settings** → **Setup Wizard** → **Open Setup Wizard**.
+- After you finish, reopen it any time from **Settings** → **General** → **Open the setup wizard**, or add `/setup` to the machine's address (`http://sorter.local/setup`).
 
 ## Step 1: Machine identity
 
@@ -249,9 +267,11 @@ Press **Open Dashboard**. The wizard is done.
 
 ## The finished result
 
-The dashboard, with every camera live and the machine in standby.
+The dashboard, with every camera live and its zones drawn, the machine's name at the top, and **Ready** beside it. Nothing has been sorted yet, so **Recent pieces** is empty.
 
-<div class="img-placeholder">Screenshot of the SorterOS dashboard straight after the wizard finishes: the camera tiles showing live views, the machine named, and no profile loaded yet.</div>
+<div class="img-row">
+  <figure><img src="https://assets.basically.website/sorter-docs/sorter-dashboard-ready-brickcycle-w1600-ac437d39209c.jpg" alt="The SorterOS dashboard after setup: C-channel 2, C-channel 3 and Classification channel tiles showing live views with their zones, the machine name and Ready at the top, and No pieces yet under Recent pieces"><figcaption>A machine set up and ready. The profile at the top right is picked later, at your first sort run. <cite>Screenshot courtesy of BrickCycleAlice.</cite></figcaption></figure>
+</div>
 
 ## Settings worth a look
 

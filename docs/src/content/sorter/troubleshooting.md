@@ -16,9 +16,9 @@ These are for [the SorterOS image]({{ '/sorter/installation/sorter-os/' | relati
 
 ### `sorter.local` doesn't open
 
-**Cause:** mDNS only works on the Pi's own network, older Windows needs Bonjour for it, and a second machine on the same network running the SorterOS image answers at `sorter-2.local`.
+**Cause:** The browser changed the address to `https://`, and the machine only answers on `http://`. This also stops the IP address from loading, even when your router lists the Pi. Otherwise: mDNS only works on the Pi's own network, older Windows needs Bonjour for it, and a second machine on the same network running the SorterOS image answers at `sorter-2.local`.
 
-**Fix:** Browse from a device on the same network, or find the Pi in your router's list of connected devices and use its IP address.
+**Fix:** Type the whole address, `http://sorter.local`, and check the address bar has not added an `s`. If it still doesn't open, browse from a device on the same network, or find the Pi in your router's list of connected devices and use its IP address, again starting with `http://`.
 
 **Verify:** The progress page or the SorterOS UI loads.
 
@@ -101,6 +101,16 @@ These are for [the SorterOS image]({{ '/sorter/installation/sorter-os/' | relati
 **Fix:** Read the `[backend]` lines in `./dev.sh`. The last line before the silence tells you which import failed. Fix that and restart.
 
 **Verify:** `curl -fsS http://localhost:8000/health` returns JSON.
+
+---
+
+## Setup wizard: you need to open it again
+
+**Cause:** The wizard only opens by itself the first time you open the UI. To get back to it, after flashing the control board or to redo a step such as the cameras, you open it yourself.
+
+**Fix:** Open **Settings** → **General** and press **Open the setup wizard**. Or add `/setup` to the machine's address: `http://sorter.local/setup`. The wizard remembers how far you got.
+
+**Verify:** The wizard's steps show along the top of the page.
 
 ---
 

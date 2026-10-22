@@ -123,14 +123,14 @@ The SorterOS UI open in a browser, with nothing set up on the machine yet.
 
 **Flash the control board before you open the setup wizard.** The wizard only lists boards that already answer on USB serial, so a board with no firmware on it does not appear and the wizard says `No MCU buses found`. [Flashing the control board]({{ '/sorter/' | relative_url }}#flash-the-control-board-before-the-wizard) has the route.
 
-Then set the machine up with the setup wizard: in the SorterOS UI, **Settings**, then **Open Setup Wizard**. [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) goes through it.
+Then set the machine up with the setup wizard: in the SorterOS UI, **Settings**, then **General**, then **Open the setup wizard**. [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) goes through it.
 
 ## Debugging
 
 - **No `SorterOS-Setup` network.** It only appears while the Pi is offline. On a cable with internet, the Pi is already online: go to step 5.
 - **The setup page didn't open.** Open [http://10.42.0.1](http://10.42.0.1) in Safari or Chrome while on the setup network.
 - **Your phone left the setup network during the join** (it can on a WiFi that's only 5 GHz). Join it again to see the result.
-- **`sorter.local` doesn't open.** Use the address the setup page showed. Older Windows needs [Bonjour](https://support.apple.com/en-us/106380), and Android usually can't open `.local` names. A second machine running the SorterOS image is `sorter-2.local`.
+- **`sorter.local` doesn't open.** Check the address starts with `http://`, not `https://`: the machine doesn't answer on `https`, and some browsers add the `s` by themselves. Use the address the setup page showed. Older Windows needs [Bonjour](https://support.apple.com/en-us/106380), and Android usually can't open `.local` names. A second machine running the SorterOS image is `sorter-2.local`.
 - **Office or school WiFi** that asks for a username as well as a password can't be set up this way. Use Ethernet.
 
 More in [troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}#first-boot).

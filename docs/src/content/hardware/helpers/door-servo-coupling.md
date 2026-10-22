@@ -9,7 +9,6 @@ lede: Fitting the servo adapter between a chute door and its MG995, with the ser
 permalink: /hardware/helpers/door-servo-coupling/
 og_image: https://assets.basically.website/sorter-docs/chute-v3-door-module-coupled-servo-side-full-ab81e16a36f1.png
 author: brickcyclealice
-contributors: [daddyosbricksbill]
 tools_needed: ["Hex key, 2 mm", Small Phillips screwdriver]
 warning: >-
   **AI-generated first draft.** Written from the door module page, the SorterOS code and three

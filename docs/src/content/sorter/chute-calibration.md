@@ -54,6 +54,10 @@ Set **Bins in this section** to 3. The page says more is more accurate, but the 
 
 **The first bin is the one the chute reaches first as it turns clockwise from home.** First and last do not mean left and right. Capturing them the wrong way round is refused.
 
+<div class="img-row">
+  <figure><img src="https://assets.basically.website/sorter-docs/chute-calibration-first-section-aim-full-6072118ccff1.png" alt="Top-down diagram of a third-size layer: the chute in the middle, the home switch beside the column at the top, the first section clockwise from it shaded with its bins numbered 1, 2 and 3, a green arrow from the chute into the middle of bin 1, and a dashed blue arrow turning clockwise past bin 2 to bin 3"><figcaption>Step 2 aims into bin 1. Step 3 jogs clockwise, past bin 2, to bin 3. <cite>Diagram. Render: Balloon.</cite></figcaption></figure>
+</div>
+
 Jog the chute until it points at the middle of the first bin:
 
 <ul class="bulleted-list">
@@ -73,7 +77,7 @@ Press **Capture the first bin**. The angle appears next to the button.
 
 ## 3. Aim at the last bin of the same section
 
-Jog clockwise to the middle of the last bin of the same section, on the same layer.
+Jog clockwise to the middle of the last bin of the same section, on the same layer: bin 3 in the diagram in step 2.
 
 Press **Capture the last bin**.
 
@@ -104,6 +108,8 @@ Scroll down to **Reachable bins by layout**. Each circle is one layer layout, an
 Click a bin that is not crossed out, then press **Test aim at this bin**. Watch the machine: the chute should stop centred over that bin.
 
 Test at least the first, a middle and the last bin of one section.
+
+**Later, test any bin from the 3D page.** Once the machine is set up, open **3D** in the top bar, pause the machine, click a bin, and press **Point the chute here**. It works on every layer and needs the chute homed. See [the 3D page]({{ '/sorter/bins-and-profiles/' | relative_url }}#the-3d-page).
 
 <div class="img-row">
   <figure>

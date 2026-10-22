@@ -9,7 +9,6 @@ slug: sorter-first-setup
 kicker: SorterOS — Operate
 lede: The setup wizard step by step, from opening the machine's UI in a browser to a machine ready for its first sort run.
 permalink: /sorter/first-setup/
-og_image: https://assets.basically.website/sorter-docs/sorter-dashboard-ready-brickcycle-w1600-ac437d39209c.jpg
 warning: >-
   **SorterOS changes quickly.** This page describes what each step does, but a
   button's name, or where it is, may have changed since this page was written.
@@ -256,9 +255,7 @@ Press **Open Dashboard**. The wizard is done.
 
 The dashboard, with every camera live and its zones drawn, the machine's name at the top, and **Ready** beside it. Nothing has been sorted yet, so **Recent pieces** is empty.
 
-<div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-dashboard-ready-brickcycle-w1600-ac437d39209c.jpg" alt="The SorterOS dashboard after setup: C-channel 2, C-channel 3 and Classification channel tiles showing live views with their zones, the machine name and Ready at the top, and No pieces yet under Recent pieces"><figcaption>A machine set up and ready. The profile at the top right is picked later, at your first sort run. <cite>Screenshot courtesy of BrickCycleAlice.</cite></figcaption></figure>
-</div>
+<div class="img-placeholder">Screenshot of the SorterOS dashboard on a machine with stock camera mounts, straight after setup: the three camera tiles live with their zones drawn, the machine name and Ready at the top, and nothing under Recent pieces.</div>
 
 ## Settings worth a look
 

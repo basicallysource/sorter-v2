@@ -100,12 +100,9 @@ You can change it later under **Settings** → **Connection & Appearance** → *
 
 ## Step 3: Controller discovery
 
-The wizard lists the USB controllers it can see, and uses the ones it recognises. On a machine built from these docs that is two devices:
+The wizard lists the USB controllers it can see, and uses the ones it recognises. On a machine built from these docs that is one device: the control board, which drives the chute, all four channel rotors and the flap servos. There is no separate servo device to find.
 
-- the control board, which drives the chute and all four channel rotors,
-- the Waveshare servo bus.
-
-A recognised device has a green **Controller** or **Servo Bus** badge, its board type, and the port it is on.
+A recognised device has a green **Controller** badge, its board type, and the port it is on.
 
 **Nothing listed, or the control board missing?** In order:
 

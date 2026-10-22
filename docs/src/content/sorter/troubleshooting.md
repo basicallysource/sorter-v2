@@ -186,8 +186,10 @@ A lamp stays off with its channel's **LED** panel set, or the panel's **Output**
 
 The chute's endstop reading does not follow the switch. It shows on the **Chute endstop** row in [step 5 of the setup wizard]({{ '/sorter/first-setup/' | relative_url }}#step-5-chute-endstop-and-geometry), as **Endstop triggered** or **Endstop clear** on **Settings → Chute**, and as **Endstop** on the **Chute aiming** tab.
 
-- **Always triggered:** homing stops at once, wherever the chute happens to be, and calls that home. Every bin is then off, and the **Chute aiming** jog will not take the chute below that false 0°.
-- **Never triggered:** homing turns the chute without stopping at the switch, then gives up with "Chute homing stopped before the endstop triggered". If the chute keeps turning, press **Stop the motion** in the wizard or **Cancel** on **Settings → Chute**.
+<ul class="bulleted-list">
+  <li><strong>Always triggered:</strong> homing stops at once, wherever the chute happens to be, and calls that home. Every bin is then off, and the <strong>Chute aiming</strong> jog will not take the chute below that false 0°.</li>
+  <li><strong>Never triggered:</strong> homing turns the chute without stopping at the switch, then gives up with "Chute homing stopped before the endstop triggered". If the chute keeps turning, press <strong>Stop the motion</strong> in the wizard or <strong>Cancel</strong> on <strong>Settings → Chute</strong>.</li>
+</ul>
 
 **Cause:** The lead is wired so the circuit is closed while the lever is free and opens when the chute presses it. Anything that breaks the circuit therefore reads exactly like a pressed switch, so **always triggered is nearly always a connection**, not the switch: a crimp, the housing on the board the wrong way round, or a wire broken where the lead flexes.
 
@@ -211,8 +213,10 @@ On **Settings → Storage layers**, a flap stops short of lying flat in the chut
 
 **Cause:** The flap is coupled to its MG995 servo through the plastic horn inside the servo adapter. Forcing the flap, by hand or by leaving the servo pushing against the chute wall, does one of two things:
 
-- **The horn's teeth round off** and it slips on the servo's shaft, a few teeth at a time. The flap's swing then sits partly outside the servo's 0° to 180°, so one end is out of reach. Nothing in the software can move the servo further than that.
-- **The servo breaks.** It spins freely, or does not move at all.
+<ul class="bulleted-list">
+  <li><strong>The horn's teeth round off</strong> and it slips on the servo's shaft, a few teeth at a time. The flap's swing then sits partly outside the servo's 0° to 180°, so one end is out of reach. Nothing in the software can move the servo further than that.</li>
+  <li><strong>The servo breaks.</strong> It spins freely, or does not move at all.</li>
+</ul>
 
 **Fix:** In order:
 

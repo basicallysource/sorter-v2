@@ -14,65 +14,55 @@ warning: >-
 last_verified: 2026-09-18
 ---
 
-The chute is the stack in the middle of the bins. It turns as one piece to face a bin, and each layer's flap decides which layer a part leaves at. It does not know where your bins are until you tell it. You do that from the UI, in three parts: home the chute, capture two bins, then test where it can reach.
-
-It takes about fifteen minutes. Everything happens in **Settings**, and nothing here needs a terminal.
+The chute is the stack in the middle of the bins. It turns as one piece to face a bin, and each layer's flap decides which layer a part leaves at. It does not know where your bins are until you tell it. This takes about fifteen minutes, all in **Settings**.
 
 ## Before you start
 
-- The machine is powered on and the UI is open.
-- The bins are in their slots on every layer.
-- Nothing is resting in the chute.
-- You can stand where you can see one whole section of bins.
+<ul class="bulleted-list">
+  <li>The machine is powered on and the UI is open.</li>
+  <li>The bins are in their bays on every layer.</li>
+  <li>Nothing is resting in the chute.</li>
+  <li>Each layer's <strong>Bins</strong> count is set on <strong>Settings → Storage layers</strong>: 12 on a half-size layer, 18 on a third-size one. The chute aims from these, so a wrong count sends parts to the wrong bin. If you change one, press <strong>Save the layers</strong>, then <strong>Restart the backend</strong> from the <strong>⋯</strong> menu at the top right.</li>
+</ul>
 
-**A section is one bay of bins on one layer: the bins between two of the tower's vertical columns.** There are six bays around the hexagon, so six sections per layer, each holding two or three bins depending on that layer's size.
+**A section is the bins between two of the frame's upright columns, on one layer.** There are six sections per layer, with 2 bins each on a half-size layer and 3 on a third-size one.
 
-**Set the bin count for each layer first**, in **Settings → Storage layers** (under **Hardware** in the left sidebar): set **Bins** to how many bins sit around the chute on that layer, 12 on a half-size layer and 18 on a third-size one. The chute aims from those numbers, so a wrong count sends pieces to the wrong bin. If you change one, press **Save the layers**, then **Restart the backend** from the **⋯** menu at the top right: the change only takes effect after a restart.
-
-**Check which way the chute homes.** Seen from above, the chute turns counter-clockwise to find home, so it reaches the home switch from the clockwise side, and from home it turns clockwise to reach the bins. If yours homes the other way, every bin comes out the same distance off and no calibration fixes it. Flip it with **Flip the direction** in [step 5 of the setup wizard]({{ '/sorter/first-setup/' | relative_url }}#step-5-chute-endstop-and-geometry), or tick **Invert the direction** under **Driver settings** on **Settings → Chute** and save. Then start this page from step 1.
-
-Open **Settings → Chute**, then its **Chute aiming** tab. Chute is under **Hardware** in the left sidebar. The top of the page shows the numbers the machine aims with today. Calibration replaces them.
-
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/chute-calibration-active-parameters-w1600-bb31a2390d0a.jpg" alt="The Active aiming parameters panel showing sections, section width, offset from home, pitch and pillar">
-    <figcaption>The aiming numbers in use right now. <cite>UI screenshot. Render: Balloon.</cite></figcaption>
-  </figure>
-</div>
+Open **Settings**, then **Chute** (under **Hardware** in the left sidebar), then its **Chute aiming** tab.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Every step on this page turns the chute. The chute has a hard stop at home and cannot turn past it, so it has about 350&deg; of travel. Always home it first.</p>
+  <p>Every step on this page turns the chute. Keep your hands out of the bins while it moves.</p>
 </div>
 
 ## 1. Home the chute
 
-Press **Home the chute**. The chute turns slowly until it reaches its home switch. That point becomes 0&deg;.
+Watch the chute from above, then press **Home the chute**.
 
-Wait for the step to turn green and read **Homed.** **Endstop** changes to **Triggered**.
+**It should turn counter-clockwise** until it reaches its home switch. That point becomes 0&deg;. Then it turns back clockwise and stops at about the first bin, the one you aim at in step 2. From home, the chute always turns clockwise to reach the bins.
 
-If the wrong motor starts to move, press **Cancel**.
+**If it turns clockwise instead,** press **Cancel**. Every bin would come out the same distance off, and no calibration fixes that. Reverse it: on **Settings → Chute**, tick **Invert the direction** under **Driver settings** and press **Apply the driver settings**. Then come back and home again.
 
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/chute-calibration-step1-homed-w1600-78c66eaad476.jpg" alt="Step 1 of the calibration, showing chute angle 0.0 degrees, endstop triggered, and a green Homed label">
-    <figcaption>Step 1 after homing. <cite>UI screenshot. Render: Balloon.</cite></figcaption>
-  </figure>
-</div>
+Wait for **Homed.** next to the button.
+
+**If Endstop reads Triggered before you press the button,** the chute takes wherever it stands as home, and every bin comes out off. See [the endstop always reads triggered]({{ '/sorter/troubleshooting/' | relative_url }}#chute-the-endstop-always-reads-triggered-or-never-does).
 
 ## 2. Aim at the first bin of the first section
 
-**Use the first section the chute reaches from home**, not any section. The machine works out where every other bin is from this one, and it counts from the first section, so a capture in a later section puts every bin in the wrong place. Any layer works, as long as its sections have more than 2 bins: a third-size layer, with 3 bins a section, is the usual choice.
+**Use the first section clockwise from home**, on a third-size layer. A capture in any other section puts every bin in the wrong place. A half-size layer, with 2 bins a section, is not enough.
 
-Set **Bins in this section** to the number of bins in that one section, 3 on a third-size layer. The control offers up to 6 and says more is more accurate, but the number must match the section you measure. Do not measure across two sections to get a higher count.
+Set **Bins in this section** to 3. The page says more is more accurate, but the number must match the one section you measure. Do not measure across two sections.
 
-Now jog the chute until it points at the middle of the first bin of that section:
+**The first bin is the one the chute reaches first as it turns clockwise from home.** First and last do not mean left and right. Capturing them the wrong way round is refused.
 
-- **&larr;** and **&rarr;** move 2&deg;.
-- **&uarr;** and **&darr;** move 0.25&deg;.
-- The arrow keys on your keyboard do the same, and repeat if you hold them.
+Jog the chute until it points at the middle of the first bin:
 
-Press **Capture the first bin**. The captured angle appears next to the button.
+<ul class="bulleted-list">
+  <li><strong>+2&deg;</strong> and <strong>&minus;2&deg;</strong> for big moves, <strong>+0.25&deg;</strong> and <strong>&minus;0.25&deg;</strong> for small ones.</li>
+  <li>Plus turns the chute clockwise, minus turns it back.</li>
+  <li>The arrow keys on a keyboard do the same.</li>
+</ul>
+
+Press **Capture the first bin**. The angle appears next to the button.
 
 <div class="img-row">
   <figure>
@@ -81,14 +71,9 @@ Press **Capture the first bin**. The captured angle appears next to the button.
   </figure>
 </div>
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>First</b> and <b>last</b> mean the order the chute reaches the bins as the angle counts up from home. They do not mean left and right. Capturing them the wrong way round is refused.</p>
-</div>
-
 ## 3. Aim at the last bin of the same section
 
-Jog to the middle of the last bin of that same section. Do not change the layer or the section.
+Jog clockwise to the middle of the last bin of the same section, on the same layer.
 
 Press **Capture the last bin**.
 
@@ -101,9 +86,7 @@ Press **Capture the last bin**.
 
 ## 4. Lock it in
 
-The page works out the section width and the offset from home from your two captures, and shows them.
-
-Type a label if you want to recognise this calibration later. Press **Work it out and lock it in**.
+The page shows what it worked out from your two captures. Type a label if you like, then press **Work it out and lock it in**.
 
 <div class="img-row">
   <figure>
@@ -116,11 +99,11 @@ The calibration is saved under **Saved calibrations** and marked **Active**. Old
 
 ## 5. Test the range of motion
 
-Scroll down to **Reachable bins by layout**. Each circle is one layer layout, from 1 bin per section up to 5, and each small ring on it is one bin.
+Scroll down to **Reachable bins by layout**. Each circle is one layer layout, and each small ring on it is one bin. Use the circle with 3 bins per section.
 
-Click a bin that is not crossed out, then press **Test aim at this bin**. The chute turns to it. Watch the machine: the chute should stop centred over the bin you clicked.
+Click a bin that is not crossed out, then press **Test aim at this bin**. Watch the machine: the chute should stop centred over that bin.
 
-Test at least three bins in one section: the first, one in the middle, and the last.
+Test at least the first, a middle and the last bin of one section.
 
 <div class="img-row">
   <figure>
@@ -135,7 +118,7 @@ If a bin is not centred, run steps 1 to 4 again and take the two captures as car
 
 ## If the chute does not move
 
-**Settings → Chute** is the chute's motor page. Its top shows where the chute is pointing, what the motor is doing, and whether the chute is homed.
+Open **Settings → Chute**. The top of the page shows where the chute is pointing, what the motor is doing, and whether it is homed.
 
 <div class="img-row">
   <figure>
@@ -144,23 +127,20 @@ If a bin is not centred, run steps 1 to 4 again and take the two captures as car
   </figure>
 </div>
 
-Homing is on that page too, **Home to the endstop**, so you can re-home without opening the calibration. **Cancel** stops it.
-
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/chute-calibration-homing-controls-full-15bebb850639.png" alt="The Homing block on the chute settings page with the Home to Endstop and Cancel Homing buttons">
-    <figcaption>The same homing controls, on the chute's own page. <cite>UI screenshot. Render: Balloon.</cite></figcaption>
-  </figure>
-</div>
-
-If the chute jammed, the page shows a red stall message. Clear the jam by hand, press **Clear the stall**, then home the chute again. A stall throws away the home reference, so the aim means nothing until you re-home.
+<ul class="bulleted-list">
+  <li><strong>A red stall message:</strong> the chute jammed. Clear the jam by hand, press <strong>Clear the stall</strong>, then home again with <strong>Home to the endstop</strong>. A stall loses the home position, so the aim is wrong until you re-home.</li>
+  <li><strong>To check the motor turns at all,</strong> press <strong>CCW</strong> or <strong>CW</strong>. These move the chute without homing.</li>
+  <li><strong>The endstop reads wrong:</strong> see <a href="{{ '/sorter/troubleshooting/' | relative_url }}#chute-the-endstop-always-reads-triggered-or-never-does">the endstop always reads triggered, or never does</a>.</li>
+</ul>
 
 ## Run this again when
 
-- You move or replace the home switch.
-- The chute or its gear comes off and goes back on.
-- The chute stalls.
-- Parts start landing in the wrong bin. See [Chute drift]({{ '/sorter/troubleshooting/#chute-drift--parts-land-in-the-wrong-bin-after-50-parts' | relative_url }}).
+<ul class="bulleted-list">
+  <li>You move or replace the home switch.</li>
+  <li>The chute or its gear comes off and goes back on.</li>
+  <li>The chute stalls.</li>
+  <li>Parts start landing in the wrong bin. See <a href="{{ '/sorter/troubleshooting/#chute-drift--parts-land-in-the-wrong-bin-after-50-parts' | relative_url }}">Chute drift</a>.</li>
+</ul>
 
 ## The finished result
 

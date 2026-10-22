@@ -46,13 +46,9 @@ If you gave the machine a different hostname during the install, use that name i
 
 There is nothing to log into. The machine UI has no account and no password, so anyone on your network who opens the address sees the same screens you do. The only sign-in on this page is Hive, in step 8, and that is optional.
 
-The first time you open the UI it opens the setup wizard.
-
-<div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step1-machine-identity-w1600-08182bfeebd0.jpg" alt="The setup wizard on step 1, with the nine steps along the top and a machine name field below"><figcaption>The wizard on its first step. <cite>UI screenshot. Render: Balloon.</cite></figcaption></figure>
-</div>
-
 If the page does not appear at all, or it appears and every button fails, see [SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}).
+
+**The first time you open the UI it shows the setup wizard.** Leave it for now: the next two sections come first, and the wizard after them. Open **Settings** from the bar at the top of the page. On a narrow screen it is in the **Pages** menu there.
 
 ## Update the software first
 
@@ -85,13 +81,18 @@ The machine has to know which build it is before the wizard checks anything that
 
 The choice is saved on the machine and decides what the wizard asks you in steps 5 and 7, so set it before you start. Changing it later takes effect after a reset and a re-home.
 
-## How the wizard works
+## Open the setup wizard
+
+Open **Settings** → **General** → **Open the setup wizard**, or add `/setup` to the machine's address (`http://sorter.local/setup`). This is also how you get back to it after it is finished.
+
+<div class="img-row">
+  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step1-machine-identity-w1600-08182bfeebd0.jpg" alt="The setup wizard on step 1, with the nine steps along the top and a machine name field below"><figcaption>The wizard on its first step. <cite>UI screenshot. Render: Balloon.</cite></figcaption></figure>
+</div>
 
 - The nine steps run along the top. The one you are on is highlighted.
 - **Continue** at the bottom takes you to the next step. When it is greyed out, the line beside it says what is still missing.
 - A step stays locked until the steps before it are done.
 - You can close the browser and come back. The wizard remembers how far you got on this machine.
-- After you finish, reopen it any time from **Settings** → **General** → **Open the setup wizard**, or add `/setup` to the machine's address (`http://sorter.local/setup`).
 
 ## Step 1: Machine identity
 

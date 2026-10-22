@@ -50,7 +50,7 @@ Do this for every camera on the machine, one at a time. Some steps happen at the
 </ol>
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/siemens-star-chart-on-rotor-w1600-f57e15f4f2d7.jpg" alt="A printed Siemens Star chart lying flat on a C-channel rotor, seen from the side"><figcaption>The chart lying on a rotor, ready to focus. <cite>Photo: BrickCycleAlice.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/siemens-star-chart-on-c4-rotor-w1600-47a49ac6af95.jpg" alt="A printed Siemens Star chart lying flat on the classification channel rotor, seen from the side"><figcaption>The chart lying on the classification channel rotor, ready to focus. <cite>Photo: BrickCycleAlice.</cite></figcaption></figure>
 </div>
 
 **The centre of the star is the most demanding part of the image.** If the spokes merge into grey mush in the middle, focus is not tight enough yet.
@@ -66,7 +66,7 @@ Do this for every camera on the machine, one at a time. Some steps happen at the
 Every camera on the machine sharp, with the centre of the star resolving cleanly in each live view.
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/siemens-star-focus-live-view-full-e4a416d7d9ef.png" alt="A channel camera's live view in Settings, with the Siemens Star on the rotor and its spokes separate all the way to the centre"><figcaption>A focused channel camera, with the star's spokes separate in to the middle. <cite>Screenshot courtesy of BrickCycleAlice.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/siemens-star-focus-live-view-full-e4a416d7d9ef.png" alt="The classification channel camera's live view in Settings, with the Siemens Star on the rotor and its spokes separate all the way to the centre"><figcaption>The classification channel camera in focus, with the star's spokes separate in to the middle. <cite>Screenshot courtesy of BrickCycleAlice.</cite></figcaption></figure>
 </div>
 
 ## Next

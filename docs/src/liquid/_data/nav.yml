@@ -191,6 +191,8 @@ sections:
             url: /sorter/export-counts/
           - title: Shutting down the machine
             url: /sorter/safe-shutdown/
+          - title: Perception debug
+            url: /sorter/perception-debug/
           - title: Troubleshooting
             url: /sorter/troubleshooting/
           - title: Repair git and get on stable

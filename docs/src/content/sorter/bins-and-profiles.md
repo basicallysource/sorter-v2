@@ -183,7 +183,7 @@ When a category's bin is full, the next piece goes to:
 
 After step 2, the category has two bins. When you empty the first bin, its pieces go into both bins at random.
 
-To make the machine stop at step 4 instead, go to **Settings**, **Incidents**, and set **No bin for this piece** to **Call the operator**.
+To make the machine stop at step 4 instead, go to **Settings**, **Incidents**, and set **No bin for this piece** to **Manual**.
 
 **See which bins are full.** On the Bins page, each bin on a layer with a limit has a bar and a count, for example `46 / 50`. The bar turns amber at 85% and red when the bin is full. The machine gives no other warning.
 

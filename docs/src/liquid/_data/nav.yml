@@ -191,18 +191,47 @@ sections:
             url: /sorter/export-counts/
           - title: Shutting down the machine
             url: /sorter/safe-shutdown/
-          - title: Perception debug
-            url: /sorter/perception-debug/
           - title: Troubleshooting
             url: /sorter/troubleshooting/
           - title: Repair git and get on stable
             url: /sorter/repair-git-get-on-stable/
+      - title: Using the UI
+        pages:
+          - title: The dashboard
+            url: /sorter/dashboard/
+          - title: Records
+            url: /sorter/records/
+            children:
+              - title: The piece page
+                url: /sorter/tracked-piece/
+          - title: Logs
+            url: /sorter/logs/
+          - title: Channel settings
+            url: /sorter/channel-settings/
+          - title: Perception debug
+            url: /sorter/perception-debug/
+          - title: Feeder simple pulse
+            url: /sorter/feeder-simple-pulse/
+          - title: Tuning
+            url: /sorter/tuning/
+          - title: StallGuard
+            url: /sorter/stallguard/
+          - title: Diagnostics
+            url: /sorter/diagnostics/
+          - title: Incident handling
+            url: /sorter/incident-handling/
+          - title: Networking
+            url: /sorter/networking/
+          - title: Training data
+            url: /sorter/training-data/
       - title: Under the hood
         pages:
           - title: Dev flow
             url: /sorter/dev-flow/
           - title: Sorting profile reference
             url: /sorter/profile-reference/
+          - title: machine.toml reference
+            url: /sorter/machine-toml-reference/
           - title: What leaves the machine
             url: /sorter/what-leaves-the-machine/
 

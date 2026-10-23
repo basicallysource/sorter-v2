@@ -8339,7 +8339,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "MBR120VLSFT1G"
+		(property "Value" "MBR120LSFT1G"
 			(at 151.13 32.0674 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8383,7 +8383,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C223608"
+		(property "LCSC" "C891416"
 			(at 148.59 30.48 0)
 			(hide yes)
 			(show_name no)

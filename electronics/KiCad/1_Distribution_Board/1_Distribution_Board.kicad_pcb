@@ -40638,7 +40638,7 @@
 				)
 			)
 		)
-		(property "Value" "MBR120VLSFT1G"
+		(property "Value" "MBR120LSFT1G"
 			(at 0 1.75 90)
 			(layer "F.Fab")
 			(uuid "9906dfbb-3382-4f99-8c1d-b22f83c00830")
@@ -40675,7 +40675,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C223608"
+		(property "LCSC" "C891416"
 			(at 0 0 180)
 			(layer "F.Fab")
 			(hide yes)

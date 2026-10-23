@@ -1568,16 +1568,16 @@
       "uid": "1a0l",
       "name": "Chute gear",
       "description": "The chute drive gear, screwed onto the Top interface chute mount with five M3x12 countersunk screws (see the Interface chute gear + mount assembly). Turned by the Interface spur gear/idler gear train off the NEMA 23 stepper.",
-      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Chute gear; it is not joined to -2 or -3. See top-interface.md step 6.",
+      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Chute gear; it is not joined to -2 or -3. See top-interface.md step 6. Re-exported 2026-10-23 at Jayesh-Herndon's report, turned 180 degrees about X so the flat 10 mm face lies on the bed (11,290 mm2); before, the 0.5 mm shelf on its underside printed in air. Mesh otherwise identical.",
       "version": "1",
       "created_at": "2026-07-03",
-      "updated_at": "2026-07-03",
+      "updated_at": "2026-10-23",
       "quantities": {
         "interface": 1
       },
       "assembly": null,
       "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/05b09a7158dd399ac6f8e446/e/12bfe1cca4fda5bc5763c0c9",
-      "stl_hash": "6a600fb6a6b3f2e5cf22f87fdce65ce0cbeddb2063f598de4dd25f63df23fe0f",
+      "stl_hash": "6d1965579cbbb418012db3e5aaf06038f48823ed2e32a94a532212e77ecb4c3d",
       "color": {
         "role": "chute-core"
       },

@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-231e9beb6050.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-bf020132c050.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-238cd0672da2.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-bfcfa05467e9.zip"
 	},
 	"sections": [
 		{
@@ -14419,7 +14419,7 @@
 			"description": "The chute drive gear, screwed onto the Top interface chute mount with five M3x12 countersunk screws (see the Interface chute gear + mount assembly). Turned by the Interface spur gear/idler gear train off the NEMA 23 stepper.",
 			"version": "1",
 			"created_at": "2026-07-03",
-			"updated_at": "2026-07-03",
+			"updated_at": "2026-10-23",
 			"versions": [
 				{
 					"version": "1",
@@ -14427,17 +14427,17 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6a600fb6a6b3.stl",
-					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-fe39441babb2.png",
-					"grams": 59.95
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6d1965579cbb.stl",
+					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-a500d0910dfa.png",
+					"grams": 61.6
 				}
 			],
 			"attributes": [],
-			"grams": 59.95,
+			"grams": 61.6,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7668,
+			"print_seconds": 7801,
 			"color": {
 				"role": "chute-core"
 			},
@@ -14451,21 +14451,61 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6a600fb6a6b3.stl",
-			"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-fe39441babb2.png",
+			"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6d1965579cbb.stl",
+			"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-a500d0910dfa.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-bottom-0a6e4ff24d79.stl",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-bottom-5edcbbce6fc2.stl",
 					"normal": [
-						0.0,
 						-0.0,
+						0.0,
 						-1.0
 					],
 					"center": [
-						3.44,
-						-115.01,
+						1.49,
+						-114.28,
 						352.68
+					],
+					"size": [
+						12.16,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-top-a0b321d98e4a.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						4.06,
+						-108.82,
+						362.18
+					],
+					"size": [
+						12.16,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-top-2-409ea7f072af.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-3.44,
+						-115.01,
+						362.68
 					],
 					"size": [
 						8.68,
@@ -14474,46 +14514,6 @@
 					"cap": 2.5,
 					"depth": 0.6,
 					"note": "smaller text"
-				},
-				{
-					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-top-d3a507702f2c.stl",
-					"normal": [
-						0.0,
-						0.0,
-						1.0
-					],
-					"center": [
-						-1.49,
-						-114.28,
-						362.68
-					],
-					"size": [
-						12.16,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "bottom 2",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-bottom-2-e8cead646411.stl",
-					"normal": [
-						-0.0,
-						0.0,
-						-1.0
-					],
-					"center": [
-						4.03,
-						-108.82,
-						353.18
-					],
-					"size": [
-						12.16,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
 				}
 			]
 		},

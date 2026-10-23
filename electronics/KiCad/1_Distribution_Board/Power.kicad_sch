@@ -8673,7 +8673,7 @@
 				)
 			)
 		)
-		(property "Description" "1.5A Step-Down DC/DC-Regulator, 8-18V input, 12V fixed Output Voltage, LM78xx replacement, -40°C to +85°C, SIP3"
+		(property "Description" "1.5A step-down DC/DC regulator, 8-18V input, 6.5V output, SIP3"
 			(at 135.89 114.3 0)
 			(hide yes)
 			(show_name no)
@@ -11924,7 +11924,7 @@
 				(justify left)
 			)
 		)
-		(property "Datasheet" "https://www.recom-power.com/pdf/Innoline/R-78Bxx-2.0.pdf"
+		(property "Datasheet" "https://recom-power.com/pdf/Innoline/R-78K-2.0.pdf"
 			(at 135.89 77.47 0)
 			(hide yes)
 			(show_name no)
@@ -11935,7 +11935,7 @@
 				)
 			)
 		)
-		(property "Description" "2A Step-Down DC/DC-Regulator, 15-32V input, 12V fixed Output Voltage, LM78xx replacement, -40°C to +85°C, SIP3"
+		(property "Description" "2A step-down DC/DC regulator, 15-36V input, 12V output, SIP3"
 			(at 135.89 77.47 0)
 			(hide yes)
 			(show_name no)
@@ -12785,7 +12785,7 @@
 				(justify left)
 			)
 		)
-		(property "Datasheet" "https://www.recom-power.com/pdf/Innoline/R-78Cxx-1.0.pdf"
+		(property "Datasheet" "https://recom-power.com/pdf/Innoline/R-78K-1.0.pdf"
 			(at 135.89 43.18 0)
 			(hide yes)
 			(show_name no)
@@ -12796,7 +12796,7 @@
 				)
 			)
 		)
-		(property "Description" "1A Step-Down DC/DC-Regulator, 7-42V input, 5V fixed Output Voltage, LM78xx replacement, -40°C to +85°C, SIP3"
+		(property "Description" "1A step-down DC/DC regulator, 6.5-36V input, 5V output, SIP3"
 			(at 135.89 43.18 0)
 			(hide yes)
 			(show_name no)

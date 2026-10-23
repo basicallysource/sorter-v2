@@ -30,7 +30,7 @@ Back on the home dashboard, check:
 
 - **Lifecycle: READY** (not `PAUSED` or `RUNNING`).
 - **All cameras live** — every tile shows a moving image.
-- **Chute homed.** If not, **Settings → Chute → Home to Endstop**.
+- **Chute homed.** If not, **Settings → Chute → Home to the endstop**.
 - **Carousel idle** — no part visible in the dropzone.
 
 ## 3. Load five parts

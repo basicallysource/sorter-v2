@@ -6,6 +6,10 @@ slug: sorter-troubleshooting
 kicker: SorterOS — Operations
 lede: Symptom-led entries for install, first-run, and runtime problems. Search this page (Cmd-F) for the error message you are seeing.
 permalink: /sorter/troubleshooting/
+warning: >-
+  **SorterOS changes quickly.** This page describes what each fix does, but a
+  button's name, or where it is, may have changed since this page was written,
+  so it keeps screenshots to a minimum.
 ---
 
 Each entry: what you see → cause → fix → how to verify. For the install procedure itself, see [Installation]({{ '/sorter/installation/' | relative_url }}).
@@ -16,9 +20,9 @@ These are for [the SorterOS image]({{ '/sorter/installation/sorter-os/' | relati
 
 ### `sorter.local` doesn't open
 
-**Cause:** mDNS only works on the Pi's own network, older Windows needs Bonjour for it, and a second machine on the same network running the SorterOS image answers at `sorter-2.local`.
+**Cause:** The browser changed the address to `https://`, and the machine only answers on `http://`. This also stops the IP address from loading, even when your router lists the Pi. Otherwise: mDNS only works on the Pi's own network, older Windows needs Bonjour for it, and a second machine on the same network running the SorterOS image answers at `sorter-2.local`.
 
-**Fix:** Browse from a device on the same network, or find the Pi in your router's list of connected devices and use its IP address.
+**Fix:** Type the whole address, `http://sorter.local`, and check the address bar has not added an `s`. If it still doesn't open, browse from a device on the same network, or find the Pi in your router's list of connected devices and use its IP address, again starting with `http://`.
 
 **Verify:** The progress page or the SorterOS UI loads.
 
@@ -104,6 +108,16 @@ These are for [the SorterOS image]({{ '/sorter/installation/sorter-os/' | relati
 
 ---
 
+## Setup wizard: you need to open it again
+
+**Cause:** The wizard only opens by itself the first time you open the UI. To get back to it, after flashing the control board or to redo a step such as the cameras, you open it yourself.
+
+**Fix:** Open **Settings** → **General** and press **Open the setup wizard**. Or add `/setup` to the machine's address: `http://sorter.local/setup`. The wizard remembers how far you got.
+
+**Verify:** The wizard's steps show along the top of the page.
+
+---
+
 ## Setup wizard: `No MCU buses found` at Controller Discovery
 
 The wizard's Controller Discovery step lists no controllers, and the issue banner reads `No MCU buses found`.
@@ -123,6 +137,99 @@ The wizard's Controller Discovery step lists no controllers, and the issue banne
 **Fix:** Re-run `install.sh`, or by hand: `sudo cp software/systemd/99-sorter-pico.rules /etc/udev/rules.d/ && sudo usermod -aG plugdev $USER && sudo udevadm control --reload-rules && sudo udevadm trigger`. Unplug and replug. For headless/SSH, log out and back in so the group takes effect.
 
 **Verify:** `ls -l /dev/ttyACM*` shows the device owned by `root:plugdev` with mode `0660`, and `id` lists `plugdev` for your user.
+
+---
+
+## Cameras: a camera only offers small modes, or runs at 5 fps
+
+In the camera's **Picture** panel (**Picture tuning** in the setup wizard), the **Mode** list has nothing at 1280x720, only small sizes such as 640x480 at 5 fps down to 160x120. Or the size and frame rate in the bottom-right corner of its live view are well below [the modes in first setup]({{ '/sorter/first-setup/' | relative_url }}#picture-tuning). At 5 fps a channel misses small pieces such as Technic pins and pushes them on without seeing them.
+
+**Cause:** A slow USB link, not a faulty camera. The cameras on the hub share one cable to the Orange Pi, and when that link drops to its slowest speed, every camera on the hub only offers the small modes. A damaged cable between the hub and the Orange Pi has caused it. If whichever camera you plug into the hub gets the short list, it is the link.
+
+**Fix:** In order, checking the mode list after each:
+
+<ol class="numbered-steps">
+  <li>Push every USB plug fully home: each camera's lead at the camera and at the hub, and the hub's cable at both ends. The hub's power light should be on, and the light beside each camera's port steady.</li>
+  <li>Check the hub's cable goes into the Orange Pi's blue USB 3 port.</li>
+  <li>Replace the cable between the hub and the Orange Pi. The one that comes with the hub is easily damaged while routing it.</li>
+  <li>Plug the slow camera straight into a free USB port on the Orange Pi instead of the hub. Move one camera, not all of them: the hub has its own power so the cameras don't pull the Orange Pi's voltage down (<a href="{{ '/lab/usb/' | relative_url }}">why</a>).</li>
+</ol>
+
+After moving any camera, check each channel's page in **Settings** still shows its own camera. If not, press **Change camera** and pick the right one.
+
+**Verify:** The **Mode** list offers 1280x720 at 30 fps, and the corner of the live view shows it once picked.
+
+---
+
+## Lamps: a camera lamp stays dark
+
+A lamp stays off with its channel's **LED** panel set, or the panel's **Output** list is empty and says "No LED outputs are free to assign right now". The housing fan often stays still as well, because it runs off an LED port too.
+
+**Cause:** No LED port switches on by itself. Each one stays off until a channel has that port's output picked, and there are no outputs to pick until the machine's hardware is up. Once the board is switching the port, the fault is in the lamp's lead: the barrel plug and socket if you fitted them, a crimp, or the wires reversed.
+
+**Fix:** In order, checking the lamp after each:
+
+<ol class="numbered-steps">
+  <li><strong>If the Output list is empty,</strong> look at the machine's state in the top bar. In <strong>Standby</strong> or <strong>Error</strong> there are no outputs to offer. Open the menu there and pick <strong>Home</strong>, or <strong>Initialize without homing</strong> if you only want the lamps. Once it says <strong>Ready</strong> or <strong>Initialized</strong>, close the LED panel and open it again. Still empty in <strong>Ready</strong>: check the firmware version on <strong>Settings → Control board</strong>; it has to be v0.8.0 or newer.</li>
+  <li><strong>Pick the output for each lamp.</strong> On each channel's page in <strong>Settings</strong> (<strong>C-channel 2</strong>, <strong>C-channel 3</strong>, <strong>Classification channel</strong>), press <strong>LED</strong>, pick the <strong>Output</strong> for the port that channel's lamp is plugged into, and set <strong>Brightness</strong> above 0%. <code>J8</code> and <code>J9</code> are <strong>GPIO 1</strong>; <code>J10</code> and <code>J11</code> are <strong>GPIO 6</strong>. Brightness with no output picked does nothing, and the housing fan only runs while some channel has <strong>GPIO 6</strong>.</li>
+  <li><strong>Check each plug at the board:</strong> red to <code>+V</code>, black to <code>GND</code>, as in <a href="{{ '/hardware/electronics/connecting/' | relative_url }}#step-4">connecting the components, step 4</a>.</li>
+  <li><strong>See whether the board is switching the port.</strong> With the lamp plugged in and a multimeter on DC volts, put the probes on the lamp's two wires where they meet the strip. Read it with <strong>Brightness</strong> at 0%, then at 100%. About 0 V then about 24 V means the board is switching it and the fault is in the lead; carry on below. The same reading at both settings means the board is not switching that port: <a href="#escalate">escalate</a>. Measure across the two wires, not from one wire to ground: the red wire has 24 V on it all the time, so 24 V there proves nothing.</li>
+  <li><strong>If you fitted the barrel plug and socket in the lamp's lead,</strong> take them out and join the lamp's wires to the board cable directly, red to red and black to black.</li>
+  <li><strong>Check the rest of the lead:</strong> tug each crimp and look for a wire that pulls out, check each wire beeps through end to end on the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">continuity setting</a>, and check red goes to the strip's <code>+</code> and black to its <code>-</code>.</li>
+</ol>
+
+**Verify:** Each lamp comes on at the brightness you set, and the housing fan runs.
+
+---
+
+## Chute: the endstop always reads triggered, or never does
+
+The chute's endstop reading does not follow the switch. It shows on the **Chute endstop** row in [step 5 of the setup wizard]({{ '/sorter/first-setup/' | relative_url }}#step-5-chute-endstop-and-geometry), as **Endstop triggered** or **Endstop clear** on **Settings → Chute**, and as **Endstop** on the **Chute aiming** tab.
+
+<ul class="bulleted-list">
+  <li><strong>Always triggered:</strong> homing stops at once, wherever the chute happens to be, and calls that home. Every bin is then off, and the <strong>Chute aiming</strong> jog will not take the chute below that false 0°.</li>
+  <li><strong>Never triggered:</strong> homing turns the chute without stopping at the switch, then gives up with "Chute homing stopped before the endstop triggered". If the chute keeps turning, press <strong>Stop the motion</strong> in the wizard or <strong>Cancel</strong> on <strong>Settings → Chute</strong>.</li>
+</ul>
+
+**Cause:** The lead is wired so the circuit is closed while the lever is free and opens when the chute presses it. Anything that breaks the circuit therefore reads exactly like a pressed switch, so **always triggered is nearly always a connection**, not the switch: a crimp, the housing on the board the wrong way round, or a wire broken where the lead flexes.
+
+**Fix:** To move the chute while you work on it, use **CCW** and **CW** on **Settings → Chute**. They move it whatever the endstop reads, and without homing. Then, in order:
+
+<ol class="numbered-steps">
+  <li><strong>Press the switch's lever by hand and watch the reading.</strong> If it changes, but the wrong way round (triggered while free), press <strong>Flip the polarity</strong> in wizard step 5. If it never changes, carry on.</li>
+  <li><strong>Check the hammer and the lever.</strong> Nothing should rest on the lever, and the chute's hammer should press the roller as the chute reaches home.</li>
+  <li><strong>Check the housing on <code>J5</code>.</strong> It is not keyed. The empty position goes over the pin the board marks <code>3.3V</code>; turned over, the machine never sees the switch change. <a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}#putting-the-housing-on-the-board">Putting the housing on the board</a>.</li>
+  <li><strong>Check the crimps.</strong> Tug each wire where it enters the housing and at each receptacle on the switch. Re-crimp any that pulls out or moves.</li>
+  <li><strong>Meter the lead.</strong> Unplug the housing from the board and put a multimeter on its two contacts on the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">continuity setting</a>. It should beep with the lever free and go silent when you press it. Silent both ways: the break is in the lead or the switch, so check each wire end to end. Silent while free and beeping while pressed: the receptacles are on <code>COM</code> and <code>NO</code>, so move one along to <code>NC</code>. Beeping both ways: strands are crossing at a crimp. <a href="{{ '/hardware/helpers/limit-switch-lead/' | relative_url }}#check-the-lead">Checking the lead</a>.</li>
+</ol>
+
+**Verify:** The reading flips each time you press and release the lever, and **Find the chute endstop** turns the chute counter-clockwise, seen from above, until it reaches the switch.
+
+---
+
+## Flaps: a flap will not reach open or closed, or its servo spins freely
+
+On **Settings → Storage layers**, a flap stops short of lying flat in the chute wall or of crossing the chute, and the arrows will not take it further. Or a flap that locked fine before has drifted, so pieces bounce past a closed one. Or the angle between the arrows changes but the flap does not move, or it flops loosely.
+
+**Cause:** The flap is coupled to its MG995 servo through the plastic horn inside the servo adapter. Forcing the flap, by hand or by leaving the servo pushing against the chute wall, does one of two things:
+
+<ul class="bulleted-list">
+  <li><strong>The horn's teeth round off</strong> and it slips on the servo's shaft, a few teeth at a time. The flap's swing then sits partly outside the servo's 0° to 180°, so one end is out of reach. Nothing in the software can move the servo further than that.</li>
+  <li><strong>The servo breaks.</strong> It spins freely, or does not move at all.</li>
+</ul>
+
+**Fix:** In order:
+
+<ol class="numbered-steps">
+  <li><strong>Take the servo bracket off the chute core:</strong> the 2 M3x12 countersunk screws through the side arm and the 1 through the lower arm, as in <a href="{{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }}">the door module, step 8</a>. Draw the bracket back so the servo adapter comes off the flap's hex.</li>
+  <li><strong>Look at the horn's splined sleeve</strong> in the middle of the adapter's servo side. If its teeth are worn round, rebuild the adapter around a fresh horn from the servo's bag.</li>
+  <li><strong>If the servo spins freely, or no longer moves with the arrows, replace it.</strong> Take out the cover's 2 screws, slide the servo out and the new one in, and plug it into the same socket on the layer adapter board. Do the cover screws up evenly: they are all that holds the servo.</li>
+  <li><strong>Set the servo to 0°.</strong> With the adapter off the flap, press the left arrow (<strong>Move toward a lower angle</strong>) until the angle between the arrows reads 0°. It holds there while the machine is on.</li>
+  <li><strong>Re-couple with the flap fully open.</strong> Push the adapter onto the servo's spline and drive the small screw from the servo's bag into the middle of the horn, through the hex socket, so the horn cannot creep off the spline. Hold the flap flat in the chute wall and bolt the bracket back on with the hex going onto the flap's shaft. If the hex will not line up, take the screw out and turn the adapter one tooth on the spline. 0° with the flap open matters: each time the machine starts, it swings every flap to 0° on the way to opening it.</li>
+  <li><strong>Lock open and closed again</strong> for that layer. The old angles no longer apply.</li>
+</ol>
+
+**Verify:** The layer reads **Calibrated**, the flap lies flat at open and crosses the chute at closed, and the servo is quiet at both.
 
 ---
 

@@ -358,6 +358,28 @@
 					"chute"
 				]
 			}
+		},
+		{
+			"id": "orange-pi-base-corner-insert-access",
+			"name": "One of the Orange Pi housing base's board inserts cannot be pressed in square",
+			"priority": "P1",
+			"condition": "broken",
+			"description": "The board post under the Orange Pi's north-east corner stands in the inside corner of the roof corner post, and its \u00d84.0 insert bore is 3.4 mm from both faces of that corner. Both faces rise 31 mm above the top of the post, so a soldering iron cannot sit square over the insert: it rides against the corner post, melts it, and the insert does not go in cleanly. The other three board posts have at least 30 mm clear around them, and the four roof inserts are open from above. The Orange Pi 5 Pro, Max and Ultra base is not affected. The proposed CAD fix is to make that one hole a \u00d82.8 self-tapping hole like the roof's, so the base takes seven inserts instead of eight. Reported from builds by ReveryX and BrickCycleAlice; measured off the pinned STL. Tracked as sorter-v2 issue #1162.",
+			"images": [
+				{
+					"url": "https://assets.basically.website/sorter-parts/orange-pi-housing-base-ne-post-insert-full-0eb27e206746.png",
+					"alt": "Left: plan section of the base's north-east corner, the corner post in grey with its two wall grooves, the board post boss in blue and its 4.0 mm bore in red, 3.4 mm from each of the post's two inner faces. Right: the same corner rendered from inside the housing, with the bore and the two post faces it sits against in red.",
+					"caption": "The north-east board post sits in the corner post's inside corner, 3.4 mm from both faces, which run 31 mm up."
+				}
+			],
+			"targets": {
+				"parts": [
+					"orange-pi-housing-base"
+				],
+				"assemblies": [
+					"orange-pi-mount"
+				]
+			}
 		}
 	],
 	"folders": [
@@ -11175,7 +11197,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Corner down, legs rising at 45\u00b0 like a V, no supports. The file rests on no face; as exported it needs supports under the T-shaped key"
+					"value": "Corner down, legs rising at 45\u00b0 like a V, no supports. The file rests on no face; as exported it needs supports under the T-shaped key",
+					"image_url": "https://assets.basically.website/sorter-parts/frame-90deg-bracket-print-orientation-full-004d30d57e54.png"
 				}
 			],
 			"grams": 13.62,
@@ -21694,7 +21717,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Upside down, top face on the bed"
+					"value": "Upside down, top face on the bed",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-print-orientation-full-36dd3a93ac7a.png"
 				}
 			],
 			"grams": 52.44,
@@ -21831,7 +21855,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-print-orientation-full-cb8c4c2f6449.png"
 				}
 			],
 			"grams": 8.48,
@@ -21928,7 +21953,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-east-print-orientation-full-4a5d7818cef6.png"
 				}
 			],
 			"grams": 8.2,
@@ -22025,7 +22051,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-print-orientation-full-e9977fd35c2a.png"
 				}
 			],
 			"grams": 13.76,
@@ -22164,7 +22191,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-print-orientation-full-01ea46b73c1c.png"
 				}
 			],
 			"grams": 12.05,

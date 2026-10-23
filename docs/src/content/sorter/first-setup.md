@@ -10,24 +10,23 @@ kicker: SorterOS — Operate
 lede: The setup wizard step by step, from opening the machine's UI in a browser to a machine ready for its first sort run.
 permalink: /sorter/first-setup/
 warning: >-
-  **AI-generated first draft.** Written from the SorterOS UI's own source and from
-  the UI running here, not from setting up a real machine. The screenshots are of
-  steps 1 to 3, step 7 and Settings; steps 4 to 6, 8 and 9 need hardware
-  attached, so their screenshots are still missing and their wording has not
-  been checked against a machine that has boards, servos and cameras on it.
-  Step 7 has been.
+  **SorterOS changes quickly.** This page describes what each step does, but a
+  button's name, or where it is, may have changed since this page was written.
+contributors: [brickcyclealice]
+last_verified: 2026-10-22
 ---
 
 The software is installed and the machine has booted. This page takes you from opening its UI in a browser to a machine that is ready to sort. Everything here happens in the browser, so there are no commands to type.
 
 ## Before you start
 
+- The machine is the standard Sorter V2, built from the [parts calculator](https://parts-calculator.basically.website/): C-channels 1 to 3 feed the pieces, C-channel 4 is the classification channel, and the chute drops each piece into its bin. This is the only build SorterOS sets up, so there is no build to choose in the UI.
 - The machine is assembled, wired and powered on.
 - SorterOS is installed and running. See [Installation]({{ '/sorter/installation/' | relative_url }}).
 - **The control board is flashed.** Step 3 below only lists boards that already answer on USB serial, so a board with no firmware on it does not appear there at all. [Flashing the control board]({{ '/sorter/' | relative_url }}#flash-the-control-board-before-the-wizard) has the route, including the one for a board that has never been flashed.
 - Your phone, tablet or computer is on the same network as the machine.
-- The machine is empty: no parts in the C-channels, the carousel, the classification chamber or the chute. The wizard turns the motors.
-- Nothing is resting against the chute or the carousel.
+- The machine is empty: no parts in the C-channels or the chute. The wizard turns the motors.
+- Nothing is resting against the chute or the C-channels.
 
 Set aside about an hour. You can stop between steps and come back later.
 
@@ -43,39 +42,41 @@ Type the machine's address into your browser. Which address depends on how you i
 
 If you gave the machine a different hostname during the install, use that name instead of `sorter`. If no `.local` address answers, use the machine's IP address from your router.
 
+**Type the `http://` part.** The machine only answers on `http`. Some browsers change the address to `https://` by themselves, and then the page does not load. Check the address bar for an extra `s`, and remove it.
+
 There is nothing to log into. The machine UI has no account and no password, so anyone on your network who opens the address sees the same screens you do. The only sign-in on this page is Hive, in step 8, and that is optional.
 
-The first time you open the UI it opens the setup wizard.
+If the page does not appear at all, or it appears and every button fails, see [SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}).
+
+**The first time you open the UI it shows the setup wizard.** Leave it for now: update the software first, then open the wizard again. Open **Settings** from the bar at the top of the page. On a narrow screen it is in the **Pages** menu there.
+
+## Update the software first
+
+The software changes often, so the version on a new machine can be weeks old. Update it before you start the wizard.
+
+<ol class="numbered-steps">
+  <li>Open <strong>Settings</strong>, then <strong>Versions</strong>.</li>
+  <li>Press <strong>Check for updates</strong>, at the top of the <strong>This machine</strong> panel.</li>
+  <li>Read the bottom of that panel. If it says <strong>Up to date.</strong>, there is nothing to do. If it says <strong>A new version is out</strong>, press <strong>Update</strong>.</li>
+  <li>Wait. The machine gets the new version, builds it and restarts, which takes a few minutes. If the page goes blank, wait five minutes, then reload it.</li>
+</ol>
+
+The same panel says which version you are on: **Channel** is the release the machine follows, and **Commit** and **Made** are the version and its date. Give all three when you ask for help.
+
+**Stable or canary.** The **Release channels** panel lists both. **Stable** is the tested release. **Canary** is newer and less tested. Stay on stable unless a fix you need is only on canary. Switching keeps your settings and data, but once you are on canary you cannot switch back to stable until stable catches up.
+
+## Open the setup wizard
+
+Open **Settings** → **General** → **Open the setup wizard**, or add `/setup` to the machine's address (`http://sorter.local/setup`). This is also how you get back to it after it is finished.
 
 <div class="img-row">
   <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step1-machine-identity-w1600-08182bfeebd0.jpg" alt="The setup wizard on step 1, with the nine steps along the top and a machine name field below"><figcaption>The wizard on its first step. <cite>UI screenshot. Render: Balloon.</cite></figcaption></figure>
 </div>
 
-If the page does not appear at all, or it appears and every button fails, see [SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}).
-
-## Tell the machine which build it is
-
-The machine has to know which build it is before the wizard checks anything that moves. Open **Settings** → **General** → **Machine setup** and pick the one that matches what you built:
-
-| Setup | What it is |
-|---|---|
-| C-Channels + Classification Channel | A dedicated classification C-channel in place of the carousel and chamber. |
-| FIDA + Carousel + Classification Chamber | C-channel feeding, carousel handoff, chamber classification. |
-| Operator-fed carousel | You place each part into the carousel dropzone yourself. |
-
-<div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-settings-machine-setup-w1600-b2f27a36fe48.jpg" alt="The top of the General settings page, showing the connection, the machine name and the three machine setup choices"><figcaption>Settings, General. The three machine setups are the third block down. <cite>UI screenshot. Render: Balloon.</cite></figcaption></figure>
-</div>
-
-The choice is saved on the machine and decides what the wizard asks you in steps 5 and 7, so set it before you start. Changing it later takes effect after a reset and a re-home.
-
-## How the wizard works
-
 - The nine steps run along the top. The one you are on is highlighted.
 - **Continue** at the bottom takes you to the next step. When it is greyed out, the line beside it says what is still missing.
 - A step stays locked until the steps before it are done.
 - You can close the browser and come back. The wizard remembers how far you got on this machine.
-- After you finish, reopen it any time from **Settings** → **Setup Wizard** → **Open Setup Wizard**.
 
 ## Step 1: Machine identity
 
@@ -99,12 +100,9 @@ You can change it later under **Settings** → **Connection & Appearance** → *
 
 ## Step 3: Controller discovery
 
-The wizard lists the USB controllers it can see, and uses the ones it recognises. On a machine built from these docs that is two devices:
+The wizard lists the USB controllers it can see, and uses the ones it recognises. On a machine built from these docs that is one device: the control board, which drives the chute, all four channel rotors and the flap servos. There is no separate servo device to find.
 
-- the control board, which drives the chute and all four channel rotors,
-- the Waveshare servo bus.
-
-A recognised device has a green **Controller** or **Servo Bus** badge, its board type, and the port it is on.
+A recognised device has a green **Controller** badge, its board type, and the port it is on.
 
 **Nothing listed, or the control board missing?** In order:
 
@@ -126,59 +124,84 @@ The wizard's own wording, and the screenshot below, still name a feeder and a di
 
 ## Step 4: Motion direction check
 
-This step turns the motors a little to check which way each one runs. The steppers power on when you open the step: wait for "Powering on steppers…" to clear before you press anything.
+This step turns the motors a little to check which way each one runs. The steppers power on when you open the step: wait for "Powering on the steppers…" to clear before you press anything.
 
-One card per axis: C-Channel 1, C-Channel 2, C-Channel 3, the carousel (or the classification channel), and the chute.
+One card per axis: C-Channel 1, C-Channel 2, C-Channel 3, C-Channel 4 and the Chute. Each card has a picture of that axis seen from above, with an arrow showing clockwise.
 
 <ol class="numbered-steps">
   <li>Press <strong>Jog</strong> on the first card. The axis moves a small amount.</li>
-  <li>Look down on it from above, then press <strong>Clockwise</strong> or <strong>Counter-Clockwise</strong> to say which way it turned. On a C-channel, watch the rotor, the part the pieces ride on.</li>
-  <li>The card turns green and reads <strong>Verified</strong>. If it turned counter-clockwise, the wizard reverses that motor in software and the card reads <strong>Inverted</strong>. That is expected: the motor is wired the other way round.</li>
+  <li>Look down on it from above, then press <strong>Clockwise</strong> or <strong>Counterclockwise</strong> to say which way it turned. On a C-channel, watch the rotor, the part the pieces ride on.</li>
+  <li>The card reads <strong>Checked</strong>. If it turned counterclockwise, the wizard reverses that motor in software and the card reads <strong>Inverted</strong>. That is expected: the motor is wired the other way round.</li>
   <li>Repeat for every card.</li>
 </ol>
 
-**Show wiring help** opens a diagram of the control board and a table of which stepper port each axis uses. Use it if an axis does not move at all.
+**Show the wiring** opens a diagram of the control board and a list of which stepper port each axis uses. Use it if an axis does not move at all.
 
-When every card is verified, press **Directions look correct**.
+When every card is checked, press **Directions look correct**.
 
-## Step 5: Endstops and geometry
+## Step 5: Chute endstop and geometry
 
-Each axis that homes has a sensor at its home position. Here you check that the machine reads each sensor the right way round, then let it find home.
+The chute has a sensor at its home position. Here you check that the machine reads it the right way round, then let the chute find home. The wizard checks only the chute here.
 
 <ol class="numbered-steps">
-  <li>Block the carousel sensor by hand at the home position. The <strong>Carousel endstop</strong> panel should flip to <strong>Triggered</strong>.</li>
-  <li>If it stays <strong>Not triggered</strong>, press <strong>Trigger state looks inverted? Flip polarity</strong> and block the sensor again.</li>
-  <li>Do the same for the <strong>Chute endstop</strong> panel.</li>
-  <li>Press <strong>Home carousel</strong>. The carousel turns until it finds its sensor and stops.</li>
-  <li>Press <strong>Find chute endstop</strong>. The chute does the same. If it runs the wrong way, press <strong>Chute moves the wrong way? Flip direction</strong> and try again.</li>
-  <li>Press <strong>Endstops and geometry look correct</strong>.</li>
+  <li>Trigger the chute's endstop by hand. The <strong>Chute endstop</strong> row should read <strong>Triggered</strong>.</li>
+  <li>If it stays <strong>Not triggered</strong>, press <strong>Flip the polarity</strong> and trigger it again.</li>
+  <li>Press <strong>Find the chute endstop</strong>. The chute turns until it finds its sensor and stops. Seen from above, it should turn counter-clockwise, so it reaches the sensor from the clockwise side. If it runs the other way, press <strong>Stop the motion</strong>, then <strong>Flip the direction</strong>, and try again.</li>
+  <li>Press <strong>Chute endstop and geometry look correct</strong>.</li>
 </ol>
 
-**Stop motion** on either panel halts that axis at once.
+<div class="img-row">
+  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step5-chute-homing-direction-full-b77a67a68ff7.png" alt="Top-down diagram of the machine: the chute in the middle of a ring of bins, its funnel on one side and a hammer-shaped tab on the other. A green arrow takes the funnel counter-clockwise to where it ends at home, a dashed outline at the section left of the control board, while the hammer turns counter-clockwise to the home switch above the PSU. A crossed-out red arrow off the funnel turns clockwise."><figcaption>Which way the chute should turn when it finds the endstop, seen from above. Watch the funnel: the hammer on the far side of the chute is what presses the switch. <cite>Diagram. Render: Balloon.</cite></figcaption></figure>
+</div>
+
+**Stop the motion** halts the chute at once. **Show the wiring** shows which header on the control board the endstop plugs into.
 
 Leave **First bin center** and **Pillar width** at the values already in the fields. They are saved when you continue, and you set them properly later, on [Homing and calibrating the chute]({{ '/sorter/chute-calibration/' | relative_url }}).
 
-A machine built with a classification channel instead of a carousel has no carousel sensor. That panel is replaced by a note, and only the chute is checked here.
-
 ## Step 6: Servo configuration
 
-The bin doors are driven by servos on one bus, and each servo has to be told which storage layer it belongs to.
+Each storage layer has a flap in the chute, driven by a servo. Closed, the flap crosses the chute and pieces slide into that layer's bins. Open, it lies flat in the chute wall and pieces fall past to the layers below.
 
-The wizard discovers the servos on the bus, then takes them one at a time: calibrate the door, assign it to a layer, move to the next. Work up the machine in the order that suits you, but give every layer a servo.
+On the standard control board the servos run from the board itself. The step says **No Waveshare servo bus found, so a PCA9685 on a control board is assumed**, and shows the same flap panel as **Settings → Storage layers**.
 
-**Continue** is blocked with "Configure servos before continuing" until the assignment is complete. When it is, press **Servo setup looks correct**.
+<ol class="numbered-steps">
+  <li>Press <strong>Add a layer</strong> once for each layer, and set each layer's <strong>Bins</strong> to the bins fitted on it.</li>
+  <li>Turn on <strong>Advanced</strong>, beside <strong>Add a layer</strong>. Each layer's <strong>Channel</strong> box only shows while it is on. Pick the servo channel that layer's flap is plugged into.</li>
+  <li>Press <strong>Save the layers</strong>. Then restart the backend: the <strong>⋯</strong> menu at the top right, then <strong>Restart the backend</strong>. A layer you added, or whose <strong>Bins</strong> you changed, only takes effect after a restart. Homing alone is not enough, even though the page says to home.</li>
+  <li>When the page is back, home the machine from the same menu: <strong>Home</strong> (<strong>Re-home</strong> if it has homed before). A flap cannot move until then.</li>
+  <li>For each layer, move the flap with the arrows until it lies flat in the chute wall, then press <strong>Lock open</strong>. Then move it until it crosses the chute and nothing can fall past, and press <strong>Lock closed</strong>. The layer reads <strong>Calibrated</strong> once both are locked.</li>
+</ol>
+
+**You need a torch** to see the flaps inside the chute. It is easier with one section opened up: in the section the chute points at, lift out the bins and slide each layer's funnel off its brackets. Neither is screwed in. Then shine the torch in at the flaps. Afterwards, slide each funnel back until it meets the core and push every bin fully back into its bay.
+
+**Never turn a flap by hand.** The servo's gearbox barely turns backwards, so forcing a flap rounds off the teeth inside the horn, or breaks the servo so that it spins freely. Move it only with the arrows.
+
+**The first press swings the flap to one end.** Until a flap has moved since the machine was switched on, the machine does not know where it is, and the first press of either arrow sends it to 0° at full speed. Keep your fingers out of the chute. If it hums or clicks there, press the right arrow (**Move toward a higher angle**) until it stops.
+
+**Watch the flap, not the arrows.** One arrow moves it towards a lower angle and the other towards a higher one, and which of those opens it depends on how its servo sits.
+
+**A clicking noise means you have gone too far.** Step back the other way until it stops, then lock the angle there. Never leave a servo pushing against the chute wall.
+
+A flap that will not reach open or closed, or a servo that spins freely: [troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}#flaps-a-flap-will-not-reach-open-or-closed-or-its-servo-spins-freely).
+
+**A choice that does not stay after a save was refused.** The reason is at the very bottom of the page, below the speed settings.
+
+**Continue** is blocked with "Configure servos before continuing" until the servos are set up. When every layer is calibrated, press **Servo setup looks correct**.
 
 ## Step 7: Cameras
 
-Every camera the machine needs gets a card here. On a standard machine:
+There are three cards, one per camera, and each one needs a camera:
 
-| Area | Needed |
-|---|---|
-| C-Channel 2 | yes |
-| C-Channel 3 | yes |
-| Carousel, or Classification C-Channel (C4) | yes |
-| Classification Top | optional |
-| Classification Bottom | optional |
+- **C-channel 2**
+- **C-channel 3**
+- **Classification C-channel (C4)**
+
+Before you pick any cameras:
+
+<ul class="bulleted-list">
+  <li><strong>Take the cap off the classification camera's lens.</strong></li>
+  <li><strong>Put a LEGO piece on the C-channel 2 rotor and a different-coloured one on the C-channel 3 rotor</strong>, for example a white piece on C2 and a green one on C3. The two channel cameras look alike in the list, and the piece in the picture tells you which one you are looking at.</li>
+</ul>
 
 For each card, pick a camera from the dropdown. The card then shows what that camera sees, so you can tell them apart. Both a channel's drop zone and its exit should be visible in the frame. If they are not, you may need to move the camera lamp to a different dovetail on its C-channel. One camera can serve more than one area if its view covers both.
 
@@ -232,9 +255,13 @@ Set the mode on each camera:
 
 On all C-Channels, set **Pixel Format** to MJPG.
 
+**If a camera's mode list has nothing at 1280x720**, only small sizes such as 640x480 at 5 fps, that camera is on a slow USB link. At 5 fps a channel misses small pieces such as Technic pins. See [a camera only offers small modes]({{ '/sorter/troubleshooting/' | relative_url }}#cameras-a-camera-only-offers-small-modes-or-runs-at-5-fps) before you go on.
+
+If the picture's sliders push the live view off the bottom of the screen, zoom the browser out (Ctrl and minus, or Cmd and minus on a Mac) so you can see both while you adjust.
+
 The camera's automatic settings should be enough for everything else, and manual settings are there if you need them. Click **Confirm**.
 
-Press **Save Camera Setup** when every required area has a camera.
+Press **Save the cameras** when every card has a camera.
 
 ## Step 8: Hive
 
@@ -249,9 +276,9 @@ Press **Open Dashboard**. The wizard is done.
 
 ## The finished result
 
-The dashboard, with every camera live and the machine in standby.
+The dashboard, with every camera live and its zones drawn, the machine's name at the top, and **Ready** beside it. Nothing has been sorted yet, so **Recent pieces** is empty.
 
-<div class="img-placeholder">Screenshot of the SorterOS dashboard straight after the wizard finishes: the camera tiles showing live views, the machine named, and no profile loaded yet.</div>
+<div class="img-placeholder">Screenshot of the SorterOS dashboard on a machine with stock camera mounts, straight after setup: the three camera tiles live with their zones drawn, the machine name and Ready at the top, and nothing under Recent pieces.</div>
 
 ## Settings worth a look
 

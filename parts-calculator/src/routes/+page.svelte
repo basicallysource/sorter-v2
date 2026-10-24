@@ -873,6 +873,7 @@
 												<span class="pl-name">
 													{group?.name}
 													<Badge variant={block.groupKind === 'folder' ? 'neutral' : 'info'}>{block.groupKind === 'folder' ? 'Folder' : 'Assembly'}</Badge>
+													<OptionalBadge value={a?.optional} />
 													{#if a?.candidates?.some((c) => !c.superseded_by && !c.rejected_at)}<Badge variant="info"><FlaskConical size={11} /> Candidate</Badge>{/if}
 													{#if block.groupKind === 'assembly' && a}<ChangeStatus kind="assemblies" id={a.id} name={a.name} />{/if}
 												</span>

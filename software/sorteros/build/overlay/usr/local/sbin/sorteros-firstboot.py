@@ -263,6 +263,7 @@ def _progress() -> dict:
         "version": version,
         "ref": ref,
         "online": net,
+        "notice": _board_mismatch(),
         "rows": rows,
         "stages": [{"name": s.name,
                     "state": snapshot.get(s.name, {}).get("status", "pending"),
@@ -319,6 +320,7 @@ font-size:.875rem;line-height:1.25rem}
 .icon{flex:none;display:flex;align-items:center;justify-content:center;width:1rem;height:1.25rem}
 .words{flex:1;min-width:0}
 .detail{flex:none;color:var(--muted);font-weight:400;font-variant-numeric:tabular-nums}
+.notice{padding:1rem 1.25rem;color:var(--danger-ink);font-size:.875rem;line-height:1.25rem;overflow-wrap:anywhere}
 .error{display:block;margin-top:.25rem;color:var(--danger-ink);font-weight:400;overflow-wrap:anywhere}
 .done .icon{color:var(--success-ink)}
 .active{font-weight:500}
@@ -387,6 +389,7 @@ def _render_status_page() -> bytes:
         rows.append(f'<li class="{state}"><span class="icon">{icon}</span>'
                     f'<span class="words">{esc(row["words"])}{error}</span>{side}</li>')
     done = sum(1 for row in p["rows"] if row["state"] == "done")
+    notice = f'<section class="panel notice phase" role="alert">{esc(p["notice"])}</section>' if p["notice"] else ""
     page = (
         '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -400,6 +403,7 @@ def _render_status_page() -> bytes:
         f'<div><h1>{esc(headline)}</h1><p>{esc(lede)}</p></div></section>'
         f'<section class="panel hero opening">{_spinner(32)}'
         '<div><h1>Opening the Sorter UI</h1><p>It takes up to a minute the first time.</p></div></section>'
+        f'{notice}'
         '<section class="phase"><div class="label-row"><h2 class="label">Steps</h2>'
         f'<span class="count">{done} of {len(p["rows"])} done</span></div>'
         f'<ol class="panel steps">{"".join(rows)}</ol></section>'
@@ -414,7 +418,7 @@ def _render_status_page() -> bytes:
 
 def _status_json() -> bytes:
     p = _progress()
-    return json.dumps({k: p[k] for k in ("phase", "hostname", "version", "ref", "online", "stages")}).encode()
+    return json.dumps({k: p[k] for k in ("phase", "hostname", "version", "ref", "online", "notice", "stages")}).encode()
 
 
 class _StatusHandler(BaseHTTPRequestHandler):
@@ -549,6 +553,7 @@ def stage_grow_rootfs() -> None:
 # never finds them in this file.
 CFG_END_MARKER = "# __SORTEROS_CFG" + "_END__"
 CONFIG_APPLIED = STAMP_DIR / "config-applied"
+ORANGEPI_RELEASE = Path("/etc/orangepi-release")
 
 
 def _read_config() -> tuple[str, dict]:
@@ -568,6 +573,25 @@ def _read_config() -> tuple[str, dict]:
         return raw, {}
 
 
+def _board_mismatch() -> str:
+    """What to tell the owner when the setup site was told another Orange Pi
+    model than the one this image runs on (BOARD in /etc/orangepi-release).
+    Empty when they agree, or when either side doesn't say."""
+    _, cfg = _read_config()
+    want = cfg.get("board")
+    if not isinstance(want, str) or not want.strip():
+        return ""
+    try:
+        release = ORANGEPI_RELEASE.read_text("utf-8", errors="replace")
+    except OSError:
+        return ""
+    m = re.search(r'^BOARD="?([^"\n]+?)"?\s*$', release, re.M)
+    if not m or m.group(1) == want.strip():
+        return ""
+    return (f"The setup site was set to {want.strip()}, but this image is for {m.group(1)}. "
+            "Flash the image that matches your board.")
+
+
 def apply_config_if_changed() -> None:
     """Apply the setup config whenever its contents change: once at first
     boot for what the setup site wrote, again if the setup page on the device
@@ -584,6 +608,10 @@ def apply_config_if_changed() -> None:
             return
     except OSError:
         pass
+
+    mismatch = _board_mismatch()
+    if mismatch:
+        log.warning("%s", mismatch)
 
     hostname = cfg.get("hostname")
     if isinstance(hostname, str) and hostname.strip() and hostname.strip() != socket.gethostname():

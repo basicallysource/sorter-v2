@@ -8,9 +8,15 @@ no settings uses Ethernet, or opens its setup network (`../portal/`).
 
 Pure client-side. No backend, no upload, no auth.
 
-1. User drags in a `sorteros-v3-*.img` file.
+1. User drags in a `sorteros-v*.img` file.
 2. File goes into a `Blob` in browser memory. Never uploaded.
-3. User fills in: Wi-Fi SSID, password, hostname, optional SSH key.
+3. User picks the Orange Pi model (`src/lib/boards.ts`) and fills in: Wi-Fi
+   SSID, password, hostname, optional SSH key. The model is written as
+   `board = "orangepi5pro"`; it does not change the image. On the machine,
+   `sorteros-firstboot` compares it with `BOARD=` in `/etc/orangepi-release`
+   and shows a notice on its progress page when they differ. A new model
+   needs an entry in `boards.ts`, a build config in `../build/`, and the
+   `BOARD` value of its vendor image.
 4. JS searches the .img for the magic markers
    `__SORTEROS_CFG_START__` / `__SORTEROS_CFG_END__` (baked in by the
    image builder into `/etc/sorteros-config.toml`, padded to 4 KB).

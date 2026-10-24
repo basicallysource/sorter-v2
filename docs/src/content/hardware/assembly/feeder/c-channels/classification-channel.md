@@ -70,12 +70,22 @@ The classification channel is the last stage before a part drops into the chute,
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Colour strip (optional, for step 5):</strong> press one 1 x 1 tile onto each stud of the Colour strip stud bar, in this order from one end: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow, Red.</p>
+    <p><strong>Colour strip, stud bar onto the clip (optional, for step 5):</strong> turn the Colour strip clip so its slot opens downwards. Lay the stud bar's thin lip along the top of the clip and press its hooked edge down over the clip's sloped outer face. The studs face the same side as the clip's short lip.</p>
+  </div>
+  <figure class="prep-item-figure" style="flex-basis: 100%">
+    <a href="https://assets.basically.website/sorter-docs/colour-strip-bar-onto-clip-png-full-5c0d6ef633d5.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-bar-onto-clip-png-full-5c0d6ef633d5.png" alt="Three panels. One, the stud bar held above the clip, seen from outside the channel, with an arrow showing it going down onto the clip. Two, the bar on the clip, its thin lip along the top of the clip and its hooked edge over the clip's outer face. Three, a cut through the middle of both: the clip's slot opening downwards for the wall, the bar sitting on the clip's outer top edge, and an arrow showing the studs facing into the channel"></a>
+    <figcaption>The stud bar going onto the clip, both turned the way they sit on the wall. Click to enlarge. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Colour strip, tiles (optional, for step 5):</strong> press one 1 x 1 tile onto each stud of the stud bar, in this order from one end: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow, Red.</p>
     <p>Use real LEGO tiles. The green is Green (BrickLink 6), not Bright Green.</p>
   </div>
   <figure class="prep-item-figure">
-    <a href="https://assets.basically.website/sorter-docs/colour-strip-tiles-on-stud-strip-png-full-4dfac40b2adb.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-tiles-on-stud-strip-png-full-4dfac40b2adb.png" alt="Render of the curved stud bar with eight 1 x 1 tiles pressed on, labelled from one end: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow and Red, each with its BrickLink colour number"></a>
-    <figcaption>The stud bar with its eight tiles, Black at one end and Red at the other. Click to enlarge. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+    <a href="https://assets.basically.website/sorter-docs/colour-strip-tiles-camera-view-png-full-46eb0ae4de03.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-tiles-camera-view-png-full-46eb0ae4de03.png" alt="Render of the clip and stud bar seen from inside the channel, with the eight tiles on the studs labelled from left to right: Red, Yellow, Green, Blue, White, Light Bluish Gray, Dark Bluish Gray and Black, each with its BrickLink colour number"></a>
+    <figcaption>The tiles as the camera sees them from the middle of the channel: Red on the left, Black on the right. Click to enlarge. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
   </figure>
 </div>
 
@@ -116,14 +126,13 @@ Turn the rotor by hand. It should go all the way round without a tight spot.
 The colour strip puts eight tiles of known colours in the camera's view, for colour calibration. Skip this step if you are not fitting it. It only helps if the sorter uploads samples, so turn on sample capture in the Data section of the sorter's settings.
 
 <ol class="numbered-steps">
-  <li>Fit the stud bar from the preparation step onto the Colour strip clip. The bar's thin lip lies along the top of the clip and its hooked edge wraps over the clip's sloped outer face. The tiles face the same side as the clip's short lip.</li>
-  <li>Turn the clip so its slot opens downwards and press it over the top of the stator wall, short lip inside the channel. The tiles stand just above the rim, facing into the channel.</li>
+  <li>Take the clip with the stud bar and tiles from the preparation step, slot opening downwards, and press it over the top of the stator wall with the short lip inside the channel. The tiles stand just above the rim, facing into the channel.</li>
   <li>Slide it along the wall until the Black end is about 45 to 50 mm before the exit opening, on the side the rotor brings the parts from. Red is the end furthest from the exit.</li>
 </ol>
 
 <figure class="single-figure">
-  <a href="https://assets.basically.website/sorter-docs/colour-strip-clip-and-strip-on-stator-wall-png-full-0281f191a92f.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-clip-and-strip-on-stator-wall-png-full-0281f191a92f.png" alt="Render looking out at the stator wall from inside the channel: the clip sits over the top of the wall and the stud bar is hooked onto it, with the eight coloured tiles standing just above the rim and facing into the channel"></a>
-  <figcaption>The clip over the wall and the stud bar hooked onto it, tiles facing into the channel. Click to enlarge. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+  <a href="https://assets.basically.website/sorter-docs/colour-strip-on-stator-wall-from-inside-png-full-40333c4f233c.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-on-stator-wall-from-inside-png-full-40333c4f233c.png" alt="Render looking out at the stator wall from inside the channel: the clip sits over the top of the wall and the stud bar is hooked onto it, with the eight coloured tiles standing just above the rim and facing into the channel"></a>
+  <figcaption>The strip on the wall, seen from inside the channel: Red on the left, Black on the right, nearest the exit. Click to enlarge. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
 </figure>
 
 <figure class="single-figure">

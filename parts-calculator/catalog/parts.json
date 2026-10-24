@@ -11324,8 +11324,8 @@
       "docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
       "images": [
         {
-          "url": "https://assets.basically.website/sorter-docs/colour-strip-clip-and-strip-on-stator-wall-png-full-0281f191a92f.png",
-          "alt": "Render of the colour strip on the classification channel's stator wall: the clip over the top of the wall and the stud bar hooked onto it, eight coloured tiles standing just above the rim and facing into the channel",
+          "url": "https://assets.basically.website/sorter-docs/colour-strip-on-stator-wall-from-inside-png-full-40333c4f233c.png",
+          "alt": "Render of the colour strip on the classification channel's stator wall seen from inside the channel: the clip over the top of the wall and the stud bar hooked onto it, eight tiles from Red on the left to Black on the right standing just above the rim and facing into the channel",
           "caption": "Rendered from the part geometry, not from a build."
         }
       ],

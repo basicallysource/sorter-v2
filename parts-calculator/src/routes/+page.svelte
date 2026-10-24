@@ -373,6 +373,7 @@
 		);
 	}
 	const allSelected = $derived(PARTS.every((p) => machineNeeds(p.id) === 0 || qtyOf(p.id) > 0));
+	const noneSelected = $derived(PARTS.every((p) => 'bins' in p.quantities || qtyOf(p.id) === 0));
 
 	const prettyPattern = SETTINGS.infill_pattern.replace('adaptivecubic', 'adaptive cubic');
 	// both boxes at the top of the page start closed, so their one-line summary is
@@ -649,9 +650,15 @@
 				{#if activeTab === 'parts'}
 					<span class="text-sm text-text-muted">
 						{selectedParts.length}/{PARTS.length} selected ·
-						<button class="text-primary hover:text-primary-hover" onclick={() => setAll(!allSelected)}>
-							{allSelected ? 'deselect all' : 'select all'}
-						</button>
+						<button
+							class="text-primary hover:text-primary-hover disabled:text-text-muted disabled:hover:text-text-muted"
+							disabled={allSelected}
+							onclick={() => setAll(true)}>select all</button>
+						·
+						<button
+							class="text-primary hover:text-primary-hover disabled:text-text-muted disabled:hover:text-text-muted"
+							disabled={noneSelected}
+							onclick={() => setAll(false)}>select none</button>
 						<button
 							class="ml-3 inline-flex items-center gap-1 text-primary hover:text-primary-hover"
 							onclick={downloadCsv}

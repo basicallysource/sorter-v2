@@ -3,6 +3,8 @@
 	import PageMeta from '$lib/components/PageMeta.svelte';
 	import Requirements from '$lib/components/Requirements.svelte';
 	import ImageLightbox from '$lib/components/ImageLightbox.svelte';
+	import FirmwareTester from '$lib/components/FirmwareTester.svelte';
+	import { mount, unmount } from 'svelte';
 
 	let { data } = $props();
 
@@ -189,6 +191,22 @@
 				})
 				.catch(() => fail('The bill of materials could not be loaded. Use the BOM (TSV) link above.'));
 		}
+	});
+
+	// The control board tester. The page's markdown holds an empty
+	// `data-firmware-tester` element and the component is mounted into it here:
+	// a <script> inside {@html} never runs, and the tester needs the browser's
+	// Web Serial API, so it cannot be prerendered anyway.
+	$effect(() => {
+		p.url; // rerun per page — {@html} replaces the DOM on navigation
+		if (!contentEl) return;
+		const host = contentEl.querySelector<HTMLElement>('[data-firmware-tester]');
+		if (!host) return;
+		host.replaceChildren();
+		const app = mount(FirmwareTester, { target: host });
+		return () => {
+			void unmount(app);
+		};
 	});
 </script>
 

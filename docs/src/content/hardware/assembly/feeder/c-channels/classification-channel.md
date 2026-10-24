@@ -73,33 +73,23 @@ The classification channel is the last stage before a part drops into the chute,
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Colour strip, stud bar onto the clip (optional, for step 5):</strong> turn the Colour strip clip so its slot opens downwards. Lay the stud bar's thin lip along the top of the clip and press its hooked edge down over the clip's sloped outer face. The studs face the same side as the clip's short lip.</p>
+    <p><strong>Colour strip (optional, for step 5):</strong> hold the Colour strip clip with its slot opening downwards. Lay the stud bar's thin lip along the top of the clip and press its hooked edge down over the clip's sloped outer face. The studs face the same side as the clip's short lip.</p>
+    <p>Then press one 1 x 1 tile onto each stud, in this order from one end: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow, Red. Use real LEGO tiles. The green is Green (BrickLink 6), not Bright Green.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
-      <a href="https://assets.basically.website/sorter-docs/colour-strip-bar-and-clip-apart-png-full-fd14fac7d8d1.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-bar-and-clip-apart-png-full-fd14fac7d8d1.png" alt="The stud bar held above the clip, seen from outside the channel, with an arrow showing it going down onto the clip"></a>
-      <figcaption>The stud bar above the clip, both turned the way they sit on the wall. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+      <a href="https://assets.basically.website/sorter-docs/colour-strip-bar-and-clip-apart-png-full-fd14fac7d8d1.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-bar-and-clip-apart-png-full-fd14fac7d8d1.png" alt="The stud bar held above the clip, with an arrow showing it going down onto the clip"></a>
+      <figcaption>The stud bar above the clip. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
     </figure>
     <figure>
-      <a href="https://assets.basically.website/sorter-docs/colour-strip-bar-on-clip-png-full-3eae494f4983.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-bar-on-clip-png-full-3eae494f4983.png" alt="The stud bar on the clip, seen from outside the channel: its thin lip along the top of the clip and its hooked edge over the clip's outer face"></a>
+      <a href="https://assets.basically.website/sorter-docs/colour-strip-bar-on-clip-png-full-3eae494f4983.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-bar-on-clip-png-full-3eae494f4983.png" alt="The stud bar on the clip: its thin lip along the top of the clip and its hooked edge over the clip's outer face"></a>
       <figcaption>The stud bar on the clip. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
     </figure>
     <figure>
-      <a href="https://assets.basically.website/sorter-docs/colour-strip-bar-on-clip-section-png-full-65a88f9d98fb.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-bar-on-clip-section-png-full-65a88f9d98fb.png" alt="A cut through the middle of the clip and the stud bar: the clip's slot opening downwards for the stator wall, the bar's lip on top of the clip and its hook over the clip's outer face, and an arrow showing the studs facing into the channel"></a>
-      <figcaption>Cut through the middle: the slot drops over the wall, and the studs face into the channel. Click to enlarge. <cite>Drawn from the part geometry, not from a build.</cite></figcaption>
+      <a href="https://assets.basically.website/sorter-docs/colour-strip-tiles-camera-view-png-full-46eb0ae4de03.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-tiles-camera-view-png-full-46eb0ae4de03.png" alt="The clip and stud bar with the eight tiles on the studs, labelled from left to right: Red, Yellow, Green, Blue, White, Light Bluish Gray, Dark Bluish Gray and Black, each with its BrickLink colour number"></a>
+      <figcaption>The tiles on the studs, Red at one end and Black at the other. Click to enlarge. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
     </figure>
   </div>
-</div>
-
-<div class="prep-item">
-  <div class="prep-item-body">
-    <p><strong>Colour strip, tiles (optional, for step 5):</strong> press one 1 x 1 tile onto each stud of the stud bar, in this order from one end: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow, Red.</p>
-    <p>Use real LEGO tiles. The green is Green (BrickLink 6), not Bright Green.</p>
-  </div>
-  <figure class="prep-item-figure">
-    <a href="https://assets.basically.website/sorter-docs/colour-strip-tiles-camera-view-png-full-46eb0ae4de03.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-tiles-camera-view-png-full-46eb0ae4de03.png" alt="Render of the clip and stud bar seen from inside the channel, with the eight tiles on the studs labelled from left to right: Red, Yellow, Green, Blue, White, Light Bluish Gray, Dark Bluish Gray and Black, each with its BrickLink colour number"></a>
-    <figcaption>The tiles as the camera sees them from the middle of the channel: Red on the left, Black on the right. Click to enlarge. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
-  </figure>
 </div>
 
 {% include step.html n="2" title="Bolt the output gear to the rotor" %}

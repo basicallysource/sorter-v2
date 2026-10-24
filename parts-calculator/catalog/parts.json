@@ -1766,6 +1766,48 @@
       "onshape": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/w/95f28d157e2e06c115b488fe/e/5bf04274a6c68015096bd757"
     },
     {
+      "id": "colour-strip-clip",
+      "uid": "8e9x",
+      "name": "Colour strip clip",
+      "description": "Hooks over the top of the classification channel's stator wall and carries the colour strip's stud bar. Optional: only for the colour calibration strip.",
+      "internal_notes": "Spencer's c4-70-rim-clip.stl from c4-70deg-stls-no-ids.zip (voice-channel chat, 2026-10-11). Slot r 117.0 to 120.0 mm, matching the stator wall's 3.0 mm top (r 116.98 to 119.98). Exported with the slot facing up, which is the print orientation; it goes on the wall the other way up.",
+      "version": "1",
+      "created_at": "2026-10-24",
+      "updated_at": "2026-10-24",
+      "quantities": {
+        "classification-channel": 1
+      },
+      "assembly": "colour-calibration-strip",
+      "stl_hash": "373459b6c8b55c49dd1da233418682e96551cb19b458e3dac308d44ee8855f28",
+      "color": {
+        "fixed": "ash-gray",
+        "why": "It stands at the edge of the camera's view, next to the tiles. Gray keeps the camera's exposure and white balance steady: white throws them off."
+      },
+      "optional": true,
+      "support": false
+    },
+    {
+      "id": "colour-strip-studs",
+      "uid": "19i6",
+      "name": "Colour strip stud bar",
+      "description": "A curved bar with eight studs for the colour strip's 1 x 1 tiles. It hooks onto the Colour strip clip so the tiles stand just above the rim, facing into the channel. Optional: only for the colour calibration strip.",
+      "internal_notes": "Spencer's c4-70-stud-strip.stl from the same zip. Tile seats sit on a 124 mm radius and face in and up at about 70 degrees once fitted. Joint to the clip worked out from the two STLs' sections, not confirmed at the bench.",
+      "version": "1",
+      "created_at": "2026-10-24",
+      "updated_at": "2026-10-24",
+      "quantities": {
+        "classification-channel": 1
+      },
+      "assembly": "colour-calibration-strip",
+      "stl_hash": "37ee6a4f1b37c1cbe0a0ed749decb553b551c915c4f98da0c3d5111781bda204",
+      "color": {
+        "fixed": "ash-gray",
+        "why": "It stands at the edge of the camera's view, next to the tiles. Gray keeps the camera's exposure and white balance steady: white throws them off."
+      },
+      "optional": true,
+      "support": false
+    },
+    {
       "id": "idler-gear",
       "uid": "7bv7",
       "name": "Idler gear (24T)",
@@ -10804,6 +10846,33 @@
           }
         ]
       }
+    },
+    {
+      "id": "lego-tile-1x1",
+      "uid": "t0h2",
+      "kind": "cots",
+      "cots": {
+        "type": "lego",
+        "optional": true
+      },
+      "name": "LEGO tile 1 x 1 (3070b), colour strip set",
+      "category": "LEGO",
+      "description": "Eight 1 x 1 tiles, one of each colour, for the colour calibration strip: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow and Red. Optional.",
+      "note": "Green is BrickLink Green (6), not Bright Green. Real LEGO tiles, not printed ones: the point is the exact LEGO colour.",
+      "docs_page": "/hardware/assembly/feeder/c-channels/classification-channel/",
+      "created_at": "2026-10-24",
+      "updated_at": "2026-10-24",
+      "attributes": [
+        {
+          "label": "Part",
+          "value": "3070b (Tile 1 x 1 with groove)"
+        },
+        {
+          "label": "Colours (BrickLink id)",
+          "value": "Black 11, Dark Bluish Gray 85, Light Bluish Gray 86, White 1, Blue 7, Green 6, Yellow 3, Red 5"
+        }
+      ],
+      "image_url": "https://assets.basically.website/sorter-parts/lego-tile-1x1-colour-strip-set-full-edec2cc2429e.png"
     }
   ],
   "assemblies": [
@@ -11113,8 +11182,8 @@
     },
     {
       "id": "classification-chamber",
-      "uid": "qzw4",
-      "version": "4",
+      "uid": "fmsi",
+      "version": "5",
       "name": "C-channel 4 - Classification",
       "description": "The lowest channel, where classification happens: a C-channel drive with the finned rotor and a Camera lamp carrying the IMX415 4K camera. No output guide: the rotor's fins sweep through where one would sit.",
       "docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
@@ -11194,6 +11263,13 @@
           "message": "The Short and Angled Output Guide comes off C4. The finned rotor's five fins reach r 85.4 mm and sweep up to 21.2 mm past the guide's inner face at r 67.82, so the two cannot both be fitted; the faceted rotor on C1 to C3 clears the same guide by 1.5 to 1.8 mm. This restores the state before e22fce30 (#534), which gave C4 a guide when all four channels were consolidated onto one shape. Reported from a build by Extremetaz. sorter-v2 issue #543.",
           "breaking": false,
           "commit": "c467c375"
+        },
+        {
+          "version": "5",
+          "date": "2026-10-24",
+          "message": "Adds the Colour calibration strip as an optional line: a clip over the stator wall and a stud bar carrying eight LEGO tiles of known colours in the camera's view. It counts nothing until it is chosen. Requested by barthel in Discord, from Spencer's c4-70deg STLs of 2026-10-11.",
+          "breaking": false,
+          "commit": null
         }
       ],
       "lines": [
@@ -11211,9 +11287,60 @@
           "args": {
             "camera": "cam-imx415"
           }
+        },
+        {
+          "assembly": "colour-calibration-strip",
+          "qty": 1,
+          "optional": true
         }
       ],
       "connections": []
+    },
+    {
+      "id": "colour-calibration-strip",
+      "uid": "5ruo",
+      "version": "1",
+      "name": "Colour calibration strip",
+      "description": "Eight LEGO tiles of known colours in the classification camera's view, so the colour of a piece can be judged against them. A clip over the stator wall carries a stud bar with the tiles. Optional: nothing in sorting uses it yet.",
+      "docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
+      "images": [
+        {
+          "url": "https://assets.basically.website/sorter-docs/colour-strip-clip-and-strip-on-stator-wall-png-full-0281f191a92f.png",
+          "alt": "Render of the colour strip on the classification channel's stator wall: the clip over the top of the wall and the stud bar hooked onto it, eight coloured tiles standing just above the rim and facing into the channel",
+          "caption": "Rendered from the part geometry, not from a build."
+        }
+      ],
+      "lines": [
+        {
+          "part": "colour-strip-clip",
+          "qty": 1
+        },
+        {
+          "part": "colour-strip-studs",
+          "qty": 1
+        },
+        {
+          "part": "lego-tile-1x1",
+          "qty": 8
+        }
+      ],
+      "connections": [
+        {
+          "from": "lego-tile-1x1",
+          "to": "colour-strip-studs",
+          "qty": 8,
+          "method": "press",
+          "note": "One tile on each stud, in a fixed order from Black to Red.",
+          "draft": true
+        },
+        {
+          "from": "colour-strip-studs",
+          "to": "colour-strip-clip",
+          "method": "clip",
+          "note": "The bar's thin lip lies along the top of the clip and its hooked edge wraps the clip's outer face.",
+          "draft": true
+        }
+      ]
     },
     {
       "id": "chute-bearing",

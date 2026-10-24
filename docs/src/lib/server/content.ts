@@ -466,7 +466,8 @@ export type ResolvedPart = {
 	// calculator badges, so the two sites mark the same parts. Printed parts
 	// carry an `optional` of their own and it is deliberately not read here:
 	// there it marks the bin and funnel variants, and every bin card on a layer
-	// page would wear the badge.
+	// page would wear the badge. A page marks a printed part optional with
+	// `optional: true` on its own parts_needed entry instead.
 	optional?: boolean;
 	// Unresolved factual disagreement between the docs and parts-calculator
 	// catalogs, recorded at their 2026-08-21 merge. Renders the amber "?"
@@ -609,8 +610,11 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 		const qty = typeof entry === 'object' ? entry.qty : undefined;
 		const note = typeof entry === 'object' ? entry.note : undefined;
 		const temporary = typeof entry === 'object' && entry.temporary === true ? true : undefined;
+		// A page can mark one of its parts optional itself, for a printed part
+		// whose catalog `optional` is deliberately not read (see ResolvedPart).
+		const optional = typeof entry === 'object' && entry.optional === true ? true : undefined;
 		const part = catalog[id];
-		if (!part) return { id, name: id, qty, note, temporary, missing: true, category: 'Other' };
+		if (!part) return { id, name: id, qty, note, temporary, optional, missing: true, category: 'Other' };
 		return {
 			id,
 			name: part.name,
@@ -621,7 +625,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 			length_min_mm: part.length_min_mm,
 			length_max_mm: part.length_max_mm,
 			alternative: part.alternative,
-			optional: part.optional,
+			optional: optional ?? part.optional,
 			conflicts: part.conflicts,
 			detail: part.detail,
 			qty,

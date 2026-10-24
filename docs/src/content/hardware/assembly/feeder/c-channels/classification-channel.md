@@ -25,13 +25,16 @@ parts_needed:
     qty: 6
   - part: colour-strip-clip
     qty: 1
-    note: Optional, for step 5.
+    optional: true
+    note: For step 5.
   - part: colour-strip-studs
     qty: 1
-    note: Optional, for step 5.
+    optional: true
+    note: For step 5.
   - part: lego-tile-1x1
     qty: 8
-    note: Optional, for step 5. One of each colour.
+    optional: true
+    note: For step 5. One of each colour.
 ---
 
 <div class="prep-item">

@@ -28,6 +28,8 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { categoryLabel } from '$lib/components/bins/pieces';
+	import { setPartNames } from '$lib/components/bins/partNames.svelte';
+	import { fetchLegoColors } from '$lib/pieces/colors';
 	import {
 		binKey,
 		chuteFrame,
@@ -133,9 +135,13 @@
 	let geoText = '';
 
 	async function readLayout() {
-		const data = await getJson<{ layers: LayoutLayer[]; current_angle: number | null }>(
-			'/api/bins/layout'
-		);
+		const data = await getJson<{
+			layers: LayoutLayer[];
+			current_angle: number | null;
+			part_names?: Record<string, string>;
+		}>('/api/bins/layout');
+		// The names of the parts bins are named by, for their cards' labels.
+		setPartNames(data.part_names);
 		const text = JSON.stringify(data.layers);
 		if (text !== layoutText) {
 			layoutText = text;
@@ -349,6 +355,8 @@
 		const quiet = (p: Promise<unknown>) => p.catch((e) => console.warn('[3d]', e));
 
 		void sortingProfileStore.load(base).catch(() => {});
+		// The BrickLink color names a bin named by color is labelled with.
+		void fetchLegoColors(base).catch(() => {});
 		quiet(readHardware());
 		quiet(readLayout());
 		quiet(readChute());

@@ -144,6 +144,11 @@ export type Assembly = {
 	lines?: AssemblyLine[];
 	connections?: Connection[]; // the joints, as edges over this assembly's lines
 	images?: CatalogImage[]; // photos of it built, section views; the first is its main picture
+	// The machine works without it: fit it if you want what it does. Same
+	// meaning as a printed part's `optional` -- it marks the assembly and is
+	// counted like any other. An `optional` LINE is the other thing: that one
+	// resolves to zero (an unchosen alternative).
+	optional?: boolean;
 };
 
 /** A joint recorded as an edge over the assembly's own lines. `to` is the

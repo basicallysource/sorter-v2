@@ -951,6 +951,7 @@
 								<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
 									>3D printed</span>
 								<SupportBadge {part} />
+								<OptionalBadge value={part.optional} />
 								{#if line.part}{@render tagChips(line.part)}{/if}
 							</div>
 							<div class="text-xs text-text-muted">{part.slice_failed ? 'not sliced' : `${(part.grams ?? 0).toFixed(0)} g each`}</div>
@@ -1457,6 +1458,7 @@
 					{:else if optional}×0 (not selected)
 					{:else if qty !== 1}×{qty}{/if}
 				</span>
+				<OptionalBadge value={asm.optional} />
 				{@render tagChips(asm.id)}
 				<span class="relative ml-auto flex items-center gap-3" data-asm-menu>
 					<!-- The docs site is where the step-by-step build lives; this node is only

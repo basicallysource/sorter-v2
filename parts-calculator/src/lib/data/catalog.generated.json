@@ -909,7 +909,7 @@
 					"version": "5",
 					"uid": "fmsi",
 					"date": "2026-10-24",
-					"message": "Adds the Colour calibration strip as an optional line: a clip over the stator wall and a stud bar carrying eight LEGO tiles of known colours in the camera's view. It counts nothing until it is chosen. Requested by barthel in Discord, from Spencer's c4-70deg STLs of 2026-10-11.",
+					"message": "Adds the Colour calibration strip, marked optional: a clip over the stator wall and a stud bar carrying eight LEGO tiles of known colours in the camera's view. Counted like the other optional parts. Requested by barthel in Discord, from Spencer's c4-70deg STLs of 2026-10-11.",
 					"breaking": false,
 					"commit": null
 				}
@@ -932,8 +932,7 @@
 				},
 				{
 					"assembly": "colour-calibration-strip",
-					"qty": 1,
-					"optional": true
+					"qty": 1
 				}
 			],
 			"connections": []
@@ -945,6 +944,7 @@
 			"name": "Colour calibration strip",
 			"description": "Eight LEGO tiles of known colours in the classification camera's view, for colour calibration. A clip over the stator wall carries a stud bar with the tiles. Optional.",
 			"docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
+			"optional": true,
 			"images": [
 				{
 					"url": "https://assets.basically.website/sorter-docs/colour-strip-on-stator-wall-from-inside-png-full-40333c4f233c.png",

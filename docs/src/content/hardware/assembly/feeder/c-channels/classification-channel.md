@@ -23,6 +23,15 @@ parts_needed:
     qty: 1
   - part: scr-m3-12-cs
     qty: 6
+  - part: colour-strip-clip
+    qty: 1
+    note: Optional, for step 5.
+  - part: colour-strip-studs
+    qty: 1
+    note: Optional, for step 5.
+  - part: lego-tile-1x1
+    qty: 8
+    note: Optional, for step 5. One of each colour.
 ---
 
 <div class="prep-item">
@@ -42,6 +51,7 @@ The classification channel is the last stage before a part drops into the chute,
 - **The finned rotor, not the faceted one.** The fins carry a part smoothly across the stage, which is what the camera needs.
 - **The Rotor cap goes on this channel only.** It plugs the open bore through the middle of the finned rotor.
 - **No output guide.** A fin would sweep straight through where the guide sits. The two guides belong to C2 and C3.
+- **The colour strip is optional.** Eight LEGO tiles on the stator wall for colour calibration, in step 5.
 - **The camera lamp hangs on later**, at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), with the channel standing.
 
 {% include fastener-legend.html %}
@@ -55,6 +65,17 @@ The classification channel is the last stage before a part drops into the chute,
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-output-gear-bearing-pressed-w1600-238c650067c4.jpg" alt="The 130-tooth output gear lying flat with a black-sealed 6806 bearing pressed into its six-spoke hub">
     <figcaption>The output gear with its bearing pressed home. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Colour strip (optional, for step 5):</strong> press one 1 x 1 tile onto each stud of the Colour strip stud bar, in this order from one end: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow, Red.</p>
+    <p>Use real LEGO tiles. The green is Green (BrickLink 6), not Bright Green.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <a href="https://assets.basically.website/sorter-docs/colour-strip-tiles-on-stud-strip-png-full-4dfac40b2adb.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-tiles-on-stud-strip-png-full-4dfac40b2adb.png" alt="Render of the curved stud bar with eight 1 x 1 tiles pressed on, labelled from one end: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow and Red, each with its BrickLink colour number"></a>
+    <figcaption>The stud bar with its eight tiles, Black at one end and Red at the other. Click to enlarge. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
   </figure>
 </div>
 
@@ -88,6 +109,26 @@ Turn the rotor by hand. It should go all the way round without a tight spot.
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-classification-channel-rotor-capped-full-90f84be1a1c9.png" alt="Render of the classification channel from above: the finned rotor sitting down in the stator ring with its fins running out to the rim, the rotor cap seated as a round disc in the middle of it, and the gear train and bracket outside the ring">
   <figcaption>The finned rotor down in the core, capped. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+</figure>
+
+{% include step.html n="5" title="Fit the colour strip (optional)" %}
+
+The colour strip puts eight tiles of known colours in the camera's view, for colour calibration. Skip this step if you are not fitting it. It only helps if the sorter uploads samples, so turn on sample capture in the Data section of the sorter's settings.
+
+<ol class="numbered-steps">
+  <li>Fit the stud bar from the preparation step onto the Colour strip clip. The bar's thin lip lies along the top of the clip and its hooked edge wraps over the clip's sloped outer face. The tiles face the same side as the clip's short lip.</li>
+  <li>Turn the clip so its slot opens downwards and press it over the top of the stator wall, short lip inside the channel. The tiles stand just above the rim, facing into the channel.</li>
+  <li>Slide it along the wall until the Black end is about 45 to 50 mm before the exit opening, on the side the rotor brings the parts from. Red is the end furthest from the exit.</li>
+</ol>
+
+<figure class="single-figure">
+  <a href="https://assets.basically.website/sorter-docs/colour-strip-clip-and-strip-on-stator-wall-png-full-0281f191a92f.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-clip-and-strip-on-stator-wall-png-full-0281f191a92f.png" alt="Render looking out at the stator wall from inside the channel: the clip sits over the top of the wall and the stud bar is hooked onto it, with the eight coloured tiles standing just above the rim and facing into the channel"></a>
+  <figcaption>The clip over the wall and the stud bar hooked onto it, tiles facing into the channel. Click to enlarge. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+</figure>
+
+<figure class="single-figure">
+  <a href="https://assets.basically.website/sorter-docs/colour-strip-position-on-c4-png-full-beb53d39a4fc.png" target="_blank" rel="noopener"><img class="doc-figure" src="https://assets.basically.website/sorter-docs/colour-strip-position-on-c4-png-w1600-bff441066942.jpg" alt="Three panels. Left, a classification camera view with the colour strip at the edge of the frame, the exit opening and the drop zone marked. Middle, a top-down drawing of the channel in the same orientation, with the strip on the rim just before the exit opening, Black end nearest the opening. Right, a section through the stator wall with the clip's slot over the top of the wall and the stud bar hooked onto the clip"></a>
+  <figcaption>Where the strip goes, and how the clip and the stud bar sit on the wall. Click to enlarge. <cite>Camera view: Spencer. Drawing and section from the part geometry.</cite></figcaption>
 </figure>
 
 ## The finished result

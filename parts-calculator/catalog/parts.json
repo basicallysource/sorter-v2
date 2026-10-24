@@ -1770,7 +1770,6 @@
       "uid": "8e9x",
       "name": "Colour strip clip",
       "description": "Hooks over the top of the classification channel's stator wall and carries the colour strip's stud bar. Optional: only for the colour calibration strip.",
-      "internal_notes": "Spencer's c4-70-rim-clip.stl from c4-70deg-stls-no-ids.zip (voice-channel chat, 2026-10-11). Slot r 117.0 to 120.0 mm, matching the stator wall's 3.0 mm top (r 116.98 to 119.98). Exported with the slot facing up, which is the print orientation; it goes on the wall the other way up.",
       "version": "1",
       "created_at": "2026-10-24",
       "updated_at": "2026-10-24",
@@ -1791,7 +1790,6 @@
       "uid": "19i6",
       "name": "Colour strip stud bar",
       "description": "A curved bar with eight studs for the colour strip's 1 x 1 tiles. It hooks onto the Colour strip clip so the tiles stand just above the rim, facing into the channel. Optional: only for the colour calibration strip.",
-      "internal_notes": "Spencer's c4-70-stud-strip.stl from the same zip. Tile seats sit on a 124 mm radius and face in and up at about 70 degrees once fitted. Joint to the clip worked out from the two STLs' sections, not confirmed at the bench.",
       "version": "1",
       "created_at": "2026-10-24",
       "updated_at": "2026-10-24",
@@ -10858,7 +10856,7 @@
       "name": "LEGO tile 1 x 1 (3070b), colour strip set",
       "category": "LEGO",
       "description": "Eight 1 x 1 tiles, one of each colour, for the colour calibration strip: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow and Red. Optional.",
-      "note": "Green is BrickLink Green (6), not Bright Green. Real LEGO tiles, not printed ones: the point is the exact LEGO colour.",
+      "note": "Green is BrickLink Green (6), not Bright Green. Real LEGO tiles, not printed ones.",
       "docs_page": "/hardware/assembly/feeder/c-channels/classification-channel/",
       "created_at": "2026-10-24",
       "updated_at": "2026-10-24",
@@ -11322,7 +11320,7 @@
       "uid": "5ruo",
       "version": "1",
       "name": "Colour calibration strip",
-      "description": "Eight LEGO tiles of known colours in the classification camera's view, so the colour of a piece can be judged against them. A clip over the stator wall carries a stud bar with the tiles. Optional: nothing in sorting uses it yet.",
+      "description": "Eight LEGO tiles of known colours in the classification camera's view, for colour calibration. A clip over the stator wall carries a stud bar with the tiles. Optional.",
       "docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
       "images": [
         {

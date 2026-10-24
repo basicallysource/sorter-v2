@@ -943,7 +943,7 @@
 			"uid": "5ruo",
 			"version": "1",
 			"name": "Colour calibration strip",
-			"description": "Eight LEGO tiles of known colours in the classification camera's view, so the colour of a piece can be judged against them. A clip over the stator wall carries a stud bar with the tiles. Optional: nothing in sorting uses it yet.",
+			"description": "Eight LEGO tiles of known colours in the classification camera's view, for colour calibration. A clip over the stator wall carries a stud bar with the tiles. Optional.",
 			"docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
 			"images": [
 				{
@@ -34508,7 +34508,7 @@
 			"name": "LEGO tile 1 x 1 (3070b), colour strip set",
 			"category": "LEGO",
 			"description": "Eight 1 x 1 tiles, one of each colour, for the colour calibration strip: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow and Red. Optional.",
-			"note": "Green is BrickLink Green (6), not Bright Green. Real LEGO tiles, not printed ones: the point is the exact LEGO colour.",
+			"note": "Green is BrickLink Green (6), not Bright Green. Real LEGO tiles, not printed ones.",
 			"created_at": "2026-10-24",
 			"updated_at": "2026-10-24",
 			"attributes": [

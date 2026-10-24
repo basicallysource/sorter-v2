@@ -63,7 +63,10 @@ function treeCounts(layers: number): Map<string, Map<string, number>> {
 		const asm = getAssembly(assemblyId);
 		if (!asm) return;
 		for (const line of asm.lines ?? []) {
-			const n = lineQty(line, layers) * mult;
+			// An optional line counts nothing, but a part whose sections still
+			// list it (the colour calibration strip) belongs under it rather than
+			// under "Not in the assembly tree yet". The sections cap the number.
+			const n = (line.optional ? Number(line.qty) : lineQty(line, layers)) * mult;
 			if (line.assembly) {
 				walk(line.assembly, n);
 			} else if (line.part) {

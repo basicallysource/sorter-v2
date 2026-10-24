@@ -11259,10 +11259,31 @@
         },
         {
           "version": "4",
+          "uid": "qzw4",
           "date": "2026-09-08",
           "message": "The Short and Angled Output Guide comes off C4. The finned rotor's five fins reach r 85.4 mm and sweep up to 21.2 mm past the guide's inner face at r 67.82, so the two cannot both be fitted; the faceted rotor on C1 to C3 clears the same guide by 1.5 to 1.8 mm. This restores the state before e22fce30 (#534), which gave C4 a guide when all four channels were consolidated onto one shape. Reported from a build by Extremetaz. sorter-v2 issue #543.",
           "breaking": false,
-          "commit": "c467c375"
+          "commit": "c467c375",
+          "lines": [
+            {
+              "assembly": "c-channel",
+              "qty": 1,
+              "uid": "npx0"
+            },
+            {
+              "assembly": "rotor-unit-finned",
+              "qty": 1,
+              "uid": "ufmf"
+            },
+            {
+              "assembly": "camera-lamp",
+              "qty": 1,
+              "args": {
+                "camera": "cam-imx415"
+              },
+              "uid": "rjhy"
+            }
+          ]
         },
         {
           "version": "5",
@@ -11336,6 +11357,7 @@
         {
           "from": "colour-strip-studs",
           "to": "colour-strip-clip",
+          "qty": 1,
           "method": "clip",
           "note": "The bar's thin lip lies along the top of the clip and its hooked edge wraps the clip's outer face.",
           "draft": true

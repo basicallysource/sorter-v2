@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -38,6 +39,8 @@ class ChuteHardwareSettingsPayload(BaseModel):
     pillar_width_deg: Optional[float] = None
     endstop_active_high: Optional[bool] = None
     operating_speed_microsteps_per_second: Optional[int] = None
+    position_check: Optional[bool] = None
+    position_check_every: Optional[int] = None
 
 
 class ChuteAimingSettingsPayload(BaseModel):
@@ -114,6 +117,8 @@ def _chute_payload(settings: ChuteSettings) -> Dict[str, Any]:
         "first_bin_center": round(settings.first_section_offset_deg, 4),
         "endstop_active_high": settings.endstop_active_high,
         "operating_speed_microsteps_per_second": settings.operating_speed_microsteps_per_second,
+        "position_check": settings.position_check,
+        "position_check_every": settings.position_check_every,
         "home_pin_channel": settings.home_pin_channel,
         "max_angle_deg": CHUTE_MAX_ANGLE,
     }
@@ -496,6 +501,46 @@ def derive_chute_aiming_config(payload: ChuteAimingDerivePayload) -> Dict[str, A
         else "Chute aiming derived from measurements and saved."
     )
     return result
+
+
+def _position_check_status() -> Dict[str, Any]:
+    from subsystems.distribution import position_check
+
+    settings = readChuteSettings(machine_toml.read(), **_board_defaults())
+    chute = _live_chute()
+    return {
+        "enabled": settings.position_check,
+        "every": settings.position_check_every,
+        "pieces_since_check": getattr(chute, "pieces_since_check", None),
+        "checking": bool(getattr(chute, "checking", False)),
+        **position_check.summary(),
+    }
+
+
+@router.get("/api/hardware-config/chute/position-check")
+def get_chute_position_check() -> Dict[str, Any]:
+    """The chute's position check (subsystems/distribution/position_check.py):
+    whether it runs, every how many pieces, how many have gone since, and what
+    the checks found."""
+    return _position_check_status()
+
+
+@router.post("/api/hardware-config/chute/position-check/run")
+def run_chute_position_check() -> Dict[str, Any]:
+    """Check the chute's position now. Sorting moves the chute too, so the
+    machine must be paused."""
+    controller = shared_state.controller_ref
+    if getattr(getattr(controller, "state", None), "value", None) == "running":
+        raise HTTPException(status_code=409, detail="Pause the machine to check the chute's position.")
+    chute = _homed_chute()
+    if chute.checking:
+        raise HTTPException(status_code=409, detail="A position check is already running.")
+    check = chute.checkPosition()
+    return {
+        "ok": check.ok,
+        "check": {**dataclasses.asdict(check), "lost_steps": check.lost_steps},
+        "status": _position_check_status(),
+    }
 
 
 @router.post("/api/hardware-config/chute/move-to-angle")

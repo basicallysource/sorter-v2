@@ -147,6 +147,8 @@ class ServoBusFatalTests(unittest.TestCase):
         chute.isBinReachable = MagicMock(return_value=True)
         chute.moveToBin = MagicMock(return_value=250)
         chute.stepper = SimpleNamespace(stopped=True)
+        chute.checking = False
+        chute.positionCheckDue = MagicMock(return_value=False)
         positioning = Positioning(
             irl=irl,
             gc=self.gc,

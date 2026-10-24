@@ -365,6 +365,8 @@ def _mkPositioning(shared, servos, log):
         moveToBin=lambda address: log.append("chute_move") or 100,
         isBinReachable=lambda address: True,
         stepper=SimpleNamespace(stopped=True),
+        checking=False,
+        positionCheckDue=lambda: False,
     )
     sorting_profile = SimpleNamespace(
         getCategoryIdForPart=lambda part_id, color_id: "cat_a",
@@ -430,3 +432,43 @@ def test_passthrough_reopens_a_door_the_shadow_state_calls_open() -> None:
     _mkPositioning(shared, servos, log).step()
 
     assert [servo.open_calls for servo in servos] == [1, 1, 1]
+
+
+def test_positioning_checks_the_chute_position_first_when_one_is_due() -> None:
+    shared = _mkShared()
+    log: list[str] = []
+    servos = [_Servo(log, i) for i in range(3)]
+    _mkClassifiedPiece(shared)
+    positioning = _mkPositioning(shared, servos, log)
+    chute = positioning.chute
+    chute.homed = True
+    chute.positionCheckDue = lambda: True
+    chute.checkPosition = lambda: log.append("position_check")
+
+    assert positioning.step() is None  # the check runs on its own thread
+    assert positioning._check_done.wait(1.0)
+    assert positioning.step() is None  # then the move, waiting for the chute
+    assert [entry for entry in log if entry in ("position_check", "chute_move")] == ["position_check", "chute_move"]
+
+
+def test_a_failed_position_check_holds_the_piece_until_the_chute_is_homed() -> None:
+    shared = _mkShared()
+    log: list[str] = []
+    servos = [_Servo(log, i) for i in range(3)]
+    _mkClassifiedPiece(shared)
+    positioning = _mkPositioning(shared, servos, log)
+    chute = positioning.chute
+    chute.homed = True
+    chute.positionCheckDue = lambda: True
+
+    def failedCheck() -> None:
+        chute.homed = False
+
+    chute.checkPosition = failedCheck
+    assert positioning.step() is None
+    assert positioning._check_done.wait(1.0)
+    assert positioning.step() is None
+    assert "chute_move" not in log
+    chute.homed = True  # re-homed
+    assert positioning.step() is None
+    assert log.count("chute_move") == 1

@@ -57,6 +57,8 @@ Chute stepper calibration: home pin wiring, aiming geometry and speed. The chute
 | `pillar_width_deg` | float (degrees) | `8.25` | Older form of the section width (section pitch minus this), read when `section_width_deg` is absent. Saves keep it in step. |
 | `endstop_active_high` | bool | the board's | Set to true if the chute endstop input reads high when physically triggered. |
 | `operating_speed_microsteps_per_second` | int | `3000` | Chute stepper top speed. Every chute move sets it, so it holds after jogs and tests. |
+| `position_check` | bool | `false` | Every `position_check_every` pieces, find the home switch the way homing does and see how far the chute drifted: steps it lost that StallGuard can't see. Each check also puts the chute back on its position. Turned on on the chute's StallGuard tab. |
+| `position_check_every` | int | `50` | Pieces between two position checks. A check takes about 2 seconds. |
 
 ## `[carousel]`
 

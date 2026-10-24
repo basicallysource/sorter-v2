@@ -154,7 +154,7 @@ def test_positioning_records_the_piece_it_aims_for() -> None:
         SimpleNamespace(servos=[]),  # type: ignore[arg-type]
         _mkGc(),  # type: ignore[arg-type]
         shared,
-        SimpleNamespace(),  # type: ignore[arg-type]
+        SimpleNamespace(checking=False),  # type: ignore[arg-type]
         layout,  # type: ignore[arg-type]
         SimpleNamespace(),  # type: ignore[arg-type]
         queue.Queue(),

@@ -234,6 +234,8 @@ sections:
             url: /sorter/machine-toml-reference/
           - title: What leaves the machine
             url: /sorter/what-leaves-the-machine/
+          - title: The Linux system
+            url: /sorter/linux-system/
 
   - id: hive
     title: Hive

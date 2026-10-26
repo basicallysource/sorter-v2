@@ -1563,20 +1563,18 @@ li {
 }
 
 /* A printed or laser-cut part's name in the text (made at build time, see
-   rehypePartNames in content.ts). Heavier and underlined in the ink colour, so
-   it is told apart from a link (red) and from emphasis (italic); it opens the
-   part's card. */
+   rehypePartNames in content.ts). Ink-coloured, regular weight, dotted
+   underline: told apart from a link (red, solid underline, may leave the
+   page) because it only opens the part's card. */
 .part-ref {
 	padding: 0;
 	font: inherit;
-	font-weight: 600;
 	color: var(--ink);
 	text-align: inherit;
 	background: none;
 	border: none;
 	text-decoration: underline dotted;
-	text-decoration-color: var(--primary);
-	text-decoration-thickness: 2px;
+	text-decoration-thickness: 1px;
 	text-underline-offset: 3px;
 	cursor: pointer;
 }

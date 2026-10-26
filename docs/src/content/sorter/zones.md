@@ -25,7 +25,7 @@ Pieces ride a band at the rim of the rotor, the **ring**, and always travel the 
 <ul class="bulleted-list">
   <li><strong>Drop (blue):</strong> where pieces land from the channel before. A piece here is moved along the channel. While a channel's drop zone holds a piece, the channel before it waits. On C4 it is where the piece is photographed and identified, so a piece first seen outside it is never identified and goes to misc.</li>
   <li><strong>Precise (magenta):</strong> a narrow band just before the exit. A piece here counts as being at the exit. On C4 it is the holding area: the piece waits here while it is identified and the chute is aimed. It is optional. A width of 0 means the channel has none.</li>
-  <li><strong>Exit (red):</strong> the opening in the wall where pieces leave. On C-channel 2 and 3 a piece here is pushed onto the next channel in small steps, but only when that channel can take it, and otherwise the channel waits. On C4 the platter turns the piece off the exit into the chute.</li>
+  <li><strong>Exit (red):</strong> the opening in the wall where pieces leave. On C-channel 2 and 3 a piece here is pushed onto the next channel in small steps, but only when that channel can take it, and otherwise the channel waits. On C4 the channel turns the piece off the exit into the chute.</li>
 </ul>
 
 C-channel 2 can push when C-channel 3's drop zone is empty. C-channel 3 can push when C4 is ready for a piece. <a href="{{ '/sorter/feeder-simple-pulse/' | relative_url }}">Feeder simple pulse</a> has the settings for these pushes.
@@ -37,7 +37,7 @@ A wider drop zone makes the channel before it wait more often. Fewer pieces arri
 Open the zones during [First setup]({{ '/sorter/first-setup/' | relative_url }}#review-zone) with **Review** on each camera card, or later on the channel's page under [Channel settings]({{ '/sorter/channel-settings/' | relative_url }}#zones). Do it for each of the three cameras.
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/zones-c3-view-full-5b29aef61683.png" alt="C-Channel 3 live view with its three zones shaded and labelled: the drop zone in blue, the precise zone in magenta and the exit zone in red"><figcaption>What the camera should see: the zones on the live view of C-Channel 3. <cite>Screenshot courtesy of Daddy-O's Bricks - Bill. Labels added by Balloon.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/zones-c3-view-full-5b29aef61683.png" alt="C-channel 3 live view with its three zones shaded and labelled: the drop zone in blue, the precise zone in magenta and the exit zone in red"><figcaption>What the camera should see: the zones on the live view of C-channel 3. <cite>Screenshot courtesy of Daddy-O's Bricks - Bill. Labels added by Balloon.</cite></figcaption></figure>
 </div>
 
 <ol class="numbered-steps">
@@ -68,18 +68,18 @@ On a machine with nothing saved, the editor starts with these widths.
 
 ### Drawings and a finished setup
 
-The angles each channel ships with are below. They are drawn against a generic view of the channel, so treat them as a starting geometry rather than a calibration for your machine.
+The drawings show the zones the editor starts with on a machine with nothing saved. 0° is to the right of the ring's center, and angles grow clockwise, the way pieces travel. Treat them as a start, not as settings for your machine.
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/zones-c2-blue-full-ce7c8f5e0448.png" alt="Diagram of C-Channel 2 as a ring, with the drop zone from 101 to 180 degrees, a suggested precise zone from 284 to 304 and the exit zone from 304 to 338"><figcaption>C-Channel 2. <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/zones-c2-start-full-a90e126e0ca6.png" alt="Diagram of C-channel 2 as a ring, with the drop zone from 288 to 9 degrees, the precise zone from 163 to 169 and the exit zone from 169 to 201"><figcaption>C-channel 2. <cite>Render: Balloon.</cite></figcaption></figure>
 </div>
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/zones-c3-blue-full-ee05c1e28281.png" alt="Diagram of C-Channel 3 as a ring, with the drop zone from 45 to 119 degrees, a suggested precise zone from 295 to 315 and the exit zone from 315 to 360"><figcaption>C-Channel 3. <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/zones-c3-start-full-7398927a3534.png" alt="Diagram of C-channel 3 as a ring, with the drop zone from 288 to 9 degrees, the precise zone from 163 to 169 and the exit zone from 169 to 201"><figcaption>C-channel 3. <cite>Render: Balloon.</cite></figcaption></figure>
 </div>
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/zones-c4-blue-full-636c8a942eea.png" alt="Diagram of the classification C-channel as a ring, with the drop zone from 44 to 118 degrees, a suggested precise zone from 290 to 314 and the exit zone from 314 to 350"><figcaption>Classification C-Channel (C4). <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/zones-c4-start-full-b5f2207ac094.png" alt="Diagram of the classification channel as a ring, with the drop zone from 282 to 119 degrees, the precise zone from 148 to 233 and the exit zone from 233 to 274"><figcaption>Classification channel (C4). <cite>Render: Balloon.</cite></figcaption></figure>
 </div>
 
 <div class="img-row">
@@ -88,9 +88,9 @@ The angles each channel ships with are below. They are drawn against a generic v
 
 ## Cameras that do not see the whole ring
 
-**C-Channel 2 and C-Channel 3 do not show their whole ring, and that is expected.** In the picture above, the top or bottom edge of each rotor is cut off by the frame. If the drop zone and the exit zone are both visible, the camera is positioned correctly even though part of the ring is not. Do not raise the lamp to fit more in. [Why the cameras are placed this way]({{ '/lab/sorter/' | relative_url }}#camera-crop) has the reasons and the numbers.
+**C-channel 2 and C-channel 3 do not show their whole ring, and that is expected.** In the three-channel picture above, the top or bottom edge of each rotor is cut off by the frame. If the drop zone and the exit zone are both visible, the camera is positioned correctly even though part of the ring is not. Do not raise the lamp to fit more in. [Why the cameras are placed this way]({{ '/lab/sorter/' | relative_url }}#camera-crop) has the reasons and the numbers.
 
-A piece that rides through the part of the ring the camera cannot see vanishes from the picture and reappears further round. To keep the channel turning while it is out of sight, tell the machine where that part is: open **Settings** → **Feeder simple pulse**, find the **Out of view** section, and set the **unseen arc start** (where pieces vanish) and **unseen arc end** (where they come back) for C2 and C3. Both are angles on the same scale as the zone diagrams above, counted in the direction the channel turns. Leave both at 0 if the camera sees the whole ring.
+A piece that rides through the part of the ring the camera cannot see vanishes from the picture and reappears further round. To keep the channel turning while it is out of sight, tell the machine where that part is: open **Settings** → **Feeder simple pulse**, find the **Out of view** section, and set the **unseen arc start** (where pieces vanish) and **unseen arc end** (where they come back) for C2 and C3. Both are angles on the same scale as the drawings above, counted in the direction the channel turns. Leave both at 0 if the camera sees the whole ring.
 
 ## When pieces go wrong
 

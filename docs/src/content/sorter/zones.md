@@ -36,6 +36,8 @@ A wider drop zone makes the channel before it wait more often. Fewer pieces arri
 
 Open the zones during [First setup]({{ '/sorter/first-setup/' | relative_url }}#review-zone) with **Review** on each camera card, or later on the channel's page under [Channel settings]({{ '/sorter/channel-settings/' | relative_url }}#zones). Do it for each of the three cameras.
 
+The photos and drawings here come from an earlier version of the editor and show the drop zone green. In the current software it is blue.
+
 <div class="img-row">
   <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zone-editor-full-8149e45a5d8b.png" alt="The zone editor over a live C-channel view, with every handle labelled: center, inner, outer, drop start, drop end, precise start, precise end, exit start, exit end and exit outer"><figcaption>What the camera should see, and a starting point for setting the zones. <cite>Screenshot courtesy of Daddy-O's Bricks - Bill.</cite></figcaption></figure>
 </div>

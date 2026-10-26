@@ -428,6 +428,107 @@ function openExternalLinksInNewTab(node: HastNode): void {
 
 const rehypeExternalLinks = () => openExternalLinksInNewTab;
 
+// ── Part names in running text ───────────────────────────────────────────────
+// A printed or laser-cut part's catalog name, wherever it appears in a page's
+// prose, becomes a button that opens the same card its "Parts needed" tile
+// does. Nothing is marked up by hand: the names come from the catalog, so a
+// new page or a renamed part is covered by the build. Case-sensitive and
+// whole-name on purpose: "Chute core" is the part, "the chute core" is a thing
+// being talked about. A single-word name ("Foot") is skipped, it would fire on
+// the first word of a sentence. Hardware (screws, boards) is left alone.
+
+const PART_REF_SKIP = new Set([
+	'a',
+	'button',
+	'code',
+	'pre',
+	'h1',
+	'h2',
+	'h3',
+	'h4',
+	'h5',
+	'h6',
+	'script',
+	'style',
+	'svg',
+	'textarea'
+]);
+
+const DASH_GAP = /\s+[-\u2013\u2014]\s+/;
+
+/** One key per name, whichever dash a page prints and however the line wraps. */
+function refKey(text: string): string {
+	return text.replace(/\s+[-\u2013\u2014]\s+/g, ' - ').replace(/\s+/g, ' ');
+}
+
+let partRefIndex: { re: RegExp; ids: Map<string, string> } | undefined;
+
+function getPartRefIndex() {
+	if (partRefIndex) return partRefIndex;
+	const ids = new Map<string, string>();
+	for (const [id, part] of Object.entries<any>(data.parts ?? {})) {
+		const kind = part.detail?.kind;
+		if (kind !== 'printed' && kind !== 'lasercut') continue;
+		const key = refKey(String(part.name));
+		if (key.includes(' ') && !ids.has(key)) ids.set(key, id);
+	}
+	const source = [...ids.keys()]
+		.sort((a, b) => b.length - a.length)
+		.map((key) =>
+			key
+				.split(' - ')
+				.map((piece) =>
+					piece
+						.split(' ')
+						.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+						.join('\\s+')
+				)
+				.join(DASH_GAP.source)
+		)
+		.join('|');
+	partRefIndex = { re: new RegExp(`(?<![\\w-])(?:${source})(?![\\w-])`, 'g'), ids };
+	return partRefIndex;
+}
+
+function linkPartNames(node: HastNode, found: Set<string>): void {
+	if (node.type === 'element' && node.tagName && PART_REF_SKIP.has(node.tagName)) return;
+	const { re, ids } = getPartRefIndex();
+	const children = node.children;
+	if (!children) return;
+	const out: HastNode[] = [];
+	for (const child of children) {
+		if (child.type !== 'text') {
+			linkPartNames(child, found);
+			out.push(child);
+			continue;
+		}
+		const text = (child as unknown as { value: string }).value;
+		let last = 0;
+		re.lastIndex = 0;
+		for (let m = re.exec(text); m; m = re.exec(text)) {
+			const id = ids.get(refKey(m[0]));
+			if (!id) continue;
+			if (m.index > last) out.push({ type: 'text', value: text.slice(last, m.index) } as any);
+			out.push({
+				type: 'element',
+				tagName: 'button',
+				properties: { type: 'button', className: ['part-ref'], dataPart: id, ariaHasPopup: 'dialog' },
+				children: [{ type: 'text', value: m[0] } as any]
+			});
+			found.add(id);
+			last = m.index + m[0].length;
+		}
+		if (last === 0) out.push(child);
+		else if (last < text.length) out.push({ type: 'text', value: text.slice(last) } as any);
+	}
+	node.children = out;
+}
+
+const rehypePartNames = () => (tree: HastNode, file: { data: Record<string, unknown> }) => {
+	const found = (file.data.partRefs ??= new Set<string>()) as Set<string>;
+	linkPartNames(tree, found);
+};
+
 const markdown = unified()
 	.use(remarkParse)
 	.use(remarkGfm)
@@ -435,7 +536,14 @@ const markdown = unified()
 	.use(rehypeRaw)
 	.use(rehypeSlug)
 	.use(rehypeExternalLinks)
+	.use(rehypePartNames)
 	.use(rehypeStringify, { allowDangerousHtml: true });
+
+/** Render markdown and say which parts it named. */
+async function renderMarkdown(body: string): Promise<{ html: string; refs: Set<string> }> {
+	const file = await markdown.process(body);
+	return { html: String(file), refs: (file.data.partRefs as Set<string> | undefined) ?? new Set() };
+}
 
 // ── Parts / credits resolution (page-requirements.html, page-author.html) ────
 
@@ -649,6 +757,12 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 	return { groups, conflicts: resolved.filter((p) => p.conflicts?.length) };
 }
 
+/** A part a page's text names, as the card dialog wants it. */
+function refPart(id: string): ResolvedPart {
+	const part = data.parts[id];
+	return { id, name: part.name, image: part.image, page: part.page, caption: part.caption, detail: part.detail };
+}
+
 // ── Page assembly ────────────────────────────────────────────────────────────
 
 export type Page = {
@@ -662,6 +776,8 @@ export type Page = {
 	/** Rendered `warning:` front matter, shown above the parts block so a caveat
 	 *  about the whole page is read before its contents. */
 	warning?: string;
+	/** The parts the page's text names, by the id on each name's `data-part`. */
+	partRefs?: Record<string, ResolvedPart>;
 	ogImage?: string;
 };
 
@@ -717,7 +833,7 @@ export async function getPage(pathParam: string): Promise<Page | null> {
 	body = expandAffiliateLinks(body);
 	body = expandHeadingIds(body);
 	body = await liquid.parseAndRender(body, { site, page: { ...fm, url } });
-	const html = String(await markdown.process(body));
+	const { html, refs } = await renderMarkdown(body);
 
 	const page: Page = { url, fm, html };
 
@@ -730,8 +846,11 @@ export async function getPage(pathParam: string): Promise<Page | null> {
 	if (fm.tools_needed) page.tools = fm.tools_needed;
 	if (fm.warning) {
 		const warned = await liquid.parseAndRender(String(fm.warning), { site, page: { ...fm, url } });
-		page.warning = String(await markdown.process(warned));
+		const warning = await renderMarkdown(warned);
+		page.warning = warning.html;
+		for (const id of warning.refs) refs.add(id);
 	}
+	if (refs.size) page.partRefs = Object.fromEntries([...refs].map((id) => [id, refPart(id)]));
 
 	// Social preview image: `og_image` in front matter wins, otherwise the first
 	// photo in the body. The first photo is usually the right one, but on a page

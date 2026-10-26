@@ -1562,6 +1562,31 @@ li {
 	color: var(--primary-hover);
 }
 
+/* A printed or laser-cut part's name in the text (made at build time, see
+   rehypePartNames in content.ts). Heavier and underlined in the ink colour, so
+   it is told apart from a link (red) and from emphasis (italic); it opens the
+   part's card. */
+.part-ref {
+	padding: 0;
+	font: inherit;
+	font-weight: 600;
+	color: var(--ink);
+	text-align: inherit;
+	background: none;
+	border: none;
+	text-decoration: underline dotted;
+	text-decoration-color: var(--primary);
+	text-decoration-thickness: 2px;
+	text-underline-offset: 3px;
+	cursor: pointer;
+}
+
+.part-ref:hover,
+.part-ref:focus-visible {
+	color: var(--primary);
+	background: var(--primary-tint);
+}
+
 code,
 pre {
 	font-family: var(--font-mono);

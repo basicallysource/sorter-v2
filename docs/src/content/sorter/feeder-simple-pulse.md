@@ -122,7 +122,7 @@ How a channel moves a piece off its exit edge into the next channel.
 
 ### Out of view
 
-The part of C2's or C3's ring that its camera cannot see. While a piece is out of view between the two angles, the channel keeps advancing, never so far that it could pass the staging zone unseen. Equal start and end angles mean the camera sees the whole ring. All four default to 0. [First setup]({{ '/sorter/first-setup/' | relative_url }}#review-zone) explains how to find the angles; they are on the same scale as the zone diagrams there.
+The part of C2's or C3's ring that its camera cannot see. While a piece is out of view between the two angles, the channel keeps advancing, never so far that it could pass the staging zone unseen. Equal start and end angles mean the camera sees the whole ring. All four default to 0. [Zones]({{ '/sorter/zones/' | relative_url }}#cameras-that-do-not-see-the-whole-ring) explains how to find the angles; they are on the same scale as the zone diagrams there.
 
 <ul class="bulleted-list">
   <li><strong>C2 unseen arc start (deg)</strong> and <strong>C2 unseen arc end (deg)</strong></li>

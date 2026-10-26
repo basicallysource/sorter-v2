@@ -36,10 +36,8 @@ A wider drop zone makes the channel before it wait more often. Fewer pieces arri
 
 Open the zones during [First setup]({{ '/sorter/first-setup/' | relative_url }}#review-zone) with **Review** on each camera card, or later on the channel's page under [Channel settings]({{ '/sorter/channel-settings/' | relative_url }}#zones). Do it for each of the three cameras.
 
-The photos and drawings here come from an earlier version of the editor and show the drop zone green. In the current software it is blue.
-
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zone-editor-full-8149e45a5d8b.png" alt="The zone editor over a live C-channel view, with every handle labelled: center, inner, outer, drop start, drop end, precise start, precise end, exit start, exit end and exit outer"><figcaption>What the camera should see, and a starting point for setting the zones. <cite>Screenshot courtesy of Daddy-O's Bricks - Bill.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/zones-c3-view-full-5b29aef61683.png" alt="C-Channel 3 live view with its three zones shaded and labelled: the drop zone in blue, the precise zone in magenta and the exit zone in red"><figcaption>What the camera should see: the zones on the live view of C-Channel 3. <cite>Screenshot courtesy of Daddy-O's Bricks - Bill. Labels added by Balloon.</cite></figcaption></figure>
 </div>
 
 <ol class="numbered-steps">
@@ -73,15 +71,15 @@ On a machine with nothing saved, the editor starts with these widths.
 The angles each channel ships with are below. They are drawn against a generic view of the channel, so treat them as a starting geometry rather than a calibration for your machine.
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zones-c2-full-0bd7da7975d7.png" alt="Diagram of C-Channel 2 as a ring, with the drop zone from 101 to 180 degrees, a suggested precise zone from 284 to 304 and the exit zone from 304 to 338"><figcaption>C-Channel 2. <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/zones-c2-blue-full-ce7c8f5e0448.png" alt="Diagram of C-Channel 2 as a ring, with the drop zone from 101 to 180 degrees, a suggested precise zone from 284 to 304 and the exit zone from 304 to 338"><figcaption>C-Channel 2. <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
 </div>
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zones-c3-full-4caea0b6340f.png" alt="Diagram of C-Channel 3 as a ring, with the drop zone from 45 to 119 degrees, a suggested precise zone from 295 to 315 and the exit zone from 315 to 360"><figcaption>C-Channel 3. <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/zones-c3-blue-full-ee05c1e28281.png" alt="Diagram of C-Channel 3 as a ring, with the drop zone from 45 to 119 degrees, a suggested precise zone from 295 to 315 and the exit zone from 315 to 360"><figcaption>C-Channel 3. <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
 </div>
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zones-c4-full-1cf92c39d8f4.png" alt="Diagram of the classification C-channel as a ring, with the drop zone from 44 to 118 degrees, a suggested precise zone from 290 to 314 and the exit zone from 314 to 350"><figcaption>Classification C-Channel (C4). <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/zones-c4-blue-full-636c8a942eea.png" alt="Diagram of the classification C-channel as a ring, with the drop zone from 44 to 118 degrees, a suggested precise zone from 290 to 314 and the exit zone from 314 to 350"><figcaption>Classification C-Channel (C4). <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
 </div>
 
 <div class="img-row">

@@ -208,6 +208,8 @@ sections:
             url: /sorter/logs/
           - title: Channel settings
             url: /sorter/channel-settings/
+          - title: Zones
+            url: /sorter/zones/
           - title: Perception debug
             url: /sorter/perception-debug/
           - title: Feeder simple pulse

@@ -214,11 +214,7 @@ Two more buttons on each card: **Review zone** and **Picture tuning**, in that o
 
 ### Review zone
 
-Use the colored circles to drag the center, the inner and the outer. Then use the colored rectangles to set the drop start and drop end, the exit end, and the precise end and exit start, which are linked and move together. Finally, use the red circle to set the exit outer. Click **Save Zone**.
-
-<div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zone-editor-full-8149e45a5d8b.png" alt="The zone editor over a live C-channel view, with every handle labelled: center, inner, outer, drop start, drop end, precise start, precise end, exit start, exit end and exit outer"><figcaption>What the camera should see, and a starting point for setting the zones. <cite>Screenshot courtesy of Daddy-O's Bricks - Bill.</cite></figcaption></figure>
-</div>
+Press **Find**, check the ring and the three zones against the picture, change what is off, then press **Save**. [Zones]({{ '/sorter/zones/' | relative_url }}) explains what each zone is for and how to set it.
 
 The angles each channel ships with are below. They are drawn against a generic view of the channel, so treat them as a starting geometry rather than a calibration for your machine.
 

@@ -38,7 +38,7 @@ The line above the view shows which camera the channel uses (**Camera 0**, for e
 
 ## Zones
 
-The **Zones** panel beside the view has **Find** and **Edit** buttons. Drawing the drop, precise and exit zones is the same as in setup: see [Review zone]({{ '/sorter/first-setup/' | relative_url }}#review-zone). **Edit** needs a camera on the channel and says **Choose a camera before setting the zones** otherwise. A saved zone is used from the machine's next picture on.
+The **Zones** panel beside the view has **Find** and **Edit** buttons. **Find** fits the zones to the picture and **Edit** changes them. [Zones]({{ '/sorter/zones/' | relative_url }}) has what each zone is for and how to set it. **Edit** needs a camera on the channel and says **Choose a camera before setting the zones** otherwise. A saved zone is used from the machine's next picture on.
 
 While the machine is running and has handed pieces on from the channel, the panel also says how long half of the last pieces took to land on the next channel.
 

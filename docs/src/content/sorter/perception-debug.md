@@ -58,7 +58,7 @@ What the colors mean:
   <li><strong>Cyan outline:</strong> the edge of the channel.</li>
   <li><strong>Magenta dot:</strong> the centre of the channel's ring.</li>
   <li><strong>Grey outline:</strong> on C-channel 2 and 3, a band just past the exit. A piece wholly inside it has left the channel. The machine still sees it, but does not count it as on the channel.</li>
-  <li><strong>Blue, red and magenta tint:</strong> the channel's zones, from the <a href="{{ '/sorter/first-setup/' | relative_url }}#review-zone">zone editor</a>. Blue is the <strong>drop</strong> zone, red is the part of the <strong>exit</strong> zone before the precise part, and magenta is the <strong>precise</strong> zone.</li>
+  <li><strong>Blue, red and magenta tint:</strong> the channel's zones, from the <a href="{{ '/sorter/zones/' | relative_url }}">zone editor</a>. Blue is the <strong>drop</strong> zone, red is the part of the <strong>exit</strong> zone before the precise part, and magenta is the <strong>precise</strong> zone.</li>
 </ul>
 
 The text panel in the top left of each frame says what produced it:

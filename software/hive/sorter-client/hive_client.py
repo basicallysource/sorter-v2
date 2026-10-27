@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import quote
 
 import requests
 
@@ -87,6 +88,20 @@ class HiveClient:
         """GET /api/machine/bricklink-colors -- the BrickLink color palette
         (id/name/rgb/is_trans) for the machine's color-correction dropdown."""
         return self._request("GET", "/api/machine/bricklink-colors", timeout=(2, 8))
+
+    def likely_colors(self, part_num: str, predictions: str | None = None) -> dict:
+        """GET /api/machine/parts/{part_num}/likely-colors -- every color ranked
+        for a piece of this part predicted to be ``predictions``
+        ("<BrickLink color id>:<score>,..."), with the numbers behind each
+        place: closeness to the predictions, BrickLink pieces and lots for sale,
+        whether the catalog lists the part in it."""
+        params = {"predictions": predictions} if predictions else None
+        return self._request(
+            "GET",
+            f"/api/machine/parts/{quote(part_num, safe='')}/likely-colors",
+            params=params,
+            timeout=(2, 8),
+        )
 
     # --- Sorting profiles ---------------------------------------------------
     # What this client runs, named to Hive so it leaves out profiles that need

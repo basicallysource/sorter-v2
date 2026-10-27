@@ -46,7 +46,7 @@
 			<span class="construction-banner-icon" aria-hidden="true">⚠</span>
 			<span class="construction-banner-text">
 				<strong>Under heavy construction</strong>
-				<small>Docs are incomplete &amp; may be inaccurate — don't build Sorter yet.</small>
+				<small>Docs are incomplete &amp; may be inaccurate<br />don't build Sorter yet.</small>
 			</span>
 			<span class="construction-banner-chevron" aria-hidden="true">▾</span>
 		</button>
@@ -89,7 +89,7 @@
 			</p>
 			<p class="construction-modal-discord">
 				For the most live updates on our progress,
-				<a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">join our Discord&nbsp;↗</a>.
+				<a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">join our Discord</a>.
 			</p>
 		</div>
 	</dialog>
@@ -113,11 +113,7 @@
 					<NavTree items={currentSection.pages} {currentUrl} />
 					{#each currentSection.groups ?? [] as group (group.title)}
 						<p class="section-sidebar-group">{group.title}</p>
-						{#each group.pages as item (item.url)}
-							<a href={item.url} aria-current={item.url === currentUrl ? 'page' : undefined}>
-								{item.title}
-							</a>
-						{/each}
+						<NavTree items={group.pages} {currentUrl} />
 					{/each}
 				</nav>
 			</aside>
@@ -136,9 +132,9 @@
 			<a href="https://basically.website/policies/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>
 			<a href="https://basically.website/policies/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>
 			<a href="mailto:contact@basically.website">contact@basically.website</a>
-			<a href="https://basically.website/?updates=1" target="_blank" rel="noopener">Get updates&nbsp;↗</a>
+			<a href="https://basically.website/?updates=1" target="_blank" rel="noopener">Get updates</a>
 			<a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">Discord</a>
-			<a href="https://github.com/basicallysource/sorter-v2/tree/main/docs">Source&nbsp;(<code>docs/</code>)</a>
+			<a href="https://github.com/basicallysource/sorter-v2/tree/main/docs" target="_blank" rel="noopener">Source&nbsp;(<code>docs/</code>)</a>
 		</nav>
 		<p class="site-footer-legal">
 			© basically. All rights reserved. LEGO® is a trademark of the LEGO Group of companies which

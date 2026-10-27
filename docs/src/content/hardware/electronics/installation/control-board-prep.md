@@ -78,7 +78,7 @@ Into the two long sockets down the middle, USB end towards the edge of the board
 
 {% include step.html n="3" title="Set the address jumpers" %}
 
-The five drivers share a UART bus, so each needs its own address. You set it by bridging the MS1 and MS2 header pins: 1-2 bridged reads 3V3 (HIGH); 2-3 bridged reads GND (LOW). MS1 is the low bit of the two-bit address. Two pins allow four addresses, one short of five steppers, so the board runs a second bus for the fifth driver. Ten jumpers in total, two per driver; tweezers or needle-nose pliers make placing the small 2.54mm jumper caps much easier.
+The five drivers share a UART bus, so each needs its own address. You set it by bridging the MS1 and MS2 header pins: 1-2 bridged reads 3V3 (HIGH); 2-3 bridged reads GND (LOW). MS1 is the low bit of the two-bit address. Two pins allow four addresses, one short of five steppers, so the board runs a second bus for the fifth driver. Ten jumpers in total, two per driver; tweezers or needle-nose pliers make placing the small 2.54 mm (0.1 in) jumper caps much easier.
 
 <div class="img-row">
   <figure>
@@ -89,20 +89,20 @@ The five drivers share a UART bus, so each needs its own address. You set it by 
 
 Which driver is which channel is fixed by the board, not by you: each driver socket is wired to its own pins on the Pico, and to the pair of stepper connectors beside it. The board prints the name of each one beside it, `Stepper_A2` to `Stepper_A6`, so set the jumpers by that name.
 
-<table>
+<table class="stack-table">
   <thead>
     <tr><th>Printed on the board</th><th>Its stepper connectors</th><th>Channel</th><th>Stepper</th><th>Bus</th><th>Address</th><th>MS1</th><th>MS2</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>Stepper_A2</code></td><td><code>J23</code> / <code>J24</code></td><td>0</td><td>chute_stepper</td><td>uart0</td><td>0</td><td>GND (2-3)</td><td>GND (2-3)</td></tr>
-    <tr><td><code>Stepper_A3</code></td><td><code>J27</code> / <code>J28</code></td><td>1</td><td>c_channel_1_rotor</td><td>uart0</td><td>1</td><td>3V3 (1-2)</td><td>GND (2-3)</td></tr>
-    <tr><td><code>Stepper_A4</code></td><td><code>J31</code> / <code>J32</code></td><td>2</td><td>c_channel_3_rotor</td><td>uart0</td><td>2</td><td>GND (2-3)</td><td>3V3 (1-2)</td></tr>
-    <tr><td><code>Stepper_A5</code></td><td><code>J35</code> / <code>J36</code></td><td>3</td><td>carousel</td><td>uart0</td><td>3</td><td>3V3 (1-2)</td><td>3V3 (1-2)</td></tr>
-    <tr><td><code>Stepper_A6</code></td><td><code>J39</code> / <code>J40</code></td><td>4</td><td>c_channel_2_rotor</td><td>uart1</td><td>0</td><td>GND (2-3)</td><td>GND (2-3)</td></tr>
+    <tr><td data-label="Printed on the board"><code>Stepper_A2</code></td><td data-label="Its stepper connectors"><code>J23</code> / <code>J24</code></td><td data-label="Channel">0</td><td data-label="Stepper">chute_stepper</td><td data-label="Bus">uart0</td><td data-label="Address">0</td><td data-label="MS1">GND (2-3)</td><td data-label="MS2">GND (2-3)</td></tr>
+    <tr><td data-label="Printed on the board"><code>Stepper_A3</code></td><td data-label="Its stepper connectors"><code>J27</code> / <code>J28</code></td><td data-label="Channel">1</td><td data-label="Stepper">c_channel_1_rotor (C1)</td><td data-label="Bus">uart0</td><td data-label="Address">1</td><td data-label="MS1">3V3 (1-2)</td><td data-label="MS2">GND (2-3)</td></tr>
+    <tr><td data-label="Printed on the board"><code>Stepper_A4</code></td><td data-label="Its stepper connectors"><code>J31</code> / <code>J32</code></td><td data-label="Channel">2</td><td data-label="Stepper">c_channel_3_rotor (C3)</td><td data-label="Bus">uart0</td><td data-label="Address">2</td><td data-label="MS1">GND (2-3)</td><td data-label="MS2">3V3 (1-2)</td></tr>
+    <tr><td data-label="Printed on the board"><code>Stepper_A5</code></td><td data-label="Its stepper connectors"><code>J35</code> / <code>J36</code></td><td data-label="Channel">3</td><td data-label="Stepper">carousel (C4)</td><td data-label="Bus">uart0</td><td data-label="Address">3</td><td data-label="MS1">3V3 (1-2)</td><td data-label="MS2">3V3 (1-2)</td></tr>
+    <tr><td data-label="Printed on the board"><code>Stepper_A6</code></td><td data-label="Its stepper connectors"><code>J39</code> / <code>J40</code></td><td data-label="Channel">4</td><td data-label="Stepper">c_channel_2_rotor (C2)</td><td data-label="Bus">uart1</td><td data-label="Address">0</td><td data-label="MS1">GND (2-3)</td><td data-label="MS2">GND (2-3)</td></tr>
   </tbody>
 </table>
 
-The two connectors in each pair are the JST-PH socket and the row of 2.54 mm pins beside it, wired to the same four nets. Nothing plugs into them yet: the motors go on at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 2.
+The two connectors in each pair are the JST-PH socket and the row of 2.54 mm (0.1 in) pins beside it, wired to the same four nets. The `carousel` stepper is the rotor of the classification channel (C4). The machine no longer has a carousel; the firmware and `machine.toml` kept the old name for that driver, so it is still called `carousel` there. Nothing plugs into them yet: the motors go on at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 2.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -111,7 +111,7 @@ The two connectors in each pair are the JST-PH socket and the row of 2.54 mm pin
 
 {% include step.html n="4" title="Bridge the bypass jumpers on the LED ports" %}
 
-The board has four LED ports, and each one feeds +24&nbsp;V through a 180 Ω resistor: `R21` on `J8`, `R22` on `J9`, `R27` on `J10`, `R28` on `J11`. That resistor is there for a COB LED board, which has no current limiting of its own. Nothing this machine plugs into those ports wants it: the [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) run LED strip, which limits its own current, so the resistor only costs brightness, and brightness is set with PWM in the software instead.
+The board has four LED ports, and each one feeds +24&nbsp;V through a 180 Ω resistor: `R21` on `J8`, `R22` on `J9`, `R27` on `J10`, `R28` on `J11`. That resistor is there for a bare LED board, which has no current limiting of its own. Nothing this machine plugs into those ports wants it: the [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) run LED strip, which limits its own current, so the resistor only costs brightness, and brightness is set with PWM in the software instead.
 
 **Bridge all four.** Beside each port is a two-pad solder jumper, printed `Bypass R21`, `Bypass R22`, `Bypass R27` and `Bypass R28`. Melt a blob of solder across both pads of each so they are joined. Nothing is added to the board (Jon, 2026-09-13 and 2026-09-23).
 

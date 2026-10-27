@@ -86,4 +86,4 @@ A Pico with two rows of 20 pins soldered on, pointing away from the chip side.
   <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-It goes into its sockets in step 2 of [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}). Flashing the firmware is covered in [software setup]({{ '/hardware/software-setup/' | relative_url }}).
+It goes into its sockets in step 2 of [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}). Flashing the firmware is covered in [SorterOS]({{ '/sorter/' | relative_url }}#flash-the-control-board-before-the-wizard).

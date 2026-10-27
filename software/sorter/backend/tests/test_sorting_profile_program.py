@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from set_progress import SetProgressTracker
-from sorting_profile import JsonSortingProfile, ProfileRouter, categoryResolver, profileSummary
+from sorting_profile import JsonSortingProfile, ProfileRouter, base_part_ids, categoryResolver, profileSummary
 
 PROGRAM = {
     "format": 1,
@@ -114,6 +114,38 @@ class TestFlatMap:
     def test_the_resolver_reads_both(self):
         assert categoryResolver({"program": PROGRAM})("3003", "7") == "bricks"
         assert categoryResolver({"part_to_category": {"any_color-3003": "b"}})("3003", "7") == "b"
+
+
+class TestVariants:
+    """A printed, stickered or assembled part the profile does not list goes to
+    its base part's bin rather than misc."""
+
+    def test_base_part_ids(self):
+        assert base_part_ids("3010pb176R") == ["3010"]
+        assert base_part_ids("122c01assy2") == ["122c01", "122"]
+        assert base_part_ids("50944pb01c01") == ["50944pb01", "50944"]
+        assert base_part_ids("6014bc01") == ["6014b", "6014"]
+        assert base_part_ids("3001") == []
+
+    def test_a_flat_map_variant_takes_its_base_part(self, tmp_path):
+        profile = _profile(
+            tmp_path,
+            {
+                "part_to_category": {"5-3010": "red", "any_color-3010": "bricks", "any_color-3464": "wheels"},
+                "default_category_id": "everything_else",
+            },
+        )
+        assert profile.getCategoryIdForPart("3010pb176R", "5") == "red"
+        assert profile.getCategoryIdForPart("3010pb176R", "7") == "bricks"
+        assert profile.getCategoryIdForPart("3464c02", "11") == "wheels"
+        assert profile.getCategoryIdForPart("BA002pb01", "11") == "everything_else"
+
+    def test_a_program_variant_takes_its_base_part_but_never_fills_a_kit(self):
+        router = ProfileRouter(PROGRAM)
+        assert router.route("3001pb028", "5") == "red-bricks"
+        assert router.route("3004pb038", "7") == "bricks"
+        assert router.route("3068bpb0001", "7") == "bl_37"
+        assert router.route("3001", "5") == "kit"
 
 
 def test_the_summary_leaves_the_program_out(tmp_path):

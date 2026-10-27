@@ -1,0 +1,245 @@
+from __future__ import annotations
+
+import math
+from dataclasses import replace
+
+import cv2
+import numpy as np
+import pytest
+
+from zones.finder import findZones
+from zones.model import ChannelZones, Ring, Span
+
+CENTER = (660.0, 350.0)
+RIM = 300.0
+
+
+def _picture(seed: int, turned: float = 0.0, hub_offset: tuple[int, int] = (0, 0)) -> np.ndarray:
+    """A channel from above: a grey surround, a light stator ring, the darker
+    turning rotor with radial ridges, a hub, a static guide bar across the rim,
+    and a few pieces riding at the rim."""
+    rng = np.random.default_rng(seed)
+    img = np.full((720, 1280, 3), 70, np.uint8)
+    c = (int(CENTER[0]), int(CENTER[1]))
+    cv2.circle(img, c, 420, (205, 205, 200), -1)
+    cv2.circle(img, c, int(RIM), (150, 150, 150), -1)
+    for k in range(12):
+        a = math.radians(turned + k * 30)
+        cv2.line(img, c, (int(c[0] + RIM * math.cos(a)), int(c[1] + RIM * math.sin(a))), (165, 165, 165), 3)
+    cv2.circle(img, (c[0] + hub_offset[0], c[1] + hub_offset[1]), 60, (30, 30, 30), -1)
+    guide = math.radians(215)
+    cv2.line(img, c, (int(c[0] + 330 * math.cos(guide)), int(c[1] + 330 * math.sin(guide))), (90, 90, 95), 18)
+    for _ in range(5):
+        a = rng.uniform(0, 2 * math.pi)
+        r = RIM - rng.uniform(12, 30)
+        p = (int(c[0] + r * math.cos(a)), int(c[1] + r * math.sin(a)))
+        color = tuple(int(v) for v in rng.integers(0, 255, 3))
+        cv2.rectangle(img, (p[0] - 14, p[1] - 9), (p[0] + 14, p[1] + 9), color, -1)
+    noise = rng.normal(0, 3, img.shape)
+    return np.clip(img + noise, 0, 255).astype(np.uint8)
+
+
+def _current(center: tuple[float, float]) -> ChannelZones:
+    return ChannelZones(
+        channel=3,
+        frame=(1280, 720),
+        ring=Ring(center, 200.0, 420.0, 330.0),
+        drop=Span(288.0, 9.0),
+        exit=Span(169.0, 201.0),
+        precise_width=6.0,
+    )
+
+
+def test_one_picture_finds_the_center_and_the_rim() -> None:
+    found = findZones(3, [_picture(1)])
+    ring = found.zones.ring
+    assert math.dist(ring.center, CENTER) < 8.0
+    assert ring.exit_radius == pytest.approx(RIM, rel=0.04)
+    assert ring.inner_radius < RIM < ring.outer_radius
+    assert found.zones.source["ring"] == "found"
+
+
+def test_pictures_over_time_find_the_rim_too() -> None:
+    found = findZones(3, [_picture(seed, turned=seed * 7.0) for seed in range(8)])
+    assert math.dist(found.zones.ring.center, CENTER) < 6.0
+    assert found.zones.ring.exit_radius == pytest.approx(RIM, rel=0.03)
+    assert found.frames == 8
+
+
+def test_zones_stay_where_they_were_on_the_band_when_the_center_moves() -> None:
+    off_center = (CENTER[0] + 55.0, CENTER[1] + 4.0)
+    current = _current(off_center)
+    found = findZones(3, [_picture(2)], current)
+    ring = found.zones.ring
+
+    def on_band(center: tuple[float, float], radius: float, angle: float) -> tuple[float, float]:
+        return (center[0] + radius * math.cos(math.radians(angle)), center[1] + radius * math.sin(math.radians(angle)))
+
+    # The exit's start, where the old center's ray meets the found rim, is the
+    # same spot as the new exit start on the rim.
+    old_ray = math.radians(current.exit.start)
+    dx, dy = math.cos(old_ray), math.sin(old_ray)
+    fx, fy = off_center[0] - ring.center[0], off_center[1] - ring.center[1]
+    b = fx * dx + fy * dy
+    t = -b + math.sqrt(b * b - (fx * fx + fy * fy - ring.exit_radius**2))
+    expected = (off_center[0] + t * dx, off_center[1] + t * dy)
+    assert math.dist(on_band(ring.center, ring.exit_radius, found.zones.exit.start), expected) < 2.0
+    assert found.zones.precise_width == current.precise_width
+
+
+def test_a_locked_ring_is_kept() -> None:
+    current = ChannelZones(
+        channel=3,
+        frame=(1280, 720),
+        ring=Ring((500.0, 300.0), 200.0, 420.0, 330.0),
+        drop=Span(288.0, 9.0),
+        exit=Span(169.0, 201.0),
+        locked=frozenset({"ring"}),
+    )
+    found = findZones(3, [_picture(3)], current)
+    assert found.zones == current
+    assert found.notes
+
+
+def test_zones_come_back_at_the_cameras_size() -> None:
+    small = cv2.resize(_picture(4), (640, 360), interpolation=cv2.INTER_AREA)
+    found = findZones(3, [small], frame_size=(1280, 720))
+    assert found.zones.frame == (1280, 720)
+    assert math.dist(found.zones.ring.center, CENTER) < 10.0
+
+
+def test_the_inner_circle_hugs_the_hub_even_where_it_looks_shifted() -> None:
+    # The hub stands above the rotor, so from the camera it sits off the
+    # rotor's center: the area starts just outside it, around its own center,
+    # while the rim stays on the rotor's edge.
+    found = findZones(3, [_picture(seed, turned=seed * 7.0, hub_offset=(28, -18)) for seed in range(6)])
+    ring = found.zones.ring
+    assert math.dist(ring.center, CENTER) < 4.0
+    assert ring.exit_radius == pytest.approx(RIM, rel=0.02)
+    assert ring.inner_center is not None
+    assert math.dist(ring.inner_center, (CENTER[0] + 28, CENTER[1] - 18)) < 4.0
+    assert ring.inner_radius == pytest.approx(60 * 1.04, abs=4.0)
+
+
+def test_the_classification_channel_keeps_its_own_inner_edge() -> None:
+    found = findZones(4, [_picture(seed, turned=seed * 7.0) for seed in range(6)])
+    assert found.zones.ring.inner_center is None
+
+
+def _wedge(img: np.ndarray, c: tuple[int, int], start: float, end: float, color: tuple[int, int, int]) -> None:
+    # A polygon, not cv2.ellipse, which rounds its angles to whole degrees;
+    # smoothed and placed to a sixteenth of a pixel, so its sides lie at
+    # exactly these angles.
+    rim_side = [(c[0] + 420 * math.cos(math.radians(a)), c[1] + 420 * math.sin(math.radians(a))) for a in np.linspace(start, end, 200)]
+    points = (np.array([c] + rim_side, np.float64) * 16).round().astype(np.int32)
+    cv2.fillPoly(img, [points], color, cv2.LINE_AA, shift=4)
+
+
+def _walled(
+    openings: list[tuple[float, float]], seed: int = 0, face: float = 0.0, through: tuple[float, ...] = ()
+) -> np.ndarray:
+    """A channel whose rotor's edge is a dark line between a light disc and a
+    light wall top, broken where the wall is open: there the next channel's
+    dark chute shows past the rim. For ``face`` degrees past each opening's
+    end, the camera sees the wall's end face at an angle: a little darker
+    than the wall top at its edge, it shades into it and hides the rim's
+    line. At the ``through`` angles a bright bar of the next channel shows
+    through the opening."""
+    rng = np.random.default_rng(seed)
+    img = np.full((720, 1280, 3), 120, np.uint8)
+    c = (int(CENTER[0]), int(CENTER[1]))
+    cv2.circle(img, c, 420, (190, 190, 190), -1)
+    yy, xx = np.mgrid[0:720, 0:1280]
+    angle = np.degrees(np.arctan2(yy - CENTER[1], xx - CENTER[0])) % 360.0
+    on_wall = np.hypot(xx - CENTER[0], yy - CENTER[1]) <= 420
+    for start, end in openings:
+        _wedge(img, c, start, end, (60, 60, 60))
+        if face:
+            past = (angle - end) % 360.0
+            shaded = on_wall & (past < face)
+            img[shaded] = np.round(150 + (190 - 150) * past[shaded] / face).astype(np.uint8)[:, None]
+    for angle in through:
+        _wedge(img, c, angle - 0.4, angle + 0.4, (240, 240, 240))
+    cv2.circle(img, c, int(RIM), (205, 205, 205), -1)
+    wall_line = np.zeros(img.shape[:2], np.uint8)
+    cv2.circle(wall_line, c, int(RIM), 255, 5)
+    for start, end in openings:
+        cv2.ellipse(wall_line, c, (int(RIM), int(RIM)), 0, start, end + face, 0, 9)
+    img[wall_line > 0] = (80, 80, 80)
+    cv2.circle(img, c, 60, (230, 230, 230), -1)
+    noise = rng.normal(0, 3, img.shape)
+    return np.clip(img + noise, 0, 255).astype(np.uint8)
+
+
+def _fallsAt(angle: float) -> list[tuple[float, float]]:
+    return [
+        (CENTER[0] + (RIM - 15) * math.cos(math.radians(a)), CENTER[1] + (RIM - 15) * math.sin(math.radians(a)))
+        for a in (angle - 2, angle, angle + 2)
+    ]
+
+
+def test_the_exit_is_the_opening_in_the_wall() -> None:
+    found = findZones(3, [_walled([(170, 212)], seed) for seed in range(4)], _current(CENTER))
+    exit_span = found.zones.exit
+    assert exit_span.start == pytest.approx(170, abs=3) and exit_span.end == pytest.approx(212, abs=3)
+    assert found.zones.source["exit"] == "found"
+
+
+def test_pieces_seen_to_fall_pick_the_opening() -> None:
+    frames = [_walled([(60, 90), (170, 212)], seed) for seed in range(4)]
+    found = findZones(3, frames, _current(CENTER), falls=_fallsAt(75))
+    assert found.zones.exit.start == pytest.approx(60, abs=3)
+    found = findZones(3, frames, _current(CENTER), falls=_fallsAt(180))
+    assert found.zones.exit.start == pytest.approx(170, abs=3)
+
+
+def test_a_locked_exit_or_a_wall_with_no_opening_keeps_the_exit() -> None:
+    current = _current(CENTER)
+    found = findZones(3, [_walled([], seed) for seed in range(4)], current)
+    assert (found.zones.exit.start, found.zones.exit.end) == pytest.approx((current.exit.start, current.exit.end), abs=1)
+    locked = replace(current, locked=frozenset({"exit"}))
+    found = findZones(3, [_walled([(60, 90)], seed) for seed in range(4)], locked)
+    assert (found.zones.exit.start, found.zones.exit.end) == pytest.approx((current.exit.start, current.exit.end), abs=1)
+
+
+def _onTheRing(channel: int = 3, exit_span: Span = Span(169.0, 201.0)) -> ChannelZones:
+    """Zones on a locked ring at the picture's own center and rim, so the exit's
+    angles are measured around the true center."""
+    ring = Ring(CENTER, 200.0, 420.0, RIM)
+    return replace(_current(CENTER), channel=channel, ring=ring, exit=exit_span, locked=frozenset({"ring"}))
+
+
+def test_the_exits_ends_sit_on_the_walls_end_face_past_the_rim() -> None:
+    # Found at the rim in whole degrees, the opening's ends can be a degree off:
+    # each moves onto the sharp edge past the rim.
+    frames = [_walled([(170.7, 211.3)], seed) for seed in range(4)]
+    found = findZones(3, frames, _onTheRing())
+    assert found.zones.exit.start == pytest.approx(170.7, abs=0.2)
+    assert found.zones.exit.end == pytest.approx(211.3, abs=0.2)
+
+
+@pytest.mark.parametrize("face", [4.5, 12.0])
+def test_an_end_face_seen_at_an_angle_does_not_widen_the_exit(face: float) -> None:
+    # The face hides the rim's line past the end, so at the rim the opening
+    # reads as running on across it; the end is still the face's edge.
+    frames = [_walled([(170.7, 211.3)], seed, face=face) for seed in range(4)]
+    found = findZones(3, frames, _onTheRing())
+    assert found.zones.exit.start == pytest.approx(170.7, abs=0.2)
+    assert found.zones.exit.end == pytest.approx(211.3, abs=0.2)
+
+
+def test_lines_seen_through_the_opening_are_not_its_ends() -> None:
+    # Bars of the next channel show through the opening, sharper than the
+    # wall's end faces: the ends are still the faces, which bound them.
+    frames = [_walled([(170.7, 211.3)], seed, through=(176.0, 186.0, 205.0)) for seed in range(4)]
+    found = findZones(3, frames, _onTheRing())
+    assert found.zones.exit.start == pytest.approx(170.7, abs=0.2)
+    assert found.zones.exit.end == pytest.approx(211.3, abs=0.2)
+
+
+def test_the_classification_channels_exit_moves_onto_its_edges_too() -> None:
+    frames = [_walled([(169.4, 210.6)], seed) for seed in range(4)]
+    found = findZones(4, frames, _onTheRing(4, Span(168.0, 212.0)))
+    assert found.zones.exit.start == pytest.approx(169.4, abs=0.2)
+    assert found.zones.exit.end == pytest.approx(210.6, abs=0.2)
+

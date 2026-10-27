@@ -1,13 +1,15 @@
 import base64
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 import cv2
 import numpy as np
 
-from classification.brickognize import MAX_QUERY_IMAGES, _classifyImages
+import db
+import piece_predictions
+from classification.brickognize import MAX_QUERY_IMAGES, _classifyImages, rankedColors, rankedItems
 from classification.providers import (
     COLOR_PROVIDER_BRICKOGNIZE,
     COLOR_PROVIDER_HIVE_BASICALLY,
@@ -19,6 +21,7 @@ from defs.known_object import (
     ClassificationStatus,
     PieceStage,
     RecognitionImage,
+    notePieceProblem,
 )
 from global_config import GlobalConfig
 from irl.config import IRLConfig, IRLInterface
@@ -29,13 +32,22 @@ from subsystems.classification_channel.five_sector_platter import C4FiveSectorPl
 from subsystems.shared_variables import SharedVariables
 from utils.event import knownObjectToEvent
 
-from .constants import HOSTED_COLOR_JOIN_BUDGET_S, LOG_TAG
+from .constants import HOSTED_COLOR_JOIN_BUDGET_S, HOSTED_COLOR_MAX_SIDE_PX, LOG_TAG
 from .context import SimpleStateMachineRev01Context
 
 # Ceiling on link-match crops kept per piece. The model's picks are normally a
 # handful; this only bounds a pathological frame where it matches half the
 # window, so one piece can't dump dozens of JPEGs into the image store.
 MAX_LINK_ATTACH = 8
+# When nothing sent recognizes the piece, up to this many other burst frames
+# are sent once more, each alone and all at once: the ones that look least
+# like what was sent. The burst's best frames are often the same still view
+# (the piece at rest), and another angle from its landing is what Brickognize
+# knows it by (a minifigure head: no match on four frames of its face, 76% on
+# one frame from the side).
+OTHER_VIEW_REQUESTS = 3
+# What the hosted colour endpoint takes for one piece (Hive's color_predictor.MAX_PREDICT_IMAGES).
+MAX_HOSTED_COLOR_IMAGES = 8
 
 
 @dataclass
@@ -55,6 +67,78 @@ class _ClassifyRequest:
     strategy: ClassificationAttemptStrategy
     label: str
     images: list[_SendImage]
+    # Where each image sits in the piece's stored sets (see _imageRefs), kept
+    # with the request's predictions.
+    image_refs: list[dict] = field(default_factory=list)
+
+
+def _hostedColorImages(captures: list[np.ndarray], burst_entries: list[RecognitionImage]) -> list[_SendImage]:
+    """The images the hosted colour provider judges a piece from: the frames of
+    its C4 burst, in burst order, the last MAX_HOSTED_COLOR_IMAGES (the piece is
+    still sliding in and blurred in the first ones). Not only the frames picked
+    for recognising the part (often one, sometimes an empty frame, which alone
+    would decide the colour), and none of the upstream link views: the colour
+    models read C4 crops, as Hive does for stored pieces. Each is cut down to
+    HOSTED_COLOR_MAX_SIDE_PX (see _forHostedColor)."""
+    pairs = list(zip(captures, burst_entries))[-MAX_HOSTED_COLOR_IMAGES:]
+    return [_SendImage(_forHostedColor(bgr), rec) for bgr, rec in pairs]
+
+
+def _forHostedColor(bgr: np.ndarray) -> np.ndarray:
+    """A crop at most HOSTED_COLOR_MAX_SIDE_PX on its long side. The colour
+    models read small images (colorpred-v6 takes 64 x 64), so a full-size crop
+    only made the upload, over a machine's uplink, most of a prediction's time."""
+    h, w = bgr.shape[:2]
+    side = max(h, w)
+    if side <= HOSTED_COLOR_MAX_SIDE_PX:
+        return bgr
+    scale = HOSTED_COLOR_MAX_SIDE_PX / side
+    size = (max(1, round(w * scale)), max(1, round(h * scale)))
+    return cv2.resize(bgr, size, interpolation=cv2.INTER_AREA)
+
+
+def _thumb(bgr: np.ndarray) -> np.ndarray:
+    """A small gray picture of a crop, for telling views apart."""
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    small = cv2.resize(gray, (24, 24), interpolation=cv2.INTER_AREA).astype(np.float32)
+    return (small - small.mean()) / (small.std() + 1e-6)
+
+
+def _otherViews(
+    sent: list[np.ndarray], spare: list[_SendImage], count: int
+) -> list[_SendImage]:
+    """Up to ``count`` of ``spare``, each the one least like everything sent and
+    picked so far."""
+    seen = [_thumb(bgr) for bgr in sent]
+    left = [(s, _thumb(s.bgr)) for s in spare]
+    picked: list[_SendImage] = []
+    while left and len(picked) < count:
+        def distance(entry) -> float:
+            return min((float(np.abs(entry[1] - t).mean()) for t in seen), default=0.0)
+        best = max(left, key=distance)
+        left.remove(best)
+        picked.append(best[0])
+        seen.append(best[1])
+    return picked
+
+
+def _imageRefs(obj, images: list[_SendImage]) -> list[dict]:
+    """The piece's stored images among `images`, as piece_predictions keeps
+    them: {"set": "burst" | "link", "seq", "channel"}, seq being the image's
+    place in recognition_image_set (piece_images' seq) or link_match_image_set
+    (piece_link_images' seq)."""
+    if obj is None:
+        return []
+    burst = {id(r): seq for seq, r in enumerate(obj.recognition_image_set or [])}
+    link = {id(r): seq for seq, r in enumerate(obj.link_match_image_set or [])}
+    refs: list[dict] = []
+    for s in images:
+        if id(s.rec) in burst:
+            channel = s.rec.channel if s.rec.channel is not None else (4 if s.rec.source == "c4_burst" else None)
+            refs.append({"set": piece_predictions.IMAGE_SET_BURST, "seq": burst[id(s.rec)], "channel": channel})
+        elif id(s.rec) in link:
+            refs.append({"set": piece_predictions.IMAGE_SET_LINK, "seq": link[id(s.rec)], "channel": s.rec.channel})
+    return refs
 
 
 class Rev01BaseState(BaseState):
@@ -242,6 +326,18 @@ class Rev01BaseState(BaseState):
         chosen = [i for i in self._selectBurstIndices(all_captures, n_use) if i < len(burst_entries)]
         used_entries = [burst_entries[i] for i in chosen]
         burst_crops = [all_captures[i] for i in chosen]
+        # The rest of the burst with the piece in view: other angles, kept for a
+        # second try when nothing sent recognizes it (OTHER_VIEW_REQUESTS).
+        qualities = self.ctx.captured_crop_quality
+        spare = [
+            _SendImage(all_captures[i], burst_entries[i])
+            for i in range(min(len(all_captures), len(burst_entries)))
+            if i not in chosen
+            and (
+                len(qualities) != len(all_captures)
+                or qualities[i].mask_frac >= crop_quality.MIN_MASK_FRAC
+            )
+        ]
         stamps = list(self.ctx.captured_crop_timestamps)
         # Arrival at C4. Every candidate's dt feature is measured against this,
         # so it has to be the FIRST burst frame, not the sharpest or the last.
@@ -280,9 +376,14 @@ class Rev01BaseState(BaseState):
                 # The hosted color provider (when selected) runs alongside the
                 # Brickognize fan-out rather than after it, so choosing it costs
                 # no extra wall-clock unless it is slower than Brickognize.
-                hosted_color = self._maybeStartHostedColorPredict(sendable, piece_uuid)
+                colour_images = _hostedColorImages(all_captures, burst_entries)
+                hosted_color = self._maybeStartHostedColorPredict(colour_images, piece_uuid)
+                if hosted_color is not None:
+                    hosted_color["images"] = _imageRefs(obj, colour_images)
                 requests = self._buildClassifyRequests(sendable)
-                self._runClassifyRequests(requests, piece_uuid, hosted_color)
+                for req in requests:
+                    req.image_refs = _imageRefs(obj, req.images)
+                self._runClassifyRequests(requests, piece_uuid, hosted_color, spare)
             except Exception as exc:
                 with self.ctx.classify_lock:
                     self.ctx.classification_error = str(exc)
@@ -319,19 +420,6 @@ class Rev01BaseState(BaseState):
                     )
                 )
         return requests
-
-    @staticmethod
-    def _topItem(result: object) -> Optional[dict]:
-        items = result.get("items", []) if isinstance(result, dict) else []
-        return items[0] if items else None
-
-    @staticmethod
-    def _topColor(result: object) -> Optional[dict]:
-        colors = result.get("colors", []) if isinstance(result, dict) else []
-        valid = [c for c in colors if isinstance(c, dict)]
-        if not valid:
-            return None
-        return max(valid, key=lambda c: c.get("score", 0))
 
     def _runRequestsParallel(
         self, requests: list[_ClassifyRequest], piece_uuid: Optional[str]
@@ -422,6 +510,8 @@ class Rev01BaseState(BaseState):
         # payload is not an error: the piece keeps Brickognize's color and is
         # recorded as brickognize-sourced, so the stored provenance always
         # reflects what really produced the color rather than what was configured.
+        self.ctx.hosted_prediction = None
+        self.ctx.hosted_images = None
         if hosted_color is None:
             self.ctx.color_provider = COLOR_PROVIDER_BRICKOGNIZE
             self.ctx.hosted_color = None
@@ -444,9 +534,22 @@ class Rev01BaseState(BaseState):
                 f"{LOG_TAG} hosted color unavailable within "
                 f"{HOSTED_COLOR_JOIN_BUDGET_S:.0f}s — falling back to Brickognize's color"
             )
+            waited = time.monotonic() - hosted_color["started_at"]
+            if hosted_color["thread"].is_alive():
+                why = f"did not answer within {HOSTED_COLOR_JOIN_BUDGET_S:.0f} s"
+            else:
+                why = f"answered without a color after {waited:.1f} s"
+            notePieceProblem(
+                self.ctx.known_object,
+                "color_fallback",
+                f"The color model {why}, so Brickognize's color was used.",
+                after_s=waited,
+            )
             return
         # Hive returns BrickLink color ids as ints; the sorting profile (and
         # Brickognize) key on the same ids as strings.
+        self.ctx.hosted_prediction = result
+        self.ctx.hosted_images = hosted_color.get("images")
         self.ctx.color_provider = COLOR_PROVIDER_HIVE_BASICALLY
         self.ctx.hosted_color = (str(color_id), str(color_name))
         self.ctx.hosted_color_confidence = (
@@ -466,6 +569,7 @@ class Rev01BaseState(BaseState):
         requests: list[_ClassifyRequest],
         piece_uuid: Optional[str],
         hosted_color: Optional[dict] = None,
+        spare: Optional[list[_SendImage]] = None,
     ) -> None:
         # Fire every request concurrently and apply one result. No sequential
         # retries: the calls are redundant and run in parallel. The combined
@@ -479,6 +583,24 @@ class Rev01BaseState(BaseState):
         # when EVERY request errors (a transport failure across the board) is the
         # piece marked errored — a smaller image set can't fix a network failure.
         results = self._runRequestsParallel(requests, piece_uuid)
+        recognized = any(
+            result is not None and rankedItems(result, 1) for _req, result, _err, _dur in results
+        )
+        answered = any(error is None for _req, _result, error, _dur in results)
+        if not recognized and answered and spare:
+            sent = [s.bgr for req in requests for s in req.images]
+            others = _otherViews(sent, spare, OTHER_VIEW_REQUESTS)
+            retry = [
+                _ClassifyRequest(ClassificationAttemptStrategy.single_burst, f"other_view_{n + 1}", [s])
+                for n, s in enumerate(others)
+            ]
+            for req in retry:
+                req.image_refs = _imageRefs(self.ctx.known_object, req.images)
+            if retry:
+                self.logger.info(
+                    f"{LOG_TAG} no match on the sent frames; trying {len(retry)} other views"
+                )
+                results += self._runRequestsParallel(retry, piece_uuid)
         attempts: list[ClassificationAttempt] = []
         # ClassificationAttempt <-> the request that produced it, so the applied
         # one can be flagged in _finalizeAttempts.
@@ -490,8 +612,10 @@ class Rev01BaseState(BaseState):
         errors: list[str] = []
 
         for req, result, error, dur in results:
-            top = self._topItem(result)
-            top_color = self._topColor(result)
+            items = rankedItems(result, piece_predictions.PREDICTIONS_PER_REQUEST)
+            colors = rankedColors(result, piece_predictions.PREDICTIONS_PER_REQUEST)
+            top = items[0] if items else None
+            top_color = colors[0] if colors else None
             attempts.append(
                 ClassificationAttempt(
                     strategy=req.strategy,
@@ -512,6 +636,16 @@ class Rev01BaseState(BaseState):
                         if isinstance(top_color, dict) and top_color.get("name") is not None
                         else None
                     ),
+                    color_score=(
+                        top_color.get("score") if isinstance(top_color, dict) else None
+                    ),
+                    items=[
+                        {k: item.get(k) for k in ("id", "name", "score", "rank")} for item in items
+                    ],
+                    colors=[
+                        {k: color.get(k) for k in ("id", "name", "score", "rank")} for color in colors
+                    ],
+                    images=list(req.image_refs),
                     error=error,
                     duration_s=dur,
                     image_ts=[
@@ -656,6 +790,15 @@ class Rev01BaseState(BaseState):
             else:
                 obj.classification_status = ClassificationStatus.failed
                 obj.request_failed = True
+                if error != "timeout":  # the channel notes its own timeout
+                    started = self.ctx.classify_started_at
+                    notePieceProblem(
+                        obj,
+                        "classify_failed",
+                        f"The identification request failed ({str(error)[:160]}), so it went "
+                        f"to misc unidentified.",
+                        after_s=(time.monotonic() - started) if started else None,
+                    )
         elif isinstance(result, dict):
             items = result.get("items", [])
             colors = result.get("colors", [])
@@ -717,7 +860,33 @@ class Rev01BaseState(BaseState):
             obj.classification_attempts = list(self.ctx.classification_attempts)
             obj.classification_strategy = self.ctx.classification_strategy
 
+        self._recordPredictions(obj)
         self.emitKnownObject()
+
+    def _recordPredictions(self, obj) -> None:
+        # Every ranked answer this piece got, applied or not, kept and sent to
+        # Hive. Runs on the control loop, so the write goes to the writer thread.
+        predictions = piece_predictions.fromClassification(
+            attempts=obj.classification_attempts,
+            hosted=self.ctx.hosted_prediction,
+            hosted_images=self.ctx.hosted_images,
+            applied_part=(
+                (str(obj.part_id), obj.brickognize_item_rank) if obj.part_id is not None else None
+            ),
+            applied_color=(
+                (obj.color_provider, obj.color_id, obj.brickognize_color_rank)
+                if obj.color_id is not None
+                else None
+            ),
+            created_at=obj.classified_at,
+        )
+        if not predictions:
+            return
+        piece_predictions.remember(obj.uuid, predictions)
+        db.defer(
+            f"piece predictions {obj.uuid[:8]}",
+            lambda: piece_predictions.recordPredictions(obj.uuid, predictions),
+        )
 
     def _gatherLinkMatches(
         self,

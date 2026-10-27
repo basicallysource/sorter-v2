@@ -3,10 +3,8 @@
 A raw model output is just ``(x1, y1, x2, y2)``. ``Detection`` annotates one
 with where it landed relative to a channel's regions:
 
-- ``in_primary``: the bbox center is inside this channel's primary polygon mask
-  (the region the cascade/state machine acts on).
-- ``secondary_zone_ids``: ids of any SECONDARY (foreign) zones whose polygon
-  contains the bbox center — display/tag only, never acted on.
+- ``in_primary``: the bbox center is inside this channel's mask (the region
+  the cascade/state machine acts on).
 
 This is computed off the hot read path (the ``ChannelState`` slot and
 ``latest_raw`` stay primary-only and bbox-only), so adding it changes nothing
@@ -24,9 +22,8 @@ from .arcs import Bbox
 class Detection:
     bbox: Bbox
     in_primary: bool
-    secondary_zone_ids: tuple[str, ...] = ()
     # Stable id from the perception ByteTrack tracker (``perception.tracking``)
-    # when this bbox is an on-channel piece. ``None`` for off-channel / secondary
+    # when this bbox is an on-channel piece. ``None`` for off-channel
     # detections (only on-channel pieces are tracked) and when tracking is
     # unavailable. The stream overlay labels each box with this id.
     sv_bt_track_id: int | None = None

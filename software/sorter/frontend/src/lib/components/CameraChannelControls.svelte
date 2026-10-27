@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import NudgeControl from '$lib/components/ui/NudgeControl.svelte';
+	import Menu from '$lib/components/ui/Menu.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import Tooltip from '$lib/components/ui/Tooltip.svelte';
-	import RotateCw from '@lucide/svelte/icons/rotate-cw';
+	import { onMount } from 'svelte';
 	import {
+		DIRECTION_WORDS,
 		STEPPER_GEAR_RATIOS,
-		loadStoredStepperPulseSetting
+		loadStoredStepperPulseSetting,
+		persistStoredStepperPulseSetting
 	} from '$lib/settings/stepper-control';
 	import type { StepperKey } from '$lib/settings/stations';
 
@@ -14,9 +17,28 @@
 
 	const machine = getMachineContext();
 
-	type ChannelMoveAction = 'nudge_ccw' | 'nudge_cw' | 'rotate_180';
+	// Left is counterclockwise and right is clockwise, as the arrows point.
+	type ChannelSide = 'left' | 'right';
 
-	let pendingAction = $state<ChannelMoveAction | null>(null);
+	// How far each press turns the channel: 10° unless this browser kept another
+	// amount for this channel. Any amount above 0 up to one full turn.
+	const JOG_FIELD = 'dashboardJogDegrees';
+	const DEFAULT_JOG_DEGREES = 10;
+	const MAX_JOG_DEGREES = 360;
+
+	function readStoredJogDegrees(): number {
+		const stored = loadStoredStepperPulseSetting<number>(
+			stepperKey,
+			JOG_FIELD,
+			DEFAULT_JOG_DEGREES
+		);
+		return Number.isFinite(stored) && stored > 0 && stored <= MAX_JOG_DEGREES
+			? stored
+			: DEFAULT_JOG_DEGREES;
+	}
+
+	let jogDegrees = $state(readStoredJogDegrees());
+	let pendingSide = $state<ChannelSide | null>(null);
 	let errorMessage = $state<string | null>(null);
 
 	function currentBackendBaseUrl(): string {
@@ -47,9 +69,45 @@
 		return message;
 	}
 
-	async function moveOutputDegrees(action: ChannelMoveAction, output_degrees: number) {
-		if (pendingAction) return;
-		pendingAction = action;
+	// The shakes a recovery procedure runs (backend recovery/profiles.py), by
+	// hand: the same list and the same code.
+	type Shake = { key: string; label: string; blurb: string };
+	let shakes = $state<Shake[]>([]);
+	let shaking = $state(false);
+
+	onMount(() => {
+		void (async () => {
+			try {
+				const res = await fetch(`${currentBackendBaseUrl()}/api/recovery/shakes`);
+				if (res.ok) shakes = ((await res.json()).shakes ?? []) as Shake[];
+			} catch {
+				// no menu without the list
+			}
+		})();
+	});
+
+	async function shake(profile: string) {
+		if (shaking) return;
+		shaking = true;
+		errorMessage = null;
+		try {
+			const params = new URLSearchParams({ stepper: stepperKey, profile });
+			const res = await fetch(`${currentBackendBaseUrl()}/api/recovery/shake?${params.toString()}`, {
+				method: 'POST'
+			});
+			if (!res.ok) {
+				throw new Error(humanizeStepperError(await readErrorMessage(res)));
+			}
+		} catch (e: any) {
+			errorMessage = e?.message ?? 'Could not shake the channel';
+		} finally {
+			shaking = false;
+		}
+	}
+
+	async function moveOutputDegrees(side: ChannelSide, output_degrees: number) {
+		if (pendingSide) return;
+		pendingSide = side;
 		errorMessage = null;
 		try {
 			const gear_ratio = STEPPER_GEAR_RATIOS[stepperKey] ?? 1;
@@ -69,7 +127,7 @@
 		} catch (e: any) {
 			errorMessage = e?.message ?? 'Could not move channel';
 		} finally {
-			pendingAction = null;
+			pendingSide = null;
 		}
 	}
 </script>
@@ -77,48 +135,27 @@
 {#if errorMessage}
 	<span class="max-w-44 truncate text-sm text-danger-ink" title={errorMessage}>{errorMessage}</span>
 {/if}
-<Tooltip text="Turn the channel 1° counterclockwise" placement="bottom">
-	{#snippet children(props)}
-		<Button
-			{...props}
-			variant="ghost"
-			size="sm"
-			loading={pendingAction === 'nudge_ccw'}
-			disabled={pendingAction !== null}
-			onclick={() => void moveOutputDegrees('nudge_ccw', -1)}
-		>
-			-1°
-		</Button>
-	{/snippet}
-</Tooltip>
-<Tooltip text="Turn the channel 1° clockwise" placement="bottom">
-	{#snippet children(props)}
-		<Button
-			{...props}
-			variant="ghost"
-			size="sm"
-			loading={pendingAction === 'nudge_cw'}
-			disabled={pendingAction !== null}
-			onclick={() => void moveOutputDegrees('nudge_cw', 1)}
-		>
-			+1°
-		</Button>
-	{/snippet}
-</Tooltip>
-<Tooltip text="Turn the channel 180° clockwise" placement="bottom">
-	{#snippet children(props)}
-		<Button
-			{...props}
-			variant="ghost"
-			size="sm"
-			icon={RotateCw}
-			loading={pendingAction === 'rotate_180'}
-			disabled={pendingAction !== null}
-			onclick={() => void moveOutputDegrees('rotate_180', 180)}
-		>
-			<!-- In a narrow tile (its own container) the icon stands for it, so the
-			     camera's name keeps its room in the strip. -->
-			<span class="@max-sm:sr-only">180°</span>
-		</Button>
-	{/snippet}
-</Tooltip>
+<!-- The arrows turn the channel by the amount between them; the amount opens the
+     presets (10°, 180°) and a field for any other. -->
+<NudgeControl
+	bind:value={jogDegrees}
+	presets={[10, 180]}
+	max={MAX_JOG_DEGREES}
+	label="Turn the channel"
+	leftLabel="Turn the channel {jogDegrees}° {DIRECTION_WORDS.ccw}"
+	rightLabel="Turn the channel {jogDegrees}° {DIRECTION_WORDS.cw}"
+	amountLabel="Each press turns"
+	busy={pendingSide}
+	onnudge={(side) => void moveOutputDegrees(side, side === 'left' ? -jogDegrees : jogDegrees)}
+	onchange={(degrees) => persistStoredStepperPulseSetting(stepperKey, JOG_FIELD, degrees)}
+/>
+{#if shakes.length}
+	<Menu
+		label="Shake the channel"
+		items={shakes.map((s) => ({ label: s.label, hint: s.blurb, onselect: () => void shake(s.key) }))}
+	>
+		{#snippet trigger(props)}
+			<Button {...props} size="sm" loading={shaking}>Shake</Button>
+		{/snippet}
+	</Menu>
+{/if}

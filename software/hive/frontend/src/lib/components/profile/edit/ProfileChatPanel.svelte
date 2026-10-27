@@ -71,6 +71,10 @@
 	let progress = $state<AiProgressEvent[]>([]);
 	let error = $state<string | null>(null);
 	let errorCode = $state<string | null>(null);
+	// Only these two are the key's fault; a rate limit, an empty or garbled
+	// answer or a network error is not fixed in Settings.
+	const KEY_PROBLEMS = new Set(['OPENROUTER_NO_CREDITS', 'OPENROUTER_KEY_REJECTED']);
+	const keyProblem = $derived(errorCode !== null && KEY_PROBLEMS.has(errorCode));
 	let expandedResults = $state<Set<string>>(new Set());
 	let scroller = $state<HTMLDivElement | undefined>();
 
@@ -314,9 +318,9 @@
 					{#if error}
 						<div class="mr-8">
 							<Alert tone="danger" title={error}>
-								{#if errorCode?.startsWith('OPENROUTER_')}The OpenRouter key in your settings needs fixing.{/if}
+								{#if keyProblem}The OpenRouter key in your settings needs fixing.{/if}
 								{#snippet actions()}
-									{#if errorCode?.startsWith('OPENROUTER_')}
+									{#if keyProblem}
 										<Button href="/settings" size="sm">Settings</Button>
 									{/if}
 								{/snippet}

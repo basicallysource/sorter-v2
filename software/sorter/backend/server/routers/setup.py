@@ -10,32 +10,18 @@ import serial.tools.list_ports
 
 from hardware.bus import MCUBus
 from hardware.firmware_flash import bootloaderPresent
-from irl.config import _requiredCanonicalStepperNames
-from irl.parse_user_toml import (
-    LOGICAL_STEPPER_BINDING_BASES,
-    loadStepperBindingOverrides,
-)
+from hardware_settings.motors import MOTORS, NAME_ALIASES, motorNamed, motorSockets
+from hardware_settings.steppers import readStepperSettings
 from local_state import get_or_create_machine_id
 from machine_platform.control_board import discover_control_boards
 from server import shared_state
 import machine_toml
 from server.routers.cameras import CAMERA_SETUP_ROLES, _camera_source_for_role
 from server.routers.servos import _servo_settings_from_config
+from server.routers.steppers import save_stepper_settings
 from toml_config import getMachineNickname
 
 router = APIRouter()
-
-STEPPER_LABELS: dict[str, str] = {
-    "c_channel_1": "C-Channel 1",
-    "c_channel_2": "C-Channel 2",
-    "c_channel_3": "C-Channel 3",
-    "c_channel_4": "C-Channel 4",
-    "carousel": "Carousel",
-    "chute": "Chute",
-}
-
-C4_LOGICAL_STEPPER = "c_channel_4"
-C4_BACKING_STEPPER = "carousel"
 
 
 class StepperDirectionPayload(BaseModel):
@@ -83,23 +69,15 @@ def _camera_assignments_complete(camera_assignments: dict[str, Any]) -> bool:
 
 
 def _current_stepper_direction_payload() -> list[dict[str, Any]]:
+    """One entry per motor, under the name the wizard shows it by: the carousel
+    motor is the classification channel's C4 here."""
     config = machine_toml.read()
-    inverts = config.get("stepper_direction_inverts", {})
-    if not isinstance(inverts, dict):
-        inverts = {}
-
     active_irl = shared_state.getActiveIRL()
+    shown_as = {motor: (alias, label) for alias, (motor, label) in NAME_ALIASES.items()}
     entries: list[dict[str, Any]] = []
-    logical_names = [
-        C4_LOGICAL_STEPPER if name == C4_BACKING_STEPPER else name
-        for name in LOGICAL_STEPPER_BINDING_BASES
-    ]
-
-    for logical_name in logical_names:
-        attr_base = _stepper_attr_base(logical_name)
-        attr_name = attr_base if attr_base.endswith("_stepper") else f"{attr_base}_stepper"
-        stepper = getattr(active_irl, attr_name, None) if active_irl is not None else None
-        config_key = _stepper_config_key(logical_name)
+    for motor in MOTORS:
+        name, label = shown_as.get(motor.name, (motor.name, motor.label[:1].upper() + motor.label[1:]))
+        stepper = getattr(active_irl, motor.attr, None) if active_irl is not None else None
         live_inverted = (
             bool(getattr(stepper, "direction_inverted"))
             if stepper is not None and hasattr(stepper, "direction_inverted")
@@ -107,23 +85,14 @@ def _current_stepper_direction_payload() -> list[dict[str, Any]]:
         )
         entries.append(
             {
-                "name": logical_name,
-                "label": STEPPER_LABELS.get(logical_name, logical_name),
-                "inverted": bool(inverts.get(config_key, False)),
+                "name": name,
+                "label": label,
+                "inverted": readStepperSettings(motor, config).inverted,
                 "live_inverted": live_inverted,
                 "available": stepper is not None,
             }
         )
     return entries
-
-
-def _stepper_config_key(stepper_name: str) -> str:
-    return C4_BACKING_STEPPER if stepper_name == C4_LOGICAL_STEPPER else stepper_name
-
-
-def _stepper_attr_base(stepper_name: str) -> str:
-    config_key = _stepper_config_key(stepper_name)
-    return LOGICAL_STEPPER_BINDING_BASES[config_key]
 
 
 # The boards the last scan or live machine reported. While a hardware worker
@@ -383,12 +352,11 @@ def _build_discovery_payload(
         for logical_name in board.get("logical_steppers", [])
         if isinstance(logical_name, str)
     }
-    gc = shared_state.gc_ref
     try:
-        binding_overrides = loadStepperBindingOverrides(gc) if gc is not None else {}
-    except Exception:
-        binding_overrides = {}
-    required_stepper_names = _requiredCanonicalStepperNames(binding_overrides)
+        motor_sockets = motorSockets(machine_toml.read())
+    except machine_toml.MachineTomlError:
+        motor_sockets = motorSockets({})
+    required_stepper_names = [motor_sockets[motor.name] for motor in MOTORS]
     missing_required_steppers = sorted(
         stepper_name
         for stepper_name in required_stepper_names
@@ -551,36 +519,18 @@ def get_stepper_directions() -> Dict[str, Any]:
 
 @router.post("/api/setup-wizard/stepper-directions/{stepper_name}")
 def set_stepper_direction(stepper_name: str, payload: StepperDirectionPayload) -> Dict[str, Any]:
-    if stepper_name not in LOGICAL_STEPPER_BINDING_BASES and stepper_name != C4_LOGICAL_STEPPER:
+    motor = motorNamed(stepper_name)
+    if motor is None:
         raise HTTPException(
             status_code=404,
             detail=f"Unknown logical stepper '{stepper_name}'.",
         )
-    config_key = _stepper_config_key(stepper_name)
-
-    with machine_toml.edit() as config:
-        inverts = config.get("stepper_direction_inverts", {})
-        if not isinstance(inverts, dict):
-            inverts = {}
-        inverts = {**inverts, config_key: bool(payload.inverted)}
-        config["stepper_direction_inverts"] = inverts
-
-    applied_live = False
-    active_irl = shared_state.getActiveIRL()
-    attr_base = _stepper_attr_base(stepper_name)
-    attr_name = attr_base if attr_base.endswith("_stepper") else f"{attr_base}_stepper"
-    stepper = getattr(active_irl, attr_name, None) if active_irl is not None else None
-    if stepper is not None and hasattr(stepper, "set_direction_inverted"):
-        try:
-            stepper.set_direction_inverted(bool(payload.inverted))
-            applied_live = True
-        except Exception:
-            applied_live = False
+    settings, applied_live = save_stepper_settings(motor, {"inverted": bool(payload.inverted)})
 
     return {
         "ok": True,
         "stepper": stepper_name,
-        "inverted": bool(payload.inverted),
+        "inverted": settings.inverted,
         "applied_live": applied_live,
         "steppers": _current_stepper_direction_payload(),
     }

@@ -18,6 +18,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Popover from '$lib/components/Popover.svelte';
 	import Menu from '$lib/components/Menu.svelte';
+	import ImageZoom from '$lib/components/ImageZoom.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Field from '$lib/components/Field.svelte';
@@ -27,6 +28,17 @@
 	let profile = $state('september');
 	let contextMenu: Menu | undefined = $state();
 	let last = $state('');
+	// Sample photos for the image zoom: a part drawn in three shapes.
+	const sample = (width: number, height: number, fill: string) =>
+		`data:image/svg+xml;utf8,${encodeURIComponent(
+			`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#8b8d8a"/><rect x="${width * 0.18}" y="${height * 0.22}" width="${width * 0.64}" height="${height * 0.56}" fill="${fill}"/><circle cx="${width * 0.35}" cy="${height * 0.22}" r="${Math.min(width, height) * 0.09}" fill="${fill}"/><circle cx="${width * 0.65}" cy="${height * 0.22}" r="${Math.min(width, height) * 0.09}" fill="${fill}"/></svg>`
+		)}`;
+	const zoomSamples = [
+		{ label: 'Burst 1 of 3, 16:37:31', src: sample(240, 180, '#c91a09') },
+		{ label: 'Burst 2 of 3, 16:37:32', src: sample(200, 260, '#0055bf') },
+		{ label: 'Burst 3 of 3, 16:37:32', src: sample(300, 300, '#f2cd37') }
+	];
+
 	let confirmOpen = $state(false);
 	let restarting = $state(false);
 	let renameOpen = $state(false);
@@ -249,6 +261,25 @@
 	</Specimen>
 </SiteSection>
 
+<SiteSection
+	title="Image zoom"
+	lead="A picture enlarges where it is pointed at: the pointer on a thumbnail shows it large beside it at once, and taking the pointer off puts it away. Nothing to click or close, so a row of photos is looked over by moving along it. It is only a bigger look at what is already on the page."
+>
+	<Specimen
+		code={`<ImageZoom src={crop.src} label="Burst 3 of 9, 16:37:31">
+	<img src={crop.src} alt="" class="size-20 object-contain" />
+</ImageZoom>`}
+	>
+		<div class="flex flex-wrap items-center gap-2">
+			{#each zoomSamples as sample (sample.label)}
+				<ImageZoom src={sample.src} label={sample.label}>
+					<img src={sample.src} alt="" class="size-20 object-contain" />
+				</ImageZoom>
+			{/each}
+		</div>
+	</Specimen>
+</SiteSection>
+
 <SiteSection title="What there is not">
 	<ul class="divide-y divide-line overflow-hidden rounded-panel bg-surface text-sm">
 		<li class="px-5 py-3">
@@ -259,8 +290,13 @@
 			>
 		</li>
 		<li class="px-5 py-3">
-			<span class="font-medium text-ink">Nothing opens on hover but a tooltip.</span>
-			<span class="text-ink-muted">A touch screen has no hover, and a machine may have one.</span>
+			<span class="font-medium text-ink"
+				>Nothing opens on hover but a tooltip and a picture's enlargement.</span
+			>
+			<span class="text-ink-muted"
+				>A touch screen has no hover, and a machine may have one; both only say more about what is
+				already shown.</span
+			>
 		</li>
 		<li class="px-5 py-3">
 			<span class="font-medium text-ink">One overlay at a time.</span>

@@ -317,16 +317,16 @@ def _category_distribution(part_counts: list[tuple[Any, int]], limit: int) -> li
     return [{"category_name": name, "value": value} for name, value in ranked]
 
 
-def _bricklink_rgb() -> dict[int, str | None]:
+def bricklink_rgb() -> dict[int, str | None]:
     """BrickLink color id -> swatch hex (no leading '#'), from the parts catalog.
 
     Best-effort and imported lazily: analytics is imported all over, the catalog
     is heavy, and a box without it loaded should still serve distributions —
     just with no rgb, which a client treats as "no swatch"."""
     try:
-        from app.services.profile_catalog import get_profile_catalog_service
+        from app.services.profile_catalog import catalog_lookup
 
-        return {c["id"]: c.get("rgb") for c in get_profile_catalog_service().list_bricklink_colors()}
+        return {c["id"]: c.get("rgb") for c in catalog_lookup().list_bricklink_colors()}
     except Exception:
         return {}
 
@@ -483,7 +483,7 @@ def get_analytics(db: Session, machine_ids: list[Any]) -> dict[str, Any]:
     )
 
     top_colors = _ranked(folded["colors"], "color_id", "color_name", 15)
-    rgb_by_bl_id = _bricklink_rgb()
+    rgb_by_bl_id = bricklink_rgb()
     for entry in top_colors:
         try:
             entry["rgb"] = rgb_by_bl_id.get(int(entry["color_id"]))

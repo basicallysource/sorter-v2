@@ -32,8 +32,9 @@ class PiecePartLabel(Base):
     machine_id = Column(UUID(as_uuid=True), ForeignKey("machines.id", ondelete="CASCADE"), nullable=False)
     piece_uuid = Column(String, nullable=False)
     labeler_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    # part_num is null exactly when cant_tell is set — the labeler looked and
-    # couldn't identify the mold (a real answer, not an absent label).
+    # part_num is null when cant_tell is set (the labeler looked and couldn't
+    # identify the mold, a real answer, not an absent label) or when they only
+    # said the machine's part is wrong (part_correct false).
     part_num = Column(String, nullable=True)
     cant_tell = Column(Boolean, nullable=False, default=False)
     # What the machine had predicted when this correction was made, so a label
@@ -41,6 +42,13 @@ class PiecePartLabel(Base):
     # row that may since have been re-synced. Null when the piece was
     # unidentified — the fill-in-a-missing-part case.
     predicted_part_num = Column(String, nullable=True)
+    # This labeler's answer to "is the machine's part right?" from the
+    # Brickognize card: true / false / null (not given). A false with no
+    # part_num says "not that part" without naming the right one.
+    part_correct = Column(Boolean, nullable=True)
+    # When this labeler's part verdict went to Brickognize's feedback API; null
+    # = not sent. The machine operator's verdict lives on machine_pieces.
+    brickognize_feedback_at = Column(DateTime(timezone=True), nullable=True)
     notes = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(

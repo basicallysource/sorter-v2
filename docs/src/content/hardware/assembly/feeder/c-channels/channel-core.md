@@ -39,7 +39,7 @@ The channel core is a C-channel with no rotor in it: the stator, the NEMA bracke
 
 {% include fastener-legend.html %}
 
-- **Colours.** The stator is ash grey. The idler and input gears follow the feeder colour, charcoal by default. The NEMA bracket is charcoal on C1 and ash grey on the other three.
+- **Colours.** The stator must be ash grey, because the camera looks straight at it. The idler and input gears follow the feeder colour, charcoal by default. The NEMA bracket is charcoal on C1 and ash grey on the other three.
 
 {% include step.html n="1" title="Preparation" %}
 

@@ -1,5 +1,5 @@
 {
-  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, uid (see UID below), name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL; publish with scripts/publish_assets.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?,length_mm?,length_min_mm?,length_max_mm?} (length_mm is the length the part IS, or for a generic item the ideal length to buy; length_min_mm/length_max_mm, when set, are the range that still works, so a cable can be specified without pinning one product listing -- null or absent means the ideal is the only length), category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, published by publish_assets.py and served from the asset service) OR image_url (an already-published content-addressed URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. PARAMS (2026-09-02): an assembly may declare params {name: {default: <part-id>, note?}} and reference a slot as a line {param: <name>, qty}; a line referencing a sub-assembly may pass args {name: <part-id> | '$own-param'} ('$x' forwards the instantiating assembly's own param). Resolution: args value, else the param's default. This is how one Camera lamp serves all four C-channels with two different cameras. Connections still name concrete member ids. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a published URL. UID (2026-08-22): every part, whatever its kind, carries uid -- a minted 4-char id (catalog/mint_uid.py) naming its CURRENT VERSION: the exact thing in your hand, and what a print gets engraved with. A human bumping `version` mints a new uid; a re-export of the same design is new bytes (a new stl_hash) under the same uid, not a new version. A superseded version entry carries the uid it had (stamp_versions.py writes it beside the superseded stl_hash). Mint BEFORE the STL exists: the entry holds the uid, and the engraved downloads generate.py cuts are named for it. FILENAMES (2026-08-23, the asset service is the only store): a key is the name the file was published under plus a hash of its own bytes, in the sorter-parts namespace. A master STL, and every archived version and candidate of it, is published under the part's id -- sorter-parts/<part-id>-<hash12>.stl -- so the hash is what tells the versions apart, and it is the stl_hash pinned right here: grep a downloaded file's hash fragment in this file and you have the exact version. An engraved download carries the uid as well, sorter-parts/<part-id>-<uid>-stamped-<face>-<hash12>.stl, because that is the string recessed into the plastic. An image is published as a copy with the camera's metadata stripped, so its URL is read off the service, never derived. CANDIDATES (2026-08-22): a printed part may carry candidates [{uid, name?, stl_hash, created_at, message, onshape_version?, images?, support?, superseded_by?, superseded_at?, rejected_at?}] -- design revisions under test for that part's slot. Each is minted its own uid and pinned by hash (publish with publish_assets.py --upload <part-id>.stl), gets sliced and rendered and is downloadable from the part's page, counts toward nothing, and has NO version number: numbers are handed out in adoption order. Promotion = the candidate's uid + stl_hash become the part's current, version bumps, a versions entry is added, the candidate line is removed (its uid lives on at part level). A candidate that is iterated on or dropped is NEVER deleted: mark it superseded_by/superseded_at or rejected_at and leave its pin, so the uid engraved on a test print always resolves here. check_generated_pins.py fails any change that makes a uid disappear from this file. ASSEMBLIES (2026-08-22): every assembly carries uid and version exactly like a part. A new version is an authored STRUCTURAL change (a line added or removed, a qty changed) -- a member part revving is that part's own history, not the assembly's. versions [{version, uid, date, message, commit, lines}] is written like a part's: author the new entry with commit null, and stamp_versions.py carries the superseded uid plus a snapshot of the lines as they were, each line pinned to the member's uid at the time, so a box as built then can be read back part by part. candidates [{uid, name?, created_at, message, lines, joining?, images?, superseded_by?, superseded_at?, rejected_at?}] is a whole alternative bill of materials under test (new parts enter with empty quantities so they count toward nothing); promotion = the candidate's lines and uid become the assembly's, version bumps, a versions entry is added, the candidate line is removed. Same retention rule: a candidate is marked, never deleted. A candidate may carry name: what the slot is called if it is adopted (the housing candidate on ctrl-board-mount renames it on promotion). IMAGES (2026-08-22): any part (printed or cots), assembly, candidate or version may carry images [{url, alt, caption?}] -- extra pictures beyond the render or product photo: an Onshape screenshot, a section view, a photo of it built. On an assembly the first image is its main picture, shown large on its detail view. url is a pinned published URL exactly like image_url (publish_assets.py --upload <file>.png prints it; never a repo path) and alt says what the picture shows; generate.py refuses anything else and check_asset_urls.py fetches every one. The site shows them as a zoomable strip on the part, hardware and assembly views. TAGS (2026-08-31): top-level tags [{name, node, stability: 'golden'|'stable'|'experimental' ('golden' adds the forward promise: revisions under a golden-tagged node must not be breaking), date, commit, message?}] -- a blessed moment of a node's whole subtree, resolved against history exactly like a timeline point (see VERSIONING.md, History is derived). 'stable' means the build as of that moment is known good and compatibility with it must not be broken silently. Tags are only ever appended by a human decision; nothing mints them.",
+  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, uid (see UID below), name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL; publish with scripts/publish_assets.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\",\"why\":\"...\"} (the part needs that color to work, e.g. the lamp reflector; why is the reason, shown in the app beside a Required mark -- a color that is only a preference is a role, not fixed), {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?,length_mm?,length_min_mm?,length_max_mm?} (length_mm is the length the part IS, or for a generic item the ideal length to buy; length_min_mm/length_max_mm, when set, are the range that still works, so a cable can be specified without pinning one product listing -- null or absent means the ideal is the only length), category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, published by publish_assets.py and served from the asset service) OR image_url (an already-published content-addressed URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. PARAMS (2026-09-02): an assembly may declare params {name: {default: <part-id>, note?}} and reference a slot as a line {param: <name>, qty}; a line referencing a sub-assembly may pass args {name: <part-id> | '$own-param'} ('$x' forwards the instantiating assembly's own param). Resolution: args value, else the param's default. This is how one Camera lamp serves all four C-channels with two different cameras. Connections still name concrete member ids. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a published URL. UID (2026-08-22): every part, whatever its kind, carries uid -- a minted 4-char id (catalog/mint_uid.py) naming its CURRENT VERSION: the exact thing in your hand, and what a print gets engraved with. A human bumping `version` mints a new uid; a re-export of the same design is new bytes (a new stl_hash) under the same uid, not a new version. A superseded version entry carries the uid it had (stamp_versions.py writes it beside the superseded stl_hash). Mint BEFORE the STL exists: the entry holds the uid, and the engraved downloads generate.py cuts are named for it. FILENAMES (2026-08-23, the asset service is the only store): a key is the name the file was published under plus a hash of its own bytes, in the sorter-parts namespace. A master STL, and every archived version and candidate of it, is published under the part's id -- sorter-parts/<part-id>-<hash12>.stl -- so the hash is what tells the versions apart, and it is the stl_hash pinned right here: grep a downloaded file's hash fragment in this file and you have the exact version. An engraved download carries the uid as well, sorter-parts/<part-id>-<uid>-stamped-<face>-<hash12>.stl, because that is the string recessed into the plastic. An image is published as a copy with the camera's metadata stripped, so its URL is read off the service, never derived. CANDIDATES (2026-08-22): a printed part may carry candidates [{uid, name?, stl_hash, created_at, message, onshape_version?, images?, support?, superseded_by?, superseded_at?, rejected_at?}] -- design revisions under test for that part's slot. Each is minted its own uid and pinned by hash (publish with publish_assets.py --upload <part-id>.stl), gets sliced and rendered and is downloadable from the part's page, counts toward nothing, and has NO version number: numbers are handed out in adoption order. Promotion = the candidate's uid + stl_hash become the part's current, version bumps, a versions entry is added, the candidate line is removed (its uid lives on at part level). A candidate that is iterated on or dropped is NEVER deleted: mark it superseded_by/superseded_at or rejected_at and leave its pin, so the uid engraved on a test print always resolves here. check_generated_pins.py fails any change that makes a uid disappear from this file. ASSEMBLIES (2026-08-22): every assembly carries uid and version exactly like a part. A new version is an authored STRUCTURAL change (a line added or removed, a qty changed) -- a member part revving is that part's own history, not the assembly's. versions [{version, uid, date, message, commit, lines}] is written like a part's: author the new entry with commit null, and stamp_versions.py carries the superseded uid plus a snapshot of the lines as they were, each line pinned to the member's uid at the time, so a box as built then can be read back part by part. candidates [{uid, name?, created_at, message, lines, joining?, images?, superseded_by?, superseded_at?, rejected_at?}] is a whole alternative bill of materials under test (new parts enter with empty quantities so they count toward nothing); promotion = the candidate's lines and uid become the assembly's, version bumps, a versions entry is added, the candidate line is removed. Same retention rule: a candidate is marked, never deleted. A candidate may carry name: what the slot is called if it is adopted (the housing candidate on ctrl-board-mount renames it on promotion). IMAGES (2026-08-22): any part (printed or cots), assembly, candidate or version may carry images [{url, alt, caption?}] -- extra pictures beyond the render or product photo: an Onshape screenshot, a section view, a photo of it built. On an assembly the first image is its main picture, shown large on its detail view. url is a pinned published URL exactly like image_url (publish_assets.py --upload <file>.png prints it; never a repo path) and alt says what the picture shows; generate.py refuses anything else and check_asset_urls.py fetches every one. The site shows them as a zoomable strip on the part, hardware and assembly views. TAGS (2026-08-31): top-level tags [{name, node, stability: 'golden'|'stable'|'experimental' ('golden' adds the forward promise: revisions under a golden-tagged node must not be breaking), date, commit, message?}] -- a blessed moment of a node's whole subtree, resolved against history exactly like a timeline point (see VERSIONING.md, History is derived). 'stable' means the build as of that moment is known good and compatibility with it must not be broken silently. Tags are only ever appended by a human decision; nothing mints them.",
   "sections": [
     {
       "id": "feeder",
@@ -44,9 +44,7 @@
     {
       "id": "electronics",
       "name": "Electronics",
-      "scales_with_layers": false,
-      "experimental": true,
-      "experimental_note": "The electronics are early and changing a lot. Only build these if you have the experience to adapt as the design moves."
+      "scales_with_layers": false
     }
   ],
   "changes": [
@@ -166,6 +164,8 @@
       "id": "reverse-chute-door",
       "name": "Reverse chute door",
       "priority": "P3",
+      "status": "complete",
+      "completed_at": "2026-10-12",
       "description": "Move the chute door to the other side so the flap closes the open funnel hole. This affects the chute as a whole and all of its parts.",
       "targets": {
         "sections": [
@@ -196,6 +196,17 @@
           "top-interface-split-spur-gear-3",
           "ls-mount-to-chute",
           "ls-bottom-static"
+        ]
+      }
+    },
+    {
+      "id": "top-plate-for-layout-guides",
+      "name": "Top plate: add holes for the layout guides and re-place the cable holes",
+      "priority": "P2",
+      "description": "The Top plate was cut before the C-channels stood on layout guides. It has no holes for the layout guides, so nothing on the plate locates or fixes them, and its five cable holes were placed before that arrangement and have not been re-planned for it. The fix is a revised plate that adds the layout guide holes and moves the cable holes to suit the channels, camera lamps and cameras whose leads come down through it. Tracked as sorter-v2 issue #1072.",
+      "targets": {
+        "lasercut": [
+          "top-plate"
         ]
       }
     },
@@ -312,19 +323,6 @@
       }
     },
     {
-      "id": "merge-bearing-holders",
-      "name": "Merge the two chute bearing holders into one part",
-      "priority": "P1",
-      "condition": "broken",
-      "description": "The chute door module asks for two different printed parts, a left bearing holder and a right one, where one part printed twice does the whole job. They are the same geometry. Measured off the two master STLs: a proper rotation of exactly 180.000 degrees about the flange face normal (0, 0.906, 0.423) maps one onto the other with a maximum deviation of 0.065 mm and a mean of 0.004 mm, and the transform's determinant is +1, so no handedness is involved. The only asymmetry in either part is 0.05 mm, between two of the three M3 insert pockets, at 17.35 mm and 17.40 mm from the bore centre. The machine should carry one holder and print it twice, which drops the printed part count by one. Nothing about the assembly changes: the two bearing seats face outward either way. The two ids are interchangeable as they stand. Which id survives, and what a single holder should be called, are open questions. Tracked as sorter-v2 issue #569, with the catalog side in #570.",
-      "targets": {
-        "parts": [
-          "bearing-holder-left",
-          "bearing-holder-right"
-        ]
-      }
-    },
-    {
       "id": "count-bins-and-funnels-in-the-tree",
       "name": "Count the bins and funnels in the machine tree",
       "priority": "P3",
@@ -343,6 +341,28 @@
           "layer",
           "bottom-layer",
           "chute"
+        ]
+      }
+    },
+    {
+      "id": "orange-pi-base-corner-insert-access",
+      "name": "One of the Orange Pi housing base's board inserts cannot be pressed in square",
+      "priority": "P1",
+      "condition": "broken",
+      "description": "The board post under the Orange Pi's north-east corner stands in the inside corner of the roof corner post, and its Ø4.0 insert bore is 3.4 mm from both faces of that corner. Both faces rise 31 mm above the top of the post, so a soldering iron cannot sit square over the insert: it rides against the corner post, melts it, and the insert does not go in cleanly. The other three board posts have at least 30 mm clear around them, and the four roof inserts are open from above. The Orange Pi 5 Pro, Max and Ultra base is not affected. The proposed CAD fix is to make that one hole a Ø2.8 self-tapping hole like the roof's, so the base takes seven inserts instead of eight. Reported from builds by ReveryX and BrickCycleAlice; measured off the pinned STL. Tracked as sorter-v2 issue #1162.",
+      "images": [
+        {
+          "url": "https://assets.basically.website/sorter-parts/orange-pi-housing-base-ne-post-insert-full-0eb27e206746.png",
+          "alt": "Left: plan section of the base's north-east corner, the corner post in grey with its two wall grooves, the board post boss in blue and its 4.0 mm bore in red, 3.4 mm from each of the post's two inner faces. Right: the same corner rendered from inside the housing, with the bore and the two post faces it sits against in red.",
+          "caption": "The north-east board post sits in the corner post's inside corner, 3.4 mm from both faces, which run 31 mm up."
+        }
+      ],
+      "targets": {
+        "parts": [
+          "orange-pi-housing-base"
+        ],
+        "assemblies": [
+          "orange-pi-mount"
         ]
       }
     }
@@ -428,7 +448,8 @@
       "assembly": null,
       "stl_hash": "323b2d1f94a5440119359498de7c7f706d4b32f4c54bec45e88b94c53064279b",
       "color": {
-        "fixed": "ash-gray"
+        "fixed": "ash-gray",
+        "why": "The camera looks straight at it. Gray keeps the camera's exposure and white balance steady: white throws them off, and black pieces disappear against black."
       },
       "optional": false,
       "support": true,
@@ -457,7 +478,8 @@
       "assembly": null,
       "stl_hash": "9885150edbe4a2c3f22592f899783c06f0cea483f78b044ac4628508fa26b1dc",
       "color": {
-        "fixed": "ash-gray"
+        "fixed": "ash-gray",
+        "why": "The camera looks straight at it. Gray keeps the camera's exposure and white balance steady: white throws them off, and black pieces disappear against black."
       },
       "optional": false,
       "support": false,
@@ -729,28 +751,44 @@
     },
     {
       "id": "chute-core",
-      "uid": "mu36",
+      "uid": "omak",
       "name": "Chute core",
-      "description": "The chute core. 1 per machine.",
-      "internal_notes": "1 per machine. Its own color selector (chute core).",
-      "version": "1",
+      "description": "The chute core. 1 per layer.",
+      "internal_notes": "1 per layer, one in each chute. Its own color selector (chute core).",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": null,
-      "stl_hash": "fccd4907faf05e295c070b5a5c2a41b6f89a5109bc7e368cb7632f26a2c19590",
+      "stl_hash": "97283b2c3e8c048b24d4d14a091e0162e1334854ab4734cdfb3bb88a4114c8a9",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false,
-      "source": "1_chute_core - core (2).stl",
+      "support": true,
+      "source": "chute-core.stl",
       "requires": [
         {
           "part": "hsi-m3",
-          "qty": 18
+          "qty": 21
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "mu36",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "fccd4907faf05e295c070b5a5c2a41b6f89a5109bc7e368cb7632f26a2c19590"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
         }
       ]
     },
@@ -801,16 +839,16 @@
       "uid": "cdeg",
       "name": "Frame crossbeam",
       "description": "Distribution frame crossbeam. One between each of the 6 frame sections.",
-      "internal_notes": "6 per frame (per layer); interface qty ASSUMED 6 (Spencer said 'one set per interface' - confirm). Frame color. File: combined_internal_bracket.",
+      "internal_notes": "6 per frame (per layer); interface qty ASSUMED 6 (Spencer said 'one set per interface' - confirm). Frame color. File: combined_internal_bracket. Re-exported 2026-10-17 at Jayesh-Herndon's report, rotated about X so the large face of the arms lies on the bed (it had no flat contact with the bed before); the mesh is otherwise identical.",
       "version": "1",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-17",
       "quantities": {
         "layer": 6,
         "interface": 6
       },
       "assembly": null,
-      "stl_hash": "45a69ae6847617b33b1aa45a379f0b413edba4d13203f4de40506a1f7cb80966",
+      "stl_hash": "d5225dc668c5bae12d1fae5d841f5491d649aa1c60dd7b86bc6c1fc3e2868cf5",
       "color": {
         "role": "frame"
       },
@@ -823,10 +861,17 @@
       "uid": "3l20",
       "name": "Frame 90° bracket",
       "description": "Distribution frame 90° bracket. Two per frame section.",
+      "attributes": [
+        {
+          "label": "Print orientation",
+          "value": "Corner down, legs rising at 45° like a V, no supports. The file rests on no face; as exported it needs supports under the T-shaped key",
+          "image_url": "https://assets.basically.website/sorter-parts/frame-90deg-bracket-print-orientation-full-004d30d57e54.png"
+        }
+      ],
       "internal_notes": "12 per frame (per layer); interface qty ASSUMED 12 (Spencer said 'one set per interface' - confirm). Frame color. File: inner_90_bracket.",
       "version": "1",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-17",
       "quantities": {
         "layer": 12,
         "interface": 12
@@ -975,8 +1020,8 @@
       "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer). Interface qty confirmed at 6, side and cover only, no bottom vertical there (top-interface.md step 14). Frame color.",
       "version": "1",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
-      "stl_hash": "da4b3abd3db72070484178ef5aa1d0906397c6a310bdf0e22f724940bd62dba2",
+      "updated_at": "2026-10-17",
+      "stl_hash": "f914cfcfd99e97685b1645665f53be36c5a997eda8fef952da8d127d4726f6db",
       "source": "1_printed_crossbeams - left_external_bracket.stl",
       "quantities": {
         "layer": 6,
@@ -997,15 +1042,14 @@
       "uid": "xgzj",
       "name": "External bracket — bottom vertical",
       "description": "Part of the external distribution-frame bracket (3-part assembly).",
-      "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer). Not used at the top interface: that joint has no bottom vertical or flange (top-interface.md step 14, confirmed 2026-08-25). The earlier 'interface: 6' assumption here was wrong, removed. Frame color.",
+      "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer), including the bottom layer (bottom-layer.md step 4 caps each piece D with one). Not used at the top interface: that joint has no bottom vertical or flange (top-interface.md step 14, confirmed 2026-08-25). The earlier 'interface: 6' assumption here was wrong, removed. Frame color.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
       "stl_hash": "313397afb08fc1943f045905b96131f73f1dc70c05d59fd2583c77da38318c36",
       "source": "1_printed_crossbeams - bottom_vertical_bracket.stl",
       "quantities": {
-        "layer": 6,
-        "interface": 6
+        "layer": 6
       },
       "assembly": "external-bracket",
       "color": {
@@ -1013,7 +1057,7 @@
       },
       "optional": false,
       "support": false,
-      "layer_scope": "non-bottom",
+      "layer_scope": null,
       "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31"
     },
     {
@@ -1399,7 +1443,7 @@
           "date": "2026-09-07",
           "message": "Full v2 reset of the cable-cage bracket set (sorter-v2 #403): the underside raises ~2mm (foot 212.5 -> 214.5, boss underside 210.0 -> 212.0), same change as interface-cage-bracket-cable's v2, moving the cage from the 25mm-tall 'temp catcher wall' Onshape branch to the 23mm-tall main branch. Bolt pattern and cage-plate rebate unchanged, so an old print still bolts in the same place.",
           "breaking": false,
-          "commit": "47a5e5a5",
+          "commit": "6bcb3c0e",
           "onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/ea31e1c51b28dfab1e6024f5/e/1850f7f376b0cfba64f9e367"
         }
       ],
@@ -1524,16 +1568,16 @@
       "uid": "1a0l",
       "name": "Chute gear",
       "description": "The chute drive gear, screwed onto the Top interface chute mount with five M3x12 countersunk screws (see the Interface chute gear + mount assembly). Turned by the Interface spur gear/idler gear train off the NEMA 23 stepper.",
-      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Chute gear; it is not joined to -2 or -3. See top-interface.md step 6.",
+      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Chute gear; it is not joined to -2 or -3. See top-interface.md step 6. Re-exported 2026-10-23 at Jayesh-Herndon's report, turned 180 degrees about X so the flat 10 mm face lies on the bed (11,290 mm2); before, the 0.5 mm shelf on its underside printed in air. Mesh otherwise identical.",
       "version": "1",
       "created_at": "2026-07-03",
-      "updated_at": "2026-07-03",
+      "updated_at": "2026-10-23",
       "quantities": {
         "interface": 1
       },
       "assembly": null,
       "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/05b09a7158dd399ac6f8e446/e/12bfe1cca4fda5bc5763c0c9",
-      "stl_hash": "6a600fb6a6b3f2e5cf22f87fdce65ce0cbeddb2063f598de4dd25f63df23fe0f",
+      "stl_hash": "6d1965579cbbb418012db3e5aaf06038f48823ed2e32a94a532212e77ecb4c3d",
       "color": {
         "role": "chute-core"
       },
@@ -1569,16 +1613,16 @@
         "chute core mount"
       ],
       "description": "The mount that carries the chute's drive gear and the Lazy Susan bearing (top-interface.md steps 6-7); the chute itself bolts to its free ring.",
-      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Top interface chute mount; it is not joined to -1 or -2. Carries 4× M4 inserts, plus 7× M3: 2 for the cable clamp and 5 on the underside that the chute gear screws down into. Counted on the physical part by barthel 2026-08-21 and confirmed against the STL (7 x 4.20 mm bores, ruthex's recommended M3 insert hole, re-measured with the detection thresholds loosened in case any were missed). The previous count of 9 added 2 for the layer connector, which the published model does not have; resolves the docs-merge-2026-08-21 conflict.",
+      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Top interface chute mount; it is not joined to -1 or -2. Carries 4× M4 inserts, plus 7× M3: 2 for the cable clamp and 5 on the underside that the chute gear screws down into. Counted on the physical part by barthel 2026-08-21 and confirmed against the STL (7 x 4.20 mm bores, ruthex's recommended M3 insert hole, re-measured with the detection thresholds loosened in case any were missed). The previous count of 9 added 2 for the layer connector, which the published model does not have; resolves the docs-merge-2026-08-21 conflict. Re-exported 2026-10-20 at daddyosbricksbill's report, rotated 180 degrees about X so the flange plate lies on the bed (it had no flat contact before, and the slicer built 400 g of support under it); the mesh is otherwise identical.",
       "version": "1",
       "created_at": "2026-07-03",
-      "updated_at": "2026-07-03",
+      "updated_at": "2026-10-20",
       "quantities": {
         "interface": 1
       },
       "assembly": null,
       "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/05b09a7158dd399ac6f8e446/e/12bfe1cca4fda5bc5763c0c9",
-      "stl_hash": "11f50ca23d809c133d2f409908e19b0e6c277e995a6d06e1c11da81bfe5dd6e1",
+      "stl_hash": "acdad77936ee39c30fe6420e5a99782f86a017c0a22b564c34c6d66e96219822",
       "color": {
         "role": "chute-core"
       },
@@ -1693,7 +1737,8 @@
       "assembly": "classification-chamber",
       "stl_hash": "b8986ea64a9d83e3bb9bb7e116e92068d070bbffcc94ae1a3ce95c9ad5c8601b",
       "color": {
-        "fixed": "ash-gray"
+        "fixed": "ash-gray",
+        "why": "The camera looks straight at it. Gray keeps the camera's exposure and white balance steady: white throws them off, and black pieces disappear against black."
       },
       "optional": false,
       "support": false,
@@ -1713,11 +1758,52 @@
       "assembly": null,
       "stl_hash": "ab6f4ad846ff0045771fa73efd901b6a2623002cd15c50d2282c1157abef55f2",
       "color": {
-        "fixed": "ash-gray"
+        "fixed": "ash-gray",
+        "why": "It sits in the middle of the rotor, in the camera's view. Gray keeps the camera's exposure and white balance steady: white throws them off, and black pieces disappear against black."
       },
       "optional": false,
       "support": false,
       "onshape": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/w/95f28d157e2e06c115b488fe/e/5bf04274a6c68015096bd757"
+    },
+    {
+      "id": "colour-strip-clip",
+      "uid": "8e9x",
+      "name": "Colour strip clip",
+      "description": "Hooks over the top of the classification channel's stator wall and carries the colour strip's stud bar. Optional: only for the colour calibration strip.",
+      "version": "1",
+      "created_at": "2026-10-24",
+      "updated_at": "2026-10-24",
+      "quantities": {
+        "classification-channel": 1
+      },
+      "assembly": "colour-calibration-strip",
+      "stl_hash": "373459b6c8b55c49dd1da233418682e96551cb19b458e3dac308d44ee8855f28",
+      "color": {
+        "fixed": "ash-gray",
+        "why": "It stands at the edge of the camera's view, next to the tiles. Gray keeps the camera's exposure and white balance steady: white throws them off."
+      },
+      "optional": true,
+      "support": false
+    },
+    {
+      "id": "colour-strip-studs",
+      "uid": "19i6",
+      "name": "Colour strip stud bar",
+      "description": "A curved bar with eight studs for the colour strip's 1 x 1 tiles. It hooks onto the Colour strip clip so the tiles stand just above the rim, facing into the channel. Optional: only for the colour calibration strip.",
+      "version": "1",
+      "created_at": "2026-10-24",
+      "updated_at": "2026-10-24",
+      "quantities": {
+        "classification-channel": 1
+      },
+      "assembly": "colour-calibration-strip",
+      "stl_hash": "37ee6a4f1b37c1cbe0a0ed749decb553b551c915c4f98da0c3d5111781bda204",
+      "color": {
+        "fixed": "ash-gray",
+        "why": "It stands at the edge of the camera's view, next to the tiles. Gray keeps the camera's exposure and white balance steady: white throws them off."
+      },
+      "optional": true,
+      "support": false
     },
     {
       "id": "idler-gear",
@@ -1808,64 +1894,131 @@
     },
     {
       "id": "funnel-bracket-left",
-      "uid": "4oyp",
+      "uid": "smht",
       "name": "Funnel bracket (left)",
       "description": "Funnel bracket, left. 2 funnel brackets total.",
       "internal_notes": "Snap-in funnel bracket (left/right). Chute-core color.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": null,
       "folder": "funnel-brackets",
-      "stl_hash": "ced3172731e0c2a64920edb072501efadf3c57325bf200fcb14bba0048dabff9",
+      "stl_hash": "af431974414d8d318b83d6004047b8013f8b8536f001b8bcc524f7f651c05a6d",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
       "support": false,
-      "source": "snap_in_funnel_bracket - left_funnel_slide.stl",
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/f48c6c2ac5f2133685e12202"
+      "source": "funnel-bracket-left.stl",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "4oyp",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "ced3172731e0c2a64920edb072501efadf3c57325bf200fcb14bba0048dabff9"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ]
     },
     {
       "id": "funnel-bracket-right",
-      "uid": "b9vt",
+      "uid": "ep34",
       "name": "Funnel bracket (right)",
       "description": "Funnel bracket, right. 2 funnel brackets total.",
       "internal_notes": "Snap-in funnel bracket (left/right). Chute-core color.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": null,
       "folder": "funnel-brackets",
-      "stl_hash": "f7932bce6ef7eddb1be6c64a738b41b6573d67bdadb40d6febf131e0a21ccb31",
+      "stl_hash": "d7c880e57bcfe472bc861ccfb80741702ce86f1ec2b558e174e4caf958ec5f51",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
       "support": false,
-      "source": "snap_in_funnel_bracket - right_funnel_slide.stl",
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/f48c6c2ac5f2133685e12202"
+      "source": "funnel-bracket-right.stl",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "b9vt",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "f7932bce6ef7eddb1be6c64a738b41b6573d67bdadb40d6febf131e0a21ccb31"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ]
     },
     {
       "id": "bearing-race",
-      "uid": "yo10",
+      "uid": "081k",
       "name": "Bearing race",
       "description": "The race between the two chute bearing holders.",
       "internal_notes": "Renamed from 'door-module' (2026-07-18): the old name collided with the flap module assembly and, as its own notes said, mislabeled it as the door. File: part_door_module.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "chute-bearing",
-      "stl_hash": "b832b7eab72a8392c80d35ebd67bb7cb6326bbc5c82a8592688ccda82fe315b3",
+      "stl_hash": "eaa7d3867e2b26ce0f3b50704e471987383ce5add8c9dce3759649ca5d2ddc45",
+      "color": {
+        "role": "chute-core"
+      },
+      "optional": false,
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "yo10",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "b832b7eab72a8392c80d35ebd67bb7cb6326bbc5c82a8592688ccda82fe315b3"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "bearing-race.stl"
+    },
+    {
+      "id": "bearing-holder-left",
+      "uid": "eal7",
+      "name": "Bearing holder (left)",
+      "description": "Bearing holder, left. The mirror image of the right holder.",
+      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm. A handed pair with bearing-holder-right, no longer the same part turned over.",
+      "version": "2",
+      "created_at": "2026-06-27",
+      "updated_at": "2026-10-11",
+      "quantities": {
+        "chute": 1
+      },
+      "assembly": "chute-bearing",
+      "stl_hash": "e39e941f4d7176601d9f5a3d3f91efcb463bf52c62feaeb768e68d562be68f1d",
       "color": {
         "role": "chute-core"
       },
@@ -1874,188 +2027,275 @@
       "requires": [
         {
           "part": "hsi-m3",
+          "qty": 5
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "gybh",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "f0cc0eb5d575fc3d79cdea59caa0fcc6f7732c336a6830a186ffce51ef267a68"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "bearing-holder-left.stl"
+    },
+    {
+      "id": "bearing-holder-right",
+      "uid": "qsv6",
+      "name": "Bearing holder (right)",
+      "description": "Bearing holder, right. The mirror image of the left holder.",
+      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm. A handed pair with bearing-holder-left, no longer the same part turned over.",
+      "version": "2",
+      "created_at": "2026-06-27",
+      "updated_at": "2026-10-11",
+      "quantities": {
+        "chute": 1
+      },
+      "assembly": "chute-bearing",
+      "stl_hash": "a9e3ccabd9ff5ccf7ed83128bf01b63b800fee67605cb61b3b64254fef2eb5a8",
+      "color": {
+        "role": "chute-core"
+      },
+      "optional": false,
+      "support": false,
+      "requires": [
+        {
+          "part": "hsi-m3",
+          "qty": 5
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "rnog",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "9577bfc4f70bca72fe7c45d1c88a82df0ef14d712c67a395003c0deb9c89895b"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "bearing-holder-right.stl"
+    },
+    {
+      "id": "servo-adapter-servo-side",
+      "uid": "o4vg",
+      "name": "Servo adapter — servo side",
+      "description": "MG995 servo adapter, servo side.",
+      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
+      "version": "2",
+      "created_at": "2026-06-27",
+      "updated_at": "2026-10-11",
+      "quantities": {
+        "chute": 1
+      },
+      "assembly": "servo-adapter",
+      "stl_hash": "c6193fcc59f72fb9b304cc6478153da54edd252add6ac6b2b1cf0b73797916e9",
+      "color": {
+        "role": "chute-core"
+      },
+      "optional": false,
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "fu2t",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "a82b26f1d352e337ba3b14bf1440dcb163dae4c53e405dd82ae24d98ef5ac55c"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "servo-adapter-servo-side.stl",
+      "requires": [
+        {
+          "part": "hsi-m3s",
           "qty": 4
         }
       ]
     },
     {
-      "id": "bearing-holder-left",
-      "uid": "gybh",
-      "name": "Bearing holder (left)",
-      "description": "Bearing holder, left. The same part as the right holder, turned 180 degrees about its flange face.",
-      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm. Same geometry as bearing-holder-right: a proper rotation of exactly 180.000 degrees about the flange face normal (0, 0.906, 0.423) maps one onto the other, max deviation 0.065 mm, mean 0.004 mm, determinant +1 rather than -1, so it is a rotation and not a reflection. NOT a handed pair; earlier notes that said so came from testing only axis-aligned rotations, which cannot answer the question. See sorter-v2#569.",
-      "version": "1",
-      "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
-      "quantities": {
-        "chute": 1
-      },
-      "assembly": "chute-bearing",
-      "stl_hash": "f0cc0eb5d575fc3d79cdea59caa0fcc6f7732c336a6830a186ffce51ef267a68",
-      "color": {
-        "role": "chute-core"
-      },
-      "optional": false,
-      "support": false,
-      "requires": [
-        {
-          "part": "hsi-m3",
-          "qty": 3
-        }
-      ],
-      "attributes": [
-        {
-          "label": "Interchangeable with",
-          "value": "Bearing holder (right)"
-        }
-      ]
-    },
-    {
-      "id": "bearing-holder-right",
-      "uid": "rnog",
-      "name": "Bearing holder (right)",
-      "description": "Bearing holder, right. The same part as the left holder, turned 180 degrees about its flange face.",
-      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm. Same geometry as bearing-holder-left: a proper rotation of exactly 180.000 degrees about the flange face normal (0, 0.906, 0.423) maps one onto the other, max deviation 0.065 mm, mean 0.004 mm, determinant +1 rather than -1, so it is a rotation and not a reflection. NOT a handed pair; earlier notes that said so came from testing only axis-aligned rotations, which cannot answer the question. See sorter-v2#569.",
-      "version": "1",
-      "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
-      "quantities": {
-        "chute": 1
-      },
-      "assembly": "chute-bearing",
-      "stl_hash": "9577bfc4f70bca72fe7c45d1c88a82df0ef14d712c67a395003c0deb9c89895b",
-      "color": {
-        "role": "chute-core"
-      },
-      "optional": false,
-      "support": false,
-      "requires": [
-        {
-          "part": "hsi-m3",
-          "qty": 3
-        }
-      ],
-      "attributes": [
-        {
-          "label": "Interchangeable with",
-          "value": "Bearing holder (left)"
-        }
-      ]
-    },
-    {
-      "id": "servo-adapter-servo-side",
-      "uid": "fu2t",
-      "name": "Servo adapter — servo side",
-      "description": "MG995 servo adapter, servo side.",
-      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
-      "version": "1",
-      "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
-      "quantities": {
-        "chute": 1
-      },
-      "assembly": "servo-adapter",
-      "stl_hash": "a82b26f1d352e337ba3b14bf1440dcb163dae4c53e405dd82ae24d98ef5ac55c",
-      "color": {
-        "role": "chute-core"
-      },
-      "optional": false,
-      "support": false
-    },
-    {
       "id": "servo-adapter-flap-side",
-      "uid": "lv7n",
+      "uid": "8ee1",
       "name": "Servo adapter — flap side",
       "description": "MG995 servo adapter, flap side.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "servo-adapter",
-      "stl_hash": "546231d66be39ade1f502e53375608447228ced0e81bfa9211fd0fa938a02f05",
+      "stl_hash": "4d422a10158364ebb65d93a351c7e10f80c0f553f7351cf63ef421d5003203a6",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "lv7n",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "546231d66be39ade1f502e53375608447228ced0e81bfa9211fd0fa938a02f05"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "servo-adapter-flap-side.stl"
     },
     {
       "id": "servo-bracket-lower-arm",
-      "uid": "yqz1",
+      "uid": "cdy5",
       "name": "Servo bracket — lower arm",
       "description": "MG995 servo bracket, lower arm.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "servo-bracket",
-      "stl_hash": "9d6c82450ddd4a21fd0b832f6085298c00414a4d530765651b355c7043754203",
+      "stl_hash": "8553d5aa2fd2a04b18d684866dee76d9db1d1277356dd5ac0f9abaee267076a8",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "yqz1",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "9d6c82450ddd4a21fd0b832f6085298c00414a4d530765651b355c7043754203"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "servo-bracket-lower-arm.stl"
     },
     {
       "id": "servo-bracket-side-arm",
-      "uid": "75na",
+      "uid": "i4cz",
       "name": "Servo bracket — side arm",
       "description": "MG995 servo bracket, side arm.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "servo-bracket",
-      "stl_hash": "b37a2c6b9864744415a50c02da10425ac79d6d8f44c6938c941c36e60357464f",
+      "stl_hash": "c54b1fce87492a58247adec4a383b41c6c184c62705cf5023fbb1f6ec5e9fcbd",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "75na",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "b37a2c6b9864744415a50c02da10425ac79d6d8f44c6938c941c36e60357464f"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "servo-bracket-side-arm.stl"
     },
     {
       "id": "servo-bracket-cover",
-      "uid": "rqor",
+      "uid": "bp83",
       "name": "Servo bracket — cover",
       "description": "MG995 servo bracket, cover.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "servo-bracket",
-      "stl_hash": "1ebad4ab6770ccf750f33c219e0815f106d44c1d0dce55cacef42b9fdc84c8d2",
+      "stl_hash": "1bc27a4bda6ff4d2f2902e63c7f56732f48cab94fcc2d303f8bcdb3a22f6dbb6",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "rqor",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "1ebad4ab6770ccf750f33c219e0815f106d44c1d0dce55cacef42b9fdc84c8d2"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "servo-bracket-cover.stl"
     },
     {
       "id": "servo-bracket-housing",
-      "uid": "tr15",
+      "uid": "gu62",
       "name": "Servo bracket — housing",
       "description": "MG995 servo bracket, housing.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": "servo-bracket",
-      "stl_hash": "e03d031e35f6aeed0303564b228866ca783be596e98f0d52fc0aff8bf41d6bd9",
+      "stl_hash": "b96520a80f8f89149904b02e3d3804586a7c0563ce66151b0846d4e8c952aa59",
       "requires": [
         {
           "part": "hsi-m3",
@@ -2066,7 +2306,24 @@
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "tr15",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "e03d031e35f6aeed0303564b228866ca783be596e98f0d52fc0aff8bf41d6bd9"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "servo-bracket-housing.stl"
     },
     {
       "id": "leg",
@@ -2108,23 +2365,40 @@
     },
     {
       "id": "chute-door",
-      "uid": "7oxs",
+      "uid": "p88p",
       "name": "Chute door",
-      "description": "The chute door / flap. 1 per machine.",
-      "internal_notes": "Correct door file: 'DOOR 3_chute_flap_mg995_and_sc09 - left_axle (2)'. Chute-core color.",
-      "version": "1",
+      "description": "The chute door / flap. 1 per layer.",
+      "internal_notes": "Door file: gen3_chute_flap_print_side (inverted chute). Chute-core color.",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": null,
-      "stl_hash": "9291f5d03edcf10dc1b5f74df681ea1c33f89cacc680aa416f9031bddd1096ff",
+      "stl_hash": "494e3638bb668a441c3b8ae77a049cce813866cfc9b20c69309eb57fa6be2052",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "7oxs",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "9291f5d03edcf10dc1b5f74df681ea1c33f89cacc680aa416f9031bddd1096ff"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "chute-door.stl"
     },
     {
       "id": "leg-extension",
@@ -2327,47 +2601,79 @@
     },
     {
       "id": "layer-connector-1",
-      "uid": "iwzg",
+      "uid": "okr2",
       "name": "Layer connector A",
       "description": "Layer connector. 1 per layer + 1 for the top interface, which slides onto the external bracket on that hex ring.",
       "internal_notes": "Chute-core concept: A and B go on the chute core (1 each) + one set on the bottom interface (interface category). Chute-core color. NOT per-layer.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1,
         "interface": 1
       },
       "assembly": null,
       "folder": "layer-connectors",
-      "stl_hash": "c85e30f35445117061a4c7871f7823171bd503fbcd94ea77b53f405a5626ee1c",
+      "stl_hash": "cf24e7a4867da304a98b26b5a3532f91251305d1035f96bdf7c2058c874d561f",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/765c27a61823977392947be1/e/c56e3247bb7cfbe93ba7ad08"
+      "versions": [
+        {
+          "version": "1",
+          "uid": "iwzg",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "c85e30f35445117061a4c7871f7823171bd503fbcd94ea77b53f405a5626ee1c"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "layer-connector-1.stl"
     },
     {
       "id": "layer-connector-2",
-      "uid": "3wrh",
+      "uid": "7pll",
       "name": "Layer connector B",
       "description": "Layer connector. 1 per layer + 1 for the top interface, which slides onto the external bracket on that hex ring.",
       "internal_notes": "Chute-core concept: A and B go on the chute core (1 each) + one set on the bottom interface (interface category). Chute-core color. NOT per-layer.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1,
         "interface": 1
       },
       "assembly": null,
       "folder": "layer-connectors",
-      "stl_hash": "1df17cf7ff0fe530545b45dd107822db2a796f870de67aaa8769663a4eb941f2",
+      "stl_hash": "c0cd09ef085fc2b321806a5a7e0dadaa5e221648d0e9b86b654850732e7165fb",
       "color": {
         "role": "chute-core"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/765c27a61823977392947be1/e/c56e3247bb7cfbe93ba7ad08"
+      "versions": [
+        {
+          "version": "1",
+          "uid": "3wrh",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "1df17cf7ff0fe530545b45dd107822db2a796f870de67aaa8769663a4eb941f2"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "layer-connector-2.stl"
     },
     {
       "id": "chute-stepper-support-block",
@@ -2393,49 +2699,83 @@
     },
     {
       "id": "funnel-third",
-      "uid": "2cww",
+      "uid": "xpu6",
       "name": "Funnel (third size)",
       "description": "Third size funnel. Per layer (choose size per layer).",
       "internal_notes": "Funnel size variant (Third size). One funnel per layer; size chosen per layer. Funnel color role.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-29",
-      "updated_at": "2026-06-29",
+      "updated_at": "2026-10-11",
       "quantities": {
         "funnel": 1
       },
       "assembly": null,
       "variant_group": "funnel",
       "variant_name": "Third size",
-      "stl_hash": "287f8f9936b958f15dc9acd832f6320cbc4fcfb9ee0f7cd73ea67d9953d16961",
+      "stl_hash": "9733b8ff4e69032633ba1f6e7cc78b9bfaddffdb90954e8f9e142a4f85f7a0f4",
       "color": {
         "role": "funnel"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/8f720225506283b24c872672",
-      "caption": "For a layer of 18 third bins."
+      "caption": "For a layer of 18 third bins.",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "2cww",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "287f8f9936b958f15dc9acd832f6320cbc4fcfb9ee0f7cd73ea67d9953d16961"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "support": true,
+      "source": "funnel-third.stl"
     },
     {
       "id": "funnel-half",
-      "uid": "t9lf",
+      "uid": "xrw5",
       "name": "Funnel (half size)",
       "description": "Half size funnel. Per layer (choose size per layer).",
       "internal_notes": "Funnel size variant (Half size). One funnel per layer; size chosen per layer. Funnel color role.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-29",
-      "updated_at": "2026-06-29",
+      "updated_at": "2026-10-11",
       "quantities": {
         "funnel": 1
       },
       "assembly": null,
       "variant_group": "funnel",
       "variant_name": "Half size",
-      "stl_hash": "533487b3dadbdf8ec33af0d9d5185c2d978325e03b13c56a2121135a16c69a53",
+      "stl_hash": "c3d5ac377ccd0bc0ffe60271bdfdd7fa7a6cade40c3d50d0c83518311b3a7d7d",
       "color": {
         "role": "funnel"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/8f720225506283b24c872672",
-      "caption": "For a layer of 12 half bins."
+      "caption": "For a layer of 12 half bins.",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "t9lf",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "533487b3dadbdf8ec33af0d9d5185c2d978325e03b13c56a2121135a16c69a53"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "support": true,
+      "source": "funnel-half.stl"
     },
     {
       "id": "bin-half-left",
@@ -2557,43 +2897,77 @@
     },
     {
       "id": "bearing-cover-covered",
-      "uid": "75fh",
+      "uid": "5qyq",
       "name": "Bearing cover (covered side)",
-      "description": "Chute bearing cover. 1 per machine.",
+      "description": "Chute bearing cover. 1 per layer.",
       "internal_notes": "Left/right bearing cover for the chute. Chute-core color. Chute bearing assembly.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-29",
-      "updated_at": "2026-06-29",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": null,
       "folder": "bearing-covers",
-      "stl_hash": "1a177913356c66c6667093d333d457c0b8fedc3e4379ffe023e92670e58b7d1d",
+      "stl_hash": "d325993235afbb5c94ae10630be62835ec3381337445fef818ef6a498a8226cd",
       "color": {
         "role": "chute-core"
       },
-      "optional": false
+      "optional": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "75fh",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "1a177913356c66c6667093d333d457c0b8fedc3e4379ffe023e92670e58b7d1d"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "bearing-cover-covered.stl"
     },
     {
       "id": "bearing-cover-servo",
-      "uid": "g7s2",
+      "uid": "0iil",
       "name": "Bearing cover (servo side)",
-      "description": "Chute bearing cover. 1 per machine.",
+      "description": "Chute bearing cover. 1 per layer.",
       "internal_notes": "Left/right bearing cover for the chute. Chute-core color. Chute bearing assembly.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-06-29",
-      "updated_at": "2026-06-29",
+      "updated_at": "2026-10-11",
       "quantities": {
         "chute": 1
       },
       "assembly": null,
       "folder": "bearing-covers",
-      "stl_hash": "4573bb40f91390f1dcbe7c87eb187fa3a68e7c6ea5de17fc0f9e083e7506242b",
+      "stl_hash": "e663d8654522b27949ae81f0799aa852bc20ea0cefbcda25d0b47df7b04f4722",
       "color": {
         "role": "chute-core"
       },
-      "optional": false
+      "optional": false,
+      "versions": [
+        {
+          "version": "1",
+          "uid": "g7s2",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "4573bb40f91390f1dcbe7c87eb187fa3a68e7c6ea5de17fc0f9e083e7506242b"
+        },
+        {
+          "version": "2",
+          "date": "2026-10-11",
+          "message": "Inverted chute: replaced with the inverted chute design.",
+          "breaking": true,
+          "onshape_version": "https://cad.onshape.com/documents/9137894c36f07dfc4dea695d/w/dde194facf5a22be951251c3/e/aaf844292d9a564824a5fe8b",
+          "commit": null
+        }
+      ],
+      "source": "bearing-cover-servo.stl"
     },
     {
       "id": "meanwell-psu-back-mount",
@@ -2893,7 +3267,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Upside down, top face on the bed"
+          "value": "Upside down, top face on the bed",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-print-orientation-full-36dd3a93ac7a.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -2920,7 +3295,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Lay flat on the bed; the file has it standing up"
+          "value": "Lay flat on the bed; the file has it standing up",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-print-orientation-full-cb8c4c2f6449.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -2947,7 +3323,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Lay flat on the bed; the file has it standing up"
+          "value": "Lay flat on the bed; the file has it standing up",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-east-print-orientation-full-4a5d7818cef6.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -2974,7 +3351,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Lay flat on the bed; the file has it standing up"
+          "value": "Lay flat on the bed; the file has it standing up",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-print-orientation-full-e9977fd35c2a.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -3001,7 +3379,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Lay flat on the bed; the file has it standing up"
+          "value": "Lay flat on the bed; the file has it standing up",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-print-orientation-full-01ea46b73c1c.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -3145,6 +3524,221 @@
       "optional": false,
       "support": false,
       "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80"
+    },
+    {
+      "id": "orange-pi-pro-housing-base",
+      "uid": "kkwj",
+      "name": "Orange Pi 5 Pro Housing — Base",
+      "description": "Base of the Orange Pi 5 Pro housing. The board screws down to four posts on heat inserts, four corner posts carry heat inserts for the roof screws, the four walls drop into grooves along its edges, and two ears bolt it to the 2020 extrusion. An opening in the floor under the microSD slot leaves room for a finger, and the retainer for the power button plunger is part of the base.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. Same outer shape, wall grooves, corner posts, roof inserts and frame ears as orange-pi-housing-base. The four board posts are at a 58 x 49 mm rectangle (17.92 and 75.92 by 7.49 and 56.49 in the housing's own frame) instead of 93.97 x 55.96, the microSD opening moved, and the plunger retainer is cast into the base's west end with its own Ø2.8 pilot (8 mm deep) for the cap screw, where the old design had a separate retainer screwed up from underneath. Same eight Ø4.0 insert bores.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "cb90eb6a3e5deb3d29b1ea298d13c865e75f961a15c09b7dfe10449b3055cd95",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "requires": [
+        {
+          "part": "hsi-m3",
+          "qty": 8
+        }
+      ],
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-roof",
+      "uid": "f9sg",
+      "name": "Orange Pi 5 Pro Housing — Roof",
+      "description": "Roof of the Orange Pi 5 Pro housing. Four M3 × 12 mm countersunk screws hold it down into the base's corner inserts, and it carries the USB hub and the buck converter on top, each under its own clamp on four self-tapping M3 × 12 mm countersunk screws into the roof's pilots. Its grooved side faces down in the box.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. Same layout as orange-pi-housing-roof (corner holes, hub and buck pilots, hex vent), exported upside down for printing. Placed in the box frame by flipping it about x and matching it to the old roof (mask IoU 0.988).",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "6e11ffcc09fd5314ee063810a3628ef3fd46d55ef583bff5d33cfe6c552e9a29",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-wall-west",
+      "uid": "lvhs",
+      "name": "Orange Pi 5 Pro Housing — West Wall",
+      "description": "Short wall on the board's power button side. A small window lets the power button plunger through, and a larger one opens onto the microSD card. Drops into its groove in the base; the roof holds it down.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. Windows moved for the Pro: the plunger window is nearer the north edge and the microSD window is smaller than orange-pi-housing-wall-west's.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "23d88b38143002329da432ba9868fdd2efedd4a210fb49eb9b65e4ea360a2188",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-wall-east",
+      "uid": "7liu",
+      "name": "Orange Pi 5 Pro Housing — East Wall",
+      "description": "Short wall on the board's USB-A and Ethernet side, with an opening for each of its three port groups. Drops into its groove in the base; the roof holds it down.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. Three openings at the Pro's port positions (Ethernet, a USB 3 stack, two USB 2 stacks), the Ethernet one 18 mm wide against 9 mm on orange-pi-housing-wall-east.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "c50c9d2e54db9bc6e810f333ecd3576ce22909b8270e675297cfa45eda746f4f",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-wall-north",
+      "uid": "iiun",
+      "name": "Orange Pi 5 Pro Housing — North Wall",
+      "description": "Long wall on the board's HDMI, audio and USB-C side, with one opening for those ports. A block on its outside carries the WiFi antenna in a channel under the antenna cap, with an opening below for its lead. Drops into its groove in the base; the roof holds it down.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. One antenna channel at the west end instead of two at the east, and a port opening moved to the Pro's HDMI, audio and USB-C positions, raised to take the upright USB-C plug. Exported flat, its outside face up.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "718ebc53c26f09af641045c9c6c4703f03d4bea62cc96e9bb86cc4232ed02e00",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-wall-south",
+      "uid": "cr4b",
+      "name": "Orange Pi 5 Pro Housing — South Wall",
+      "description": "Long wall on the board's GPIO side: a hex vent, and an opening at the bottom for a cable off the GPIO header. Drops into its groove in the base; the roof holds it down.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. Same as orange-pi-housing-wall-south apart from being exported flat.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "d94f982ba6d3e2aaf2f4b42652bcce24e1233498bdc1a52fa233834447d096f3",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-hub-clamp",
+      "uid": "tvoa",
+      "name": "Orange Pi 5 Pro Housing — Hub Clamp",
+      "description": "Frame that holds the powered USB hub down on the housing's roof, on four self-tapping M3 × 12 mm countersunk screws into the roof's pilots. Drawn around the Waveshare USB3.2-Gen1-HUB-4U.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. The same shape as orange-pi-housing-hub-clamp (same volume and hole positions), exported upside down for printing.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "9060c8b740a93ec4e299fa0e4d6c1db800875f4bcf3b3fff19e2533a5a0d566b",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-buck-clamp",
+      "uid": "ei5v",
+      "name": "Orange Pi 5 Pro Housing — Buck Clamp",
+      "description": "Frame that holds the 24 V to 5 V buck converter down on the housing's roof, on four self-tapping M3 × 12 mm countersunk screws into the roof's pilots.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. The same shape as orange-pi-housing-buck-clamp (same volume and hole positions), exported upside down for printing.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "051cec8efd156b65a208c3cfcc6bed63712beb64ca4a86e5a50cc622251cf593",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-antenna-clamp-cap",
+      "uid": "2caw",
+      "name": "Orange Pi 5 Pro Housing — Antenna Cap",
+      "description": "Cap that holds the WiFi antenna in its channel on the north wall, on two self-tapping M3 × 12 mm countersunk screws into the wall's pilots.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. Replaces orange-pi-housing-antenna-clamp: a short cap over one channel, where the old clamp spanned two. Its half-channel closes against the one cut in the north wall's block. Screw length carried over from the old clamp (same Ø2.8 x 7.1 mm pilots), not re-measured against a build.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "07718672f1fe9739dd45943c65913be3c67cf4ff837fc2b13024e8bf0ceb5589",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-plunger",
+      "uid": "yk82",
+      "name": "Orange Pi 5 Pro Housing — Plunger",
+      "description": "Reaches the board's power key through the west wall, so the board can be switched on with the housing closed. Held by the base's retainer and the plunger cap.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. 9.9 mm longer than orange-pi-housing-plunger (55.3 mm against 45.4 mm) to reach the Pro's power key.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "15e1c7dc0aaeedcf78b8f19e34e292c932156661de35969b6f03ed5d98f93a57",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
+    },
+    {
+      "id": "orange-pi-pro-housing-plunger-cap",
+      "uid": "ob7g",
+      "name": "Orange Pi 5 Pro Housing — Plunger Cap",
+      "description": "Closes over the plunger in the base's retainer on one M3 × 8 mm countersunk screw, keeping the plunger in.",
+      "internal_notes": "New 2026-10-16: zed0's housing for the Orange Pi 5 Pro, Max and Ultra, the alternative to orange-pi-mount for those boards. Unlike the Orange Pi 5 housing parts it is exported in print orientation, laid out flat side by side, not in assembly coordinates. The same cap as orange-pi-housing-plunger-cap. The screw goes into the retainer built into the base, whose pilot is the same Ø2.8 x 8 mm as the old retainer's.",
+      "version": "1",
+      "created_at": "2026-10-16",
+      "updated_at": "2026-10-16",
+      "quantities": {},
+      "assembly": "orange-pi-pro-housing",
+      "stl_hash": "55bfa3004429f398472d5da4d095b2223f1850e395d9603f7af23d91f1e49fed",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80"
     },
     {
       "id": "fan-bracket-40mm",
@@ -5173,7 +5767,6 @@
     {
       "id": "hsi-m3s",
       "uid": "5nkl",
-      "retired_at": "2026-09-11",
       "kind": "cots",
       "cots": {
         "type": "heat-insert",
@@ -5182,9 +5775,9 @@
       },
       "name": "Ruthex M3S heat insert (short)",
       "category": "Heat inserts",
-      "description": "Retired, no longer used anywhere. ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. It was carried over from the BOM sheet for the servo adapter, but that joint's screws thread straight into the printed plastic: neither adapter half has an insert pocket.",
-      "internal_notes": "Added 2026-08-21 (barthel asked for it after the ruthex naming pass). BOM sheet, Screws tab: 'M3 | Small | 4 per layer | 20 per machine | Ruthex M3x4 | Servo adapter only'. NOT placed as a requires yet, because the current servo-adapter STLs do not have an insert pocket: servo-adapter-flap-side (v1, fu2t/lv7n pins) has four 4.0 mm bores through a 5.0 mm wall with a 90-degree countersink on the back face, and servo-adapter-servo-side has four blind 2.8 mm holes 4.0 mm deep on the same bolt circle with 2.25 mm of material behind them, which reads as a countersunk screw self-tapping into plastic. 4.0 mm is ruthex's recommended hole for an M3 insert, so the flap-side bore could be an insert pocket, but then nothing on the servo side would receive the screw. Needs confirming against current CAD or a physical adapter; if it is self-tapping now, delete this part and the BOM row with it. RETIRED 2026-09-11 (barthel: \"Mark 'hsi-m3s' for removal. The documentation for the servo adapter mentions self-tapping screws; M3S heat-shrink sleeves are not used. M3S is not used anywhere else either.\"). The adapter STLs were still v1 (2026-06-27) and unrevised at that point, so the self-tapping reading stands and the insert is not part of the machine. sheet_qty {per_layer: 4} dropped with it, since that hand count was the only thing giving this row a quantity on the Hardware tab. The P2 unconfirmed-servo-adapter-heat-insert change entry is replaced by delete-unused-m3s-heat-insert; deletion of the part object itself is sorter-v2 issue #636, and the BOM sheet's own 'M3 | Small' row should go with it.",
-      "note": "Unused as of 2026-09-11. Do not add a new joint to this insert; every insert joint in the machine takes the standard 5.7 mm M3 (hsi-m3).",
+      "description": "ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3, 4.0 mm long. Melt it into a printed part with a soldering iron to make an M3 thread. It goes in the servo adapter's servo side, four per adapter; do not use the standard 5.7 mm M3 insert there, it will not fit the pockets.",
+      "internal_notes": "Added 2026-08-21 (barthel asked for it after the ruthex naming pass). BOM sheet, Screws tab: 'M3 | Small | 4 per layer | 20 per machine | Ruthex M3x4 | Servo adapter only'. NOT placed as a requires yet, because the current servo-adapter STLs do not have an insert pocket: servo-adapter-flap-side (v1, fu2t/lv7n pins) has four 4.0 mm bores through a 5.0 mm wall with a 90-degree countersink on the back face, and servo-adapter-servo-side has four blind 2.8 mm holes 4.0 mm deep on the same bolt circle with 2.25 mm of material behind them, which reads as a countersunk screw self-tapping into plastic. 4.0 mm is ruthex's recommended hole for an M3 insert, so the flap-side bore could be an insert pocket, but then nothing on the servo side would receive the screw. Needs confirming against current CAD or a physical adapter; if it is self-tapping now, delete this part and the BOM row with it. RETIRED 2026-09-11 (barthel: \"Mark 'hsi-m3s' for removal. The documentation for the servo adapter mentions self-tapping screws; M3S heat-shrink sleeves are not used. M3S is not used anywhere else either.\"). The adapter STLs were still v1 (2026-06-27) and unrevised at that point, so the self-tapping reading stands and the insert is not part of the machine. sheet_qty {per_layer: 4} dropped with it, since that hand count was the only thing giving this row a quantity on the Hardware tab. The P2 unconfirmed-servo-adapter-heat-insert change entry is replaced by delete-unused-m3s-heat-insert; deletion of the part object itself is sorter-v2 issue #636, and the BOM sheet's own 'M3 | Small' row should go with it. UN-RETIRED 2026-10-12: the inverted-chute servo-adapter-servo-side has four blind O4.0 x 4.2 mm pockets with 2.05 mm of floor behind them, which only fits this 4.0 mm insert, and zed0 confirmed the adapter now takes 4 heat inserts.",
+      "note": "In use again as of 2026-10-12: the servo adapter's servo side, 4 per machine. Every other insert joint in the machine takes the standard 5.7 mm M3 (hsi-m3).",
       "created_at": "2026-08-21",
       "updated_at": "2026-09-11",
       "image_url": "https://assets.basically.website/sorter-parts/hsi-m3s-full-bdb4c6b1b9b8.jpg",
@@ -5314,7 +5907,7 @@
       "category": "Heat inserts",
       "description": "ruthex RX-M4x8.1 brass heat-set threaded insert, 8.1 mm long. Melt it into a printed part with a soldering iron to make an M4 thread. It is the only M4 insert in the machine. Do not swap in the short M4S (RX-M4Sx4.0), which is a different part.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-10-02",
+      "updated_at": "2026-10-22",
       "attributes": [
         {
           "label": "Type",
@@ -5341,12 +5934,12 @@
         "vendors": [
           {
             "region": "US",
-            "vendor": "Amazon",
-            "url": "https://www.amazon.com/dp/B07YSV66Y5",
-            "affiliate_url": "https://www.amazon.com/dp/B07YSV66Y5?tag=sorterv2-20",
-            "price": 9.99,
+            "vendor": "CNC Kitchen",
+            "url": "https://www.cnckitchenus.store/products/heat-set-insert-m4-x-8-1-50-pieces",
+            "price": 11.5,
             "pack_qty": 50,
-            "as_of": "2026-07-18"
+            "as_of": "2026-10-22",
+            "note": "CNC Kitchen's own M4 x 8.1 insert, the same size as the ruthex one."
           },
           {
             "region": "EU",
@@ -5369,7 +5962,7 @@
         ]
       },
       "image_url": "https://assets.basically.website/sorter-parts/hsi-m4-full-abb5a013d071.jpg",
-      "internal_notes": "Resolved docs-merge-2026-08-21 name conflict (2026-08-21): the docs called this the LONG variant, but ruthex sells no \"long\" M4. Both catalogs meant the same product, ruthex RX-M4x8.1 (Amazon B07YSV66Y5), whose short counterpart is RX-M4Sx4.0. Naming across the heat inserts now follows ruthex: no \"long\", and an S suffix (M3S/M4S/M5S) if a short one is ever added. Amazon DE carries the same ASIN as Amazon US (B07YSV66Y5, sold by ruthex); ruthex.de sells the same 50 pack."
+      "internal_notes": "Resolved docs-merge-2026-08-21 name conflict (2026-08-21): the docs called this the LONG variant, but ruthex sells no \"long\" M4. Both catalogs meant the same product, ruthex RX-M4x8.1 (Amazon B07YSV66Y5), whose short counterpart is RX-M4Sx4.0. Naming across the heat inserts now follows ruthex: no \"long\", and an S suffix (M3S/M4S/M5S) if a short one is ever added. Amazon DE carries B07YSV66Y5, sold by ruthex; amazon.com no longer lists the M4x8.1 variant (2026-10-22); ruthex.de sells the same 50 pack."
     },
     {
       "id": "standoff-m3-10mm",
@@ -5512,7 +6105,7 @@
       "name": "IMX415 4K camera module",
       "category": "Cameras",
       "alternative": "Any UVC USB camera that matches the specs listed here and covers the whole 205 mm rotor (the printed clasp holds this one's lens 123.9 mm above the rotor apex). The clasp fits this board, so another module needs its own mount.",
-      "description": "Classification top camera. The innomaker IMX415 4K USB module.",
+      "description": "Classification top camera. The innomaker IMX415 4K USB module. Its own USB lead is USB4.",
       "created_at": "2026-07-18",
       "updated_at": "2026-10-02",
       "sheet_qty": {
@@ -5591,7 +6184,7 @@
       "name": "OV9732 720p Camera Module",
       "category": "Cameras",
       "alternative": "Any UVC USB camera that matches the specs listed here and covers the whole 205 mm rotor (the printed clasp holds this one's lens 123.9 mm above the rotor apex). The clasp fits this board, so another module needs its own mount.",
-      "description": "C-channel and carousel drop plate detection cameras",
+      "description": "C-channel and carousel drop plate detection cameras. Their own USB leads are USB2 and USB3.",
       "created_at": "2026-07-18",
       "updated_at": "2026-10-02",
       "sheet_qty": {
@@ -6434,9 +7027,9 @@
       },
       "name": "Orange Pi 5",
       "category": "Computer",
-      "description": "The computer that runs the machine's software. Buy the Orange Pi 5, 8 GB: SorterOS, the ready-made image, is built for it. A Raspberry Pi 5 also works, but it needs the manual Linux install instead of the ready-made image.",
+      "description": "The computer that runs the machine's software. Buy the Orange Pi 5, 8 GB: SorterOS, the ready-made image, is built for it. The Orange Pi 5 Pro, Max or Ultra also fits, in its own printed housing, but SorterOS has no released image for those boards yet. A Raspberry Pi 5 also works, but it needs the manual Linux install instead of the ready-made image.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-10-02",
+      "updated_at": "2026-10-16",
       "sheet_qty": {
         "per_machine": 1
       },
@@ -6475,18 +7068,19 @@
         },
         {
           "label": "Board",
-          "value": "100 × 62 mm, 46 g. Its four mounting holes sit on a roughly 95 × 56 mm rectangle, which is what the printed extrusion mount is drilled for."
+          "value": "100 × 62 mm, 46 g. Its four mounting holes sit on a roughly 95 × 56 mm rectangle, which is what the Orange Pi housing's base is drilled for."
         },
         {
           "label": "Variants",
-          "value": "The 5 Pro, 5 Max and 5 Ultra are 89 mm wide boards with their mounting holes on a 58 × 49 mm rectangle; the 5 Plus is a 100 × 75 mm RK3588 board. The 5 Pro has Wi-Fi 5 on board and the 5 Plus takes a 2230 E-key module, while this catalog's WiFi module is M-key and fits the plain 5 only. The 5B is the same board as the plain 5 with Wi-Fi 6 and eMMC added and the M.2 slot removed, so it does fit the mount, but SorterOS has no build for it."
+          "value": "The 5 Pro, 5 Max and 5 Ultra are 89 mm wide boards with their mounting holes on a 58 × 49 mm rectangle, which the Orange Pi 5 Pro housing is drilled for. The 5 Plus is a 100 × 75 mm RK3588 board that neither housing fits. The 5 Pro has Wi-Fi 5 on board and the 5 Plus takes a 2230 E-key module, while this catalog's WiFi module is M-key and fits the plain 5 only. The 5B is the same board as the plain 5 with Wi-Fi 6 and eMMC added and the M.2 slot removed, so it does fit the Orange Pi housing, but SorterOS has no build for it."
         },
         {
           "label": "OS",
           "value": "SorterOS, which is built on Orange Pi's own Ubuntu image for this board"
         }
       ],
-      "note": "Buy the plain Orange Pi 5, 8 GB. The 5 Plus, 5 Pro, 5 Max and 5 Ultra are separate boards rather than options on this one: none of them share its mounting-hole pattern, so the printed housing's posts do not line up, and the WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported either: it does fit the housing's posts, but SorterOS is built from the plain 5's image and there is no 5B build.",
+      "note": "Buy the plain Orange Pi 5, 8 GB, unless you are building the Orange Pi 5 Pro housing. The 5 Pro, 5 Max and 5 Ultra have a different mounting-hole pattern from this board and take that housing instead; the 5 Plus is a separate board that neither housing fits. The WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported: it does fit the housing's posts, but SorterOS is built from the plain 5's image and there is no 5B build.",
+      "alternative": "The Orange Pi 5 Pro, Max or Ultra, built into the [[docs:/hardware/electronics/installation/orange-pi-mount/|Orange Pi 5 Pro housing]]. SorterOS has no released image for them yet.",
       "image_url": "https://assets.basically.website/sorter-parts/sbc-orange-pi-5-full-0ed5b951ffe2.jpg",
       "sourcing": {
         "vendors": [
@@ -6586,9 +7180,10 @@
       "name": "Orange Pi 5 WiFi 6 + Bluetooth module",
       "category": "Computer",
       "description": "WiFi and Bluetooth for the Orange Pi. Optional.",
+      "note": "Check the position of the notch when buying. The green modules have two notches at different positions, and they do not fit.",
       "docs_page": "/hardware/electronics/installation/orange-pi-prep/",
       "created_at": "2026-07-18",
-      "updated_at": "2026-09-18",
+      "updated_at": "2026-10-06",
       "sheet_qty": {
         "per_machine": 1
       },
@@ -6727,34 +7322,44 @@
       "cots": {
         "type": "cable"
       },
-      "name": "Micro USB Data Cable",
+      "name": "Micro USB Data Cable (USB6)",
       "category": "Computer",
-      "description": "Connects the Raspberry Pi Pico on the control board to the powered USB hub. Use a micro USB cable that carries data. Charge-only cables do not work.",
+      "description": "Cable USB6: connects the Raspberry Pi Pico on the control board to the powered USB hub. Use a micro USB cable that carries data. Charge-only cables do not work.",
       "note": "USB Cables totally vary in quality. Ensure it supports data",
       "created_at": "2026-07-18",
-      "updated_at": "2026-10-02",
+      "updated_at": "2026-10-11",
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://assets.basically.website/sorter-parts/cable-micro-usb-full-f1f7e32a349d.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/cable-micro-usb-single-full-a4e3e0a12ea5.jpg",
       "sourcing": {
         "vendors": [
           {
             "region": "US",
             "vendor": "Amazon",
-            "url": "https://www.amazon.com/dp/B072J1BSV6",
-            "price": 9.44,
-            "pack_qty": 3,
-            "as_of": "2026-04-16",
-            "affiliate_url": "https://www.amazon.com/dp/B072J1BSV6?tag=sorterv2-20"
+            "url": "https://www.amazon.com/dp/B0BLL6BPGC",
+            "price": 5.99,
+            "pack_qty": 1,
+            "as_of": "2026-10-11",
+            "affiliate_url": "https://www.amazon.com/dp/B0BLL6BPGC?tag=sorterv2-20"
           },
           {
             "region": "EU",
             "vendor": "Amazon FR",
-            "url": "https://www.amazon.fr/Chargeur-Charge-Rapide-Android-Samsung/dp/B0C6HYYTMM",
-            "price": 7.0,
+            "url": "https://www.amazon.fr/dp/B0711PVX6Z",
+            "price": 7.75,
+            "pack_qty": 1,
             "currency": "EUR",
-            "as_of": "2026-04-16"
+            "as_of": "2026-10-10"
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B0711PVX6Z",
+            "price": 7.19,
+            "pack_qty": 1,
+            "currency": "EUR",
+            "as_of": "2026-10-10"
           }
         ]
       },
@@ -7011,9 +7616,9 @@
         "length_min_mm": 1200,
         "length_max_mm": 1500
       },
-      "name": "IDC ribbon cable, 16-pin (2×8), 1.2 to 1.5 m",
+      "name": "IDC ribbon cable (RIB1), 16-pin (2×8), 1.2 to 1.5 m (47 to 59 in)",
       "category": "Electronics",
-      "description": "Ribbon cable from the distribution board to the chute. One per machine. Any length from 1.2 m to 1.5 m works, with a female socket on both ends.",
+      "description": "Ribbon cable (RIB1) from the control board's J17 to J3 on the first layer board. One per machine. Any length from 1.2 m (47 in) to 1.5 m (59 in) works, with a female socket on both ends.",
       "created_at": "2026-07-18",
       "updated_at": "2026-10-02",
       "sheet_qty": {
@@ -7051,11 +7656,11 @@
         },
         {
           "label": "Pitch",
-          "value": "2.54 mm"
+          "value": "2.54 mm (0.1 in)"
         },
         {
           "label": "Length",
-          "value": "1.2 to 1.5 m"
+          "value": "1.2 to 1.5 m (47 to 59 in)"
         }
       ]
     },
@@ -7069,9 +7674,9 @@
         "length_min_mm": null,
         "length_max_mm": null
       },
-      "name": "IDC ribbon cable, 16-pin (2×8), 30 cm",
+      "name": "IDC ribbon cable (RIB2), 16-pin (2×8), 300 mm (12 in)",
       "category": "Electronics",
-      "description": "Ribbon cable that links one distribution layer to the layer below it. A machine uses 2 (3 layers) or 4 (5 layers). 30 cm long, female socket on both ends.",
+      "description": "Ribbon cable (RIB2) that links one distribution layer's J4 to the J3 of the layer below it. A machine uses 2 (3 layers) or 4 (5 layers). 300 mm (12 in) long, female socket on both ends.",
       "created_at": "2026-07-18",
       "updated_at": "2026-10-02",
       "sheet_qty": {
@@ -7108,11 +7713,11 @@
         },
         {
           "label": "Pitch",
-          "value": "2.54 mm"
+          "value": "2.54 mm (0.1 in)"
         },
         {
           "label": "Length",
-          "value": "30 cm"
+          "value": "300 mm (12 in)"
         }
       ],
       "internal_notes": "EU row amazon.de B0DQ4WDF35 (ZDE, pack of 6, 16 pin female-to-female, 30 cm) EUR 9.99 on 2026-10-02. Another ZDE ASIN in the same family (B0DQGQV7RC) is the 6-pin one, so check the pin count."
@@ -7322,7 +7927,7 @@
         },
         {
           "label": "Variants",
-          "value": "SBL-RA2P-8-1 comes with 4 in leads fitted; SBL-RA2P-8-DC ends in a 5.5 x 2.1 mm barrel socket"
+          "value": "SBL-RA2P-8-1 comes with 100 mm (4 in) leads fitted; SBL-RA2P-8-DC ends in a 5.5 x 2.1 mm barrel socket"
         }
       ],
       "sheet_qty": {
@@ -7372,9 +7977,9 @@
       "cots": {
         "type": "cable"
       },
-      "name": "Pre-crimped 2-pin Dupont cable, 1 m",
+      "name": "Pre-crimped 2-pin Dupont cable (LED2a to LED4a), 1 m (39 in)",
       "category": "Wire harness",
-      "description": "A metre of 22 AWG (0.33 mm²) red and black with a 2-pin 2.54 mm Dupont housing crimped on. The board cable of an LED drop: the Dupont end pushes onto an LED header (J8 to J11), and the far end is cut and joined to the inline barrel socket. The pack is male-to-female, so cut the male plug off and discard it.",
+      "description": "1 m (39 in) of 22 AWG (0.33 mm²) red and black with a 2-pin 2.54 mm Dupont housing crimped on. The board cable of an LED drop (LED2a, LED3a or LED4a): the Dupont end pushes onto an LED header (J8 to J11), and the far end is cut and joined to the inline barrel socket. The pack is male-to-female, so cut the male plug off and discard it.",
       "note": "Sold male-to-female: cut the male plug off and discard it. Any 22 AWG (0.33 mm²) pair plus a 2-pin Dupont housing does the same job if you own a crimp tool.",
       "alternative": "Your own 22 AWG (0.33 mm²) pair plus a 2-pin 2.54 mm Dupont housing and two crimps",
       "created_at": "2026-09-10",
@@ -7383,7 +7988,7 @@
       "attributes": [
         {
           "label": "Pitch",
-          "value": "2.54 mm, 2-pin single row"
+          "value": "2.54 mm (0.1 in), 2-pin single row"
         },
         {
           "label": "Wire",
@@ -7391,7 +7996,7 @@
         },
         {
           "label": "Length",
-          "value": "100 cm"
+          "value": "1 m (39 in)"
         },
         {
           "label": "Pack",
@@ -7565,7 +8170,7 @@
       },
       "name": "DC barrel plug, 5.5 x 2.1 mm male",
       "category": "Wire harness",
-      "description": "The plug on the end of a 24 V lead that goes into a PSU box jack. Tip is +24 V and the sleeve is ground. Buy it as a moulded plug already on a short lead and splice to that; a screw-terminal plug you assemble yourself works but is bulkier and comes loose.",
+      "description": "The plug on the end of a 24 V lead (PWR1, PWR2 or PWR3) that goes into a PSU box jack. Tip is +24 V and the sleeve is ground. Buy it as a moulded plug already on a short lead and splice to that; a screw-terminal plug you assemble yourself works but is bulkier and comes loose.",
       "note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -7573,7 +8178,7 @@
       "attributes": [
         {
           "label": "Size",
-          "value": "5.5 mm outside, 2.1 mm centre pin"
+          "value": "5.5 mm (0.217 in) outside, 2.1 mm (0.083 in) centre pin"
         },
         {
           "label": "Polarity",
@@ -7585,13 +8190,13 @@
         },
         {
           "label": "Used on",
-          "value": "W1, W2 and W3"
+          "value": "PWR1, PWR2 and PWR3"
         }
       ],
       "sheet_qty": {
         "per_machine": 3
       },
-      "caption": "Three per machine, one each on W1, W2 and W3.",
+      "caption": "Three per machine, one each on PWR1, PWR2 and PWR3.",
       "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
@@ -7643,9 +8248,9 @@
         "type": "cable",
         "optional": true
       },
-      "name": "DC lead, 5.5 x 2.1 mm male to male, 2 ft",
+      "name": "DC lead (PWR2, bought), 5.5 x 2.1 mm male to male, 610 mm (24 in)",
       "category": "Wire harness",
-      "description": "The alternative for the powered USB hub's 24 V lead, W2, when the Orange Pi housing is mounted too far from the PSU box for a moulded barrel plug's own lead (about 28 cm) to reach the hub's screw terminal: a ready-made lead with a 5.5 x 2.1 mm barrel plug at each end and about 2 ft (600 mm) of 22 AWG (0.33 mm²) between them. One end goes into a PSU box jack and the other into the hub's own jack. It is wired plug to plug, so the centre pin stays positive at both ends. Nothing is made or joined. Buy it only if you take that route; it is not on the machine's parts list otherwise.",
+      "description": "The alternative for the powered USB hub's 24 V lead, PWR2, when the Orange Pi housing is mounted too far from the PSU box for a moulded barrel plug's own lead (about 310 mm (12 in)) to reach the hub's screw terminal: a ready-made lead with a 5.5 x 2.1 mm barrel plug at each end and 610 mm (24 in) of 22 AWG (0.33 mm²) between them. One end goes into a PSU box jack and the other into the hub's own jack. It is wired plug to plug, so the centre pin stays positive at both ends. Nothing is made or joined. Buy it only if you take that route; it is not on the machine's parts list otherwise.",
       "note": "5.5 x 2.5 mm leads look identical and do not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter. Any male to male 5.5 x 2.1 mm lead of 22 AWG or thicker and centre positive does.",
       "created_at": "2026-10-02",
       "updated_at": "2026-10-02",
@@ -7653,7 +8258,7 @@
       "attributes": [
         {
           "label": "Size",
-          "value": "5.5 mm outside, 2.1 mm centre pin, both ends"
+          "value": "5.5 mm (0.217 in) outside, 2.1 mm (0.083 in) centre pin, both ends"
         },
         {
           "label": "Polarity",
@@ -7665,11 +8270,11 @@
         },
         {
           "label": "Length",
-          "value": "About 2 ft (600 mm)"
+          "value": "610 mm (24 in)"
         },
         {
           "label": "Used on",
-          "value": "W2, instead of a plug into the hub terminal"
+          "value": "PWR2, instead of a plug into the hub terminal"
         }
       ],
       "caption": "Alternative to the plug in the hub's terminal, only when the housings are mounted too far apart for that plug's lead.",
@@ -7698,7 +8303,7 @@
       },
       "name": "DC barrel plug, 5.5 x 2.1 mm male, for the LED pigtail",
       "category": "Wire harness",
-      "description": "Optional but recommended. The plug on a camera lamp's pigtail. It pushes into the inline barrel socket on the board cable, so the lamp can be unplugged at the lamp. Tip is +24 V and the sleeve is ground. Leave the pair out and the lamp's strip is connected straight to the Dupont cable instead. Buy it as a moulded plug already on a short pair of wires. Those wires go onto the strip. One per lamp.",
+      "description": "Optional but recommended. The plug on a camera lamp's pigtail (LED2, LED3 or LED4). It pushes into the inline barrel socket on the board cable, so the lamp can be unplugged at the lamp. Tip is +24 V and the sleeve is ground. Leave the pair out and the lamp's strip is connected straight to the Dupont cable instead, which is then the lamp's only cable (LED2 to LED4). Buy it as a moulded plug already on a short pair of wires. Those wires go onto the strip. One per lamp.",
       "note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
       "created_at": "2026-09-30",
       "updated_at": "2026-10-02",
@@ -7718,7 +8323,7 @@
         },
         {
           "label": "Used on",
-          "value": "The three LED pigtails, L1p to L3p"
+          "value": "The three LED pigtails, LED2 to LED4"
         },
         {
           "label": "Per machine",
@@ -7781,7 +8386,7 @@
       },
       "name": "DC barrel jack, 5.5 x 2.1 mm female, panel-mount",
       "category": "Wire harness",
-      "description": "The three outputs of the PSU box, mounted through its connections plate. Each one is fed by a short 18 AWG (0.82 mm²) pigtail with a spade terminal on each wire, landing on one +V/-V screw pair of the LRS-350-24.",
+      "description": "The three outputs of the PSU box, mounted through its connections plate. Each one is fed by a short 18 AWG (0.82 mm²) pigtail (PSU1, PSU2 or PSU3) with a spade terminal on each wire, landing on one +V/-V screw pair of the LRS-350-24.",
       "note": "Buy the jacks with the pigtail leads already attached. Building one from a bare jack and loose wire is more work for the same part, and the leads are the fiddly bit.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -7801,7 +8406,7 @@
         },
         {
           "label": "Lead",
-          "value": "About 4 in of 18 AWG (0.82 mm²), usually supplied on the jack"
+          "value": "About 100 mm (4 in) of 18 AWG (0.82 mm²), usually supplied on the jack"
         },
         {
           "label": "Mounting",
@@ -7848,7 +8453,7 @@
       },
       "name": "DC barrel socket, 5.5 x 2.1 mm female, inline",
       "category": "Wire harness",
-      "description": "Optional but recommended. The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Its two wires are joined to the cut end of the Dupont cable, and the lamp pigtail's barrel plug pushes into it. Leave the pair out and the strip is connected straight to the Dupont cable instead. One per lamp.",
+      "description": "Optional but recommended. The unplug point of an LED drop, so a camera lamp can come off without unpicking the board end. Its two wires are joined to the cut end of the Dupont cable (LED2a to LED4a), and the lamp pigtail's (LED2 to LED4) barrel plug pushes into it. Leave the pair out and the strip is connected straight to the Dupont cable instead. One per lamp.",
       "note": "Buy it as a moulded socket already on its own short wires and join those to the Dupont cable. The socket goes on the board cable and the plug on the lamp pigtail, because the board end is live at 24 V.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -7864,7 +8469,7 @@
         },
         {
           "label": "Used on",
-          "value": "LJ1 to LJ3, the LED feeds L1 to L3"
+          "value": "LJ2 to LJ4, the LED feeds LED2a to LED4a"
         }
       ],
       "sheet_qty": {
@@ -7906,7 +8511,7 @@
       },
       "name": "Insulated butt connector, red, 22-16 AWG",
       "category": "Wire harness",
-      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop, one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead and two on the Orange Pi's 24 V lead, one for each of the moulded barrel plug's leads (or one for each extension of a short converter wire), so ten used per machine, plus two spares for each of those three kinds of lead, six more, sixteen in all.",
+      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. Two per LED drop (LED2a to LED4a), one for each of the barrel socket's wires, so six for the three lamps, plus two on the control board's 24 V lead (PWR1) and two on the Orange Pi's 24 V lead (PWR3), one for each of the moulded barrel plug's leads (or one for each extension of a short converter wire), so ten used per machine, plus two spares for each of those three kinds of lead, six more, sixteen in all.",
       "note": "Crimp it with insulated-terminal crimping pliers, in the die marked for 22 to 16 AWG (0.33 to 1.3 mm²), not picked by colour. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this connector properly.",
       "alternative": "Solder the two wires together and cover each joint with a 25 mm piece of 3 mm adhesive-lined heat shrink instead",
       "created_at": "2026-10-01",
@@ -7927,7 +8532,7 @@
         },
         {
           "label": "Used on",
-          "value": "The two joints between the barrel socket's wires and the Dupont cable, LJ1 to LJ3, the two between the moulded barrel plug's leads and the wire of the board's 24 V lead, W1, and the two between the moulded barrel plug's leads and the buck converter's input wires, W3"
+          "value": "The two joints between the barrel socket's wires and the Dupont cable, LJ2 to LJ4, the two between the moulded barrel plug's leads and the wire of the board's 24 V lead, PWR1, and the two between the moulded barrel plug's leads and the buck converter's input wires, PWR3"
         }
       ],
       "sheet_qty": {
@@ -7994,7 +8599,7 @@
       },
       "name": "JST VH housing, 2-pin (VHR-2)",
       "category": "Wire harness",
-      "description": "The board end of W1, the 24 V feed into basically board v1.3. It pushes onto J1, the big 2-pin header in the corner of the board, and it is the only connector of that size there. Pin 1 is +24 V and pin 2 is ground.",
+      "description": "The board end of PWR1, the 24 V feed into basically board v1.3. It pushes onto J1, the big 2-pin header in the corner of the board, and it is the only connector of that size there. Pin 1 is +24 V and pin 2 is ground.",
       "note": "VH is 3.96 mm between pins and is much chunkier than the 2.0 mm PH housings the steppers use. The two are not interchangeable and a PH plug will not stay on J1.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -8022,7 +8627,7 @@
         },
         {
           "label": "Wire",
-          "value": "18 to 22 AWG (0.33 to 0.83 mm²) through the contact; W1 is 18 AWG (0.82 mm²)"
+          "value": "18 to 22 AWG (0.33 to 0.83 mm²) through the contact; PWR1 is 18 AWG (0.82 mm²)"
         },
         {
           "label": "Rating",
@@ -8032,7 +8637,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "caption": "The board end of W1. Pin 1 is +24 V.",
+      "caption": "The board end of PWR1. Pin 1 is +24 V.",
       "docs_page": "/hardware/helpers/board-24v-lead/",
       "sourcing": {
         "vendors": [
@@ -8071,7 +8676,7 @@
       },
       "name": "JST VH crimp contact (SVH-21T-P1.1)",
       "category": "Wire harness",
-      "description": "The two metal contacts that go inside the VHR-2 housing. Crimp one onto each wire of W1, then push them into the back of the shell until they click and will not pull out.",
+      "description": "The two metal contacts that go inside the VHR-2 housing. Crimp one onto each wire of PWR1, then push them into the back of the shell until they click and will not pull out.",
       "note": "Buy spares. The first one or two crimps in a series you have not done before usually come out wrong, and a contact cannot be recovered once it is mis-crimped.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -8095,13 +8700,13 @@
         },
         {
           "label": "Per machine",
-          "value": "4: one per conductor of W1, plus two spares"
+          "value": "4: one per conductor of PWR1, plus two spares"
         }
       ],
       "sheet_qty": {
         "per_machine": 4
       },
-      "caption": "Two on W1 and two spares. Crimp onto the wire first, then push into the shell.",
+      "caption": "Two on PWR1 and two spares. Crimp onto the wire first, then push into the shell.",
       "docs_page": "/hardware/helpers/board-24v-lead/",
       "sourcing": {
         "vendors": [
@@ -8140,7 +8745,7 @@
       },
       "name": "JST PH housing, 4-pin (PHR-4)",
       "category": "Wire harness",
-      "description": "The board end of the stepper cables, into a 4-pin JST-PH stepper output on basically board v1.3. Which socket you plug it into is what decides which motor the software drives, so follow the mapping on the docs page rather than guessing.",
+      "description": "The board end of the stepper cables (STP1 to STP4 and CHU1), into a 4-pin JST-PH stepper output on basically board v1.3. Which socket you plug it into is what decides which motor the software drives, so follow the mapping on the docs page rather than guessing.",
       "note": "Buy one or two spare housings.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -8178,7 +8783,7 @@
       "sheet_qty": {
         "per_machine": 5
       },
-      "caption": "Board end of S1 to S4 and CH.",
+      "caption": "Board end of STP1 to STP4 and CHU1.",
       "docs_page": "/hardware/parts/harness-order/",
       "sourcing": {
         "vendors": [
@@ -8257,7 +8862,7 @@
       },
       "name": "JST PH crimp contact (SPH-002T-P0.5S)",
       "category": "Wire harness",
-      "description": "The contacts inside every PH housing on the machine. Crimp one onto each conductor, then push it into the housing until it latches.",
+      "description": "The contacts inside every PH housing on the machine (STP1 to STP4 and CHU1). Crimp one onto each conductor, then push it into the housing until it latches.",
       "note": "Wire must be 24 to 30 AWG (0.05 to 0.22 mm²). The 24 AWG chute wire and the motors' own 26 AWG leads both fit. Buy well over the count; these are small and easy to spoil.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -8277,7 +8882,7 @@
         },
         {
           "label": "Per machine",
-          "value": "26: four contacts at the board end of each of S1 to S4 and of CH (20), plus one spare per channel lead and two for CH"
+          "value": "26: four contacts at the board end of each of STP1 to STP4 and of CHU1 (20), plus one spare per channel lead and two for CHU1"
         }
       ],
       "sheet_qty": {
@@ -8313,7 +8918,7 @@
       },
       "name": "Dupont housing, 1x3 female, 2.54 mm",
       "category": "Wire harness",
-      "description": "The board end of the chute limit switch cable, onto J5. Only two of the three positions hold a contact: ground and signal.",
+      "description": "The board end of the chute limit switch cable (LIM1), onto J5. Only two of the three positions hold a contact: ground and signal.",
       "note": "The third position is left empty on purpose: it goes over J5's 3.3 V pin, so no contact can touch it. The housing is not keyed, so it can still be pushed on the wrong way round. The board prints 3.3V beside that pin; put the empty position over it.",
       "alternative": null,
       "created_at": "2026-09-14",
@@ -8395,7 +9000,7 @@
       },
       "name": "Dupont female crimp contact, 2.54 mm",
       "category": "Wire harness",
-      "description": "The contact inside a Dupont housing. Crimp one onto each conductor, then push it into the housing until it latches. Two go in the limit switch lead's board end and two are spares.",
+      "description": "The contact inside a Dupont housing. Crimp one onto each conductor, then push it into the housing until it latches. Two go in the limit switch lead's (LIM1) board end and two are spares.",
       "note": "Takes 22 to 28 AWG (0.08 to 0.33 mm²), so the 22 AWG (0.33 mm²) limit switch wire is at the thick end of the range. Crimp it in the die for open-barrel contacts, not the insulated-terminal die. Buy well over the count; they are small and easy to spoil.",
       "alternative": null,
       "created_at": "2026-10-01",
@@ -8473,7 +9078,7 @@
       },
       "name": "Insulated butt splice, clear, 24 to 20 AWG (0.2 to 0.6 mm²) (TE PIDG 323975)",
       "category": "Wire harness",
-      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. The only common size that holds both the chute stepper cable's 24 AWG (0.20 mm²) wire and the motor's own 20 AWG (0.52 mm²) leads. Four on the chute stepper cable, one per motor lead, plus two spares, six in all.",
+      "description": "Joins two wires end to end without soldering: one wire goes in each end and the barrel is crimped onto it. The only common size that holds both the chute stepper cable's (CHU1) 24 AWG (0.20 mm²) wire and the motor's own 20 AWG (0.52 mm²) leads. Four on the chute stepper cable, one per motor lead, plus two spares, six in all.",
       "note": "Crimp it with insulated-terminal crimping pliers, in the die marked for 24 to 20 AWG (0.2 to 0.6 mm²), not picked by colour. The insulation sits against the end of the barrel, not inside it, and each wire end goes in until it touches the stop in the middle: look through the clear window to check. A crimp tool for open-barrel Dupont and PH contacts has the wrong die and will not close this splice properly.",
       "alternative": "Solder the two wires together and cover each joint with a piece of adhesive-lined heat shrink instead",
       "created_at": "2026-10-01",
@@ -8529,7 +9134,7 @@
       },
       "name": "Insulated fork terminal, M3.5, 18 AWG (0.82 mm²)",
       "category": "Wire harness",
-      "description": "Crimped onto both wires of each PSU output pigtail, landing under the screws of the LRS-350-24 terminal block. Three pigtails, two terminals each, plus two spares.",
+      "description": "Crimped onto both wires of each PSU output pigtail (PSU1 to PSU3), landing under the screws of the LRS-350-24 terminal block. Three pigtails, two terminals each, plus two spares.",
       "note": "8 mm wide at most. Plenty of fork terminals are wider and simply will not fit between the LRS-350-24's output screws, and the listing rarely gives the width, so go by the stud size: M3.5 or #6.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -8595,7 +9200,7 @@
       },
       "name": "Insulated quick-connect receptacle, #187",
       "category": "Wire harness",
-      "description": "The switch end of the chute limit switch cable. It pushes straight onto the Omron V-155-1C25's blade tabs, so there is nothing to solder.",
+      "description": "The switch end of the chute limit switch cable (LIM1). It pushes straight onto the Omron V-155-1C25's blade tabs, so there is nothing to solder.",
       "note": "Fully insulated, not the open kind. The switch is SPDT with three tabs and only two are used, so a bare receptacle can touch the spare one.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -8603,7 +9208,7 @@
       "attributes": [
         {
           "label": "Tab",
-          "value": "#187, 4.75 x 0.5 mm"
+          "value": "#187, 4.75 x 0.5 mm (0.187 x 0.020 in)"
         },
         {
           "label": "Wire",
@@ -8661,8 +9266,8 @@
       },
       "name": "Hook-up wire, 18 AWG (0.82 mm²), 2-conductor red and black",
       "category": "Wire harness",
-      "description": "The heavy gauge in the machine: the three PSU output pigtails inside the box, and W1, the 24 V feed to the control board. A bonded red and black pair is easiest, since the polarity is then obvious at both ends.",
-      "note": "The panel-mount jacks normally arrive with their 0.102 m (10.2 cm, 4 in) leads attached, which leaves only W1's 0.914 m (91.4 cm, 36 in) to make.",
+      "description": "The heavy gauge in the machine: the three PSU output pigtails (PSU1 to PSU3) inside the box, and PWR1, the 24 V feed to the control board. A bonded red and black pair is easiest, since the polarity is then obvious at both ends.",
+      "note": "The panel-mount jacks normally arrive with their 100 mm (4 in) leads attached, which leaves only PWR1's 920 mm (36 in) to make.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/wire-18awg-2c-full-3e5bb7dfedfa.jpg",
@@ -8677,7 +9282,7 @@
         },
         {
           "label": "Length per machine",
-          "value": "1.22 m (121.9 cm, 48 in) per machine: 3 x 0.102 m (10.2 cm, 4 in) for the PSU pigtails, 0.914 m (91.4 cm, 36 in) for W1"
+          "value": "1.22 m (48 in) per machine: 3 x 100 mm (4 in) for the PSU pigtails (PSU1 to PSU3), 920 mm (36 in) for PWR1"
         },
         {
           "label": "Buy",
@@ -8686,15 +9291,15 @@
       ],
       "stock": {
         "unit_length_mm": 30480,
-        "cut_length_mm": 1219,
-        "pieces_per_unit": 25,
+        "cut_length_mm": 1220,
+        "pieces_per_unit": 24,
         "unit_label": "30.5 m (100 ft) spool",
-        "piece_label": "one machine's worth (1.22 m / 121.9 cm / 48 in)"
+        "piece_label": "one machine's worth (1.22 m / 48 in)"
       },
       "sheet_qty": {
         "per_machine": 1
       },
-      "caption": "1.22 m a machine, nearly all of it W1.",
+      "caption": "1.22 m a machine, nearly all of it PWR1.",
       "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
@@ -8727,7 +9332,7 @@
           }
         ]
       },
-      "internal_notes": "You may cut none of this. The panel-mount jacks normally arrive with their 0.102 m (10.2 cm, 4 in) leads attached, which leaves only W1's 0.914 m (91.4 cm, 36 in) to make."
+      "internal_notes": "You may cut none of this. The panel-mount jacks normally arrive with their 0.102 m (10.2 cm, 4 in) leads attached, which leaves only PWR1's 0.914 m (91.4 cm, 36 in) to make."
     },
     {
       "id": "wire-22awg-2c",
@@ -8739,7 +9344,7 @@
       },
       "name": "Hook-up wire, 22 AWG (0.33 mm²), 2-conductor red and black",
       "category": "Wire harness",
-      "description": "The wire for the chute limit switch cable, and for extending the Orange Pi converter's input wires if they are shorter than 100 mm. The USB hub's 24 V lead is a barrel plug on its own short lead (or a bought lead), and the LED drops are bought Dupont cables and barrel plugs on their own leads, so none of those takes this wire. Making your own Dupont cable for a lamp is the one other use.",
+      "description": "The wire for the chute limit switch cable (LIM1), and for extending the Orange Pi converter's input wires if they are shorter than 100 mm. The USB hub's 24 V lead (PWR2) is a barrel plug on its own short lead (or a bought lead), and the LED drops are bought Dupont cables and barrel plugs on their own leads, so none of those takes this wire. Making your own Dupont cable (LED2a to LED4a) for a lamp is the one other use.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
       "image_url": "https://assets.basically.website/sorter-parts/wire-22awg-2c-full-c5bdc4a8c04e.jpg",
@@ -8754,19 +9359,19 @@
         },
         {
           "label": "Length per machine",
-          "value": "0.76 m (76.2 cm, 30 in) per machine: limit switch 0.610 m (61 cm, 24 in), and up to 0.152 m (15.2 cm, 6 in) to extend W3's converter wires. A home-made Dupont cable for each lamp is 3 x 0.914 m (91.4 cm, 36 in) more"
+          "value": "0.76 m (30 in) per machine: limit switch (LIM1) 610 mm (24 in), and up to 150 mm (6 in) to extend PWR3's converter wires. A home-made Dupont cable (LED2a to LED4a) for each lamp is 3 x 920 mm (36 in) more"
         },
         {
           "label": "Note",
-          "value": "The gauge on W3 is the harness drawing's guess, not a measured figure. Gauge per segment is an open item on the wire harness page"
+          "value": "The gauge on PWR3 is the harness drawing's guess, not a measured figure. Gauge per segment is an open item on the wire harness page"
         }
       ],
       "stock": {
         "unit_length_mm": 15240,
-        "cut_length_mm": 762,
+        "cut_length_mm": 760,
         "pieces_per_unit": 20,
         "unit_label": "15.2 m (50 ft) spool",
-        "piece_label": "one machine's worth (0.76 m / 76.2 cm / 30 in)"
+        "piece_label": "one machine's worth (0.76 m / 30 in)"
       },
       "sheet_qty": {
         "per_machine": 1
@@ -8815,7 +9420,7 @@
       },
       "name": "Hook-up wire, 24 AWG (0.20 mm²), four colours",
       "category": "Wire harness",
-      "description": "The tail of the chute stepper cable (CH): a four-wire bundle in four colours, which is how you keep the coil pairs straight.",
+      "description": "The tail of the chute stepper cable (CHU1): a four-wire bundle in four colours, which is how you keep the coil pairs straight.",
       "note": "24 AWG (0.20 mm²) is not a choice: it is the heaviest wire the JST PH contacts accept. Do not go up a gauge for these.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -8831,7 +9436,7 @@
         },
         {
           "label": "Length per machine",
-          "value": "0.3 m (30 cm, 12 in) of each colour per machine, for CH only: the tail is 100 mm with 500 mm motor leads and 300 mm with 300 mm leads"
+          "value": "300 mm (12 in) of each colour per machine, for CHU1 only: the tail is 100 mm (4 in) with 500 mm (20 in) motor leads and 300 mm (12 in) with 300 mm (12 in) leads"
         },
         {
           "label": "Buy",
@@ -8843,7 +9448,7 @@
         "cut_length_mm": 300,
         "pieces_per_unit": 30,
         "unit_label": "kit with about 9 m (30 ft) of each colour",
-        "piece_label": "one machine's worth (0.3 m / 30 cm / 12 in of each of four colours)"
+        "piece_label": "one machine's worth (300 mm / 12 in of each of four colours)"
       },
       "sheet_qty": {
         "per_machine": 1
@@ -8893,7 +9498,7 @@
       },
       "name": "Braided cable sleeving, 1/4 in",
       "category": "Wire harness",
-      "description": "Optional. Holds the wires of each lead you make together as one bundle, and protects them where they run along the frame, so a metre of loose wire does not end up spread across the machine. Every lead works without it.",
+      "description": "Optional. Holds the wires of each lead you make (PWR1, PWR3, LIM1, CHU1, STP1 to STP4, LED2a to LED4a) together as one bundle, and protects them where they run along the frame, so a metre of loose wire does not end up spread across the machine. Every lead works without it.",
       "note": "Buy PET braid in 1/4 in (6 mm) size, which is what the links are. The harness drawing sleeves only the four S bundles; sleeving the other leads is a choice, as a way of securing the cables.",
       "created_at": "2026-09-14",
       "updated_at": "2026-10-02",
@@ -8961,7 +9566,7 @@
           }
         ]
       },
-      "internal_notes": "The harness drawing calls it PVC sleeving. What is commonly sold is PET braid at the same size, which is what the sourcing link is, and it does the same job. The drawing sleeves the four S bundles only, not CH. The helper pages for every other lead also offer it, at barthel's request on 2026-10-02, as a way of securing the cables."
+      "internal_notes": "The harness drawing calls it PVC sleeving. What is commonly sold is PET braid at the same size, which is what the sourcing link is, and it does the same job. The drawing sleeves the four S bundles only, not CHU1. The helper pages for every other lead also offer it, at barthel's request on 2026-10-02, as a way of securing the cables."
     },
     {
       "id": "connector-kit-crimp",
@@ -9224,9 +9829,9 @@
       "cots": {
         "type": "cable"
       },
-      "name": "Mains lead, IEC C13 to wall plug",
+      "name": "Mains lead (AC1), IEC C13 to wall plug",
       "category": "Power supply",
-      "description": "The cable from the wall socket to the machine. The machine end is a C13 socket, which mates with the inlet's C14. The wall end is your local plug: US NEMA 5-15 or EU Schuko CEE 7/7. It is the cord a desktop PC or a monitor comes with.",
+      "description": "The mains lead (AC1) from the wall socket to the machine. The machine end is a C13 socket, which mates with the inlet's C14. The wall end is your local plug: US NEMA 5-15 or EU Schuko CEE 7/7. It is the cord a desktop PC or a monitor comes with.",
       "note": "Three core: the machine earths through this cable. 10 A or better, which matches the inlet's own fuse and is far more than the machine draws. It is listed so it is not forgotten at the end of a build, not because it has to be bought; most people have a spare one already.",
       "created_at": "2026-09-23",
       "updated_at": "2026-10-02",
@@ -10074,7 +10679,8 @@
         "classification-channel": 1
       },
       "color": {
-        "fixed": "ivory-white"
+        "fixed": "ivory-white",
+        "why": "It is the reflector: the LED light bounces off it onto the channel, so a colored one tints every picture the camera takes."
       },
       "stl_hash": "0028a095152fc74ee1ed2a053cb279e45e0d7d982141242871760090cb28d380",
       "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757"
@@ -10091,7 +10697,8 @@
         "classification-channel": 6
       },
       "color": {
-        "fixed": "ivory-white"
+        "fixed": "ivory-white",
+        "why": "The hooks sit inside the reflector and the light bounces off them too, so a colored hook tints the pictures."
       },
       "stl_hash": "7a6989efa9624eb8d275ed94d2cbccba02cab020c889af7a94b8fad354538a49",
       "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757"
@@ -10108,7 +10715,7 @@
         "classification-channel": 1
       },
       "color": {
-        "fixed": "ash-gray"
+        "role": "channel"
       },
       "stl_hash": "a35c2789239bcb4235fc36a1fff10d1533f9b811a8a9ac1b5a20a577916b6176",
       "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757"
@@ -10237,6 +10844,33 @@
           }
         ]
       }
+    },
+    {
+      "id": "lego-tile-1x1",
+      "uid": "t0h2",
+      "kind": "cots",
+      "cots": {
+        "type": "lego",
+        "optional": true
+      },
+      "name": "LEGO tile 1 x 1 (3070b), colour strip set",
+      "category": "LEGO",
+      "description": "Eight 1 x 1 tiles, one of each colour, for the colour calibration strip: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow and Red. Optional.",
+      "note": "Green is BrickLink Green (6), not Bright Green. Real LEGO tiles, not printed ones.",
+      "docs_page": "/hardware/assembly/feeder/c-channels/classification-channel/",
+      "created_at": "2026-10-24",
+      "updated_at": "2026-10-24",
+      "attributes": [
+        {
+          "label": "Part",
+          "value": "3070b (Tile 1 x 1 with groove)"
+        },
+        {
+          "label": "Colours (BrickLink id)",
+          "value": "Black 11, Dark Bluish Gray 85, Light Bluish Gray 86, White 1, Blue 7, Green 6, Yellow 3, Red 5"
+        }
+      ],
+      "image_url": "https://assets.basically.website/sorter-parts/lego-tile-1x1-colour-strip-set-full-edec2cc2429e.png"
     }
   ],
   "assemblies": [
@@ -10546,8 +11180,8 @@
     },
     {
       "id": "classification-chamber",
-      "uid": "qzw4",
-      "version": "4",
+      "uid": "fmsi",
+      "version": "5",
       "name": "C-channel 4 - Classification",
       "description": "The lowest channel, where classification happens: a C-channel drive with the finned rotor and a Camera lamp carrying the IMX415 4K camera. No output guide: the rotor's fins sweep through where one would sit.",
       "docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
@@ -10623,10 +11257,38 @@
         },
         {
           "version": "4",
+          "uid": "qzw4",
           "date": "2026-09-08",
           "message": "The Short and Angled Output Guide comes off C4. The finned rotor's five fins reach r 85.4 mm and sweep up to 21.2 mm past the guide's inner face at r 67.82, so the two cannot both be fitted; the faceted rotor on C1 to C3 clears the same guide by 1.5 to 1.8 mm. This restores the state before e22fce30 (#534), which gave C4 a guide when all four channels were consolidated onto one shape. Reported from a build by Extremetaz. sorter-v2 issue #543.",
           "breaking": false,
-          "commit": "c467c375"
+          "commit": "c467c375",
+          "lines": [
+            {
+              "assembly": "c-channel",
+              "qty": 1,
+              "uid": "npx0"
+            },
+            {
+              "assembly": "rotor-unit-finned",
+              "qty": 1,
+              "uid": "ufmf"
+            },
+            {
+              "assembly": "camera-lamp",
+              "qty": 1,
+              "args": {
+                "camera": "cam-imx415"
+              },
+              "uid": "rjhy"
+            }
+          ]
+        },
+        {
+          "version": "5",
+          "date": "2026-10-24",
+          "message": "Adds the Colour calibration strip, marked optional: a clip over the stator wall and a stud bar carrying eight LEGO tiles of known colours in the camera's view. Counted like the other optional parts. Requested by barthel in Discord, from Spencer's c4-70deg STLs of 2026-10-11.",
+          "breaking": false,
+          "commit": null
         }
       ],
       "lines": [
@@ -10644,16 +11306,68 @@
           "args": {
             "camera": "cam-imx415"
           }
+        },
+        {
+          "assembly": "colour-calibration-strip",
+          "qty": 1
         }
       ],
       "connections": []
+    },
+    {
+      "id": "colour-calibration-strip",
+      "uid": "5ruo",
+      "version": "1",
+      "name": "Colour calibration strip",
+      "description": "Eight LEGO tiles of known colours in the classification camera's view, for colour calibration. A clip over the stator wall carries a stud bar with the tiles. Optional.",
+      "docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
+      "optional": true,
+      "images": [
+        {
+          "url": "https://assets.basically.website/sorter-docs/colour-strip-on-stator-wall-from-inside-png-full-40333c4f233c.png",
+          "alt": "Render of the colour strip on the classification channel's stator wall seen from inside the channel: the clip over the top of the wall and the stud bar hooked onto it, eight tiles from Red on the left to Black on the right standing just above the rim and facing into the channel",
+          "caption": "Rendered from the part geometry, not from a build."
+        }
+      ],
+      "lines": [
+        {
+          "part": "colour-strip-clip",
+          "qty": 1
+        },
+        {
+          "part": "colour-strip-studs",
+          "qty": 1
+        },
+        {
+          "part": "lego-tile-1x1",
+          "qty": 8
+        }
+      ],
+      "connections": [
+        {
+          "from": "lego-tile-1x1",
+          "to": "colour-strip-studs",
+          "qty": 8,
+          "method": "press",
+          "note": "One tile on each stud, in a fixed order from Black to Red.",
+          "draft": true
+        },
+        {
+          "from": "colour-strip-studs",
+          "to": "colour-strip-clip",
+          "qty": 1,
+          "method": "clip",
+          "note": "The bar's thin lip lies along the top of the clip and its hooked edge wraps the clip's outer face.",
+          "draft": true
+        }
+      ]
     },
     {
       "id": "chute-bearing",
       "uid": "jqhp",
       "version": "1",
       "name": "Chute bearing assembly",
-      "description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts and the two flap bearings, one screw per insert: 6 M3 × 8 hold the covers to the holders (3 each), 4 hold the holders to the race (2 each).",
+      "description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts, all in the holders (5 each), and the two flap bearings, one screw per insert: 6 M3 × 8 hold the covers to the holders (3 each), 4 go through the race into the holders (2 each).",
       "docs": "/hardware/assembly/distribution/chute/door-module/",
       "lines": [
         {
@@ -10691,7 +11405,7 @@
       "uid": "irue",
       "version": "1",
       "name": "Servo adapter (MG995)",
-      "description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, no heat inserts.",
+      "description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, into four M3S heat inserts in the servo side.",
       "docs": "/hardware/assembly/distribution/chute/door-module/",
       "lines": [
         {
@@ -10717,7 +11431,7 @@
       "uid": "okza",
       "version": "1",
       "name": "Servo assembly (MG995)",
-      "description": "The MG995 servo in its bracket: lower arm, side arm, cover, housing. Bolts to the chute core's two arm inserts as a unit.",
+      "description": "The MG995 servo in its bracket: lower arm, side arm, cover, housing. Bolts to the chute core's three arm inserts as a unit (two for the side arm, one for the lower arm).",
       "docs": "/hardware/assembly/distribution/chute/door-module/",
       "lines": [
         {
@@ -11107,7 +11821,7 @@
           "date": "2026-09-07",
           "message": "Both cage brackets moved to v2 (sorter-v2 #403, the 25mm 'temp catcher wall' to 23mm 'main' Onshape reset), and the cable-mount bracket + ribbon clamp + their M3 now nest as the new cage-bracket-cable-clamp sub-assembly instead of three flat lines. No change to what the six brackets are or how they stack; the regular brackets and their M5s stay flat lines here.",
           "breaking": false,
-          "commit": "47a5e5a5",
+          "commit": "6bcb3c0e",
           "lines": [
             {
               "part": "interface-cage-bracket",
@@ -11836,7 +12550,7 @@
           "date": "2026-09-05",
           "breaking": false,
           "message": "The stack is n bin layers plus one top interface, not n - 2 layers between two interfaces. The layer node now runs non-bottom-layers (n - 1) and the new bottom-layer node runs once, because the lowest layer carries foot covers instead of bracket covers and bottom verticals. Brings the tree onto the same counts the 3D-parts and framing models already used: n + 1 hexagons, 12n bin retainers, 6 foot covers. No physical change.",
-          "commit": "36826f49",
+          "commit": "de693213",
           "lines": [
             {
               "part": "top-plate",
@@ -14365,7 +15079,7 @@
           "date": "2026-09-05",
           "breaking": false,
           "message": "The 24 bin-retainer screws are M5 x 16, not M5 x 12: the retainer's bore is 12.8 mm, so an M5 x 12 reaches the extrusion face with nothing left for the T-nut. Reported by BrickCycleAlice, who tried them on a build; confirmed by measuring the STL. Merged into the existing scr-m5-16-shcs line, 12 + 24 = 36, and the joint recorded in connections with its measured through_mm.",
-          "commit": "1ce549ec"
+          "commit": "dc1f661e"
         },
         {
           "version": "4",
@@ -14610,7 +15324,7 @@
           "date": "2026-09-05",
           "breaking": false,
           "message": "Dropped the layer-frame: the bottom interface hangs under the lowest bin layer's frame and does not get a hexagon of its own (bottom two layers, step 6). Dropped the layer connector too: the spare one belongs to the top interface, which slides onto the external bracket on that hex ring. No physical change.",
-          "commit": "36826f49",
+          "commit": "de693213",
           "lines": [
             {
               "assembly": "lazy-susan",
@@ -14650,8 +15364,8 @@
     },
     {
       "id": "chute",
-      "uid": "re1n",
-      "version": "2",
+      "uid": "euzt",
+      "version": "3",
       "versions": [
         {
           "version": "1",
@@ -14702,14 +15416,64 @@
         },
         {
           "version": "2",
+          "uid": "re1n",
           "date": "2026-09-05",
           "message": "The screw through the servo bracket's side arm into the chute core is an M3 × 8, not an M3 × 12. Measured off the STL: that ear is 5.00 mm thick, the same as the bearing covers', so an 8 reaches 3.00 mm into the core's blind 5.70 mm insert and a 12 bottoms out in it. The lower arm's ear is 8.40 mm and keeps its 12. One screw moves from the 12 column to the 8; no part changed.",
           "breaking": false,
-          "commit": "18236142"
+          "commit": "18236142",
+          "lines": [
+            {
+              "part": "chute-core",
+              "qty": 1,
+              "uid": "mu36"
+            },
+            {
+              "assembly": "flap-module",
+              "qty": 1,
+              "uid": "9tm6"
+            },
+            {
+              "part": "funnel-bracket-left",
+              "qty": 1,
+              "uid": "4oyp"
+            },
+            {
+              "part": "funnel-bracket-right",
+              "qty": 1,
+              "uid": "b9vt"
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1,
+              "uid": "6m38"
+            },
+            {
+              "assembly": "chute-pcb",
+              "qty": 1,
+              "uid": "f3s0"
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 5,
+              "uid": "0a9x"
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 9,
+              "uid": "l6br"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-10-12",
+          "message": "The inverted chute's screws. Read off the new parts' own geometry: the bearing race now bolts to the chute core as well as to the holders, with 2 M3 x 16 (the race is 12 mm thick, so a 12 only reaches the insert mouth); the servo bracket's arms take 3 screws into the core, all M3 x 12 (side arm 2, lower arm 1) where the old bracket took one 12 and one 8. The funnel brackets keep their M3 x 12 countersunk screws; their holes now have a round recess for the head. The core now carries 21 inserts (funnel brackets 4, bearing covers 4, connectors 4, layer board 4, servo bracket 3, race 2). The covers (4 x M3 x 8) and connectors (4 x M3 x 8) are unchanged.",
+          "breaking": true,
+          "commit": null
         }
       ],
       "name": "Chute",
-      "description": "One chute: the core plus its door module, funnel brackets, connectors, and PCB. Every screw here lands in one of the chute core's 18 M3 inserts.",
+      "description": "One chute: the core plus its door module, funnel brackets, connectors, and PCB. Every screw here lands in one of the chute core's 21 M3 inserts.",
       "docs": "/hardware/assembly/distribution/chute/chute-core/",
       "lines": [
         {
@@ -14738,11 +15502,15 @@
         },
         {
           "part": "scr-m3-12-cs",
-          "qty": 5
+          "qty": 7
         },
         {
           "part": "scr-m3-8-cs",
-          "qty": 9
+          "qty": 8
+        },
+        {
+          "part": "scr-m3-16-cs",
+          "qty": 2
         }
       ]
     },
@@ -16313,7 +17081,7 @@
           "version": "4",
           "uid": "esvy",
           "date": "2026-09-23",
-          "message": "The board's cables join the housing. W1 on the power drawing is a barrel plug at the PSU box end and a VHR-2 with two SVH-21T contacts onto J1; the 16-pin ribbon RIB runs from J17 down to J3 on the first layer board; the micro USB cable runs from the Pico's own socket to a port on the USB hub. Each is listed beside the board or the Pico it plugs into, because that is the end that is in the tree and the end that decides the cable. All three were hand counts before this and the tree totals are the same.",
+          "message": "The board's cables join the housing. PWR1 on the power drawing is a barrel plug at the PSU box end and a VHR-2 with two SVH-21T contacts onto J1; the 16-pin ribbon RIB1 runs from J17 down to J3 on the first layer board; the micro USB cable runs from the Pico's own socket to a port on the USB hub. Each is listed beside the board or the Pico it plugs into, because that is the end that is in the tree and the end that decides the cable. All three were hand counts before this and the tree totals are the same.",
           "breaking": false,
           "commit": null,
           "lines": [
@@ -16656,7 +17424,7 @@
           "version": "3",
           "uid": "zczw",
           "date": "2026-09-23",
-          "message": "The Orange Pi's own peripherals and its 24 V lead join the mount. The official heatsink fan, the WiFi 6 and Bluetooth module and the microSD card all sit beside the Pi they fit into, and W3 on the power drawing is the barrel plug at the PSU box end with bare leads spliced to the buck converter. All four were hand counts from the BOM sheet before this and the tree totals are the same. The converter itself is not in the tree yet, so its lead sits on the mount the Pi it powers sits on.",
+          "message": "The Orange Pi's own peripherals and its 24 V lead join the mount. The official heatsink fan, the WiFi 6 and Bluetooth module and the microSD card all sit beside the Pi they fit into, and PWR3 on the power drawing is the barrel plug at the PSU box end with bare leads spliced to the buck converter. All four were hand counts from the BOM sheet before this and the tree totals are the same. The converter itself is not in the tree yet, so its lead sits on the mount the Pi it powers sits on.",
           "breaking": false,
           "commit": null,
           "lines": [
@@ -16807,11 +17575,122 @@
       ]
     },
     {
+      "id": "orange-pi-pro-housing",
+      "uid": "q9gw",
+      "version": "1",
+      "name": "Orange Pi 5 Pro housing",
+      "description": "The Orange Pi 5 Pro, Max or Ultra closed into a printed housing that bolts to the 2020 extrusion, built in place of the Orange Pi housing for these boards. A base with posts for the board, four walls that drop into it, and a roof that carries the powered USB hub and the buck converter that powers the board, each under its own clamp. One WiFi antenna stands in a cap on one wall, and a plunger reaches the board's power button from outside.",
+      "docs": "/hardware/electronics/installation/orange-pi-mount/",
+      "images": [
+        {
+          "url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-with-hub-render-full-669b3d199c7e.png",
+          "alt": "Render of the Orange Pi 5 Pro housing with the USB hub and the buck converter clamped to its roof, their cables and the board's USB leads running off the box, and the WiFi antenna standing in its cap on the long wall",
+          "caption": "The housing with the hub and the buck converter on its roof. Rendered from the CAD, not from a build."
+        },
+        {
+          "url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-render-ne-full-d762cdbaba34.png",
+          "alt": "Render of the closed Orange Pi 5 Pro housing seen from the north east, with the hub clamp and the buck clamp on its roof, the port openings in the east wall and the single antenna block on the north wall",
+          "caption": "The housing with its two roof clamps. Rendered from the part files, not from a build."
+        },
+        {
+          "url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-render-sw-full-849e92e85437.png",
+          "alt": "Render of the closed Orange Pi 5 Pro housing seen from the south west, showing the hex vent in the south wall, the two frame ears and the two roof clamps",
+          "caption": "The other side. Rendered from the part files, not from a build."
+        }
+      ],
+      "lines": [
+        {
+          "part": "orange-pi-pro-housing-base",
+          "qty": 1
+        },
+        {
+          "part": "microsd-32gb",
+          "qty": 1
+        },
+        {
+          "part": "scr-m3-6-bhcs",
+          "qty": 4
+        },
+        {
+          "part": "orange-pi-pro-housing-plunger",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-plunger-cap",
+          "qty": 1
+        },
+        {
+          "part": "scr-m3-8-cs",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-wall-west",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-wall-east",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-wall-north",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-wall-south",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-roof",
+          "qty": 1
+        },
+        {
+          "part": "scr-m3-12-cs",
+          "qty": 14
+        },
+        {
+          "part": "orange-pi-pro-housing-antenna-clamp-cap",
+          "qty": 1
+        },
+        {
+          "part": "usb-hub-powered-24v",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-hub-clamp",
+          "qty": 1
+        },
+        {
+          "part": "buck-24v-5v-usbc",
+          "qty": 1
+        },
+        {
+          "part": "orange-pi-pro-housing-buck-clamp",
+          "qty": 1
+        },
+        {
+          "assembly": "harness-buck-24v",
+          "qty": 1
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 2
+        },
+        {
+          "part": "washer-m5",
+          "qty": 2
+        },
+        {
+          "part": "tnut-m5-2020",
+          "qty": 2
+        }
+      ]
+    },
+    {
       "id": "electronics",
-      "uid": "nno4",
-      "version": "7",
+      "uid": "me96",
+      "version": "8",
       "name": "Electronics",
-      "description": "The PSU, the control board and the Orange Pi, each in its own printed box bolted to the frame, plus the 24 V lead to the powered USB hub, which rides on the Orange Pi housing's roof with the converter that powers the Pi.",
+      "description": "The PSU, the control board and the Orange Pi, each in its own printed box bolted to the frame, plus the 24 V lead to the powered USB hub (PWR2), which rides on the Orange Pi housing's roof with the converter that powers the Pi.",
       "docs": "/hardware/electronics/installation/",
       "lines": [
         {
@@ -16825,6 +17704,11 @@
         {
           "assembly": "orange-pi-mount",
           "qty": 1
+        },
+        {
+          "assembly": "orange-pi-pro-housing",
+          "qty": 1,
+          "optional": true
         },
         {
           "assembly": "harness-hub-24v",
@@ -16866,7 +17750,7 @@
           "version": "2",
           "uid": "k49u",
           "date": "2026-09-23",
-          "message": "The USB hub's 24 V lead joins Electronics. W2 on the power drawing, a barrel plug at each end. It sits at this level rather than on a load because the hub itself is not in the tree yet.",
+          "message": "The USB hub's 24 V lead joins Electronics. PWR2 on the power drawing, a barrel plug at each end. It sits at this level rather than on a load because the hub itself is not in the tree yet.",
           "breaking": false,
           "commit": null,
           "lines": [
@@ -16896,7 +17780,7 @@
           "version": "3",
           "uid": "t22u",
           "date": "2026-09-23",
-          "message": "Place the powered USB hub itself in the tree, beside the PSU box. It was a BOM-sheet hand count in no assembly at all; it runs off the PSU at 24 V and feeds the cameras and the Picos. v2 put its lead (W2) at this level because the hub was not in the tree yet, and that lead stays exactly where v2 put it. No physical change.",
+          "message": "Place the powered USB hub itself in the tree, beside the PSU box. It was a BOM-sheet hand count in no assembly at all; it runs off the PSU at 24 V and feeds the cameras and the Picos. v2 put its lead (PWR2) at this level because the hub was not in the tree yet, and that lead stays exactly where v2 put it. No physical change.",
           "breaking": false,
           "commit": null,
           "lines": [
@@ -17034,8 +17918,48 @@
         },
         {
           "version": "7",
+          "uid": "nno4",
           "date": "2026-10-02",
           "message": "The spare crimp parts the lead pages list join the machine as one group, Spare crimp parts, so the parts list matches the pages. They are not on any cable and nothing is built from them. Nothing else changes.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "meanwell-psu-box",
+              "qty": 1,
+              "uid": "dxsv"
+            },
+            {
+              "assembly": "ctrl-board-mount",
+              "qty": 1,
+              "uid": "y2yu"
+            },
+            {
+              "assembly": "orange-pi-mount",
+              "qty": 1,
+              "uid": "hxqn"
+            },
+            {
+              "assembly": "harness-hub-24v",
+              "qty": 1,
+              "uid": "ks7s"
+            },
+            {
+              "assembly": "harness-wire-stock",
+              "qty": 1,
+              "uid": "xo4j"
+            },
+            {
+              "assembly": "harness-spares",
+              "qty": 1,
+              "uid": "e5g1"
+            }
+          ]
+        },
+        {
+          "version": "8",
+          "date": "2026-10-16",
+          "message": "The Orange Pi 5 Pro, Max and Ultra housing joins as an optional alternative to the Orange Pi housing, for builders whose board has the Pro's hole pattern. It is on the line with optional set, so nothing in it reaches a total and the Orange Pi housing stays the counted default; swap one for the other if you build the Pro one. Nothing else changes.",
           "breaking": false,
           "commit": null
         }
@@ -17880,8 +18804,8 @@
     },
     {
       "id": "channel-one-support-structure",
-      "uid": "z6fs",
-      "version": "1",
+      "uid": "kirs",
+      "version": "2",
       "name": "Channel 1 support structure",
       "description": "Channel 1 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
       "docs": "/hardware/assembly/feeder/arranging-c-channels/",
@@ -17897,6 +18821,16 @@
         {
           "part": "support-dovetail-adapter",
           "qty": 3
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 6,
+          "optional": true
+        },
+        {
+          "part": "tnut-m5-2020",
+          "qty": 6,
+          "optional": true
         }
       ],
       "connections": [
@@ -17913,13 +18847,62 @@
           "qty": 3,
           "method": "gravity",
           "note": "An adapter sits on top of each leg under its own weight."
+        },
+        {
+          "from": "layout-guide",
+          "to": "ext-2020-c1",
+          "via": "scr-m5-16-shcs",
+          "qty": 3,
+          "method": "tnut",
+          "draft": true,
+          "note": "Optional pin, one per leg: through the wall of the guide's socket (Ø5.5 cross hole) into an M5 T-nut in the extrusion slot."
+        },
+        {
+          "from": "support-dovetail-adapter",
+          "to": "ext-2020-c1",
+          "via": "scr-m5-16-shcs",
+          "qty": 3,
+          "method": "tnut",
+          "draft": true,
+          "note": "Optional pin, one per leg: through the adapter's Ø5.5 cross hole into an M5 T-nut in the extrusion slot."
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "z6fs",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "layout-guide",
+              "qty": 1,
+              "uid": "wwbb"
+            },
+            {
+              "part": "ext-2020-c1",
+              "qty": 3,
+              "uid": "n11o"
+            },
+            {
+              "part": "support-dovetail-adapter",
+              "qty": 3,
+              "uid": "2ikc"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-10-04",
+          "message": "The optional pins are on the tree, uncounted. The design is meant to be screwless and nothing here is required, but each leg end has a cross hole in the layout guide's socket, the printed leg and the adapter, so a builder who wants to pin a stand can: one M5 x 16 per leg end, into an M5 T-nut in the extrusion slot (6 screws, 6 T-nuts). The lines are marked optional, so no total, order list or bundle counts them. Hole sizes measured off the published STLs; the screw length is the machine's standard M5, not a measured seating, so the joints are still drafts.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
     {
       "id": "channel-two-support-structure",
-      "uid": "bwvu",
-      "version": "1",
+      "uid": "cqnj",
+      "version": "2",
       "name": "Channel 2 support structure",
       "description": "Channel 2 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
       "docs": "/hardware/assembly/feeder/arranging-c-channels/",
@@ -17935,6 +18918,11 @@
         {
           "part": "support-dovetail-adapter",
           "qty": 3
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 6,
+          "optional": true
         }
       ],
       "connections": [
@@ -17951,13 +18939,62 @@
           "qty": 3,
           "method": "gravity",
           "note": "An adapter sits on top of each leg under its own weight."
+        },
+        {
+          "from": "layout-guide",
+          "to": "channel-two-support-leg",
+          "via": "scr-m5-16-shcs",
+          "qty": 3,
+          "method": "self-tap",
+          "draft": true,
+          "note": "Optional pin, one per leg: through the wall of the guide's socket (Ø5.5 cross hole) into the printed leg, cutting its own thread."
+        },
+        {
+          "from": "support-dovetail-adapter",
+          "to": "channel-two-support-leg",
+          "via": "scr-m5-16-shcs",
+          "qty": 3,
+          "method": "self-tap",
+          "draft": true,
+          "note": "Optional pin, one per leg: through the adapter's Ø5.5 cross hole into the printed leg, cutting its own thread."
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "bwvu",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "layout-guide",
+              "qty": 1,
+              "uid": "wwbb"
+            },
+            {
+              "part": "channel-two-support-leg",
+              "qty": 3,
+              "uid": "bk8x"
+            },
+            {
+              "part": "support-dovetail-adapter",
+              "qty": 3,
+              "uid": "2ikc"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-10-04",
+          "message": "The optional pins are on the tree, uncounted. The design is meant to be screwless and nothing here is required, but each leg end has a cross hole in the layout guide's socket, the printed leg and the adapter, so a builder who wants to pin a stand can: one M5 x 16 per leg end (6 screws), self-tapping into the printed leg. The lines are marked optional, so no total, order list or bundle counts them. Hole sizes measured off the published STLs; the screw length is the machine's standard M5, not a measured seating, so the joints are still drafts.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
     {
       "id": "channel-three-support-structure",
-      "uid": "nwst",
-      "version": "1",
+      "uid": "fliu",
+      "version": "2",
       "name": "Channel 3 support structure",
       "description": "Channel 3 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
       "docs": "/hardware/assembly/feeder/arranging-c-channels/",
@@ -17973,6 +19010,11 @@
         {
           "part": "support-dovetail-adapter",
           "qty": 3
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 6,
+          "optional": true
         }
       ],
       "connections": [
@@ -17989,6 +19031,55 @@
           "qty": 3,
           "method": "gravity",
           "note": "An adapter sits on top of each leg under its own weight."
+        },
+        {
+          "from": "layout-guide",
+          "to": "channel-three-support-leg",
+          "via": "scr-m5-16-shcs",
+          "qty": 3,
+          "method": "self-tap",
+          "draft": true,
+          "note": "Optional pin, one per leg: through the wall of the guide's socket (Ø5.5 cross hole) into the printed leg, cutting its own thread."
+        },
+        {
+          "from": "support-dovetail-adapter",
+          "to": "channel-three-support-leg",
+          "via": "scr-m5-16-shcs",
+          "qty": 3,
+          "method": "self-tap",
+          "draft": true,
+          "note": "Optional pin, one per leg: through the adapter's Ø5.5 cross hole into the printed leg, cutting its own thread."
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "nwst",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "layout-guide",
+              "qty": 1,
+              "uid": "wwbb"
+            },
+            {
+              "part": "channel-three-support-leg",
+              "qty": 3,
+              "uid": "q5p4"
+            },
+            {
+              "part": "support-dovetail-adapter",
+              "qty": 3,
+              "uid": "2ikc"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-10-04",
+          "message": "The optional pins are on the tree, uncounted. The design is meant to be screwless and nothing here is required, but each leg end has a cross hole in the layout guide's socket, the printed leg and the adapter, so a builder who wants to pin a stand can: one M5 x 16 per leg end (6 screws), self-tapping into the printed leg. The lines are marked optional, so no total, order list or bundle counts them. Hole sizes measured off the published STLs; the screw length is the machine's standard M5, not a measured seating, so the joints are still drafts.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
@@ -17996,8 +19087,8 @@
       "id": "harness-psu-pigtail",
       "uid": "kog5",
       "version": "1",
-      "name": "PSU output pigtail (PJ)",
-      "description": "One of the PSU box's three 24 V outputs: a panel-mount barrel jack through the connections plate, fed by a 4 in 18 AWG (0.82 mm²) pigtail with a fork terminal crimped onto each wire. The pair lands on one +V/-V screw pair of the LRS-350-24, 7 with 4, 8 with 5, 9 with 6. Buy the jacks with their leads already attached; building one from a bare jack and loose wire is more work for the same part. 3 per machine.",
+      "name": "PSU output pigtail (PSU1 to PSU3)",
+      "description": "One of the PSU box's three 24 V outputs (PSU1, PSU2, PSU3): a panel-mount barrel jack through the connections plate, fed by a 100 mm (4 in) 18 AWG (0.82 mm²) pigtail with a fork terminal crimped onto each wire. The pair lands on one +V/-V screw pair of the LRS-350-24, 7 with 4, 8 with 5, 9 with 6. Buy the jacks with their leads already attached; building one from a bare jack and loose wire is more work for the same part. 3 per machine.",
       "joining": [
         {
           "method": "crimp",
@@ -18019,8 +19110,8 @@
       "id": "harness-board-24v",
       "uid": "9yz2",
       "version": "2",
-      "name": "24 V board feed (W1)",
-      "description": "The control board's 24 V lead, W1 on the power drawing: a barrel plug into one of the PSU box jacks at one end, a 2-pin VHR-2 onto J1 at the board end. 36 in of 18 AWG (0.82 mm²), deliberately long. Pin 1 is +24 V and pin 2 is ground. 1 per machine.",
+      "name": "24 V board feed (PWR1)",
+      "description": "The control board's 24 V lead, PWR1 on the power drawing: a barrel plug into one of the PSU box jacks at one end, a 2-pin VHR-2 onto J1 at the board end. 920 mm (36 in) of 18 AWG (0.82 mm²), deliberately long. Pin 1 is +24 V and pin 2 is ground. 1 per machine.",
       "joining": [
         {
           "method": "crimp",
@@ -18085,8 +19176,8 @@
       "id": "harness-hub-24v",
       "uid": "ks7s",
       "version": "2",
-      "name": "24 V USB hub lead (W2)",
-      "description": "The powered USB hub's feed, W2 on the power drawing: a moulded barrel plug into a PSU box jack, with its two bare wires screwed into the 2-pin power terminal on the hub's circuit board, matching the + and - printed on the board. The plug's own lead, about 28 cm with the plug, reaches the hub when the Orange Pi housing that carries it is bolted next to the PSU box as the frame drawing shows. If the two are mounted further apart, buy the ready-made male to male lead (the optional DC lead, 5.5 x 2.1 mm male to male, 2 ft) and plug it into the hub's jack instead. It sits at the Electronics level beside the box the lead starts at. 1 per machine.",
+      "name": "24 V USB hub lead (PWR2)",
+      "description": "The powered USB hub's feed, PWR2 on the power drawing: a moulded barrel plug into a PSU box jack, with its two bare wires screwed into the 2-pin power terminal on the hub's circuit board, matching the + and - printed on the board. The plug's own lead, about 310 mm (12 in) with the plug, reaches the hub when the Orange Pi housing that carries it is bolted next to the PSU box as the frame drawing shows. If the two are mounted further apart, buy the ready-made male to male lead (the optional DC lead, 5.5 x 2.1 mm male to male, 610 mm (24 in), PWR2 when bought) and plug it into the hub's jack instead. It sits at the Electronics level beside the box the lead starts at. 1 per machine.",
       "lines": [
         {
           "part": "dc-plug-5521-male",
@@ -18119,8 +19210,8 @@
       "id": "harness-buck-24v",
       "uid": "yd1v",
       "version": "2",
-      "name": "24 V buck converter lead (W3)",
-      "description": "The feed to the 24 V to 5 V buck converter that powers the Orange Pi, W3 on the power drawing: a barrel plug into a PSU box jack at one end, the converter's red and black input wires at the other. The converter's own input wires are 100 mm or more and are used as they are; if they are shorter they are extended to about 150 mm (6 in) with 22 AWG (0.33 mm²) wire. The converter itself is not placed in the tree yet, so this sits on the mount its load bolts beside. 1 per machine.",
+      "name": "24 V buck converter lead (PWR3)",
+      "description": "The feed to the 24 V to 5 V buck converter that powers the Orange Pi, PWR3 on the power drawing: a barrel plug into a PSU box jack at one end, the converter's red and black input wires at the other. The converter's own input wires are 100 mm (4 in) or more and are used as they are; if they are shorter they are extended to about 150 mm (6 in) with 22 AWG (0.33 mm²) wire. The converter itself is not placed in the tree yet, so this sits on the mount its load bolts beside. 1 per machine.",
       "joining": [
         {
           "method": "crimp",
@@ -18167,8 +19258,8 @@
       "id": "harness-led-drop",
       "uid": "nmlx",
       "version": "2",
-      "name": "LED drop (L, Lp)",
-      "description": "One camera lamp's power: a metre-long Dupont cable from an LED header on the board to the lamp's strip. Optional but recommended: an inline barrel socket on the cable and a 6 in pigtail from the matching plug to the lamp, which is the unplug point, so a lamp comes off next to the lamp without unpicking the board end. The socket's wires are joined to the Dupont cable with two butt connectors or by soldering. Without the pair the cable goes straight to the strip. 1 per camera lamp.",
+      "name": "LED drop (LED2a to LED4a, LED2 to LED4)",
+      "description": "One camera lamp's power: a 1 m (39 in) Dupont cable (LED2a, LED3a or LED4a) from an LED header on the board to the lamp's strip. Optional but recommended: an inline barrel socket on the cable and a 150 mm (6 in) pigtail (LED2, LED3 or LED4) from the matching plug to the lamp, which is the unplug point, so a lamp comes off next to the lamp without unpicking the board end. The socket's wires are joined to the Dupont cable with two butt connectors or by soldering. Without the pair the cable goes straight to the strip. 1 per camera lamp.",
       "joining": [
         {
           "method": "crimp",
@@ -18215,8 +19306,8 @@
       "id": "harness-stepper-channel",
       "uid": "5la8",
       "version": "2",
-      "name": "Channel stepper cable (S)",
-      "description": "One C-channel stepper's cable, made from the motor's own lead. The Dupont plug it ships with is cut off and a 4-pin PHR-4 is crimped on in its place, to go into a stepper socket on the board. The motor end is the 6-pin housing the lead already ends in and is left as it is. The board's 1, 2, 3, 4 go to motor positions 1, 4, 3, 6, so this is a crossover and the position order matters; positions 2 and 5 on the motor housing stay empty. Follow the position each wire sits in at the motor, not its colour. 1 per C-channel drive.",
+      "name": "Channel stepper cable (STP1 to STP4)",
+      "description": "One C-channel stepper's cable (STP1, STP2, STP3 or STP4), made from the motor's own lead. The Dupont plug it ships with is cut off and a 4-pin PHR-4 is crimped on in its place, to go into a stepper socket on the board. The motor end is the 6-pin housing the lead already ends in and is left as it is. The board's 1, 2, 3, 4 go to motor positions 1, 4, 3, 6, so this is a crossover and the position order matters; positions 2 and 5 on the motor housing stay empty. Follow the position each wire sits in at the motor, not its colour. 1 per C-channel drive.",
       "joining": [
         {
           "method": "crimp",
@@ -18269,8 +19360,8 @@
       "id": "harness-stepper-chute",
       "uid": "1taq",
       "version": "2",
-      "name": "Chute stepper cable (CH)",
-      "description": "The chute stepper's cable: a 4-pin PHR-4 into the board at one end, bare labelled leads at the other spliced to the motor's flying leads. Straight through, not a crossover, about 24 in (600 mm) long, of which the last 100 to 300 mm is the 24 AWG (0.20 mm²) tail. Find the coil pairs with a multimeter first. 1 per machine.",
+      "name": "Chute stepper cable (CHU1)",
+      "description": "The chute stepper's cable: a 4-pin PHR-4 into the board at one end, bare labelled leads at the other spliced to the motor's flying leads. Straight through, not a crossover, about 610 mm (24 in) long, of which the last 100 to 300 mm (4 to 12 in) is the 24 AWG (0.20 mm²) tail. Find the coil pairs with a multimeter first. 1 per machine.",
       "joining": [
         {
           "method": "crimp",
@@ -18326,8 +19417,8 @@
       "id": "harness-limit-switch",
       "uid": "fxa2",
       "version": "2",
-      "name": "Limit switch cable (LIM)",
-      "description": "The chute limit switch's cable: a 3-pin Dupont housing onto J5 with two contacts in it and the third position left empty, over the board's 3.3 V pin, and an insulated #187 quick-connect on each wire pushing onto the switch's blade tabs. 24 in of 22 AWG (0.33 mm²), and nothing on it is soldered. 1 per machine.",
+      "name": "Limit switch cable (LIM1)",
+      "description": "The chute limit switch's cable: a 3-pin Dupont housing onto J5 with two contacts in it and the third position left empty, over the board's 3.3 V pin, and an insulated #187 quick-connect on each wire pushing onto the switch's blade tabs. 610 mm (24 in) of 22 AWG (0.33 mm²), and nothing on it is soldered. 1 per machine.",
       "joining": [
         {
           "method": "crimp",
@@ -18380,7 +19471,7 @@
       "uid": "xo4j",
       "version": "1",
       "name": "Wire and sleeving",
-      "description": "The cut-to-length wire the leads are made from, and the optional braided sleeving over the leads you make. Each is bought as a spool or roll and one machine's worth is one line, so each counts once however many leads are cut from it. Gauge and length per machine are on each part: 18 AWG two-core for the PSU pigtails and W1, 22 AWG two-core for the limit switch cable and the Orange Pi lead's extension, four-colour 24 AWG for the chute stepper cable.",
+      "description": "The cut-to-length wire the leads are made from, and the optional braided sleeving over the leads you make. Each is bought as a spool or roll and one machine's worth is one line, so each counts once however many leads are cut from it. Gauge and length per machine are on each part: 18 AWG (0.82 mm²) two-core for the PSU pigtails (PSU1 to PSU3) and PWR1, 22 AWG (0.33 mm²) two-core for the limit switch cable (LIM1) and the Orange Pi lead's (PWR3) extension, four-colour 24 AWG (0.20 mm²) for the chute stepper cable (CHU1).",
       "docs": "/hardware/electronics/wire-harness/",
       "lines": [
         {

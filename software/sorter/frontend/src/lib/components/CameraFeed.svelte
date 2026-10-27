@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
-	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
-	import LiveImage from '$lib/components/LiveImage.svelte';
+	import CameraPicture from '$lib/components/CameraPicture.svelte';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import VideoOff from '@lucide/svelte/icons/video-off';
@@ -10,13 +9,12 @@
 	import type { Snippet } from 'svelte';
 	import { roleView } from '$lib/video';
 
-	type ControlKey = 'annotations' | 'crop' | 'fullscreen';
+	type ControlKey = 'annotations' | 'fullscreen';
 
 	let {
 		camera,
 		label = '',
 		header = true,
-		crop = null,
 		controls = ['annotations'],
 		actions,
 		class: className = ''
@@ -25,7 +23,6 @@
 		label?: string;
 		// False for a picture that is the whole tile (MediaTile's `header`).
 		header?: boolean;
-		crop?: DashboardFeedCrop | null;
 		controls?: ControlKey[];
 		actions?: Snippet;
 		class?: string;
@@ -34,7 +31,7 @@
 	const ctx = getMachineContext();
 
 	// Persistent per-camera toggle state, kept across reloads in localStorage
-	// and keyed by camera, so one camera's crop toggle does not leak into
+	// and keyed by camera, so one camera's toggle does not leak into
 	// another's.
 	const storageKey = (key: string) => `camera-feed:${camera}:${key}`;
 
@@ -59,16 +56,12 @@
 	}
 
 	let annotated = $state(readPersisted('annotated', true));
-	// A feed given a crop starts cropped.
-	/* svelte-ignore state_referenced_locally */
-	let cropped = $state(readPersisted('cropped', crop !== null));
+	// The size of the picture, which the tile takes the shape of.
+	let shape = $state<{ width: number; height: number } | null>(null);
 
 	// Write-back side: every toggle change writes to localStorage.
 	$effect(() => {
 		writePersisted('annotated', annotated);
-	});
-	$effect(() => {
-		writePersisted('cropped', cropped);
 	});
 
 	let stale = $state(false);
@@ -99,13 +92,17 @@
 	{actions}
 	class={className}
 	expandable={controls.includes('fullscreen')}
+	aspect={shape ? `${shape.width} / ${shape.height}` : '16 / 9'}
 >
 	{#if is_configured}
-		<LiveImage
-			view={roleView(camera, annotated, cropped)}
+		<CameraPicture
+			view={roleView(camera)}
+			boxes={annotated}
+			zones={annotated}
 			alt={display_label}
-			class="absolute inset-0 h-full w-full object-contain {is_healthy ? '' : 'opacity-30'}"
+			class="absolute inset-0 h-full w-full {is_healthy ? '' : 'opacity-30'}"
 			bind:stale
+			bind:shape
 		/>
 	{/if}
 	{#if !is_healthy}
@@ -123,11 +120,6 @@
 		</div>
 	{/if}
 	{#snippet overlay()}
-		<StreamControlsOverlay
-			bind:annotated
-			bind:cropped
-			showAnnotations={controls.includes('annotations')}
-			showCrop={controls.includes('crop')}
-		/>
+		<StreamControlsOverlay bind:annotated showAnnotations={controls.includes('annotations')} />
 	{/snippet}
 </MediaTile>

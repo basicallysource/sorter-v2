@@ -19,26 +19,15 @@ STUCK_PIECE_TIMEOUT_S = 30.0
 # cheap dict walk; 1 Hz is ample against the 30 s threshold.
 STUCK_PIECE_REAP_INTERVAL_S = 1.0
 
-CHANNEL_SECTION_COUNT = 360
-CHANNEL_SECTION_DEG = 360.0 / CHANNEL_SECTION_COUNT
-
-CH3_PRECISE_SECTIONS = range(315, 360)
-CH3_DROPZONE_SECTIONS = range(45, 119)
-CH2_PRECISE_SECTIONS = range(304, 338)
-CH2_DROPZONE_SECTIONS = range(101, 180)
-
 # Classification channel (C4) piece-travel direction. The single source of truth.
 # False = counter-clockwise (the historical/default build); True = clockwise
-# (matching C2/C3). Three otherwise-independent sites read this so they can never
-# disagree (a half-flipped state — display says one way, motor goes the other —
-# is incoherent):
-#   - display crop wedge:     subsystems/feeder/analysis.py  ChannelArcZones.ccw
+# (matching C2/C3). Two otherwise-independent sites read this so they can never
+# disagree (a half-flipped state — perception says one way, motor goes the
+# other — is incoherent):
 #   - perception eject math:  perception/channel.py          ChannelDef.reverse
 #   - motor move sign:        classification SM              C4_TRAVEL_SIGN
-# Flipping this to True physically reverses the platter AND changes which wedge
-# the crop keeps, so after flipping you must re-place the exit zone relative to
-# the drop zone in the zone editor, and verify the motor spins the intended way
-# from the UI (the +1/-1 motor mapping is a guess until confirmed on hardware).
+# The zones (``zones/``) always run forward, clockwise on screen: flipping this
+# to False would need them to run the other way too.
 CLASSIFICATION_CHANNEL_CLOCKWISE = True
 
 # The port the backend API serves on. main.py and api_only.py bind it, and the

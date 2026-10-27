@@ -16,6 +16,7 @@
 	import Select from '$lib/components/Select.svelte';
 	import SettingRow from '$lib/components/SettingRow.svelte';
 	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
+	import Switch from '$lib/components/Switch.svelte';
 	import { theme, type Theme } from '$lib/stores/theme';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Moon from '@lucide/svelte/icons/moon';
@@ -61,6 +62,38 @@
 
 	function closeLinkModal() {
 		linkModalOpen = false;
+	}
+
+	// Live activity sharing: whether the community may list this account's
+	// machines in a "who is sorting right now" view. Off until the owner turns
+	// it on. The community Discord's "share my activity" button points at
+	// /settings?share=activity, which opens a focused dialog on the setting.
+	let shareActivity = $state(auth.user?.share_activity ?? false);
+	let shareActivityBusy = $state(false);
+	let shareActivityError = $state<string | null>(null);
+	let shareModalOpen = $state(page.url.searchParams.get('share') === 'activity');
+
+	function closeShareModal() {
+		shareModalOpen = false;
+	}
+
+	async function saveShareActivity(value: boolean): Promise<boolean> {
+		if (shareActivityBusy) return false;
+		shareActivityBusy = true;
+		shareActivityError = null;
+		try {
+			const updated = await api.updateProfile({ share_activity: value });
+			shareActivity = updated.share_activity;
+			if (auth.user) auth.user.share_activity = updated.share_activity;
+			return true;
+		} catch (e: any) {
+			// Show what is stored, not what was asked for.
+			shareActivity = auth.user?.share_activity ?? false;
+			shareActivityError = e.error || 'Could not save this setting';
+			return false;
+		} finally {
+			shareActivityBusy = false;
+		}
 	}
 
 	async function loadIdentities() {
@@ -144,6 +177,7 @@
 		{ scope: 'profiles:read', label: 'Read your sorting profiles and kits', everyone: true },
 		{ scope: 'profiles:write', label: 'Change your sorting profiles and kits', everyone: true },
 		{ scope: 'records:read', label: 'Read what your machines sorted', everyone: true },
+		{ scope: 'predictions:write', label: "Add model runs' predictions for your machines' pieces" },
 		{ scope: 'models:read', label: 'Read models' },
 		{ scope: 'models:write', label: 'Write models' },
 		{ scope: 'samples:read', label: 'Read samples' },
@@ -152,6 +186,7 @@
 		{ scope: 'stats:read', label: 'Read aggregate stats' },
 		{ scope: 'fleet:read', label: 'Read the fleet roster (machines + linked owners)' },
 		{ scope: 'fleet:anon', label: 'Read the de-identified fleet roster (no owners, no names)' },
+		{ scope: 'fleet:detail', label: 'Read the operator fleet view (the roster plus each machine\'s software, hardware and health)' },
 		{ scope: 'contributors:read', label: 'Read the contributor leaderboard' },
 		{ scope: 'parts:read', label: 'Read the parts catalog' },
 		{ scope: 'parts:prices', label: 'Read parts market prices' },
@@ -705,6 +740,27 @@
 			</div>
 		{/if}
 
+		<div id="share-activity" class="scroll-mt-16">
+			<Panel title="Community" flush>
+				<div class="divide-y divide-line">
+					<SettingRow
+						label="Share my machines' live activity"
+						help="Lets the community Discord show which of your machines are running now, with pieces, parts per minute and double-feed rate."
+					>
+						<Switch
+							bind:checked={shareActivity}
+							label="Share my machines' live activity"
+							disabled={shareActivityBusy}
+							onchange={(on) => void saveShareActivity(on)}
+						/>
+					</SettingRow>
+					{#if shareActivityError}
+						<div class="px-(--pad-panel) py-3"><Alert tone="danger">{shareActivityError}</Alert></div>
+					{/if}
+				</div>
+			</Panel>
+		</div>
+
 		<Panel
 			title="AI assistant"
 			description="Hive uses your own OpenRouter key, on the server, for building profiles, suggesting rules and helping with edits."
@@ -735,6 +791,24 @@
 						>
 					</div>
 				</Field>
+				<div class="text-sm text-ink-muted">
+					<p>
+						Hive sells no AI credits: the assistant runs on your own OpenRouter account, and your card stays with
+						OpenRouter. It is optional. Profiles can be written by hand, and sorting never uses it.
+					</p>
+					<ol class="mt-2 list-decimal space-y-1 pl-5">
+						<li>
+							Sign up at <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer" class="text-primary-ink hover:underline">openrouter.ai</a>.
+						</li>
+						<li>
+							Add credits at <a href="https://openrouter.ai/credits" target="_blank" rel="noopener noreferrer" class="text-primary-ink hover:underline">openrouter.ai/credits</a> (prepaid, not a subscription).
+						</li>
+						<li>
+							Create a key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" class="text-primary-ink hover:underline">openrouter.ai/keys</a> and copy its <code>sk-or-v1-...</code> value. It is shown only once.
+						</li>
+						<li>Paste it above and save.</li>
+					</ol>
+				</div>
 				<Field
 					label="Model"
 					for="preferred-model"
@@ -1077,6 +1151,32 @@
 			</Button>
 		{:else}
 			<Button variant="primary" onclick={closeLinkModal}>Done</Button>
+		{/if}
+	{/snippet}
+</Modal>
+
+<Modal open={shareModalOpen} title="Share your live activity" size="sm" onclose={closeShareModal}>
+	<p class="text-sm text-ink-muted">
+		Lets the community Discord show which of your machines are running now, with pieces, parts per minute and
+		double-feed rate. It is off unless you turn it on, and you can turn it off here at any time.
+	</p>
+	{#if shareActivity}
+		<p class="mt-3 text-sm text-ink">Your live activity is shared.</p>
+	{/if}
+	{#if shareActivityError}<Alert tone="danger" class="mt-3">{shareActivityError}</Alert>{/if}
+	{#snippet footer()}
+		{#if shareActivity}
+			<Button variant="ghost" disabled={shareActivityBusy} onclick={() => saveShareActivity(false)}>Stop sharing</Button>
+			<Button variant="primary" onclick={closeShareModal}>Done</Button>
+		{:else}
+			<Button variant="ghost" onclick={closeShareModal}>Not now</Button>
+			<Button
+				variant="primary"
+				disabled={shareActivityBusy}
+				onclick={async () => {
+					if (await saveShareActivity(true)) closeShareModal();
+				}}>Share my activity</Button
+			>
 		{/if}
 	{/snippet}
 </Modal>

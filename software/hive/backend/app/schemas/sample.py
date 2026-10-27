@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
+from app.services.sample_filters import SampleFilters
+
 
 class SampleResponse(BaseModel):
     id: UUID
@@ -36,8 +38,20 @@ class SampleResponse(BaseModel):
     luminance_mean: float | None = None
     clipped_low_ratio: float | None = None
     clipped_high_ratio: float | None = None
+    # A direct storage URL for the sample image when the backend can sign one
+    # (list responses); otherwise load /api/samples/{id}/assets/image.
+    thumb_url: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class SamplePageResponse(BaseModel):
+    """One page of the samples list, newest first. Pass ``next_cursor`` back
+    as ``cursor`` for the page after it; null at the end of the list."""
+
+    items: list[SampleResponse]
+    next_cursor: str | None = None
+    has_more: bool = False
 
 
 class SampleListResponse(BaseModel):
@@ -149,7 +163,7 @@ class SaveSampleClassificationResponse(BaseModel):
     data: SampleClassificationPayload | None = None
 
 
-class BatchDeleteSamplesRequest(BaseModel):
+class BatchDeleteSamplesRequest(SampleFilters):
     """Filter spec mirroring the /api/samples query params.
 
     Always interpreted as 'samples I own' on the server side — the client
@@ -161,15 +175,6 @@ class BatchDeleteSamplesRequest(BaseModel):
         before pressing the button.
     """
 
-    machine_id: str | None = None
-    source_role: str | None = None
-    capture_reason: str | None = None
-    review_status: str | None = None
-    kind: str | None = None  # 'regular' | 'condition' | None
-    my_review: str | None = None  # 'unreviewed' | 'reviewed' | 'accepted' | 'rejected'
-    annotated: str | None = None  # 'teacher' | 'raw'
-    exposure: str | None = None  # 'under' | 'normal' | 'over'
-    max_age_hours: int | None = None
     dry_run: bool = False
     max_delete: int = 5000
 
@@ -182,21 +187,12 @@ class BatchDeleteSamplesResponse(BaseModel):
     capped: bool = False
 
 
-class BatchArchiveSamplesRequest(BaseModel):
+class BatchArchiveSamplesRequest(SampleFilters):
     """Admin-only soft-delete. Same filter spec as BatchDeleteSamplesRequest
     but the target set is the *full library* (no ownership constraint) —
     admins manage the global content surface.
     """
 
-    machine_id: str | None = None
-    source_role: str | None = None
-    capture_reason: str | None = None
-    review_status: str | None = None
-    kind: str | None = None
-    my_review: str | None = None  # 'unreviewed' | 'reviewed' | 'accepted' | 'rejected'
-    annotated: str | None = None  # 'teacher' | 'raw'
-    exposure: str | None = None  # 'under' | 'normal' | 'over'
-    max_age_hours: int | None = None
     archived: str | None = None  # 'active' | 'archived' | 'all' (for unarchive flow)
     dry_run: bool = False
     max_archive: int = 20000

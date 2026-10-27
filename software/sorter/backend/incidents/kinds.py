@@ -33,6 +33,9 @@ class IncidentKind:
     automatic_label: str | None = None
     manual_label: str = "Call the operator"
     off_label: str = "Do not raise it"
+    # The recovery procedure (recovery.PROCEDURES) the machine works through
+    # when this kind is handled automatically.
+    procedure: str | None = None
 
     def actionsFor(self, incident: dict[str, Any]) -> tuple[str, ...]:
         return self.actions(incident) if callable(self.actions) else self.actions
@@ -58,14 +61,26 @@ KINDS: dict[str, IncidentKind] = {
             automatic_label="Turn the channel forward until it clears",
         ),
         IncidentKind(
-            "feeder_jam",
-            title="Feeder jam",
-            todo="A piece on {channel} does not move when {channel} turns. Free it, then press Done.",
+            "piece_circling",
+            title="A piece is going around the classification channel",
+            todo="A piece keeps coming back around the classification channel instead of falling off (often a tire). Take it off, then press Done.",
+            actions=("done",),
+            scope="Classification",
+            description="A piece rode the classification channel past its exit and came back around.",
+            default_handling=AUTOMATIC,
+            automatic_label="Shake it off, then call the operator",
+            procedure="c4_shake_off",
+        ),
+        IncidentKind(
+            "piece_held",
+            title="A piece is stuck where pieces land",
+            todo="A piece where pieces land on {subject} does not move with the channel; it most likely hangs off the channel above. Take it off, then press Done.",
             actions=("done",),
             scope="Feeder",
-            description="A piece does not move when its feeder channel turns: it straddles the rim, hangs on the channel above, or sticks at the exit.",
+            description="A piece where pieces land on C2 or C3 does not ride the channel, and holds back the channel above.",
             default_handling=AUTOMATIC,
-            automatic_label="Shake the channel (and nudge the one above) to free it, then call the operator",
+            automatic_label="Try to free it, then call the operator",
+            procedure="landing_held",
         ),
         IncidentKind(
             "stepper_stall",
@@ -80,23 +95,13 @@ KINDS: dict[str, IncidentKind] = {
             actions=("rehome_chute",),
         ),
         IncidentKind(
-            "distribution_chute_jam",
-            title="Chute jammed",
-            todo="The chute did not reach its bin. Clear what blocks it, then press Done.",
-            actions=("done",),
-            scope="Distribution",
-            description="The chute did not finish a move in time.",
-            default_handling=OFF,
-            off_label="Leave it to the motor's stall detection",
-        ),
-        IncidentKind(
             "distribution_servo_bus_offline",
             title="Bin doors not answering",
             todo="The door servos are not responding. Check their cable and power, then press Done.",
             actions=("done",),
             scope="Distribution",
             description="The bin door servos stopped answering.",
-            default_handling=MANUAL,
+            default_handling=OFF,
             off_label="Leave it to the hardware alert",
         ),
         IncidentKind(
@@ -106,7 +111,7 @@ KINDS: dict[str, IncidentKind] = {
             actions=("pass_through",),
             scope="Distribution",
             description="No bin is assigned for a piece, or every one that fits is full.",
-            default_handling=MANUAL,
+            default_handling=OFF,
             off_label="Send such pieces to the bucket",
         ),
     )

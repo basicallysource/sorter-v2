@@ -1,5 +1,5 @@
 <script lang="ts">
-	import LiveImage from '$lib/components/LiveImage.svelte';
+	import CameraPicture from '$lib/components/CameraPicture.svelte';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
 	import { pictureSettingsEqual, type PictureSettings } from '$lib/settings/picture-settings';
 	import type { CameraRole } from '$lib/settings/stations';
@@ -103,10 +103,10 @@
 <div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
 	<div class="dark relative min-h-[20rem] overflow-hidden rounded-control bg-media sm:min-h-[28rem]">
 		{#if hasCamera}
-			<LiveImage
-				view={roleView(role, false, false)}
+			<CameraPicture
+				view={roleView(role)}
 				alt={label}
-				class="absolute inset-0 h-full w-full object-contain"
+				class="absolute inset-0 h-full w-full"
 				style={previewTransformStyle()}
 			/>
 		{:else}

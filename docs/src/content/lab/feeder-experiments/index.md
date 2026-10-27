@@ -7,7 +7,7 @@ owner: lab
 last_verified: 2026-04-14
 section: lab
 slug: lab-feeder-experiments
-kicker: Lab — Research Area
+kicker: Design and research — Research Area
 lede: The turntable, vibration, and chute experiments that preceded the C-channel design — what was tested, what failed, and what the results taught us.
 permalink: /lab/feeder-experiments/
 ---

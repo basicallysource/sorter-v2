@@ -22,6 +22,10 @@
 	import CamerasStep from '$lib/components/setup/steps/CamerasStep.svelte';
 	import MotionStep from '$lib/components/setup/steps/MotionStep.svelte';
 	import CalibrationStep from '$lib/components/setup/steps/CalibrationStep.svelte';
+	import SharingStep, {
+		sharingStepDescription,
+		sharingStepTitle
+	} from '$lib/components/setup/steps/SharingStep.svelte';
 	import HiveStep from '$lib/components/setup/steps/HiveStep.svelte';
 	import AdvancedStep from '$lib/components/setup/steps/AdvancedStep.svelte';
 	import { beginHiveLink, completeReturnedHiveLink, DEFAULT_HIVE_URL } from '$lib/hive/link-flow';
@@ -59,6 +63,7 @@
 		| 'motion'
 		| 'calibration'
 		| 'servos'
+		| 'sharing'
 		| 'hive'
 		| 'advanced';
 
@@ -140,6 +145,13 @@
 			title: 'Cameras',
 			description:
 				'Choose a source for each machine area that needs coverage. One camera can cover several areas.',
+			requiresManualConfirm: false
+		},
+		{
+			id: 'sharing',
+			title: sharingStepTitle,
+			description: sharingStepDescription,
+			// The step has its own button, which records the agreement.
 			requiresManualConfirm: false
 		},
 		{
@@ -410,6 +422,8 @@
 				return Boolean(stepConfirmations.calibration);
 			case 'servos':
 				return Boolean(wizard?.readiness.servo_configured) && Boolean(stepConfirmations.servos);
+			case 'sharing':
+				return Boolean(stepConfirmations.sharing);
 			case 'hive':
 				return Boolean(stepConfirmations.hive) || officialSorthiveTarget !== null;
 			case 'advanced':
@@ -658,6 +672,16 @@
 		} finally {
 			hiveConnecting = false;
 		}
+	}
+
+	// The agreement is recorded: the step is done, and the next one opens.
+	function agreedToSharing() {
+		stepConfirmations = { ...stepConfirmations, sharing: true };
+		const machineId = currentMachineId();
+		if (machineId && progressLoadedMachineId === machineId) {
+			persistConfirmations(machineId);
+		}
+		goToNextStep();
 	}
 
 	function skipSorthive() {
@@ -1007,6 +1031,8 @@
 					onSaved={handleServoSaved}
 					onSourceChange={setServoSource}
 				/>
+			{:else if activeStepId === 'sharing'}
+				<SharingStep base={currentBackendBaseUrl()} onagreed={agreedToSharing} />
 			{:else if activeStepId === 'hive'}
 				<HiveStep
 					{hiveLoading}
@@ -1030,7 +1056,7 @@
 					blockerReason={stepBlockerReason()}
 					showBack={currentStepNumber() > 1}
 					showFinish={isAdvanced && currentStep().requiresManualConfirm}
-					showContinue={!isAdvanced}
+					showContinue={!isAdvanced && activeStepId !== 'sharing'}
 					continueDisabled={!canAdvanceCurrentStep() ||
 						(currentStep().requiresManualConfirm && !manualConfirmEnabled(activeStepId))}
 					continueLabel={activeStepId === 'identity' && savingName

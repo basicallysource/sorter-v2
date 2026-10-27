@@ -288,6 +288,16 @@ def _sanitizeIncidentHandling(value: Any) -> dict[str, str]:
     return sanitized
 
 
+def _procedureSteps(key: str | None) -> dict[str, Any] | None:
+    """A kind's recovery procedure as the Incidents page lists it."""
+    if not key:
+        return None
+    from recovery import PROCEDURES
+
+    procedure = PROCEDURES[key]
+    return {"title": procedure.title, "steps": procedure.steps({"this": "the channel", "above": "the channel above"})}
+
+
 def incidentDefinitions() -> list[dict[str, Any]]:
     kinds, _aliases = _incidentRegistry()
     return [
@@ -300,6 +310,8 @@ def incidentDefinitions() -> list[dict[str, Any]]:
             "manual_label": k.manual_label,
             "automatic_label": k.automatic_label or "",
             "automatic_supported": k.automatic_label is not None,
+            "default": k.default_handling,
+            "procedure": _procedureSteps(k.procedure),
         }
         for k in kinds.values()
         if k.default_handling

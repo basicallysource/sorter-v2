@@ -8,7 +8,7 @@ kicker: Helpers — Multimeter
 lede: Two settings on the dial cover every check this build asks for, continuity and resistance. What each one tells you, and how to read it.
 permalink: /hardware/helpers/multimeter/
 author: barthel
-contributors: [effreek]
+contributors: [effreek, reveryx]
 last_verified: 2026-09-26
 tools_needed: ["Multimeter, with a continuity buzzer"]
 ---
@@ -113,7 +113,7 @@ In continuity mode the meter beeps when the two probe tips are joined by anythin
 
 That answers three questions that come up while making the leads and plugging them in.
 
-**Which wire is the positive one.** A barrel plug or a panel-mount jack is centre-positive on this machine, and the lead hanging off it is usually red and black, but it came from somebody else and a few are wired the other way round. Hold one probe against the centre pin down inside the barrel and touch the other to each conductor in turn. The one that beeps is the tip, which is +24 V. You do this on [the PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}), [the control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}) and [the Orange Pi's 24 V lead]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }}).
+**Which wire is the positive one.** A barrel plug or a panel-mount jack is centre-positive on this machine, and the lead hanging off it is usually red and black, but it came from somebody else and a few are wired the other way round. Hold one probe against the centre pin down inside the barrel and touch the other to each conductor in turn. The one that beeps is the tip, which is +24 V. You do this on [the PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}) (`PSU1` to `PSU3`), [the control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}) (`PWR1`) and [the Orange Pi's 24 V lead]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }}) (`PWR3`).
 
 **Which pin of a housing a wire ended up in.** Probe from the bare wire, or from a contact you can still see, through to the pin at the far end. The camera lamps need this: each one plugs on red to `+V`, and the red wire is not always in the pin you would expect. See [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
 
@@ -134,7 +134,7 @@ Probe two tabs at a time and work the lever:
 - **Lever free**, `COM` to `NC` beeps and `COM` to `NO` does not.
 - **Lever pressed**, that swaps over.
 
-That tells you the printing on the switch is honest, which is worth knowing before you crimp anything onto it. It does not tell you which pair the machine expects. The lead is built onto `COM` and `NC`, and that choice has not been confirmed on a running machine yet, which the [lead page]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }}) says on itself.
+That tells you the printing on the switch is honest, which is worth knowing before you crimp anything onto it. It does not tell you which pair the machine expects. The chute limit switch lead (`LIM1`) is built onto `COM` and `NC`, and that choice has not been confirmed on a running machine yet, which the [lead page]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }}) says on itself.
 
 The same check on the finished lead, at the housing rather than at the switch, is the last step of that page.
 
@@ -145,11 +145,31 @@ A stepper motor's four leads are two coils, two leads to each, and the wire colo
 - **Two leads from the same coil read well under an ohm.** 0.65 &Omega; on the chute's NEMA 23 and 2.3 &Omega; on the channel NEMA 17s, plus whatever your test leads add.
 - **Two leads from different coils read open circuit**, shown as `OL` or a lone `1`.
 
-Work through the combinations until you have both pairs, and write down which colour went with which before you start crimping. It is [the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}) that is built from bare motor leads, and [the channel stepper leads]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) where the pairs decide which housing positions the wires go into if you cannot tell them apart by position.
+Work through the combinations until you have both pairs, and write down which colour went with which before you start crimping. It is [the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}) (`CHU1`) that is built from bare motor leads, and [the channel stepper leads]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) (`STP1` to `STP4`) where the pairs decide which housing positions the wires go into if you cannot tell them apart by position.
 
 <div class="callout">
   <p><b>Continuity mode finds the pairs too</b>, since a coil is close enough to a short to beep. The reason to read the number instead is that it also tells you the coil is healthy: a pair you are confident about that reads tens of ohms, or nothing at all, is a broken winding or a bad joint rather than a pairing you got wrong.</p>
 </div>
+
+### How to find the wires for a motor coil without a multimeter
+
+<div class="callout">
+  <p><b>Join two of the motor's wires and turn the shaft by hand.</b> With nothing connected the shaft turns freely. Join the two ends of one coil and the shaft gets noticeably harder to turn, because turning it drives current round the closed coil, which pushes back. Two wires from different coils do nothing, and the shaft stays free.</p>
+</div>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/stepper-coil-short-test-w1600-0aa26f798074.jpg" alt="A NEMA 17 stepper motor lying face up with its own lead coiled beside it. The lead ends in a 4-pin Dupont plug, and a short red and black jumper wire loops between two of the plug's contacts, joining those two wires.">
+  <figcaption>A jumper across two contacts of the motor's own Dupont plug. The shaft is hard to turn, so those two wires are one coil. <cite>Photo: ReveryX.</cite></figcaption>
+</figure>
+
+<ol class="numbered-steps">
+  <li>Unplug the motor from the board, so the four wires are loose. Turn the shaft with your fingers once to learn how free it is.</li>
+  <li>Join two of the four wires: push a jumper wire with a pin at each end into two sockets of the Dupont plug, or twist two bare ends together. Turn the shaft again.</li>
+  <li><b>Hard to turn</b> means those two wires are one coil. <b>Still free</b> means they are from different coils: move the jumper to another pair. The two wires left over are the other coil, and joining them makes the shaft hard to turn in the same way.</li>
+  <li>Write down which colour went with which, as for the meter.</li>
+</ol>
+
+This is a feel, not a number, so it does not tell you the coil is healthy. A meter reading does, as in the box above.
 
 ## Volts, when the machine is on
 

@@ -12,13 +12,13 @@
 		getBackendWsBase,
 		machineHttpBaseUrlFromWsUrl,
 		machineWsUrlFromHttpBaseUrl,
-		requestBackendRestart,
-		waitForBackend
+		requestBackendRestart
 	} from '$lib/backend';
 	import SortingProfileDropdown from '$lib/components/SortingProfileDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { machineDowntime } from '$lib/stores/machineDowntime.svelte';
 	import { userConfig } from '$lib/stores/userConfig.svelte';
+	import { recordsViews } from '$lib/records/tabs';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import House from '@lucide/svelte/icons/house';
 	import Pause from '@lucide/svelte/icons/pause';
@@ -30,6 +30,8 @@
 	import X from '@lucide/svelte/icons/x';
 
 	const manager = getMachinesContext();
+	const RESTART_WAIT_MS = 90_000;
+	const REBOOT_WAIT_MS = 6 * 60_000;
 
 	let dismissedHardwareError = $state<string | null>(null);
 	let homingDetailsOpen = $state(false);
@@ -189,11 +191,9 @@
 	// dialog that waits (docs/overlays.md), closed when the wait is over.
 	async function confirmRestartBackend() {
 		restartingBackend = true;
-		const baseUrl = currentBackendBaseUrl();
-		if (await requestBackendRestart(baseUrl)) {
-			await waitForBackend(baseUrl, { maxAttempts: 60 });
-			// The new process's identity reopens the camera feeds (see MachineManager).
-			manager.connect(currentBackendWsUrl(), { force: true });
+		const machine = manager.selectedMachine;
+		if (await requestBackendRestart(currentBackendBaseUrl())) {
+			await manager.waitForNewRun(machine, RESTART_WAIT_MS);
 		}
 		restartingBackend = false;
 		restartConfirmOpen = false;
@@ -229,30 +229,16 @@
 		rebootConfirmOpen = true;
 	}
 
-	// The backend answers the reboot request before the OS starts tearing
-	// services down, so a probe right after it would still succeed. Wait for the
-	// machine to actually go away before we start watching for it to come back.
-	async function waitForBackendToGoDown(baseUrl: string): Promise<void> {
-		for (let attempt = 0; attempt < 30; attempt++) {
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-			try {
-				await fetch(`${baseUrl}/api/system/status`, {
-					signal: AbortSignal.timeout(1500)
-				});
-			} catch {
-				return;
-			}
-		}
-	}
-
 	async function confirmReboot() {
 		rebootFailed = false;
 		rebootTimedOut = false;
 		rebooting = true;
 		machineDowntime.begin();
-		const baseUrl = currentBackendBaseUrl();
+		const machine = manager.selectedMachine;
 		try {
-			const response = await fetch(`${baseUrl}/api/system/reboot`, { method: 'POST' });
+			const response = await fetch(`${currentBackendBaseUrl()}/api/system/reboot`, {
+				method: 'POST'
+			});
 			if (!response.ok) {
 				rebooting = false;
 				rebootConfirmOpen = false;
@@ -265,21 +251,12 @@
 			// the response is delivered. Treat a dropped connection as success and
 			// wait for the machine to come back.
 		}
-		await waitForBackendToGoDown(baseUrl);
 		// A full boot plus backend startup is a couple of minutes on the Pi.
-		const back = await waitForBackend(baseUrl, {
-			initialDelayMs: 5000,
-			maxAttempts: 180,
-			intervalMs: 2000
-		});
+		const back = await manager.waitForNewRun(machine, REBOOT_WAIT_MS);
 		rebooting = false;
 		rebootConfirmOpen = false;
 		machineDowntime.end();
-		if (!back) {
-			rebootTimedOut = true;
-			return;
-		}
-		manager.connect(currentBackendWsUrl(), { force: true });
+		if (!back) rebootTimedOut = true;
 	}
 
 	function dismissHardwareBanner() {
@@ -289,9 +266,7 @@
 
 	const showHardwareBanner = $derived(
 		Boolean(
-			hardwareError &&
-				hardwareError.message !== dismissedHardwareError &&
-				hardwareState !== 'error'
+			hardwareError && hardwareError.message !== dismissedHardwareError && hardwareState !== 'error'
 		)
 	);
 	const homingHeadline = $derived(homingStep ?? 'Homing all hardware...');
@@ -345,7 +320,11 @@
 		{ href: '/bins', label: 'Bins' },
 		{ href: '/3d', label: '3D' },
 		{ href: '/profiles', label: 'Profiles' },
-		{ href: '/records', label: 'Records' },
+		{
+			href: '/records',
+			label: 'Records',
+			children: recordsViews.map((v) => ({ href: v.href, label: v.label }))
+		},
 		{ href: '/settings', label: 'Settings' }
 	]}
 >
@@ -487,8 +466,8 @@
 
 <Modal bind:open={rebootFailed} title="The restart did not start" size="sm">
 	<p>
-		The reboot command could not be started, so the machine is still running. The backend's log
-		says why.
+		The reboot command could not be started, so the machine is still running. The backend's log says
+		why.
 	</p>
 	{#snippet footer()}
 		<Button onclick={() => (rebootFailed = false)}>Close</Button>
@@ -519,8 +498,8 @@
 		</p>
 	{:else}
 		<p>
-			This shuts the whole machine down, as running <span class="font-mono">shutdown</span> on its
-			computer would. The sorter powers off completely.
+			This shuts the whole machine down, as running <span class="font-mono">shutdown</span> on its computer
+			would. The sorter powers off completely.
 		</p>
 		<p class="mt-2 text-ink-muted">
 			A running sort stops, and turning the machine back on takes someone at the machine.

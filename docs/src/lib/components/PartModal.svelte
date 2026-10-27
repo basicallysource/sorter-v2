@@ -154,14 +154,13 @@
 					{/if}
 					<a class="part-modal-link" href={detail.calc_url} target="_blank" rel="noopener">
 						{detail.kind === 'lasercut' ? 'Laser-cut parts' : 'Everything else'} on the parts calculator
-						↗
 					</a>
 					{#if part.page}<a class="part-modal-link" href={part.page}>Its page in these docs</a>{/if}
 					{#if detail.onshape}<a
 							class="part-modal-link"
 							href={detail.onshape}
 							target="_blank"
-							rel="noopener">OnShape ↗</a
+							rel="noopener">OnShape</a
 						>{/if}
 				</div>
 			</div>

@@ -137,7 +137,7 @@ The SorterOS UI open in a browser, with nothing set up on the machine yet.
 
 ## Next
 
-**Flash the control board before you open the setup wizard.** The wizard only lists boards that already answer on USB serial, so a board with no firmware on it does not appear and the wizard says `No MCU buses found`. [Software setup]({{ '/hardware/software-setup/' | relative_url }}) step 2 has the route.
+**Flash the control board before you open the setup wizard.** The wizard only lists boards that already answer on USB serial, so a board with no firmware on it does not appear and the wizard says `No MCU buses found`. [Flashing the control board]({{ '/sorter/' | relative_url }}#flash-the-control-board-before-the-wizard) has the route.
 
 Then [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) takes the setup wizard step by step.
 

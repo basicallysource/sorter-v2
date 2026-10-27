@@ -9,7 +9,8 @@
 	// Palette-coverage view: how well the labeled data covers the BrickLink color
 	// palette. Surfaces the gaps — "we have plenty of white, nothing from metallic
 	// grey" — so labelers know which colors to hunt for.
-	let { machineId = null }: { machineId?: string | null } = $props();
+	// The machine filter of the page: none (every machine) or one or several.
+	let { machineIds = [] }: { machineIds?: string[] } = $props();
 
 	// Same non-solid finishes the picker down-weights; a labeled example of a plain
 	// solid colour is far more valuable, so the gaps list leads with solids.
@@ -82,24 +83,31 @@
 	);
 	const solidGapCount = $derived(gaps.filter((c) => !isExotic(c)).length);
 
-	async function load() {
+	// Only the newest request may fill the chart: an answer for a filter the
+	// page has since left is dropped.
+	let loadToken = 0;
+
+	async function load(ids: string[]) {
+		const token = ++loadToken;
 		loading = true;
 		error = null;
 		try {
-			const res = await api.colorCoverage({ machineId });
+			const res = await api.colorCoverage({ machineIds: ids });
+			if (token !== loadToken) return;
 			colors = res.colors;
 			totalColors = res.total_colors;
 			coveredColors = res.covered_colors;
 		} catch {
-			error = 'Failed to load coverage';
+			if (token === loadToken) error = 'Failed to load coverage';
 		} finally {
-			loading = false;
+			if (token === loadToken) loading = false;
 		}
 	}
 
+	const machinesKey = $derived(machineIds.join(','));
 	$effect(() => {
-		void machineId;
-		void load();
+		const ids = machinesKey ? machinesKey.split(',') : [];
+		void load(ids);
 	});
 </script>
 

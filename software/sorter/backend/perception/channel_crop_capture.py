@@ -8,8 +8,13 @@ and hands the bytes to ``channel_crop_store`` for durable, size-capped storage.
 
 The cadence is deliberately zone-aware so the crops we keep are dense exactly
 where the same-piece heuristic needs them — many right at the C3 exit (a piece
-about to fall onto C4), fewer in the drop zone, and just a couple per pass on
+about to fall onto C4), fewer in the drop zone, and a crop every few degrees on
 C2. All thresholds are plain constants so they can be tuned against a real run.
+
+Every track also keeps its last sightings: the newest frames the cadence
+skipped are held in memory, and when the track is gone (it fell off the exit, or
+the tracker lost it) they are stored. The picture right before a piece leaves a
+channel is the one that ties it to its arrival on the next.
 """
 
 from __future__ import annotations
@@ -65,10 +70,14 @@ class ChannelCropCaptureConfig:
             _ZONE_NONE: _ZoneCadence(advance_deg=18.0, max_captures=2),
         }
     )
-    # C2 is far upstream. advance_deg is ~30% tighter than the original 25.0 so
-    # captures recur sooner; up to 5 crops of a single piece as it crosses C2
-    # (most won't travel far enough to hit that ceiling).
-    c2_cadence: _ZoneCadence = _ZoneCadence(advance_deg=19.2, max_captures=5)
+    # C2 is far upstream: a crop every 10 degrees, up to 20 a pass (a pass is
+    # about 200 degrees, often split over a few track ids).
+    c2_cadence: _ZoneCadence = _ZoneCadence(advance_deg=10.0, max_captures=20)
+    # Frames of a track the cadence skipped, newest last, stored once the track
+    # has not been seen for last_sighting_gone_s. They are not counted against
+    # the cadence's cap.
+    last_sightings: int = 2
+    last_sighting_gone_s: float = 0.3
 
 
 @dataclass
@@ -77,6 +86,8 @@ class _TrackState:
     last_capture_deg: Optional[float]
     count: int
     last_seen_ts: float
+    # (crop, meta) of the newest frames not stored, oldest first.
+    pending: list[tuple[np.ndarray, dict[str, Any]]] = field(default_factory=list)
 
 
 class ChannelCropCollector:
@@ -142,6 +153,7 @@ class ChannelCropCollector:
                 except Exception as exc:
                     _log(self._logger, "warning",
                          f"[channel-crop] collect ch{channel_id} failed: {exc}")
+            self._storeLastSightings(time.time(), cfg)
             self._maybePrune()
             self._stop.wait(cfg.poll_interval_s)
 
@@ -191,27 +203,11 @@ class ChannelCropCollector:
         state = self._tracks.get(key)
         if state is not None:
             state.last_seen_ts = now
-            if now - state.last_capture_ts < cfg.min_capture_interval_s:
-                return
-            if state.count >= cadence.max_captures:
-                return
-            # Advance gate: only re-capture once the piece has travelled far
-            # enough toward the exit (smaller deg = more forward). If either deg
-            # is unknown, fall through and capture (time gate already passed).
-            if deg_f is not None and state.last_capture_deg is not None:
-                if state.last_capture_deg - deg_f < cadence.advance_deg:
-                    return
 
         bbox = getattr(piece, "bbox", None)
         crop = _cropBbox(bgr, bbox, cfg.crop_pad_px, w, h)
         if crop is None or crop.size == 0:
             return
-        ok, buf = cv2.imencode(
-            ".jpg", crop, [int(cv2.IMWRITE_JPEG_QUALITY), int(cfg.jpeg_quality)]
-        )
-        if not ok:
-            return
-        jpeg = buf.tobytes()
         meta = {
             "channel": channel_id,
             "ts": ts,
@@ -220,11 +216,15 @@ class ChannelCropCollector:
             "com_forward_to_exit_deg": deg_f,
             "com_section": int(getattr(piece, "com_section", 0) or 0),
             "zone_code": zone_code,
-            "sharpness": _sharpness(crop),
             "bbox": tuple(int(v) for v in bbox) if bbox else None,
         }
-        channel_crop_store.enqueue(jpeg, meta)
-        self._captured_total += 1
+        if state is not None and not self._cadenceAllows(state, deg_f, cadence, now, cfg):
+            if track_id is not None and cfg.last_sightings > 0:
+                state.pending.append((crop, meta))
+                del state.pending[:-cfg.last_sightings]
+            return
+        if not self._store(crop, meta, cfg):
+            return
 
         if state is None:
             self._tracks[key] = _TrackState(
@@ -234,6 +234,39 @@ class ChannelCropCollector:
             state.last_capture_ts = now
             state.last_capture_deg = deg_f
             state.count += 1
+            state.pending.clear()
+
+    @staticmethod
+    def _cadenceAllows(state: _TrackState, deg_f: Optional[float], cadence: _ZoneCadence,
+                       now: float, cfg: ChannelCropCaptureConfig) -> bool:
+        if now - state.last_capture_ts < cfg.min_capture_interval_s:
+            return False
+        if state.count >= cadence.max_captures:
+            return False
+        # Advance gate: only re-capture once the piece has travelled far
+        # enough toward the exit (smaller deg = more forward). If either deg
+        # is unknown, fall through and capture (time gate already passed).
+        if deg_f is not None and state.last_capture_deg is not None:
+            if state.last_capture_deg - deg_f < cadence.advance_deg:
+                return False
+        return True
+
+    def _store(self, crop: np.ndarray, meta: dict[str, Any], cfg: ChannelCropCaptureConfig) -> bool:
+        ok, buf = cv2.imencode(
+            ".jpg", crop, [int(cv2.IMWRITE_JPEG_QUALITY), int(cfg.jpeg_quality)]
+        )
+        if not ok:
+            return False
+        channel_crop_store.enqueue(buf.tobytes(), {**meta, "sharpness": _sharpness(crop)})
+        self._captured_total += 1
+        return True
+
+    def _storeLastSightings(self, now: float, cfg: ChannelCropCaptureConfig) -> None:
+        for state in self._tracks.values():
+            if state.pending and now - state.last_seen_ts >= cfg.last_sighting_gone_s:
+                for crop, meta in state.pending:
+                    self._store(crop, meta, cfg)
+                state.pending.clear()
 
     def _maybePrune(self) -> None:
         now = time.time()

@@ -64,6 +64,8 @@ In a profile, **Add kit** puts a kit in as a box. Put a kit **above** broader ru
 - **Rebrickable categories**: one bin for each Rebrickable category.
 - **Color**: one bin for each color.
 
+There is no choice that gives every part number its own bin. A category is the finest split the last box can make, so a pile of nothing but plates still lands in one bin. To separate individual parts, make a box for each one. In the **Assistant** tab, ask for `One box for each of these parts: 3020, 3021, 3022` and list the part numbers. A box that names only a part takes it in any color.
+
 Choose by what you are asking. Sorting a pile into boxes is rules. "Do I have everything for this model" or "fill this order" is a kit. "Sort the rest somehow" is the fallback.
 
 Next: [ask for it in plain words]({{ '/hive/first-profile/ask-in-plain-words/' | relative_url }}).

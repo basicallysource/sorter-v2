@@ -115,6 +115,9 @@ def find_possible_crops(
                 "score": round(s, 3),
                 "predicted": isPredicted(s, p),
                 "available": row.image_key is not None,
+                # Internal: for reading the crop. Callers that answer a client
+                # replace it with a URL rather than pass storage keys on.
+                "image_key": row.image_key,
             }
         )
     scored.sort(key=lambda c: c["score"], reverse=True)

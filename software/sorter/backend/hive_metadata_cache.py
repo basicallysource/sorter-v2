@@ -25,6 +25,15 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "PRIMARY KEY(part_num, color_id)"
         ")"
     )
+    # The BrickLink color palette last fetched from Hive, so the correction
+    # picker still has it while Hive is unreachable (one row).
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS hive_color_palette ("
+        "id INTEGER PRIMARY KEY CHECK (id = 1), "
+        "payload_json TEXT NOT NULL, "
+        "cached_at REAL NOT NULL"
+        ")"
+    )
 
 
 def _connection():
@@ -139,4 +148,29 @@ def put_cached_part_prices(rows: list[tuple[str | None, Any, float | None]]) -> 
                     now,
                 ),
             )
+        conn.commit()
+
+
+def get_cached_palette() -> list[dict[str, Any]] | None:
+    """The palette last saved by put_cached_palette, or None."""
+    with _connection() as conn:
+        row = conn.execute("SELECT payload_json FROM hive_color_palette WHERE id = 1").fetchone()
+    if row is None:
+        return None
+    try:
+        colors = json.loads(str(row["payload_json"]))
+    except (TypeError, ValueError):
+        return None
+    return colors if isinstance(colors, list) and colors else None
+
+
+def put_cached_palette(colors: list[dict[str, Any]]) -> None:
+    if not colors:
+        return
+    with _connection() as conn:
+        conn.execute(
+            "INSERT INTO hive_color_palette(id, payload_json, cached_at) VALUES(1, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET payload_json = excluded.payload_json, cached_at = excluded.cached_at",
+            (json.dumps(colors), time.time()),
+        )
         conn.commit()

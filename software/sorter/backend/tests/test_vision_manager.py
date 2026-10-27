@@ -24,16 +24,6 @@ def test_camera_overlay_start_has_no_detection_dependency():
     assert overlay.annotate(np.zeros((720, 1280, 3), dtype=np.uint8)).any()
 
 
-def test_polygon_reload_reconciles_active_perception():
-    perception = SimpleNamespace(request_reconcile=Mock())
-    gc = SimpleNamespace(should_write_camera_feeds=False, perception_service=perception)
-    manager = VisionManager(gc, None)
-
-    manager.reloadPolygons()
-
-    perception.request_reconcile.assert_called_once_with()
-
-
 def test_recording_keeps_camera_frames_and_closes_recorder(monkeypatch):
     recorder = Mock()
     monkeypatch.setattr("vision.vision_manager.VideoRecorder", lambda: recorder)

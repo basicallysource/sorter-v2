@@ -1,12 +1,14 @@
 import hashlib
 from datetime import datetime, timezone
 from uuid import UUID
-from typing import Generator
+from typing import Callable, Generator, TypeVar
 
 from fastapi import Cookie, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal
+from app import roles
+from app.config import settings
+from app.database import STATEMENT_TIMEOUT_KEY, SessionLocal
 from app.models.device import Device
 from app.models.machine import Machine
 from app.models.user import User
@@ -43,6 +45,15 @@ API_KEY_SCOPE_CONTRIBUTORS_READ = "contributors:read"
 # the two differ in who may hold them, and a consumer that should only ever see
 # the de-identified view must not hold a credential that can ask for the other.
 API_KEY_SCOPE_FLEET_ANON = "fleet:anon"
+# The OPERATOR fleet tier: the identified roster plus what running the fleet
+# takes — each machine's software, hardware, health, sorting profile, uploads
+# and daily history, and the status reports of sorters not linked to a machine.
+# Strictly more than `fleet:read`, and a scope of its own for the same reason
+# `fleet:anon` is: a consumer drawing a leaderboard of owners has no need for
+# what every machine is built from, so its key must not be able to ask. No
+# address, hardware serial or contact detail is in it at any tier; see
+# `services/fleet_detail.py`.
+API_KEY_SCOPE_FLEET_DETAIL = "fleet:detail"
 # The parts catalog, split in two because the halves carry different risk.
 # `parts:read` is CATALOG FACT — what a part is, what it weighs, how big it is,
 # what colors it comes in. `parts:prices` is the market data, which is a
@@ -67,6 +78,10 @@ API_KEY_SCOPE_PROFILES_WRITE = "profiles:write"
 # The pieces the key owner's own machines sorted, so an assistant can build a
 # profile from what actually comes through them.
 API_KEY_SCOPE_RECORDS_READ = "records:read"
+# A later model run's predictions for an owner's machines' pieces, added on
+# Hive (the records API). Admin-only: what it writes shows wherever those
+# pieces' colours and parts do.
+API_KEY_SCOPE_PREDICTIONS_WRITE = "predictions:write"
 # The scopes any user may put on a key. The rest are for admins: they reach
 # fleet-wide or server data.
 USER_GRANTABLE_API_KEY_SCOPES = frozenset(
@@ -82,6 +97,7 @@ VALID_API_KEY_SCOPES = frozenset(
         API_KEY_SCOPE_STATS_READ,
         API_KEY_SCOPE_FLEET_READ,
         API_KEY_SCOPE_FLEET_ANON,
+        API_KEY_SCOPE_FLEET_DETAIL,
         API_KEY_SCOPE_CONTRIBUTORS_READ,
         API_KEY_SCOPE_PARTS_READ,
         API_KEY_SCOPE_PARTS_PRICES,
@@ -89,12 +105,59 @@ VALID_API_KEY_SCOPES = frozenset(
         API_KEY_SCOPE_PROFILES_READ,
         API_KEY_SCOPE_PROFILES_WRITE,
         API_KEY_SCOPE_RECORDS_READ,
+        API_KEY_SCOPE_PREDICTIONS_WRITE,
     }
 )
 
 
-def get_db() -> Generator[Session, None, None]:
+# Paths of machine traffic: the sorters' own API (machine tokens) and the
+# hosted services they enroll in (device tokens). Everything else is a person
+# or an integration, on the shorter budget.
+MACHINE_PATH_PREFIXES = ("/api/machine/", "/api/devices/")
+
+_TIMEOUT_ATTR = "__hive_statement_timeout_ms__"
+_Endpoint = TypeVar("_Endpoint", bound=Callable)
+
+
+def statement_timeout(seconds: float) -> Callable[[_Endpoint], _Endpoint]:
+    """Give one endpoint its own statement timeout instead of its path's.
+
+    For the few that legitimately run longer than a request should (an admin
+    bulk action over a filter, a cascading delete): put it under the route
+    decorator, and say in the endpoint why. Each one is listed in
+    agent-docs/process-roles.md. Anything that needs longer than this is a job.
+    """
+
+    def mark(endpoint: _Endpoint) -> _Endpoint:
+        setattr(endpoint, _TIMEOUT_ATTR, int(seconds * 1000))
+        return endpoint
+
+    return mark
+
+
+def request_statement_timeout_ms(request: Request) -> int | None:
+    """How long one SQL statement of this request may run, or None for the
+    engine's default (a process that answers no requests)."""
+    if not roles.serves_requests():
+        return None
+    route = request.scope.get("route")
+    override = getattr(getattr(route, "endpoint", None), _TIMEOUT_ATTR, None)
+    if override is not None:
+        return override
+    if request.url.path.startswith(MACHINE_PATH_PREFIXES):
+        return settings.MACHINE_STATEMENT_TIMEOUT_MS or None
+    return settings.REQUEST_STATEMENT_TIMEOUT_MS or None
+
+
+def get_db(request: Request) -> Generator[Session, None, None]:
+    """The request's session. Its statements are bounded
+    (``request_statement_timeout_ms``), per transaction: see
+    ``app.database.STATEMENT_TIMEOUT_KEY``."""
     db = SessionLocal()
+    timeout_ms = request_statement_timeout_ms(request)
+    if timeout_ms:
+        db.info[STATEMENT_TIMEOUT_KEY] = timeout_ms
+        request.state.statement_timeout_ms = timeout_ms
     try:
         yield db
     finally:

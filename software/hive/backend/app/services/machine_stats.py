@@ -31,7 +31,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import SessionLocal
+from app.database import SessionLocal, tune_for_aggregates
 from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.machine_stats_cache import MachineStatsCache
@@ -57,9 +57,14 @@ _NUMERIC_FIELDS = (
     "ontime_pct",
     "total_samples",
     "accepted_samples",
+    "unreviewed_samples",
+    "in_review_samples",
+    "rejected_samples",
+    "conflict_samples",
     "total_sessions",
     "parts_found",
     "parts_needed",
+    "channel_crops",
 )
 _DATE_FIELDS = ("first_seen", "last_seen", "first_capture", "last_capture")
 
@@ -224,6 +229,10 @@ def _compute_sample_stats(db: Session, machine_ids: list[Any] | None = None) -> 
             Sample.machine_id,
             func.count(Sample.id).label("total_samples"),
             func.count(Sample.id).filter(Sample.review_status == "accepted").label("accepted_samples"),
+            func.count(Sample.id).filter(Sample.review_status == "unreviewed").label("unreviewed_samples"),
+            func.count(Sample.id).filter(Sample.review_status == "in_review").label("in_review_samples"),
+            func.count(Sample.id).filter(Sample.review_status == "rejected").label("rejected_samples"),
+            func.count(Sample.id).filter(Sample.review_status == "conflict").label("conflict_samples"),
             func.min(Sample.captured_at).label("first_capture"),
             func.max(Sample.captured_at).label("last_capture"),
         ),
@@ -237,6 +246,27 @@ def _compute_sample_stats(db: Session, machine_ids: list[Any] | None = None) -> 
     ).group_by(UploadSession.machine_id).all()
     session_map = {str(r.machine_id): r.total_sessions for r in session_rows}
 
+    # The sources and capture reasons the Channel samples filters offer, with
+    # their counts, per machine; archived samples are not offered.
+    source_rows = _scoped(
+        db.query(Sample.machine_id, Sample.source_role, func.count(Sample.id))
+        .filter(Sample.archived_at.is_(None), Sample.source_role.isnot(None)),
+        Sample.machine_id,
+    ).group_by(Sample.machine_id, Sample.source_role).all()
+    reason_rows = _scoped(
+        db.query(Sample.machine_id, Sample.capture_reason, func.count(Sample.id))
+        .filter(Sample.archived_at.is_(None), Sample.capture_reason.isnot(None)),
+        Sample.machine_id,
+    ).group_by(Sample.machine_id, Sample.capture_reason).all()
+    sources: dict[str, dict[str, int]] = {}
+    reasons: dict[str, dict[str, int]] = {}
+    for mid, value, count in source_rows:
+        if value:
+            sources.setdefault(str(mid), {})[value] = int(count)
+    for mid, value, count in reason_rows:
+        if value:
+            reasons.setdefault(str(mid), {})[value] = int(count)
+
     progress_rows = _scoped(
         db.query(
             MachineSetProgress.machine_id,
@@ -248,20 +278,51 @@ def _compute_sample_stats(db: Session, machine_ids: list[Any] | None = None) -> 
     progress_map = {str(r.machine_id): r for r in progress_rows}
 
     result: dict[str, dict[str, Any]] = {}
-    keys = set(sample_map) | set(session_map) | set(progress_map)
+    keys = set(sample_map) | set(session_map) | set(progress_map) | set(sources) | set(reasons)
     for mid in keys:
         sr = sample_map.get(mid)
         pr = progress_map.get(mid)
         result[mid] = {
             "total_samples": sr.total_samples if sr else 0,
             "accepted_samples": sr.accepted_samples if sr else 0,
+            "unreviewed_samples": sr.unreviewed_samples if sr else 0,
+            "in_review_samples": sr.in_review_samples if sr else 0,
+            "rejected_samples": sr.rejected_samples if sr else 0,
+            "conflict_samples": sr.conflict_samples if sr else 0,
             "first_capture": sr.first_capture if sr else None,
             "last_capture": sr.last_capture if sr else None,
             "total_sessions": session_map.get(mid, 0),
             "parts_found": int(pr.parts_found) if pr and pr.parts_found else 0,
             "parts_needed": int(pr.parts_needed) if pr and pr.parts_needed else 0,
+            "sample_sources": sources.get(mid, {}),
+            "sample_capture_reasons": reasons.get(mid, {}),
         }
     return result
+
+
+def _compute_crop_counts(db: Session, machine_ids: list[Any]) -> dict[str, int]:
+    """Each machine's upstream channel crops, for the crops page's count: an
+    index-only count per machine, here so no request counts millions of rows."""
+    from app.models.machine_channel_crop import MachineChannelCrop
+
+    rows = (
+        db.query(MachineChannelCrop.machine_id, func.count())
+        .filter(MachineChannelCrop.machine_id.in_(machine_ids))
+        .group_by(MachineChannelCrop.machine_id)
+        .all()
+    )
+    return {str(mid): int(n) for mid, n in rows}
+
+
+def _compute_control_data(db: Session, machine_ids: list[Any]) -> dict[str, dict[str, Any]]:
+    """Each machine's control-data segments summed per combination of modes,
+    for the admin inventory to add up instead of reading every segment."""
+    from app.services.control_data import segment_rows, summarize_segments
+
+    by_machine: dict[str, list] = {}
+    for row in segment_rows(db, machine_ids):
+        by_machine.setdefault(str(row.machine_id), []).append(row)
+    return {mid: summarize_segments(rows) for mid, rows in by_machine.items()}
 
 
 def compute_stats(db: Session, machine_ids: list[Any] | None = None) -> dict[str, dict[str, Any]]:
@@ -278,6 +339,8 @@ def compute_stats(db: Session, machine_ids: list[Any] | None = None) -> dict[str
     piece_stats = _compute_piece_stats(db, ids)
     sample_stats = _compute_sample_stats(db, ids)
     distributions = _compute_distributions(db, ids)
+    crops = _compute_crop_counts(db, ids) if ids else {}
+    control_data = _compute_control_data(db, ids) if ids else {}
 
     merged: dict[str, dict[str, Any]] = {}
     for mid in ids:
@@ -285,7 +348,14 @@ def compute_stats(db: Session, machine_ids: list[Any] | None = None) -> dict[str
         stats = _empty_stats()
         stats.update(piece_stats.get(mid_str, {}))
         stats.update(sample_stats.get(mid_str, {}))
-        stats["distributions"] = distributions.get(mid_str, _empty_distributions())
+        stats["channel_crops"] = crops.get(mid_str, 0)
+        stats["control_data"] = control_data.get(mid_str, {})
+        stats["distributions"] = {
+            **distributions.get(mid_str, _empty_distributions()),
+            # Kept beside the piece maps; the analytics fold reads only those.
+            "sample_sources": stats.pop("sample_sources", {}),
+            "sample_capture_reasons": stats.pop("sample_capture_reasons", {}),
+        }
         merged[mid_str] = stats
     return merged
 
@@ -310,6 +380,7 @@ def refresh_cache(db: Session, machine_ids: list[Any] | None = None) -> int:
         for field in _NUMERIC_FIELDS + _DATE_FIELDS:
             setattr(row, field, values[field])
         row.distributions = values.get("distributions") or _empty_distributions()
+        row.control_data = values.get("control_data") or {}
         row.computed_at = now
     db.commit()
     return len(stats)
@@ -369,6 +440,30 @@ def get_machine_stats(db: Session, machine_id: Any) -> dict[str, Any]:
     return _serialize(_empty_stats(), None)
 
 
+def piece_total(db: Session, machine_id: Any) -> int:
+    """How many pieces a machine has synced: the cached count plus the pieces
+    that reached Hive since it was computed (an index range on (machine_id,
+    created_at) over the last hour or so). A machine not cached yet is counted
+    whole, which is cheap because it is new."""
+    row = (
+        db.query(MachineStatsCache.pieces_seen, MachineStatsCache.computed_at)
+        .filter(MachineStatsCache.machine_id == machine_id)
+        .first()
+    )
+    newer = db.query(func.count()).select_from(MachinePiece).filter(MachinePiece.machine_id == machine_id)
+    if row is None:
+        return int(newer.scalar() or 0)
+    return int(row.pieces_seen or 0) + int(newer.filter(MachinePiece.created_at >= row.computed_at).scalar() or 0)
+
+
+def channel_crop_total(db: Session, machine_id: Any) -> int:
+    """How many upstream channel crops a machine had at the stats worker's
+    last pass (hourly)."""
+    return int(
+        db.query(MachineStatsCache.channel_crops).filter(MachineStatsCache.machine_id == machine_id).scalar() or 0
+    )
+
+
 def refresh_all(db: Session) -> int:
     """One full pass over a session: per-machine cache, then the daily table.
 
@@ -378,16 +473,23 @@ def refresh_all(db: Session) -> int:
     forcing a rebuild — calls this rather than growing its own copy.
     """
     count = refresh_cache(db)
-    # Same pass also maintains the per-day analytics substrate.
-    from app.services import analytics
+    # Same pass also maintains the per-day analytics substrate, the weekly
+    # sample counts the diversity overview adds up, and the datasets' counts
+    # per machine (recounted, for samples deleted since they were recorded).
+    from app.services import analytics, model_datasets, sample_diversity
 
     analytics.refresh_daily_stats(db)
+    sample_diversity.refresh(db)
+    model_datasets.recount(db)
     return count
 
 
 def _refresh_pass() -> dict[str, Any]:
     db = SessionLocal()
     try:
+        # Grouped passes over every piece and sample: give them room to sort in
+        # memory rather than spill to temp files.
+        tune_for_aggregates(db, work_mem="64MB")
         return {"last_run_machines": refresh_all(db)}
     except Exception:
         db.rollback()
@@ -424,4 +526,6 @@ __all__ = [
     "get_fleet_stats",
     "get_machine_stats",
     "get_machine_stats_worker",
+    "piece_total",
+    "channel_crop_total",
 ]

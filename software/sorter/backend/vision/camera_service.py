@@ -137,6 +137,20 @@ class CameraService:
             return feed.device
         return None
 
+    def physical_camera_roles(self) -> list[str]:
+        """One role per physical camera, sorted. Roles aliased to one device
+        (the classification camera is both classification_channel and carousel)
+        are listed once, under the role the device was opened for: the key the
+        lamp state, channel geometry and Hive's zone map use."""
+        by_device: dict[int, str] = {}
+        for role in sorted(self._feeds):
+            device = self._device_for_role(role)
+            if device is None:
+                continue
+            if id(device) not in by_device or role == device.device_id:
+                by_device[id(device)] = role
+        return sorted(by_device.values())
+
     def get_capture_thread_for_role(self, role: str) -> Optional[CaptureThread]:
         device = self._device_for_role(role)
         if device is None:
@@ -207,8 +221,11 @@ class CameraService:
         if device is None:
             if source is None:
                 return True
-            self._add_device_feed(role, config)
-            device = self._devices[role]
+            # The device is named for the canonical role, whichever alias the
+            # camera was assigned under (see physical_camera_roles).
+            opened = "classification_channel" if role == "carousel" else role
+            self._add_device_feed(opened, config)
+            device = self._devices[opened]
             if self._started:
                 device.start()
         else:

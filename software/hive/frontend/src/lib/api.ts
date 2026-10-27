@@ -19,6 +19,8 @@ export interface User {
 	preferred_teacher_model: string | null;
 	role: 'member' | 'reviewer' | 'admin';
 	is_active: boolean;
+	/** Whether the community may list this user's machines in a live activity view. */
+	share_activity: boolean;
 	created_at: string;
 }
 
@@ -441,6 +443,8 @@ export interface Sample {
 	luminance_mean: number | null;
 	clipped_low_ratio: number | null;
 	clipped_high_ratio: number | null;
+	// Straight from storage when Hive can sign one (list responses).
+	thumb_url?: string | null;
 }
 
 export interface SampleMachineSummary {
@@ -518,6 +522,34 @@ export interface PaginatedSamples {
 	pages: number;
 }
 
+// One page of the samples list, newest first; pass next_cursor back as cursor.
+export interface SamplePage {
+	items: Sample[];
+	next_cursor: string | null;
+	has_more: boolean;
+}
+
+// The Channel samples filters, as the list, the review queue, the batch
+// actions and a teacher re-run all take them.
+export interface SampleFilterParams {
+	scope?: 'mine' | 'all' | string;
+	machine_ids?: string[];
+	upload_session_id?: string;
+	source_role?: string;
+	capture_reason?: string;
+	review_status?: string;
+	kind?: 'regular' | 'condition' | 'all' | string;
+	my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
+	annotated?: 'teacher' | 'raw' | 'all' | string;
+	exposure?: 'under' | 'normal' | 'over' | string;
+	// Is the colour reference palette in view, as the swatch model called it.
+	palette?: 'in_view' | 'not_in_view' | 'unchecked' | string;
+	archived?: 'active' | 'archived' | 'all' | string;
+	max_age_hours?: number | string;
+	// The review queue: samples I have not reviewed that still need reviews.
+	needs_review?: boolean;
+}
+
 export interface SampleFilterOptions {
 	source_roles: string[];
 	source_role_counts?: Record<string, number>;
@@ -583,6 +615,8 @@ export interface StatsOverview {
 	rejected_samples: number;
 	conflict_samples: number;
 	total_machines: number;
+	// When the oldest of the cached per-machine counts behind these was made.
+	computed_at: string | null;
 }
 
 export type OAuthProviderName = 'github' | 'discord';
@@ -1042,7 +1076,7 @@ export interface SortingProfileAiMessage {
 	created_at: string;
 }
 
-export type CatalogSyncType = 'categories' | 'colors' | 'parts' | 'brickstore' | 'prices' | 'geometry';
+export type CatalogSyncType = 'sets' | 'categories' | 'colors' | 'parts' | 'brickstore' | 'prices' | 'geometry';
 
 export type CatalogSyncStatus =
 	| 'idle'
@@ -1211,6 +1245,26 @@ const IMAGE_CACHE_BUST = '2';
 function resolveImagePath(path: string): string {
 	const sep = path.includes('?') ? '&' : '?';
 	return resolveApiPath(`${path}${sep}cb=${IMAGE_CACHE_BUST}`);
+}
+
+// `?machine_id=a&machine_id=b`: the machine filter, one machine or several.
+function machineQuery(ids: string[] | undefined): string {
+	const sp = new URLSearchParams();
+	for (const id of ids ?? []) sp.append('machine_id', id);
+	const qs = sp.toString();
+	return qs ? `?${qs}` : '';
+}
+
+// A filter body without empty values, so the server sees None and not ''
+// (which would match nothing) or an empty machine list.
+function filterBody(payload: object): Record<string, unknown> {
+	const body: Record<string, unknown> = {};
+	for (const [key, val] of Object.entries(payload)) {
+		if (val === undefined || val === null || val === '') continue;
+		if (Array.isArray(val) && val.length === 0) continue;
+		body[key] = val;
+	}
+	return body;
 }
 
 function getCsrfToken(): string | null {
@@ -1436,6 +1490,8 @@ export interface ColorLabelStats {
 	total_crop_links: number;
 	color_labeled_pieces: number;
 	crop_linked_pieces: number;
+	// Pieces training runs labelled with a colour that counts (the runs' kept counts).
+	training_labeled_pieces: number;
 	labeler_histogram: { '0': number; '1': number; '2': number; '3+': number };
 }
 
@@ -1463,7 +1519,36 @@ export type ColorLabelSort =
 	| 'least_crop'
 	| 'most_crop'
 	| 'rare_color'
-	| 'needs_me';
+	| 'needs_me'
+	// By one colour model's confidence (colorModel), over the pieces it answered.
+	| 'least_sure'
+	| 'surest';
+
+// A colour model a person can sort and compare by (the active one first).
+export interface ColorModelChoice {
+	sha256: string;
+	name: string;
+	filename: string;
+	is_active: boolean;
+}
+
+// A colour model's answer for a piece.
+export interface ModelColor {
+	color_id: number;
+	color_name: string | null;
+	rgb: string | null;
+	confidence: number;
+}
+
+// Every stored colour model's answer for a piece (the piece panel).
+export interface ModelAnswer extends ModelColor {
+	model_sha256: string;
+	model_name: string;
+	is_active: boolean;
+	top: ModelColor[];
+	crops: number;
+	at: string | null;
+}
 
 export interface ColorLabelPieceCard {
 	machine_id: string;
@@ -1474,22 +1559,36 @@ export interface ColorLabelPieceCard {
 	seen_at: string | null;
 	color_label_count: number;
 	crop_link_count: number;
+	part_label_count: number;
 	my_color: boolean;
 	my_crop: boolean;
+	my_part: boolean;
 	has_candidates: boolean;
+	// A classification frame of the machine near the piece showed the colour reference palette.
+	has_palette: boolean;
+	// A training run labelled the piece with a colour that counts as a colour label.
+	has_training_label: boolean;
+	// The chosen colour model's answer (colorModel); null when it has not answered.
+	model_color?: ModelColor | null;
 	thumb_seq: number | null;
+	// Straight from storage when Hive can sign one; else load the thumbnail by thumb_seq.
+	thumb_url: string | null;
 }
 
 export interface ColorLabelPiecesPage {
 	items: ColorLabelPieceCard[];
 	has_more: boolean;
-	offset: number;
+	// Pass as `cursor` for the page after this one; null at the end of the list.
+	next_cursor: string | null;
 	sort: ColorLabelSort;
+	// The colour model the cards carry and a model sort is by.
+	color_model: string | null;
 }
 
 export interface MachineLabeledPiece {
 	piece_uuid: string;
 	thumb_seq: number | null;
+	thumb_url: string | null;
 	color_id: number;
 	color_name: string;
 	rgb: string | null;
@@ -1502,30 +1601,45 @@ export interface MachineLabeledPiecesResponse {
 	total: number;
 }
 
-export interface PartBrickLinkColor {
+// One color in a likely-colors ranking: how near it is to the predictions,
+// how likely the part exists in it (BrickLink sales), and the product. Drawn
+// by the design system's ColorChoice (its LikelyColor type is the same shape).
+export interface LikelyColor {
 	color_id: number;
-	color_name: string;
+	color_name: string | null;
 	rgb: string | null;
 	is_trans: boolean;
-	qty: number;
-	qty_new: number;
-	qty_used: number;
-	lots: number;
-	share: number;
+	rank: number;
+	score: number;
+	closeness: number;
+	likelihood: number;
+	distance: number | null;
+	hue_diff: number | null;
+	predicted: boolean;
+	predicted_score: number | null;
+	qty: number | null;
+	lots: number | null;
+	share: number | null;
+	known_in: boolean;
 }
 
-export interface PartBrickLinkColorsResponse {
-	part_id: string;
+export interface LikelyColorsResponse {
+	part_id: string | null;
 	item_no: string | null;
+	source: 'live' | 'cache' | 'none';
 	updated_at: string | null;
-	source: 'live' | 'cache';
 	total_qty: number;
-	items: PartBrickLinkColor[];
+	predictions: { color_id: number; score: number | null }[];
+	colors: LikelyColor[];
 }
 
 export interface ColorLabelPrediction {
 	color_id: string | null;
 	color_name: string | null;
+	color_confidence: number | null;
+	color_provider?: string | null; // brickognize | hive_basically; null on older rows
+	// Who answered the applied colour: "Brickognize", or the hosted model's registry name.
+	color_provider_label?: string;
 }
 
 export interface ColorModelPrediction {
@@ -1538,6 +1652,9 @@ export interface ColorModelPrediction {
 	sample_count: number;
 }
 
+// The Brickognize card's state for the signed-in labeler: their own verdict
+// (from their label rows) and whether Brickognize already has a verdict on the
+// piece from anyone (the machine's operator or a Hive labeler).
 export interface ColorLabelCorrection {
 	correctable: boolean;
 	part_correct: boolean | null;
@@ -1591,7 +1708,112 @@ export interface ColorLabelPieceDetail {
 	my_part_label: PiecePartLabel | null;
 	predicted_part: PartSummary | null;
 	prediction: ColorLabelPrediction;
+	// Every ranked part and colour answer the machine got for the piece, each
+	// request's, applied or not; ordered by kind, request, rank. Empty for
+	// pieces from sorters that predate it.
+	machine_predictions: MachinePiecePrediction[];
+	palette: PiecePalette;
+	// Every stored colour model's answer, the active model first, then newest first.
+	model_answers: ModelAnswer[];
+	// The training run the machine saw the piece in, and the colour it labels
+	// the piece with; null for a piece seen outside a run.
+	training_run: PieceTrainingRun | null;
 	correction: ColorLabelCorrection;
+}
+
+// A BrickLink color by its id as a string (how sorters send them); name and
+// rgb are null when the catalog does not know it.
+export interface TrainingRunColor {
+	id: string;
+	name: string | null;
+	rgb: string | null;
+}
+
+// A stretch of a training run with the colors fed during it.
+export interface TrainingRunSegment {
+	segment_uuid: string;
+	color_ids: string[];
+	colors: TrainingRunColor[];
+	started_at: string | null;
+	ended_at: string | null; // null while it is open
+}
+
+export interface PieceTrainingRun {
+	run_uuid: string;
+	mode: string | null; // 'color'; null until the run itself has synced
+	color_ids: string[]; // every color the run's segments used
+	colors: TrainingRunColor[];
+	// The segment the piece was seen in; null when it names none or the run has not synced it.
+	segment: TrainingRunSegment | null;
+	color_id: string | null; // the piece's label; null when the run could not decide one
+	color_name: string | null;
+	color_rgb: string | null;
+	label_source: string | null; // run | prediction | nearest
+	excluded: boolean; // the operator excluded the piece
+	run_excluded: boolean; // ... or the whole run
+	counts: boolean; // the label counts as a color label
+	started_at: string | null;
+	ended_at: string | null;
+}
+
+// A machine's training run, as its page lists it, with the counts Hive keeps.
+export interface MachineTrainingRun {
+	run_uuid: string;
+	mode: string;
+	color_ids: string[];
+	colors: TrainingRunColor[];
+	started_at: string;
+	ended_at: string | null;
+	excluded: boolean;
+	pieces: number;
+	labeled: number;
+	excluded_pieces: number;
+}
+
+export interface MachineTrainingRunsPage {
+	items: MachineTrainingRun[];
+	next_cursor: string | null;
+}
+
+// The colour reference palette for a piece: the machine's classification frame
+// with the palette in view nearest the piece (the latest within `window_s`
+// before it, else the first after), and the swatches read in it.
+export interface PiecePalette {
+	window_s: number;
+	frame: {
+		sample_id: string;
+		frame_at: string;
+		// Seconds from the piece's arrival to the frame; negative when before.
+		offset_s: number;
+		// Straight from storage when Hive can sign one; else api.sampleFullFrameUrl.
+		full_frame_url: string | null;
+		run: SampleSwatchRun;
+	} | null;
+}
+
+// One of the piece's images a prediction was made from, as the machine keeps
+// it: "burst" (a classification channel crop; seq is the piece image's seq) or
+// "link" (an upstream crop the piece-link model matched).
+export interface MachinePredictionImage {
+	set: 'burst' | 'link' | string;
+	seq: number;
+	channel: number | null;
+}
+
+export interface MachinePiecePrediction {
+	source: string; // "live" (the machine, while sorting) or a later run's label
+	request: string; // combined | single_burst | hosted, live; a later run's model name
+	provider: string; // brickognize | hive_basically | a later run's provider
+	model: string | null; // the model's sha256
+	kind: 'color' | 'part';
+	rank: number; // 0-based, in the provider's own order
+	value_id: string; // a BrickLink colour id as text, or a part number
+	value_name: string | null;
+	score: number | null; // 0..1
+	applied: boolean; // the one part and the one colour the piece took
+	model_name?: string | null; // the model's registry name, else the one the machine sent
+	images?: MachinePredictionImage[] | null; // null when the machine did not record them
+	predicted_at?: string | null;
 }
 
 export type RejectReason =
@@ -1634,26 +1856,11 @@ export const IMAGE_QUALITY_REASONS: { code: ImageQualityReason; label: string }[
 
 export interface ColorLabelQueueImage extends ImageQualityFlags {
 	seq: number;
+	// Straight from storage when Hive can sign one; else load colorLabelImageUrl.
+	url: string | null;
 	source: string | null;
 	used: boolean;
 	score: number | null;
-}
-
-export interface ColorLabelQueueItem {
-	machine_id: string;
-	machine_name: string | null;
-	piece_uuid: string;
-	recorded_at: string | null;
-	seen_at: string | null;
-	part: { part_id: string | null; part_name: string | null };
-	pixel_guess: ColorLabelPixelGuess | null;
-	images: ColorLabelQueueImage[];
-	my_label: { color_id: number | null; notes: string | null } | null;
-}
-
-export interface ColorLabelQueue {
-	items: ColorLabelQueueItem[];
-	has_more: boolean;
 }
 
 export interface ColorModel {
@@ -1698,6 +1905,255 @@ export interface LinkModelsResponse {
 	model_dir: string;
 }
 
+// A colour-reference palette finder: an ONNX network that finds the palette's
+// tiles in a classification-camera frame. While one is active, every such
+// sample gets a swatch_find job.
+export interface SwatchModel {
+	id: string;
+	filename: string;
+	name: string;
+	description: string | null;
+	kind: string;
+	sha256: string;
+	colour_count: number;
+	net_long_side: number;
+	file_size: number;
+	is_active: boolean;
+	updated_at: string | null;
+}
+
+export interface SwatchModelsResponse {
+	models: SwatchModel[];
+	model_dir: string;
+	source_roles: string[];
+}
+
+/** One palette tile found in a frame. Pixels are in the full-resolution frame. */
+export interface SampleSwatch {
+	position: number;
+	colour: string;
+	bricklink_color_id: number | null;
+	colour_score: number;
+	surface_score: number;
+	pixels: number;
+	/** Median sRGB of the tile's top face, 0..255. */
+	rgb: [number, number, number];
+	rgb_std: [number, number, number];
+	clipped: number;
+	centre: [number, number];
+	box: [number, number, number, number];
+	length: number;
+	width: number;
+	flags: string[];
+	/** One of the tiles that make up the palette, not a loose piece's top. Null on a run made before the call. */
+	in_palette: boolean | null;
+}
+
+export interface SampleSwatchRun {
+	id: string;
+	model_id: string | null;
+	model_name: string;
+	model_sha256: string;
+	frame_width: number;
+	frame_height: number;
+	swatch_count: number;
+	/** The frame's call: is the palette in view, and how many swatches make it up. Null on a run made before the call. */
+	palette_present: boolean | null;
+	palette_swatches: number | null;
+	/** About the palette's swatches as a whole. */
+	flags: string[];
+	seconds: number;
+	created_at: string | null;
+	swatches: SampleSwatch[];
+}
+
+export interface SwatchBackfillResult {
+	model: string;
+	matched: number;
+	queued: number;
+	already_queued: number;
+	truncated: boolean;
+}
+
+// The background job queue (admin).
+export interface JobKindCounts {
+	kind: string;
+	queued: number;
+	running: number;
+	done: number;
+	failed: number;
+	/** Whether this server has a handler for the kind; jobs of other kinds wait. */
+	registered: boolean;
+	oldest_queued_at: string | null;
+}
+
+export interface JobRow {
+	id: string;
+	kind: string;
+	subject: string | null;
+	status: 'queued' | 'running' | 'done' | 'failed';
+	priority: number;
+	attempts: number;
+	max_attempts: number;
+	error: string | null;
+	result: Record<string, unknown> | null;
+	run_after: string | null;
+	created_at: string | null;
+	started_at: string | null;
+	finished_at: string | null;
+}
+
+export interface JobWorkerStatus {
+	enabled: boolean;
+	running: boolean;
+	threads: number;
+	processed: number;
+	succeeded: number;
+	failed: number;
+	last_job_at: string | null;
+	last_error: string | null;
+	current: { id: string; kind: string; subject: string | null } | null;
+	kinds: string[];
+}
+
+export interface JobsSummary {
+	worker: JobWorkerStatus;
+	kinds: JobKindCounts[];
+	recent_failures: JobRow[];
+}
+
+// The admin Server page (GET /api/admin/server). Each part is read on its
+// own; one the server could not read comes back as { error }.
+export interface ServerPartError {
+	error: string;
+}
+
+export interface RequestTiming {
+	count: number;
+	per_minute: number;
+	errors: number;
+	/** Requests that took the slow threshold (ServerRequests.slow_s) or longer. */
+	slow: number;
+	p50_ms: number;
+	p90_ms: number;
+	p99_ms: number;
+	max_ms: number;
+	mean_ms: number;
+	total_s: number;
+	/** Time the requests spent in database queries. */
+	db_s: number;
+}
+
+export interface RouteTiming extends RequestTiming {
+	method: string;
+	/** The route's template, e.g. /api/samples/{sample_id}. */
+	route: string;
+}
+
+export interface ServerRequests {
+	window_s: number;
+	since: string;
+	slow_s: number;
+	totals: RequestTiming;
+	routes: RouteTiming[];
+	in_flight: { count: number; oldest: { method: string; path: string; running_s: number }[] };
+	/** Cores this process kept busy, over the window and over the last few minutes. */
+	cpu: { window_cores: number | null; recent_cores: number | null; recent_s: number | null };
+}
+
+export interface ServerProcess {
+	pid: number;
+	role: string | null;
+	started_at: string;
+	uptime_s: number;
+	threads: number;
+	cpus: number | null;
+	load: number[] | null;
+	db_pool: { checked_out: number | null; limit: number | null };
+	threadpool: { busy: number; size: number; waiting: number } | null;
+}
+
+export interface ServerWorker {
+	name: string;
+	running: boolean;
+	last_run_at: string | null;
+	last_run_s: number | null;
+	last_error: string | null;
+	every_s: number | null;
+	runs: number | null;
+}
+
+export interface ServerJobKind extends JobKindCounts {
+	done_last_hour: number;
+	failed_last_hour: number;
+}
+
+export interface ServerJobs {
+	kinds: ServerJobKind[];
+	last_done_at: string | null;
+	running: { kind: string; subject: string | null; worker: string | null; running_s: number | null }[];
+	recent_failures: JobRow[];
+	worker_here: JobWorkerStatus;
+}
+
+export interface ServerPostgres {
+	dialect: string;
+	version: string;
+	size_bytes: number;
+	started_at: string | null;
+	stats_since: string | null;
+	shared_buffers: string;
+	cache_hit_ratio: number | null;
+	temp_files: number;
+	temp_bytes: number;
+	deadlocks: number;
+	commits: number;
+	rollbacks: number;
+	connections: { max: number; all_databases: number; by_state: { state: string; count: number }[] };
+	longest: {
+		pid: number;
+		state: string;
+		application: string | null;
+		client: string | null;
+		waiting_on: string | null;
+		query_s: number | null;
+		transaction_s: number | null;
+		query: string;
+	}[];
+	tables: {
+		name: string;
+		total_bytes: number;
+		index_bytes: number;
+		rows: number;
+		dead_rows: number | null;
+		seq_scans: number | null;
+		seq_rows_read: number | null;
+		index_scans: number | null;
+		last_vacuum: string | null;
+	}[];
+	indexes: { name: string; table: string; bytes: number; scans: number }[];
+}
+
+export interface ServerDisk {
+	label: string;
+	path: string;
+	total_bytes: number;
+	free_bytes: number;
+}
+
+export interface ServerStatus {
+	generated_at: string;
+	process: ServerProcess | ServerPartError;
+	requests: ServerRequests | ServerPartError;
+	workers: ServerWorker[] | ServerPartError;
+	jobs: ServerJobs | ServerPartError;
+	/** Only { dialect } off PostgreSQL. */
+	database: ServerPostgres | { dialect: string } | ServerPartError;
+	disk: ServerDisk[] | ServerPartError;
+	memory: ServerHealth['memory'] | ServerPartError;
+	storage: ServerHealth['storage'] | ServerPartError;
+}
+
 // A "possibly the same piece" upstream C2/C3 crop candidate. `score` +
 // `predicted` are the shared time/angle heuristic's confidence and default
 // selection (kept untouched — they feed the was_predicted training signal).
@@ -1719,6 +2175,8 @@ export interface PossibleCropCandidate extends ImageQualityFlags {
 	model_same: boolean | null;
 	model_score: number | null;
 	available: boolean;
+	// Straight from storage when Hive can sign one; else load channelCropLabelImageUrl.
+	thumb_url: string | null;
 }
 
 export interface PieceCropLinkMember {
@@ -1736,6 +2194,8 @@ export interface PossibleCropsResult {
 	ai_reasoning: string | null;
 	// Name of the active link matcher model when prediction_source === 'model'.
 	link_model: string | null;
+	// The score at or above which the link model counts a crop as the same piece.
+	link_threshold: number | null;
 	// Present only on the ai-predict POST response.
 	ai_cost_usd?: number | null;
 	ai_elapsed_ms?: number | null;
@@ -1817,6 +2277,9 @@ export const api = {
 		const qs = opts.refreshStorage ? '?refresh_storage=true' : '';
 		return request<ServerHealth>('GET', `/api/admin/server-health${qs}`);
 	},
+	getServerStatus() {
+		return request<ServerStatus>('GET', '/api/admin/server');
+	},
 	getAllMachines() {
 		return request<FleetMachine[]>('GET', '/api/admin/machines');
 	},
@@ -1834,6 +2297,16 @@ export const api = {
 		return request<MachinePiecesPage>(
 			'GET',
 			`/api/machines/${machineId}/pieces${qs ? `?${qs}` : ''}`
+		);
+	},
+	getMachineTrainingRuns(machineId: string, opts: { limit?: number; cursor?: string | null } = {}) {
+		const params = new URLSearchParams();
+		if (opts.limit) params.set('limit', String(opts.limit));
+		if (opts.cursor) params.set('cursor', opts.cursor);
+		const qs = params.toString();
+		return request<MachineTrainingRunsPage>(
+			'GET',
+			`/api/machines/${machineId}/training-runs${qs ? `?${qs}` : ''}`
 		);
 	},
 	machinePieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
@@ -1864,39 +2337,36 @@ export const api = {
 	colorLabelColors() {
 		return request<{ results: BrickLinkColor[] }>('GET', '/api/labeling/colors');
 	},
-	colorLabelStats(opts: { machineId?: string | null } = {}) {
-		const qs = opts.machineId ? `?machine_id=${opts.machineId}` : '';
-		return request<ColorLabelStats>('GET', `/api/labeling/stats${qs}`);
+	colorLabelStats(opts: { machineIds?: string[] } = {}) {
+		return request<ColorLabelStats>('GET', `/api/labeling/stats${machineQuery(opts.machineIds)}`);
 	},
-	colorCoverage(opts: { machineId?: string | null } = {}) {
-		const qs = opts.machineId ? `?machine_id=${opts.machineId}` : '';
-		return request<ColorCoverageResponse>('GET', `/api/labeling/color-coverage${qs}`);
-	},
-	colorLabelQueue(opts: { onlyUnlabeled?: boolean; limit?: number; offset?: number } = {}) {
-		const params = new URLSearchParams();
-		if (opts.onlyUnlabeled === false) params.set('only_unlabeled', 'false');
-		if (opts.limit) params.set('limit', String(opts.limit));
-		if (opts.offset) params.set('offset', String(opts.offset));
-		const qs = params.toString();
-		return request<ColorLabelQueue>('GET', `/api/labeling/queue${qs ? `?${qs}` : ''}`);
+	colorCoverage(opts: { machineIds?: string[] } = {}) {
+		return request<ColorCoverageResponse>('GET', `/api/labeling/color-coverage${machineQuery(opts.machineIds)}`);
 	},
 	colorLabelPieces(
 		opts: {
 			sort?: ColorLabelSort;
 			limit?: number;
-			offset?: number;
-			machineId?: string | null;
+			cursor?: string | null;
+			machineIds?: string[];
 			withCandidates?: boolean;
+			withPalette?: boolean;
+			colorModel?: string | null;
 		} = {}
 	) {
 		const params = new URLSearchParams();
 		if (opts.sort) params.set('sort', opts.sort);
+		if (opts.colorModel) params.set('color_model', opts.colorModel);
 		if (opts.limit) params.set('limit', String(opts.limit));
-		if (opts.offset) params.set('offset', String(opts.offset));
-		if (opts.machineId) params.set('machine_id', opts.machineId);
+		if (opts.cursor) params.set('cursor', opts.cursor);
+		for (const id of opts.machineIds ?? []) params.append('machine_id', id);
 		if (opts.withCandidates) params.set('with_candidates', 'true');
+		if (opts.withPalette) params.set('with_palette', 'true');
 		const qs = params.toString();
 		return request<ColorLabelPiecesPage>('GET', `/api/labeling/pieces${qs ? `?${qs}` : ''}`);
+	},
+	colorModelChoices() {
+		return request<{ models: ColorModelChoice[] }>('GET', '/api/labeling/color-models');
 	},
 	colorLabelPieceDetail(machineId: string, pieceUuid: string) {
 		return request<ColorLabelPieceDetail>(
@@ -1916,6 +2386,16 @@ export const api = {
 			'/api/labeling',
 			body
 		);
+	},
+	// Label each piece, as the signed-in user, with the colour the model answered
+	// for it. At most 500 pieces a request.
+	colorLabelAgree(modelSha256: string, pieces: { machine_id: string; piece_uuid: string }[]) {
+		return request<{
+			labeled: number;
+			created: number;
+			skipped: number;
+			labels: { machine_id: string; piece_uuid: string; color_id: number; created: boolean }[];
+		}>('POST', '/api/labeling/agree', { model_sha256: modelSha256, pieces });
 	},
 	deleteColorLabel(machineId: string, pieceUuid: string) {
 		return request<{ ok: boolean }>(
@@ -1995,12 +2475,13 @@ export const api = {
 		);
 	},
 	// BrickLink for-sale color mix for a part (labeling prior column)
-	partBrickLinkColors(partId: string, limit?: number) {
-		const qs = limit ? `?limit=${limit}` : '';
-		return request<PartBrickLinkColorsResponse>(
-			'GET',
-			`/api/labeling/part/${encodeURIComponent(partId)}/bricklink-colors${qs}`
-		);
+	// predictions: "<BrickLink color id>:<score>,..."; partId null for a piece
+	// that was not identified (ranked by color alone).
+	likelyColors(partId: string | null, predictions: string) {
+		const qs = new URLSearchParams();
+		if (partId) qs.set('part_id', partId);
+		if (predictions) qs.set('predictions', predictions);
+		return request<LikelyColorsResponse>('GET', `/api/labeling/likely-colors?${qs}`);
 	},
 	machineLabeledPieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
 		return resolveImagePath(
@@ -2090,6 +2571,32 @@ export const api = {
 			`/api/link-models/${modelId}/deactivate`
 		);
 	},
+
+	// Swatch models (admin): the colour-reference palette finders on disk, the
+	// active one, and queueing existing samples for it.
+	listSwatchModels() {
+		return request<SwatchModelsResponse>('GET', '/api/swatch-models');
+	},
+	activateSwatchModel(modelId: string) {
+		return request<{ ok: boolean; model: SwatchModel }>('POST', `/api/swatch-models/${modelId}/activate`);
+	},
+	deactivateSwatchModel(modelId: string) {
+		return request<{ ok: boolean; model: SwatchModel }>('POST', `/api/swatch-models/${modelId}/deactivate`);
+	},
+	backfillSwatches(body: { machine_id: string; since?: string | null; until?: string | null; rerun?: boolean }) {
+		return request<SwatchBackfillResult>('POST', '/api/swatch-models/backfill', body);
+	},
+	getSampleSwatchRuns(sampleId: string) {
+		return request<{ runs: SampleSwatchRun[] }>('GET', `/api/samples/${sampleId}/swatch-runs`);
+	},
+
+	// The background job queue (admin).
+	getJobsSummary() {
+		return request<JobsSummary>('GET', '/api/admin/jobs');
+	},
+	retryJob(jobId: string) {
+		return request<{ ok: boolean; job: JobRow }>('POST', `/api/admin/jobs/${jobId}/retry`);
+	},
 	createMachine(name: string, description?: string) {
 		return request<MachineWithToken>('POST', '/api/machines', { name, description });
 	},
@@ -2113,30 +2620,17 @@ export const api = {
 	},
 
 	// Samples
-	getSamples(params: {
-		page?: number;
-		page_size?: number;
-		machine_id?: string;
-		upload_session_id?: string;
-		source_role?: string;
-		capture_reason?: string;
-		review_status?: string;
-		kind?: 'regular' | 'condition' | 'all' | string;
-		my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
-		annotated?: 'teacher' | 'raw' | 'all' | string;
-		exposure?: 'under' | 'normal' | 'over' | string;
-		archived?: 'active' | 'archived' | 'all' | string;
-		max_age_hours?: number | string;
-		scope?: 'mine' | 'all' | string;
-	} = {}) {
+	getSamples(params: SampleFilterParams & { cursor?: string | null; limit?: number } = {}) {
 		const searchParams = new URLSearchParams();
 		for (const [key, val] of Object.entries(params)) {
-			if (val !== undefined && val !== null && val !== '') {
+			if (key === 'machine_ids') {
+				for (const id of (val as string[] | undefined) ?? []) searchParams.append('machine_id', id);
+			} else if (val !== undefined && val !== null && val !== '' && val !== false) {
 				searchParams.set(key, String(val));
 			}
 		}
 		const qs = searchParams.toString();
-		return request<PaginatedSamples>('GET', `/api/samples${qs ? '?' + qs : ''}`);
+		return request<SamplePage>('GET', `/api/samples${qs ? '?' + qs : ''}`);
 	},
 	getSampleFilterOptions(params: { scope?: 'mine' | 'all' | string } = {}) {
 		const qs = params.scope ? `?scope=${params.scope}` : '';
@@ -2179,25 +2673,8 @@ export const api = {
 	deleteSample(id: string) {
 		return request<void>('DELETE', `/api/samples/${id}`);
 	},
-	batchDeleteSamples(payload: {
-		machine_id?: string;
-		source_role?: string;
-		capture_reason?: string;
-		review_status?: string;
-		kind?: 'regular' | 'condition' | 'all' | string;
-		my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
-		annotated?: 'teacher' | 'raw' | 'all' | string;
-		exposure?: 'under' | 'normal' | 'over' | string;
-		max_age_hours?: number | string;
-		dry_run?: boolean;
-		max_delete?: number;
-	}) {
-		// Strip empty values so the server sees None instead of '' (which would
-		// otherwise filter against empty strings and match nothing).
-		const body: Record<string, unknown> = {};
-		for (const [key, val] of Object.entries(payload)) {
-			if (val !== undefined && val !== null && val !== '') body[key] = val;
-		}
+	batchDeleteSamples(payload: SampleFilterParams & { dry_run?: boolean; max_delete?: number }) {
+		const body = filterBody(payload);
 		return request<{
 			ok: boolean;
 			matched: number;
@@ -2207,25 +2684,10 @@ export const api = {
 		}>('POST', '/api/samples/batch-delete', body);
 	},
 	batchArchiveSamples(
-		payload: {
-			machine_id?: string;
-			source_role?: string;
-			capture_reason?: string;
-			review_status?: string;
-			kind?: 'regular' | 'condition' | 'all' | string;
-			my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
-			annotated?: 'teacher' | 'raw' | 'all' | string;
-			exposure?: 'under' | 'normal' | 'over' | string;
-			max_age_hours?: number | string;
-			dry_run?: boolean;
-			max_archive?: number;
-		},
+		payload: SampleFilterParams & { dry_run?: boolean; max_archive?: number },
 		mode: 'archive' | 'unarchive' = 'archive'
 	) {
-		const body: Record<string, unknown> = {};
-		for (const [key, val] of Object.entries(payload)) {
-			if (val !== undefined && val !== null && val !== '') body[key] = val;
-		}
+		const body = filterBody(payload);
 		const path = mode === 'archive' ? '/api/samples/batch-archive' : '/api/samples/batch-unarchive';
 		return request<{
 			ok: boolean;
@@ -2249,32 +2711,6 @@ export const api = {
 	},
 
 	// Review
-	getNextReview(
-		params: {
-			scope?: 'mine' | 'all' | string;
-			machine_id?: string;
-			source_role?: string;
-			capture_reason?: string;
-			kind?: 'regular' | 'condition' | 'all' | string;
-			review_status?: 'unreviewed' | 'in_review' | 'accepted' | 'rejected' | 'conflict' | string;
-			my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
-			annotated?: 'teacher' | 'raw' | 'all' | string;
-			max_age_hours?: number | string;
-		} = {},
-		excludeIds: string[] = []
-	) {
-		const sp = new URLSearchParams();
-		for (const [key, val] of Object.entries(params)) {
-			if (val !== undefined && val !== null && val !== '') {
-				sp.set(key, String(val));
-			}
-		}
-		for (const id of excludeIds) {
-			sp.append('exclude_id', id);
-		}
-		const qs = sp.toString();
-		return request<Sample | null>('GET', `/api/review/queue/next${qs ? '?' + qs : ''}`);
-	},
 	submitReview(sampleId: string, decision: 'accept' | 'reject', notes?: string) {
 		return request<SampleReview>('POST', `/api/review/samples/${sampleId}`, { decision, notes });
 	},
@@ -2310,6 +2746,7 @@ export const api = {
 		clear_perceptron_api_key?: boolean;
 		preferred_ai_model?: string | null;
 		preferred_teacher_model?: string | null;
+		share_activity?: boolean;
 	}) {
 		return request<User>('PATCH', '/api/auth/me', data);
 	},
@@ -2521,12 +2958,17 @@ export const api = {
 		data: { message: string; version_id?: string | null; selected_rule_id?: string | null },
 		onEvent: (event: { type: string; [key: string]: unknown }) => void
 	): Promise<SortingProfileAiMessage> {
-		const res = await fetch(resolveApiPath(`/api/profiles/${profileId}/ai/messages/stream`), {
-			method: 'POST',
-			headers: buildHeaders('POST', data),
-			credentials: 'include',
-			body: JSON.stringify(data)
-		});
+		const path = `/api/profiles/${profileId}/ai/messages/stream`;
+		let res = await doFetch('POST', path, data);
+		// The same refresh-and-retry as request(): the session cookie lasts 15
+		// minutes. A 401 means the model was never called, so a retry is safe.
+		if (res.status === 401) {
+			if (await refreshSession()) {
+				res = await doFetch('POST', path, data);
+			} else {
+				unauthorizedHandler?.();
+			}
+		}
 		if (!res.ok) {
 			let errorData;
 			try { errorData = await res.json(); } catch { errorData = { error: `HTTP ${res.status}` }; }
@@ -2630,9 +3072,12 @@ export const api = {
 	},
 
 	// Stats
-	getOverview(params: { scope?: 'mine' | 'all' | string } = {}) {
-		const qs = params.scope ? `?scope=${params.scope}` : '';
-		return request<StatsOverview>('GET', `/api/stats/overview${qs}`);
+	getOverview(params: { scope?: 'mine' | 'all' | string; machineIds?: string[] } = {}) {
+		const sp = new URLSearchParams();
+		if (params.scope) sp.set('scope', params.scope);
+		for (const id of params.machineIds ?? []) sp.append('machine_id', id);
+		const qs = sp.toString();
+		return request<StatsOverview>('GET', `/api/stats/overview${qs ? `?${qs}` : ''}`);
 	},
 
 	// API keys (personal access tokens)
@@ -2880,7 +3325,7 @@ export interface PaginatedDetectionModels {
 
 export interface TeacherJobFilter {
 	scope?: string;
-	machine_id?: string;
+	machine_ids?: string[];
 	upload_session_id?: string;
 	source_role?: string;
 	capture_reason?: string;
@@ -2889,6 +3334,7 @@ export interface TeacherJobFilter {
 	my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
 	annotated?: 'teacher' | 'raw' | 'all' | string;
 	exposure?: 'under' | 'normal' | 'over' | string;
+	palette?: 'in_view' | 'not_in_view' | 'unchecked' | string;
 	max_age_hours?: number;
 }
 

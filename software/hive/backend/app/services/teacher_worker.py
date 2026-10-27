@@ -140,6 +140,16 @@ class TeacherWorker:
     def notify(self) -> None:
         self._wake_event.set()
 
+    def status(self) -> dict[str, Any]:
+        with self._in_flight_lock:
+            in_flight = len(self._in_flight)
+        dispatcher = self._dispatcher
+        return {
+            "running": bool(dispatcher is not None and dispatcher.is_alive()),
+            "parallelism": settings.TEACHER_WORKER_PARALLELISM,
+            "in_flight": in_flight,
+        }
+
     # ------------------------------------------------------------------ dispatcher
 
     def _dispatch_loop(self) -> None:

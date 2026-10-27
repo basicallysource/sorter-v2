@@ -2,75 +2,56 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import {
-		backendHealthy,
 		getBackendHttpBase,
+		getBackendWsBase,
 		machineHttpBaseUrlFromWsUrl,
-		requestBackendRestart,
-		waitForBackend
+		requestBackendRestart
 	} from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { machineDowntime } from '$lib/stores/machineDowntime.svelte';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import Power from '@lucide/svelte/icons/power';
-	import { onMount } from 'svelte';
 
-	// Says so when the backend has been unreachable for a while. Reconnecting
-	// the websocket is the MachineManager's job; recovering touches nothing.
+	// Says so when the machine's websocket has been down for a while. The
+	// MachineManager reconnects on its own; nothing here polls.
 	const manager = getMachinesContext();
 
-	const HEALTH_INTERVAL_MS = 3000;
 	const OUTAGE_GRACE_MS = 6000;
-	const RECOVERY_POLL_MS = 1500;
+	const RESTART_WAIT_MS = 90_000;
 
-	let healthy = $state(true);
-	let checking = $state(false);
+	const connected = $derived(manager.selectedMachine?.status === 'connected');
+	let outage = $state(false);
 	let restarting = $state(false);
-	let firstFailureAt: number | null = null;
 
-	function baseUrl(): string {
-		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? getBackendHttpBase();
-	}
-
-	async function poll() {
-		// A live websocket proves the backend is up without another request.
-		if (manager.isLive(manager.selectedMachine) || (await backendHealthy(baseUrl()))) {
-			firstFailureAt = null;
-			healthy = true;
+	$effect(() => {
+		if (connected) {
+			outage = false;
 			restarting = false;
 			return;
 		}
-		firstFailureAt ??= Date.now();
-		if (Date.now() - firstFailureAt >= OUTAGE_GRACE_MS) healthy = false;
+		const timer = setTimeout(() => (outage = true), OUTAGE_GRACE_MS);
+		return () => clearTimeout(timer);
+	});
+
+	function wsUrl(): string {
+		return manager.selectedMachine?.url ?? `${getBackendWsBase()}/ws`;
 	}
 
-	async function retryNow() {
-		checking = true;
-		await poll();
-		checking = false;
+	function retryNow() {
+		manager.connect(wsUrl(), { force: true });
 	}
 
 	async function restartBackend() {
 		restarting = true;
-		const url = baseUrl();
-		if (
-			(await requestBackendRestart(url)) &&
-			(await waitForBackend(url, { initialDelayMs: RECOVERY_POLL_MS, intervalMs: RECOVERY_POLL_MS }))
-		) {
-			healthy = true;
-			firstFailureAt = null;
-		}
+		const machine = manager.selectedMachine;
+		const url = machineHttpBaseUrlFromWsUrl(machine?.url) ?? getBackendHttpBase();
+		if (await requestBackendRestart(url)) await manager.waitForNewRun(machine, RESTART_WAIT_MS);
 		restarting = false;
 	}
-
-	onMount(() => {
-		void poll();
-		const interval = setInterval(() => void poll(), HEALTH_INTERVAL_MS);
-		return () => clearInterval(interval);
-	});
 </script>
 
 <Modal
-	open={!healthy && !machineDowntime.deliberate}
+	open={outage && !machineDowntime.deliberate}
 	title="The backend is not responding"
 	size="sm"
 	dismissible={!restarting}
@@ -81,7 +62,7 @@
 	{:else}
 		<p>
 			The sorter backend is not responding. The service may have crashed or still be starting up, or
-			the network connection may have been lost.
+			the network connection may have been lost. This closes by itself when it answers again.
 		</p>
 		<p class="mt-2 text-ink-muted">
 			Check that the machine is powered on and the backend service is running.
@@ -90,9 +71,7 @@
 	{#snippet footer()}
 		{#if !restarting}
 			<Button icon={Power} onclick={() => void restartBackend()}>Restart the backend</Button>
-			<Button variant="primary" icon={RefreshCw} loading={checking} onclick={() => void retryNow()}>
-				Check the connection
-			</Button>
+			<Button variant="primary" icon={RefreshCw} onclick={retryNow}>Check the connection</Button>
 		{/if}
 	{/snippet}
 </Modal>

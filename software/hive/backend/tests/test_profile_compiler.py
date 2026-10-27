@@ -506,9 +506,12 @@ def test_the_catalog_service_is_built_once_when_asked_for_together(monkeypatch):
     built = []
 
     class Slow:
-        def __init__(self):
+        def __init__(self, *, runs_syncs: bool = True):
             built.append(1)
             time.sleep(0.05)
+
+        def follow_syncs(self) -> None:
+            pass
 
     monkeypatch.setattr(profile_catalog, "_catalog_service", None)
     monkeypatch.setattr(profile_catalog, "ProfileCatalogService", Slow)

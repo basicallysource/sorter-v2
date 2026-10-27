@@ -4,8 +4,9 @@ Built for this machine's exact situation, exploiting an invariant nothing else
 uses: on a rigid one-way platter, pieces NEVER pass each other, so their order
 around the channel is fixed. Association therefore reduces to aligning two
 already-ordered lists (the live tracks and this frame's detections) — which is
-robust to arbitrarily large between-frame jumps (a piece that the platter just
-flung 90 deg forward is still the Nth piece in line). No motion model, no
+robust to large between-frame jumps (a piece the platter just carried 90 deg
+forward is still the Nth piece in line), up to what the platter can carry it in
+the time since it was last seen. No motion model, no
 prediction, and crucially NO dependence on motor-command timing — it reads only
 the bbox stream, so there is nothing to synchronise against the perception loop.
 
@@ -91,6 +92,16 @@ def _color_dist(a: Optional[tuple], b: Optional[tuple]) -> float:
     return min(1.0, math.sqrt(dx * dx + dy * dy + dv * dv))
 
 
+def _containment(a: Bbox, b: Bbox) -> float:
+    """The share of the smaller of two boxes that lies inside the larger."""
+    ix = min(a[2], b[2]) - max(a[0], b[0])
+    iy = min(a[3], b[3]) - max(a[1], b[1])
+    if ix <= 0 or iy <= 0:
+        return 0.0
+    smaller = min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1]))
+    return (ix * iy) / smaller if smaller > 0 else 0.0
+
+
 @dataclass
 class _Det:
     bbox: Bbox
@@ -129,6 +140,10 @@ class OrderedChannelTracker:
         self._cfg = cfg
         self._tracks: dict[int, _Track] = {}
         self._next_id = 1
+        self._now = 0.0
+        # The colour descriptor measured for each box in the last frame, for the
+        # control-data log (so a replay of the log matches as this tracker did).
+        self.colors: dict[Bbox, tuple[float, float, float]] = {}
 
     def reset(self) -> None:
         self._tracks = {}
@@ -167,7 +182,9 @@ class OrderedChannelTracker:
                 )
             )
 
+        self.colors = {d.bbox: d.color for d in dets if d.color is not None}
         tracks = sorted(self._tracks.values(), key=lambda t: t.gap)  # leading-first
+        self._now = now
         align = self._align(tracks, dets)
 
         # An id is emitted (and so becomes a real piece downstream) only once a
@@ -181,8 +198,18 @@ class OrderedChannelTracker:
             self._updateTrack(tr, det, now)
             if tr.hits >= cfg.min_hits:
                 out[det.bbox] = tr.track_id
+        unmatched_tracks = [tracks[ti] for ti in align.unmatched_tracks]
         for di in align.unmatched_dets:
             det = dets[di]
+            # The same piece boxed differently (its whole outline in one frame,
+            # a part of it in the next): keep its id.
+            same = self._containingTrack(det, unmatched_tracks, now)
+            if same is not None:
+                unmatched_tracks.remove(same)
+                self._updateTrack(same, det, now)
+                if same.hits >= cfg.min_hits:
+                    out[det.bbox] = same.track_id
+                continue
             if det.score >= cfg.new_track_min_score:
                 tr = self._newTrack(det, now)
                 if tr.hits >= cfg.min_hits:
@@ -249,11 +276,14 @@ class OrderedChannelTracker:
         cfg = self._cfg
         # Pieces only ever move FORWARD (gap shrinks toward the exit). A detection
         # whose gap grew beyond a small jitter tolerance moved backward -> cannot
-        # be this track. A large forward jump is free (that is the whole point).
+        # be this track. A forward jump is free up to what the platter can carry
+        # a piece in the time since it was last seen.
         # A piece still landing (both in the drop zone) bounces back as well, and
         # giving it a new id there loses what it was photographed as.
         landing = tr.zone == _DROP_ZONE and det.zone == _DROP_ZONE
         if det.gap - tr.gap > (cfg.drop_back_tol_deg if landing else cfg.back_tol_deg):
+            return _INF
+        if self._tooFarAhead(tr, det):
             return _INF
         appearance = (
             cfg.color_weight * _color_dist(tr.color, det.color)
@@ -263,6 +293,32 @@ class OrderedChannelTracker:
         if appearance > cfg.match_max_cost:
             return _INF
         return appearance
+
+    def _containingTrack(self, det: _Det, tracks: list[_Track], now: float) -> Optional[_Track]:
+        """The track, left unmatched in this frame and seen within
+        contain_recent_s, whose last box holds this detection's box or sits
+        inside it; the most overlapping one."""
+        cfg = self._cfg
+        if cfg.contain_overlap <= 0.0:
+            return None
+        best, best_overlap = None, cfg.contain_overlap
+        for tr in tracks:
+            if now - tr.last_match_t > cfg.contain_recent_s:
+                continue
+            landing = tr.zone == _DROP_ZONE and det.zone == _DROP_ZONE
+            if det.gap - tr.gap > (cfg.drop_back_tol_deg if landing else cfg.back_tol_deg):
+                continue
+            if self._tooFarAhead(tr, det):
+                continue
+            overlap = _containment(tr.bbox, det.bbox)
+            if overlap >= best_overlap:
+                best, best_overlap = tr, overlap
+        return best
+
+    def _tooFarAhead(self, tr: _Track, det: _Det) -> bool:
+        cfg = self._cfg
+        dt = max(0.0, self._now - tr.last_match_t)
+        return tr.gap - det.gap > cfg.max_forward_deg_per_s * dt + cfg.forward_slack_deg
 
     def _missCost(self, track_idx: int) -> float:
         # Leaving a track unmatched (coast/exit). The head (leading, idx 0) is the

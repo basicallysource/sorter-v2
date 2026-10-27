@@ -102,9 +102,10 @@ FIELDS: dict[str, FieldSpec] = {
         FieldSpec("bl_catalog_year_released", INT, "Released (BrickLink)", "Year", NUMBER_OPS),
         FieldSpec("bl_catalog_is_obsolete", BOOL, "Obsolete", "Part", YES_NO_OPS, description="Whether BrickLink lists the part as obsolete."),
         FieldSpec("bl_catalog_weight", FLOAT, "Weight", "Size", NUMBER_OPS, unit="g"),
-        FieldSpec("bl_catalog_dim_x", FLOAT, "Length", "Size", NUMBER_OPS, unit="studs"),
-        FieldSpec("bl_catalog_dim_y", FLOAT, "Width", "Size", NUMBER_OPS, unit="studs"),
-        FieldSpec("bl_catalog_dim_z", FLOAT, "Height", "Size", NUMBER_OPS, unit="studs"),
+        # BrickLink's x is the shorter side of the footprint: a 1 x 6 brick is x=1, y=6.
+        FieldSpec("bl_catalog_dim_x", FLOAT, "Width", "Size", NUMBER_OPS, unit="studs", description="The shorter side of the part's footprint."),
+        FieldSpec("bl_catalog_dim_y", FLOAT, "Length", "Size", NUMBER_OPS, unit="studs", description="The longer side of the part's footprint."),
+        FieldSpec("bl_catalog_dim_z", FLOAT, "Height", "Size", NUMBER_OPS, unit="studs", description="The catalog has no heights yet, so this matches no part."),
         FieldSpec("bl_price_avg", FLOAT, "Average price, used", "Price", NUMBER_OPS, unit="$", description=_USED_PRICE),
         FieldSpec("bl_price_min", FLOAT, "Lowest price, used", "Price", NUMBER_OPS, unit="$", description=_USED_PRICE),
         FieldSpec("bl_price_max", FLOAT, "Highest price, used", "Price", NUMBER_OPS, unit="$", description=_USED_PRICE),

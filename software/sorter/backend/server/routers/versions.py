@@ -13,10 +13,17 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+import machine_toml
+
 router = APIRouter()
 
+# Release channels are tag namespaces: a machine is on a channel when it sits on
+# one of the channel's tags, and each channel offers its newest release. Never a
+# branch: an "update" to main is exactly what an operator must not be offered.
 STABLE_TAG_PREFIX = "sorter/stable/v"
-RELEASE_CHANNELS = (("stable", STABLE_TAG_PREFIX),)
+CANARY_TAG_PREFIX = "sorter/canary/v"
+RELEASE_CHANNELS = (("stable", STABLE_TAG_PREFIX), ("canary", CANARY_TAG_PREFIX))
+VERSION_PATTERN = re.compile(r"^\d+(\.\d+)*$")
 MAX_TAGS_LISTED = 20
 GIT_TIMEOUT_S = 30.0
 GIT_FETCH_TIMEOUT_S = 90.0
@@ -28,6 +35,11 @@ DEPENDENCY_FILES = (
     "software/sorter/backend/pyproject.toml",
     "software/sorter/backend/requirements.txt",
 )
+
+# The channel the person picked, kept in machine.toml so every update keeps it.
+# Tags alone can't say it: once stable is promoted to the very commit a canary
+# machine runs, both channels' tags sit on HEAD.
+SOFTWARE_TABLE = "software"
 
 _repo_root_cache: Optional[Path] = None
 _update_lock = threading.Lock()
@@ -88,6 +100,55 @@ def _commitInfo(ref: str) -> Optional[Dict[str, Any]]:
     }
 
 
+def _channelOfTag(name: str) -> Optional[str]:
+    for channel, prefix in RELEASE_CHANNELS:
+        if name.startswith(prefix):
+            return channel
+    return None
+
+
+def _channelsOnHead() -> List[str]:
+    """The channels with a release tagged on HEAD, stable first; [] off a release."""
+    patterns = [f"{prefix}*" for _channel, prefix in RELEASE_CHANNELS]
+    result = _git("tag", "-l", *patterns, "--points-at", "HEAD")
+    if result.returncode != 0:
+        return []
+    found = {_channelOfTag(name) for name in result.stdout.split()}
+    return [channel for channel, _prefix in RELEASE_CHANNELS if channel in found]
+
+
+def _chosenChannel() -> Optional[str]:
+    try:
+        table = machine_toml.read().get(SOFTWARE_TABLE)
+    except machine_toml.MachineTomlError:
+        return None
+    channel = table.get("channel") if isinstance(table, dict) else None
+    return channel if channel in {name for name, _prefix in RELEASE_CHANNELS} else None
+
+
+def _saveChannel(channel: str) -> None:
+    try:
+        with machine_toml.edit() as config:
+            table = config.get(SOFTWARE_TABLE)
+            if not isinstance(table, dict):
+                table = {}
+                config[SOFTWARE_TABLE] = table
+            table["channel"] = channel
+    except machine_toml.MachineTomlError:
+        pass  # the channel then reads from the tags, as before
+
+
+def currentChannel() -> Optional[str]:
+    """The release channel this machine is on: the one the person picked when
+    HEAD sits on one of its releases, else the channel whose release HEAD sits
+    on (stable first), and None off a release (a branch, a commit in between)."""
+    on_head = _channelsOnHead()
+    if not on_head:
+        return None
+    chosen = _chosenChannel()
+    return chosen if chosen in on_head else on_head[0]
+
+
 def _currentInfo() -> Dict[str, Any]:
     branch = _gitLine("rev-parse", "--abbrev-ref", "HEAD") or "HEAD"
     detached = branch == "HEAD"
@@ -101,6 +162,7 @@ def _currentInfo() -> Dict[str, Any]:
         "detached": detached,
         "describe": describe,
         "dirty": dirty,
+        "channel": currentChannel(),
         **head,
     }
 
@@ -126,25 +188,77 @@ def _tagsForPrefix(prefix: str) -> List[Dict[str, Any]]:
     return tags
 
 
+def _releaseVersion(name: str) -> Optional[tuple[int, ...]]:
+    """(0, 4, 1) for sorter/canary/v0.4.1, None for anything else."""
+    for _channel, prefix in RELEASE_CHANNELS:
+        if name.startswith(prefix):
+            number = name[len(prefix):]
+            if VERSION_PATTERN.match(number):
+                return tuple(int(part) for part in number.split("."))
+    return None
+
+
+def _installedVersion() -> Optional[tuple[int, ...]]:
+    """The version of the release the machine runs: the newest release tagged on
+    HEAD, or, off a tag, the newest release the checked-out code contains."""
+    patterns = [f"{prefix}*" for _channel, prefix in RELEASE_CHANNELS]
+    for selector in ("--points-at", "--merged"):
+        result = _git("tag", "-l", *patterns, selector, "HEAD")
+        if result.returncode != 0:
+            return None
+        versions = [v for v in (_releaseVersion(name) for name in result.stdout.split()) if v is not None]
+        if versions:
+            return max(versions)
+    return None
+
+
+def _isBehind(full_sha: str, version: Optional[tuple[int, ...]], installed: Optional[tuple[int, ...]]) -> bool:
+    """Whether a release is older than what the machine runs. A machine never
+    moves back to an older release number: newer code may have changed the
+    machine's services or data in ways older code can't run on (main serves the
+    UI from the supervisor and removes the Vite unit v0.3 needs). Coming back
+    from canary to stable waits until stable catches up.
+
+    Off a release (a branch, a commit in between), a release at or past the one
+    the code is built on is the way back onto a channel, even though its commit
+    is behind what runs: refusing it stranded such a machine until the next
+    release."""
+    if installed is not None and version is not None and version < installed:
+        return True
+    if not _channelsOnHead():
+        return False
+    head = _gitLine("rev-parse", "HEAD")
+    return full_sha != head and _git("merge-base", "--is-ancestor", full_sha, "HEAD").returncode == 0
+
+
+def _formatVersion(version: Optional[tuple[int, ...]]) -> Optional[str]:
+    return ".".join(str(part) for part in version) if version is not None else None
+
+
 def _channelEntries(current: Dict[str, Any]) -> List[Dict[str, Any]]:
     head_full = current.get("full_sha")
+    installed = _installedVersion()
+    current_channel = current.get("channel")
     entries: List[Dict[str, Any]] = []
     for channel, prefix in RELEASE_CHANNELS:
         tags = _tagsForPrefix(prefix)
         if not tags:
             continue
         latest = tags[0]
-        on_channel = any(tag["full_sha"] == head_full for tag in tags)
+        on_channel = channel == current_channel
+        version = _releaseVersion(latest["name"])
         entries.append(
             {
                 "kind": "tag",
                 "channel": channel,
                 "name": latest["name"],
+                "version": _formatVersion(version),
                 "sha": latest["sha"],
                 "commit_unix": latest["commit_unix"],
                 "subject": latest["subject"],
                 "is_current": on_channel,
                 "up_to_date": on_channel and latest["full_sha"] == head_full,
+                "behind": _isBehind(latest["full_sha"], version, installed),
             }
         )
     return entries
@@ -198,6 +312,7 @@ def get_versions(refresh: bool = False) -> Dict[str, Any]:
             fetch_error = result.stderr.strip() or "git fetch failed"
 
     current = _currentInfo()
+    current["release_version"] = _formatVersion(_installedVersion())
     return {
         "ok": True,
         "current": current,
@@ -210,8 +325,10 @@ def get_versions(refresh: bool = False) -> Dict[str, Any]:
 @router.post("/api/system/update")
 def update_version(req: UpdateRequest) -> Dict[str, Any]:
     global _update_target
-    if req.kind != "tag" or not req.name.startswith(STABLE_TAG_PREFIX):
-        return {"ok": False, "message": f"Only stable releases ({STABLE_TAG_PREFIX}*) can be installed on this machine."}
+    target_version = _releaseVersion(req.name) if req.kind == "tag" else None
+    if target_version is None:
+        prefixes = ", ".join(f"{prefix}*" for _channel, prefix in RELEASE_CHANNELS)
+        return {"ok": False, "message": f"Only releases ({prefixes}) can be installed on this machine."}
     if not REF_NAME_PATTERN.match(req.name) or ".." in req.name:
         return {"ok": False, "message": f"Invalid ref name: {req.name}"}
 
@@ -231,9 +348,33 @@ def update_version(req: UpdateRequest) -> Dict[str, Any]:
         target = _commitInfo(target_ref)
         if target is None:
             return {"ok": False, "message": f"Ref not found on origin: {target_ref}"}
+        if _isBehind(target["full_sha"], target_version, _installedVersion()):
+            return {
+                "ok": False,
+                "message": (
+                    f"{req.name} is older than the software on this machine, which may not run on it "
+                    "any more. It can switch once that channel has a newer release."
+                ),
+            }
 
         old = _commitInfo("HEAD") or {}
         old_sha = old.get("full_sha", "")
+        channel = _channelOfTag(req.name) or "stable"
+
+        if target["full_sha"] == old_sha:
+            # Already on this commit (stable promoted to the canary release it
+            # runs, say): choosing the channel is all there is to do.
+            _saveChannel(channel)
+            return {
+                "ok": True,
+                "old_sha": old.get("sha"),
+                "new_sha": target["sha"],
+                "changed": False,
+                "stashed_local_changes": False,
+                "deps_changed": [],
+                "restarting": False,
+                "channel": channel,
+            }
 
         # Never `git clean` here — gitignored machine config (machine.toml,
         # .env, mine/, sqlite) must survive every update. Local tracked edits
@@ -259,6 +400,7 @@ def update_version(req: UpdateRequest) -> Dict[str, Any]:
         if ui_error is not None:
             return {"ok": False, "message": f"Checked out {req.name}, but building its UI failed: {ui_error}"}
 
+        _saveChannel(channel)
         if req.restart:
             _deferredRestart()
 
@@ -270,6 +412,7 @@ def update_version(req: UpdateRequest) -> Dict[str, Any]:
             "stashed_local_changes": stashed,
             "deps_changed": deps_changed,
             "restarting": req.restart,
+            "channel": channel,
         }
     except subprocess.TimeoutExpired as exc:
         return {"ok": False, "message": f"git command timed out: {exc}"}

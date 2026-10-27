@@ -41,11 +41,11 @@ This page builds the part of a camera lamp that is the same on every channel: th
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Prepare an <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strip</a> before you start.</strong> One per lamp: a two-turn length cut off the roll, about 920 mm, with a short lead on the end (ending in a male barrel plug, optional but recommended), either clamped on or soldered. That page has the strip, the connector, the plug and the board cable; step 4 here only hooks it on.</p>
+    <p><strong>Prepare an <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strip</a> before you start.</strong> One per lamp: a two-turn length cut off the roll, about 920 mm (36 in), with a short pigtail (<code>LED2</code>, <code>LED3</code> or <code>LED4</code>) on the end (ending in a male barrel plug, optional but recommended), either clamped on or soldered. That page has the strip, the connector, the plug and the board cable (<code>LED2a</code>, <code>LED3a</code> or <code>LED4a</code>); step 4 here only hooks it on.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg" alt="A length of 8 mm COB LED strip with a clear clamp-on connector on its cut end, a red and a black wire leaving the other side of the connector in a white sheath">
-    <figcaption>A prepared strip: the cut end, the joint, and the cable that leaves it. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
+    <figcaption>A prepared strip: the cut end, the joint, and the pigtail (<code>LED2</code> to <code>LED4</code>) that leaves it. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
   </figure>
 </div>
 
@@ -55,7 +55,7 @@ This page builds the part of a camera lamp that is the same on every channel: th
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Colours.</strong> The <strong>Lamp inner reflector</strong> and its six <strong>LED hooks</strong> print ivory white, and that is not cosmetic: they are the reflector. The <strong>Lamp outer cover</strong> is ash grey. The arm, the mount, both brackets and the ring follow the channel colour like the rest of that channel's parts.</p>
+    <p><strong>Colours.</strong> The <strong>Lamp inner reflector</strong> and its six <strong>LED hooks</strong> must print ivory white, and that is not cosmetic: they are the reflector, and a coloured one tints every picture the camera takes. The <strong>Lamp outer cover</strong>, the arm, the mount, both brackets and the ring can be any colour; the parts calculator puts them in the C-channel colour.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-side-full-2a681306f3a9.png" alt="CAD render of the camera lamp in profile: the disc-shaped lamp overhanging at the top, carried on an arm that steps down at an angle to the C-channel arm mount, with a bracket along each joint">
@@ -121,20 +121,20 @@ That is **12 M3 × 12 per arm**: 8 at the mount joint, 4 here. Six holes, a scre
 
 Push the six **Inner reflector LED hooks** into the sockets around the rim of the **Lamp inner reflector**, evenly spaced. They are a friction fit and there are no screws. Each hook holds the LED strip against the reflector.
 
-The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}): two turns of the skirt, about 920 mm, cut on a printed mark, with a short lead on the cut end, which ends in a barrel plug if you fit the optional but recommended plug and socket. Have one ready before you start this step.
+The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}): two turns of the skirt, about 920 mm (36 in), cut on a printed mark, with a short pigtail (`LED2` to `LED4`) on the cut end, which ends in a barrel plug if you fit the optional but recommended plug and socket. Have one ready before you start this step.
 
-**Fitting it.** Two turns, LEDs facing inwards.
+**Fitting it.** Two turns, LEDs facing inwards. **Do not stick the strip to the skirt.** Leave the blue film on and let the hooks hold it: it hangs in the air with room behind it, which keeps it cooler, and the adhesive lets go in the end anyway.
 
 <ol class="numbered-steps">
-  <li>Peel the blue film off the first stretch of the strip and start it under one of the hooks, adhesive against the inside of the skirt, with the wired end where you want the leads to leave the lamp.</li>
-  <li>Work it round the skirt until you are back where you started. That is one turn.</li>
-  <li>Drop down to the next clips and go round again for the second turn, peeling the film as you go.</li>
+  <li>Start the strip under one of the hooks, film still on, with the wired end where you want the leads to leave the lamp.</li>
+  <li>Work it round the skirt, under each hook in turn, until you are back where you started. That is one turn.</li>
+  <li>Drop down to the next hooks and go round again for the second turn.</li>
 </ol>
 
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-strip-first-turn-w1600-101009ec515a.jpg" alt="The strip run once around the inside of the reflector skirt, back at its starting point, with the blue film being peeled off the length still to go">
-    <figcaption>One turn round, peeling as you go. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>One turn round. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-strip-second-turn-w1600-e7a417c98b26.jpg" alt="Both turns of strip in the skirt, one above the other, film gone, with the red and black leads leaving the reflector at one side">
@@ -144,7 +144,7 @@ The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/hel
 
 **Nothing fastens the reflector to the arm.** The arm's ring pushes up into the middle of the reflector from underneath and is held by the fit alone. That happens on the camera page for your channel, with the camera already clasped in the ring, so the arm and the lamp stay separate until then.
 
-The strip comes with its pigtail already on it from [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}); cable-tie that lead down the arm so it is not hanging in the channel. It can leave the lamp two ways, and machines have been built both: straight out of the bottom of the shade, or up through the slot in the cover and down the outside alongside the camera lead. Whichever you pick, keep the run clear of where the strip's own joint sits inside the shade. Plugging it into the board is step 4 of [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}). Nothing is joined end to end here, so the far end of the strip stays dead. The strip runs at 24 V off the basically board.
+The strip comes with its pigtail (`LED2` to `LED4`) already on it from [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}); strap that lead down the arm so it is not hanging in the channel (hook-and-loop straps rather than zip ties, see [securing the cables]({{ '/hardware/electronics/connecting/' | relative_url }}#securing-the-cables)). It can leave the lamp two ways, and machines have been built both: straight out of the bottom of the shade, or up through the slot in the cover and down the outside alongside the camera lead. Whichever you pick, keep the run clear of where the strip's own joint sits inside the shade. Plugging it into the board is step 4 of [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}). Nothing is joined end to end here, so the far end of the strip stays dead. The strip runs at 24 V off the basically board.
 
 {% include step.html n="5" title="Press the outer cover onto the reflector" %}
 

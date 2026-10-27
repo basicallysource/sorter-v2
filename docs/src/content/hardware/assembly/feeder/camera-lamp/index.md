@@ -13,7 +13,7 @@ last_verified: 2026-09-25
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png
 ---
 
-A camera lamp is one arm carrying one light and one camera over a channel. The light is a ring of LED strip inside a white reflector, under a grey cover, so the light reaches a part bounced off the white rather than aimed straight at it. The camera looks down through the hole in the middle of the reflector.
+A camera lamp is one arm carrying one light and one camera over a channel. The light is a ring of LED strip inside a white reflector, under a cover, so the light reaches a part bounced off the white rather than aimed straight at it. The camera looks down through the hole in the middle of the reflector.
 
 **All three lamps are built on the same arm.** Build the [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}) three times, then finish each one with the camera module its channel needs. The camera and its clasp are the only difference between the three.
 
@@ -46,4 +46,4 @@ Each page ends in one of these.
   </figure>
 </div>
 
-Each lamp's strip is plugged into the board on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), and the camera is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.
+Each lamp's strip drop (`LED2a` to `LED4a`, `LED2` to `LED4`) is plugged into the board on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), and the camera is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.

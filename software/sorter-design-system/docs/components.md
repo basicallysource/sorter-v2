@@ -13,7 +13,7 @@ the example app shows them together.
 | ----------- | ----------------------------------------------------------------------------- |
 | `primary`   | The one thing to do in a panel or a dialog                                    |
 | `secondary` | Any other action                                                              |
-| `ghost`     | The way out, and actions in a row of many (a camera's -1°, +1°, 180°)         |
+| `ghost`     | The way out, and actions in a row of many (a panel's Reset, Cancel)           |
 | `danger`    | Deletes or stops something for good; only in the confirmation that asks first |
 
 - Every variant is a tint with its own ink: the primary's tint for
@@ -40,7 +40,9 @@ the example app shows them together.
   right-aligned in tabular figures. `size="lg"` is 44px, for a touch screen.
   `bind:element` gives the `<input>` itself, to focus it from code, and every
   other attribute (`id`, `name`, `autocomplete`, `required`, `onkeydown`)
-  goes on it; `class` goes on the field's edge.
+  goes on it; `class` goes on the field's edge. `type="date"` is a day, picked
+  with the browser's own calendar; empty, it is drawn faint like a placeholder,
+  because some browsers show today's date in an empty one.
 - **`Select`**: one choice from a list, in our own list rather than the
   browser's ([overlays.md](overlays.md)). `label` names it when no `<label>`
   points at it. `class` goes on a wrapper, so `class="w-44"` sizes it. In a
@@ -50,7 +52,9 @@ the example app shows them together.
   `<textarea>`.
 - **`Field`**: a label over a control, and one sentence under it: help, or
   the error in its place, in danger ink. Give the control the same `id` as
-  `for`.
+  `for`. `info` explains a setting whose name cannot say it all, where a
+  sentence under every field would crowd a dense row: an ⓘ beside the label
+  opens it in a Popover.
 - **`CopyField`**: something to copy, shown whole: a key, a token, a message
   with one in it. It is laid out like a `Field`, with no control for a
   `Field` to point at: `label` above, the text in a well with one Copy button
@@ -86,6 +90,33 @@ the example app shows them together.
   belong together (the jog control's counterclockwise, Stop and clockwise) is
   built the same way, one outline and a line between them.
 
+## Nudge
+
+`NudgeControl.svelte`. Turn or move something by a set amount, one press at a
+time, as one small control: a button on the left, the amount in the middle, a
+button on the right (`‹ 10° ›`). A camera's channel on the dashboard is the
+example: left turns it counterclockwise, right clockwise.
+
+- **The amount is a button.** It carries a small caret that darkens under the
+  pointer, and its fill is the hover state, so it reads as something to press.
+  It opens a `Popover` with the presets (`presets`, `10°` and `180°` by
+  default) as a segmented control and a number field for any other amount.
+  Choosing a preset closes it; a typed amount applies as it is typed and
+  Enter closes. An amount of 0 or above `max` (360 by default) draws the field
+  in danger with its sentence, and the last good amount stays.
+- **One control, not three buttons.** A single 1px `line-strong` outline and
+  a 1px line on each side of the amount, like a segmented control; it is 30px
+  tall (`--size-control-sm`), for a panel's header. The arrow buttons are the
+  icons for jogging, `chevron-left` and `chevron-right`
+  ([icons.md](icons.md)), and each says in words what it does (`leftLabel`,
+  `rightLabel`: "Turn the channel 10° counterclockwise"), as its name and its
+  tooltip.
+- **Busy.** While a press is being carried out (`busy` names the side), that
+  button shows the Spinner at full strength and the other is disabled.
+- **Saving the amount** is the app's: `onchange` gets each amount that was
+  chosen, and the app keeps it where it keeps its settings (the Sorter UI
+  keeps one per channel in the browser).
+
 ## Settings
 
 - **`SettingRow`**: one setting, its name and a sentence on the left, its
@@ -99,7 +130,22 @@ the example app shows them together.
   default back through `onreset`. The button sits on the name's line at the
   name's height, so the row never jumps while a value is typed. No outline,
   no icon without words, and no amber: a changed value is a choice, not a
-  warning.
+  warning. Pointing at the button shows a tooltip saying what the default
+  is: "Default: 6 /min", or `defaultHelp` when a choice's name alone does not
+  say what it does ("Automatic: turn the channel forward until it clears.").
+  Every setting with a default that can be changed works this way, a
+  segmented control as much as a number.
+- **`tags`** puts a `Badge` or two beside a setting's name: where it acts,
+  that it is happening now.
+- **`info`** puts a setting's explanation behind a small `info` icon button
+  right after its name, so the row stays one line. It is for a dense list,
+  where a sentence under every row would make the list as tall as a page (the
+  Data page's list of what a sorter shares): one or two sentences about what
+  the setting is for, shown in a `Tooltip` on hover and on keyboard focus, and
+  a click on the icon focuses it, so a touch screen shows it too. The icon is
+  a button named "About <name>". `info` stands in for `help`: a sentence a
+  person must see before they change the setting (a warning, what it costs)
+  is still `help`, under the name. See [overlays.md](overlays.md#tooltip).
 - **A setting that applies at once** (a switch, a segmented control) needs no
   Save.
 - **Settings saved together** save with one primary in the panel's footer,
@@ -108,6 +154,34 @@ the example app shows them together.
   puts an `Alert` above the footer.
 - **`Disclosure`**: settings most people never touch, closed until asked
   for. It sits in a divided list like any row.
+
+## Steps
+
+`Step.svelte`. A task someone does once and does not know by heart (tuning a
+motor, a calibration) as numbered steps, in the order they are done. Steps are
+an `ol` with `divide-y divide-line` inside a flush `Panel`, like the rows of a
+list.
+
+- **Three states.** `done`: a check in the success tint, and the line under the
+  name says what came of it ("Running freely it reads 168 or higher").
+  `current`: the number in the primary's tint, open, with what to do and why.
+  `locked`: the number muted, and the line says what to finish first. A step
+  unlocks when the one before it is done, and the app decides that from what it
+  knows (a recording exists), not from which button was pressed, so the same
+  page is right after a reload.
+- **Only the step to do is open.** A done step is one line with its result, a
+  locked step has no body, so the page is as tall as the one thing in front of
+  the person. A done step can be opened again (`open`), with a "Change" or
+  "Record again" button in `actions` that asks the app to, and a Close button in
+  the same place while it is open.
+- **A step names one action**, a primary `Button` at the end of its body, and
+  says in plain words what it does and why it is needed. A step that can be
+  skipped says so with a neutral `Badge` in `actions`.
+- **The panel says where you are**: a `Badge` in its header, "Step 2 of 5" in
+  the primary's tone while there are steps to do, and a word for the result
+  ("Tuned") in the success tone when they are done.
+- A step is not a tab. Nothing here is a way to move around; the order is the
+  point.
 
 ## Panels
 
@@ -136,6 +210,10 @@ the example app shows them together.
   dashboard, in a list, on a bin) sits straight on the plane under it, a
   panel or a row, with no grey box and no well behind it. A camera feed is
   the media plane's; a part is a picture on the page.
+- **`ImageZoom`**: a picture that enlarges where it is pointed at (a piece's
+  photos in a list, a burst's frames): the pointer on the thumbnail shows it
+  large beside it at once and the pointer off puts it away, nothing to click
+  ([overlays.md](overlays.md#image-zoom)).
 - **`Card`**: a panel that is one thing to open, a machine or a profile. The
   whole card is a link (`href`) or a button (`onclick`), named by `label`;
   the pointer anywhere on it fills it a step (`hover`, then `pressed`), with
@@ -189,14 +267,39 @@ layout; a fifth kind of message is a panel, not a new notice.
   "Sorter" or "Hive". Below the width where the pages and the right side fit
   side by side (`collapse`, 768px by default), the pages fold into one menu
   named for the current page. Nothing on the right switches light or dark:
-  that is a setting.
+  that is a setting. A page with views of its own lists them as `children`
+  (Records: Overview, Runs, Pieces, Incidents): its name stays a link to the
+  first view, and a chevron beside it opens a menu of the views, the current
+  one checked, so any view is one click away from every page. Folded, the page
+  is a group in the pages menu with its views under its name. The views are
+  the page's `Tabs` too; one list feeds both.
 - **`PageHeader`**: a page's title, its one sentence and its own actions,
   first in the page's column ([layout.md](layout.md#a-page)).
-- **`SideNav`**: the second level, a column on the surface plane.
+- **`SideNav`**: the second level, a column on the surface plane. An item can
+  have sub-tabs (`children`): pages that belong to it, listed indented under it
+  and always shown, so nobody opens an item to find one and the column never
+  changes height as someone moves through it. The item is the first view of its
+  own pages and is not repeated in its list; a sub-tab has no icon, and its name
+  lines up with its item's. A thin `line` joins them, so the indent reads as a
+  sub-menu: 1px, down from the bottom of the item's box under the middle of its
+  icon, turning right into each sub-tab (`├─`, and `└─` for the last). A
+  sub-tab's box (hover, tint) starts where the item's icon ends, right of the
+  line, so the line never crosses a box. Only the page the address is
+  on takes the primary's tint; the item above it goes to full ink. A narrow
+  screen's `Select` lists the sub-tabs after their item, named "Item / Sub-tab".
 - **`Tabs`**: views of one thing, in a page or at the top of a flush panel.
   The current tab's mark replaces the bar's line under it. Arrow keys move
   between tabs. Tabs that do not fit scroll sideways without a scroll bar. The pages of the app are the top bar's and the side nav's,
-  not tabs.
+  not tabs. A view with an address of its own (so Back and a bookmark work) is
+  a link: give every item an `href` and the bar is a `nav` of links, the
+  current one marked by `value` and `aria-current`; Tab moves between them.
+- **`Pager`**: where you are in a long list and the way through it. "1–50 of
+  36,652 pieces", the first, previous, next and last page, and "Page 3 of
+  734" with the number to type. It holds no data; `onpage` asks the app for
+  another page, counted from 1. Put one above the list and one under it, so
+  the end of a long page is not a scroll back to the top, and keep the items
+  stable while someone pages (the list is fixed at the newest item when the
+  search starts, and says how many came after).
 
 ## Color
 
@@ -247,8 +350,7 @@ a UUID. The site's Profiles page shows each one on real catalog data.
   or "any of" say so once above them, and a group inside a rule is indented
   under its own. `limit` is how many chips a condition shows before "+N
   more", which opens the rest in place. A condition that cannot be
-  evaluated yet is in the warning tone. A rule for one part (BrickLink ID
-  3001) is one phrase with one chip.
+  evaluated yet is in the warning tone. A rule for one part (BrickLink ID 3001) is one phrase with one chip.
 - **`ProfileBin`**: one of a profile's rules or categories (never called a
   "bin" on a page: bins are the machine's), as a card or a row. The card shows
   what a person needs to know about where pieces go: the picture (a color
@@ -276,6 +378,73 @@ a UUID. The site's Profiles page shows each one on real catalog data.
   piece; what they need is to find the ID, the name and the color in the
   same place every time. The old views gave each part its own arrangement of
   words, or a table of field names, and could only be read by decoding them.
+
+## Color review
+
+How a person checks a classified piece, on a machine (the correction dialog
+and the records) and on Hive (the labeling page). The site's Color review
+page shows both components on sample data.
+
+- **`PieceReview`**: three questions, each a row with its name on the left
+  and its answer on the right, divided by lines; where the block is narrower
+  than 36rem the name sits above the answer. "Part correct?" is Yes or No,
+  about the part type only. "Color correct?" shows the predicted color with
+  Yes and "No, pick the color" (`pipette`); No opens the likely colors right
+  under the row, a pick is staged, Confirm saves it and Cancel closes them.
+  Once a different color is saved, the No button names it. With no predicted
+  color there is no Yes, only "Pick the color". "Report an issue" is a row of
+  toggles, any number at once. A warning or a failure shows as an `Alert`
+  under the rows; a saved answer shows as the filled button, and "Sent" when
+  it reached the recognizer. The app does the saving through callbacks and
+  fetches the ranking when `onpicking` says the colors opened.
+- **`layout="compact"`** is the same three questions for a list of pieces,
+  where a block under every piece would stand taller than the piece. Three
+  short rows, the question and then its answer, one control tall each: about
+  100px and 24rem, put at a row's right side. "Part correct?" is the same Yes
+  and No; "Color correct?" shows the predicted color, Yes, and a button that
+  opens the likely colors in a popover (a pick is staged, Confirm saves it,
+  Cancel or a click outside closes it), which names the color once a different
+  one is saved; "Report an issue" is a row of six icon switches
+  (`IssueToggle`): one click flags an issue and another takes the flag off, the
+  icon is in the warning tint while it is flagged, and pointing at it names it
+  in a tooltip, so a piece is reviewed without opening anything. Nothing in the
+  row changes its height when it is used, so a list never jumps under the
+  pointer. A warning shows as an `Alert` under the rows.
+- **`IssueToggle`** and **`IssueIcon`**: one thing that can be wrong with the
+  photos of a piece (not a LEGO piece, several pieces in frame, none, pieces
+  joined, pieces tangled, blurred) as an icon that is its own switch, 30px
+  square with a 20px glyph from [the issue glyphs](icons.md#the-issue-glyphs).
+  Unflagged it is muted and fills under the pointer like any control; flagged
+  it takes the warning tint and its ink, the one color that means "this needs
+  a look". Its name is its tooltip and its accessible name, and the switch is
+  pressed (`aria-pressed`) while flagged. `busy` holds it while the app saves.
+- **`ColorChoice`**: the likely colors as a compact grid of swatches with
+  their names, best first (twelve by default, at least two to a row however
+  narrow), then a search of every color by name or number. The search lists
+  its matches as they are typed, and Enter picks the first; "All colors"
+  (`chevron-down`) lists the whole palette; otherwise nothing is listed
+  under it, so the long list never stands between someone and the rest of
+  the page. Nothing in it scrolls on its own: what it lists is part of the
+  page. Under each name, its share of the part's pieces for sale on
+  BrickLink ("18% for sale", "None for sale"); how near it is to the
+  prediction shows in the swatch, and in words (very close, close, near,
+  far) only when there are no sale numbers. The tooltip has every number
+  behind its place. A predicted color is marked (`sparkles` and the mark's
+  words, "Predicted 82%", "The guess"); a marked color and the chosen one
+  are always in the grid. The chosen color takes the primary's tint, with a
+  check in the list. While the ranking loads the grid holds its place with
+  skeletons; `note` says, under the heading, when it was ranked another way
+  ("By color alone: the machine cannot reach Hive."). `aside` sits beside
+  the likely colors and the search, or under them where the block is
+  narrower than 36rem: Hive's labeling page puts the part's top colors sold
+  on BrickLink there.
+- **Where the order comes from.** One ranking, Hive's
+  `services/color_rank.py` (the sorter keeps the same file for when Hive is
+  unreachable): how near each color is to the predicted ones, in CIELAB with
+  a term for hue between colors that have one and a term for a different
+  finish, times how likely the part exists in that color, from its pieces
+  for sale, square-rooted so popularity informs the order without drowning
+  the match, with a floor so no color is ruled out.
 
 ## Overlays and loading
 

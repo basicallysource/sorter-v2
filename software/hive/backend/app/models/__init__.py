@@ -30,8 +30,10 @@ from app.models.machine_set_progress import MachineSetProgress  # noqa: E402, F4
 from app.models.kit import Kit  # noqa: E402, F401
 from app.models.machine_config_backup import MachineConfigBackup  # noqa: E402, F401
 from app.models.machine_hardware_report import MachineHardwareReport  # noqa: E402, F401
+from app.models.machine_telemetry import MachineTelemetryRecord  # noqa: E402, F401
+from app.models.machine_default_override import MachineDefaultOverride  # noqa: E402, F401
 from app.models.detection_model import DetectionModel, DetectionModelVariant  # noqa: E402, F401
-from app.models.model_dataset_sample import ModelDatasetSample  # noqa: E402, F401
+from app.models.model_dataset_sample import ModelDatasetMachineCount, ModelDatasetSample  # noqa: E402, F401
 from app.models.model_default import ModelDefault  # noqa: E402, F401
 from app.models.user_api_key import UserApiKey  # noqa: E402, F401
 from app.models.user_identity import UserIdentity  # noqa: E402, F401
@@ -40,11 +42,15 @@ from app.models.teacher_prompt import TeacherPrompt  # noqa: E402, F401
 from app.models.machine_piece import MachinePiece  # noqa: E402, F401
 from app.models.machine_piece_image import MachinePieceImage  # noqa: E402, F401
 from app.models.machine_piece_rejection_reason import MachinePieceRejectionReason  # noqa: E402, F401
+from app.models.machine_piece_prediction import MachinePiecePrediction  # noqa: E402, F401
 from app.models.machine_channel_crop import MachineChannelCrop  # noqa: E402, F401
 from app.models.machine_control_data_segment import MachineControlDataSegment  # noqa: E402, F401
 from app.models.machine_sync_state import MachineSyncState  # noqa: E402, F401
+from app.models.machine_training_run import MachineTrainingRun  # noqa: E402, F401
+from app.models.machine_sorting_run import MachineLot, MachineSortingRun  # noqa: E402, F401
 from app.models.machine_stats_cache import MachineStatsCache  # noqa: E402, F401
 from app.models.machine_daily_stats import MachineDailyStats  # noqa: E402, F401
+from app.models.sample_diversity import SampleDiversityWeek  # noqa: E402, F401
 from app.models.server_storage_cache import ServerStorageCache  # noqa: E402, F401
 from app.models.piece_color_label import PieceColorLabel  # noqa: E402, F401
 from app.models.piece_part_label import PiecePartLabel  # noqa: E402, F401
@@ -59,3 +65,10 @@ from app.models.color_model import ColorModel  # noqa: E402, F401
 from app.models.link_model import LinkModel  # noqa: E402, F401
 from app.models.access_window import AccessWindow  # noqa: E402, F401
 from app.models.ai_usage_event import AiUsageEvent  # noqa: E402, F401
+from app.models.telemetry_limits import TelemetryLimits  # noqa: E402, F401
+from app.models.job import Job  # noqa: E402, F401
+from app.models.swatch_model import SwatchModel  # noqa: E402, F401
+from app.models.sample_swatch import SampleSwatch, SampleSwatchRun  # noqa: E402, F401
+from app.models.labeling_queue import LabelingQueueCount, LabelingQueueEntry, LabelingQueueState  # noqa: E402, F401
+from app.models.piece_model_output import PieceColorGuess, PieceLinkScore, PieceModelColor  # noqa: E402, F401
+from app.models.worker_state import WorkerState  # noqa: E402, F401

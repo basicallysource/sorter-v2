@@ -678,13 +678,53 @@ At this point the chute should still rotate, but you will now feel resistance fr
   <figcaption><cite>Video: zed0.</cite></figcaption>
 </figure>
 
-The cable cage (top, bottom, and clamps) is the channel the ribbon cable runs in while the chute rotates.
+The cable cage (top, bottom, and clamps) is the channel the ribbon cable (`RIB1`) runs in while the chute rotates.
 
 **Heat inserts first:** the Cable cage bracket (cable mount) takes 1 × M3 insert. Press it in before assembling.
 
 Slot the Cable cage top over the Top interface chute mount, with the corners of the hexagon aligning with the Interface brackets. Of the two cage plates, the one that goes on here is the one with the **plain round centre hole**. The plate with the keyed cutout in its centre hole is the other one, and it goes on at [step 12](#step-12).
 
 Screw the Cable cage bracket (cable mount) to the tail end of the Interface bracket opposite the Limit switch housing, using an {% include fastener.html size="M5" variant="socket-button" length="30" %} screw into the M5 heat insert. This clamps the Cable cage top firmly in place.
+
+<figure class="diagram diagram-inline">
+    <svg viewBox="0 0 660 350" width="620" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two top-down hexagon diagrams of the top interface, each with the NEMA 23 stepper on a flat side, the limit switch bracket on the corner two round from it and the cable mount bracket on the corner straight across from the limit switch. Left, looking at the underside of the plate while you build: the stepper is on the left, so the limit switch is at the top and the cable mount at the bottom. Right, looking down on the finished machine: the same layout mirrored, with the stepper on the right.">
+      <text x="175" y="49" text-anchor="middle" font-size="13" font-weight="700" fill="var(--ink)">While you build</text>
+      <text x="175" y="65" text-anchor="middle" font-size="11" fill="var(--muted)">looking at the underside of the plate</text>
+      <polygon points="175.0,113.0 95.3,159.0 95.3,251.0 175.0,297.0 254.7,251.0 254.7,159.0" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.6"/>
+      <circle cx="175" cy="205" r="34" fill="var(--bg)" stroke="var(--muted)" stroke-width="1.4"/>
+      <text x="175" y="209" text-anchor="middle" font-size="11" fill="var(--muted)">chute</text>
+      <line x1="175.0" y1="123.0" x2="175.0" y2="287.0" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 4"/>
+      <circle cx="95.3" cy="159.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <circle cx="95.3" cy="251.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <circle cx="254.7" cy="251.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <circle cx="254.7" cy="159.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <rect x="167.0" y="105.0" width="16" height="16" fill="var(--primary)" stroke="var(--ink)" stroke-width="1.4"/>
+      <text x="175.0" y="97.0" text-anchor="middle" font-size="12" font-weight="700" fill="var(--primary)">Limit switch</text>
+      <polygon points="175.0,287.0 185.0,297.0 175.0,307.0 165.0,297.0" fill="#0055bf" stroke="var(--ink)" stroke-width="1.4"/>
+      <text x="175.0" y="323.0" text-anchor="middle" font-size="12" font-weight="700" fill="#0055bf">Cable mount</text>
+      <rect x="63.3" y="183.0" width="30" height="44" rx="3" fill="var(--ink)"/>
+      <text x="55.3" y="209" text-anchor="end" font-size="12" font-weight="700" fill="var(--ink)">Stepper</text>
+      <text x="495" y="49" text-anchor="middle" font-size="13" font-weight="700" fill="var(--ink)">On the machine</text>
+      <text x="495" y="65" text-anchor="middle" font-size="11" fill="var(--muted)">looking down from above</text>
+      <polygon points="495.0,113.0 415.3,159.0 415.3,251.0 495.0,297.0 574.7,251.0 574.7,159.0" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.6"/>
+      <circle cx="495" cy="205" r="34" fill="var(--bg)" stroke="var(--muted)" stroke-width="1.4"/>
+      <text x="495" y="209" text-anchor="middle" font-size="11" fill="var(--muted)">chute</text>
+      <line x1="495.0" y1="123.0" x2="495.0" y2="287.0" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 4"/>
+      <circle cx="415.3" cy="159.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <circle cx="415.3" cy="251.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <circle cx="574.7" cy="251.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <circle cx="574.7" cy="159.0" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.4"/>
+      <rect x="487.0" y="105.0" width="16" height="16" fill="var(--primary)" stroke="var(--ink)" stroke-width="1.4"/>
+      <text x="495.0" y="97.0" text-anchor="middle" font-size="12" font-weight="700" fill="var(--primary)">Limit switch</text>
+      <polygon points="495.0,287.0 505.0,297.0 495.0,307.0 485.0,297.0" fill="#0055bf" stroke="var(--ink)" stroke-width="1.4"/>
+      <text x="495.0" y="323.0" text-anchor="middle" font-size="12" font-weight="700" fill="#0055bf">Cable mount</text>
+      <rect x="576.7" y="183.0" width="30" height="44" rx="3" fill="var(--ink)"/>
+      <text x="614.7" y="209" text-anchor="start" font-size="12" font-weight="700" fill="var(--ink)">Stepper</text>
+    </svg>
+
+
+  <figcaption>The cable mount bracket goes on the corner straight across from the limit switch bracket, and the limit switch bracket is the second corner round from the stepper. Looking at the underside, as the build video and most build photos do, the limit switch is clockwise of the stepper. From above, as the <a href="{{ '/hardware/electronics/installation/' | relative_url }}">electronics layout</a> is drawn, it is counter-clockwise.</figcaption>
+</figure>
 
 Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage top with {% include fastener.html size="M5" variant="socket-button" length="30" %} screws.
 
@@ -708,13 +748,13 @@ Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage
   </figure>
 </div>
 
-{% include step.html n="11" title="Put the cable in the cable cage" %}
+{% include step.html n="11" title="Put the ribbon cable (`RIB1`) in the cable cage" %}
 
 <figure class="video-figure">
   <div class="video-embed video-embed-wide">
     <iframe
       src="https://www.youtube.com/embed/aCNjETS1X9A?mute=1"
-      title="Installing the cable in the cable cage"
+      title="Installing the ribbon cable (RIB1) in the cable cage"
       allow="encrypted-media; picture-in-picture; web-share"
       allowfullscreen
       loading="lazy"></iframe>
@@ -731,9 +771,9 @@ Place an {% include fastener.html size="M3" variant="nut" %} into the bottom of 
 
 Rotate the chute until it hits the limit switch.
 
-Fold your IDC ribbon cable around the Cable clamp (inner), following the guides on the clamp. Slide the cable and clamp together into the Cable clamp (outer), leaving a tail to connect to the chute above.
+Fold your IDC ribbon cable (`RIB1`) around the Cable clamp (inner), following the guides on the clamp. Slide the cable and clamp together into the Cable clamp (outer), leaving a tail to connect to the chute above.
 
-**Leave about 80 mm of tail**, measured from where it leaves the clamp, which is what it takes to reach the layer adapter board on the chute core that sits on top of this assembly.
+**Leave about 80 mm (3 in) of tail**, measured from where it leaves the clamp, which is what it takes to reach the layer adapter board on the chute core that sits on top of this assembly.
 
 **The connector goes on pins up.** You should be able to see into the connector from above when the tail is lying where it will sit; if it is facing down at the bench, the cable is on the wrong way round. Getting this wrong is expensive: three steps have to come apart to turn it over.
 
@@ -742,9 +782,9 @@ Fold your IDC ribbon cable around the Cable clamp (inner), following the guides 
   <figcaption><strong>Placeholder.</strong> This is the view we want, with the plug the other way up so you can see into it. The faded photo behind the marker has it the wrong way round. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-Guide the rest of the ribbon cable around the side of the Top interface chute mount, in the direction the chute can rotate, back to the Cable cage bracket (cable mount).
+Guide the rest of the ribbon cable (`RIB1`) around the side of the Top interface chute mount, in the direction the chute can rotate, back to the Cable cage bracket (cable mount).
 
-Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="12" %} screw, clamping the ribbon cable between the two. Leave the clamp standing slightly off the bracket face rather than pulling it down hard, so the ribbon is not crushed.
+Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="12" %} screw, clamping the ribbon cable (`RIB1`) between the two. Leave the clamp standing slightly off the bracket face rather than pulling it down hard, so the ribbon is not crushed.
 
 <div class="img-row">
   <figure>
@@ -759,7 +799,7 @@ Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) wit
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/top-interface-ribbon-tail-for-chute-w1600-e4871a634b4a.jpg" alt="The ribbon cable brought up beside the chute mount with its IDC connector standing free, a loop of cable running down to the plywood, and four brass heat inserts in the face beside it">
-  <figcaption>The tail left standing for the chute above, about 80 mm of it. The layer adapter board is not fitted here; it mounts on the four inserts in view. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <figcaption>The tail left standing for the chute above, about 80 mm (3 in) of it. The layer adapter board is not fitted here; it mounts on the four inserts in view. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 <figure class="single-figure">

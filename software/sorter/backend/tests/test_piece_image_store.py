@@ -4,6 +4,7 @@ import tempfile
 import time
 import unittest
 
+import db
 import piece_image_store
 
 
@@ -93,7 +94,7 @@ class PieceImageStoreTests(unittest.TestCase):
         self.drainQueue()
 
         old_cap = piece_image_store._MAX_TOTAL_BYTES
-        piece_image_store._MAX_TOTAL_BYTES = len(FAKE_JPEG) * 2
+        piece_image_store._MAX_TOTAL_BYTES = db.on_disk_bytes(len(FAKE_JPEG)) * 2
         try:
             piece_image_store._retentionSweep()
         finally:
@@ -128,13 +129,13 @@ class PieceImageStoreTests(unittest.TestCase):
         newest = piece_image_store.listPieceImages("piece-2")[0]
         with piece_image_store._connection() as conn:
             conn.execute(
-                "UPDATE piece_images SET synced_at = ?, hive_image_id = 'h1' WHERE id = ?",
+                "UPDATE piece_images SET synced_at = ? WHERE id = ?",
                 (time.time(), newest["id"]),
             )
             conn.commit()
 
         old_cap = piece_image_store._MAX_TOTAL_BYTES
-        piece_image_store._MAX_TOTAL_BYTES = len(FAKE_JPEG) * 2
+        piece_image_store._MAX_TOTAL_BYTES = db.on_disk_bytes(len(FAKE_JPEG)) * 2
         try:
             piece_image_store._retentionSweep()
         finally:

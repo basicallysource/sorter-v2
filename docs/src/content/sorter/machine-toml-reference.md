@@ -18,10 +18,15 @@ Controls flap servo angles and hardware backend selection.
 | `closed_angle` | int (0–180) | `83` | Angle in degrees for the closed (hold) position. |
 | `backend` | `"pca9685"` \| `"waveshare"` | `"pca9685"` | Servo driver to use. `"pca9685"` uses the onboard I²C driver; `"waveshare"` uses the SC bus over USB. |
 | `port` | string | auto-detected | Serial port for the Waveshare SC bus. Omit to auto-detect. Only used when `backend = "waveshare"`. |
+| `open_speed` | int (1–2000, °/s) | firmware default (1500) | PCA9685 layer servos: speed when a door opens. |
+| `close_speed` | int (1–2000, °/s) | firmware default (1500) | PCA9685 layer servos: speed when a door closes. |
+| `homing_speed` | int (1–2000, °/s) | firmware default (1500) | PCA9685 layer servos: the standard speed, used at start-up, for homing and for jogging. |
 
 ## `[[servo.channels]]`
 
 Per-channel servo configuration. One entry per servo, in layer order. Only used when `backend = "waveshare"`.
+
+The double brackets are TOML's syntax for a list of tables. Write the `[[servo.channels]]` header once for each servo, with that servo's `id` and `invert` under it. The other sections on this page are single tables and use one pair of brackets.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
@@ -40,15 +45,18 @@ Bin layout — one inner array per physical layer of the tower (bottom to top), 
 
 ## `[chute]`
 
-Chute stepper calibration — home pin wiring and bin layout geometry.
+Chute stepper calibration: home pin wiring, aiming geometry and speed. The chute settings pages and the chute aiming calibration save these; a change applies at once and again at every start.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `home_pin_channel` | int | `3` | Digital input channel index on the distribution board where the chute endstop is wired. |
-| `first_bin_center` | float (degrees) | `8.25` | Angular position of the first bin center after homing completes. |
-| `pillar_width_deg` | float (degrees) | `8.25` | Angular width consumed by each divider pillar between bins. |
-| `endstop_active_high` | bool | `true` | Set to true if the chute endstop input reads high when physically triggered. |
-| `operating_speed_microsteps_per_second` | int | `3000` | Chute stepper top speed during normal positioning moves. |
+| `home_pin_channel` | int | the board's (`3` on the SKR Pico) | Digital input channel index on the distribution board where the chute endstop is wired. Read when the hardware starts. |
+| `num_sections` | int | `6` | Bin sections around the chute. |
+| `section_width_deg` | float (degrees) | `51.75` | Usable arc of one section, between two pillars. |
+| `first_section_offset_deg` | float (degrees) | `8.25` | From home to the start of the first section. |
+| `first_bin_center` | float (degrees) | `8.25` | Older name for `first_section_offset_deg`, read when that is absent. Saves keep it in step. |
+| `pillar_width_deg` | float (degrees) | `8.25` | Older form of the section width (section pitch minus this), read when `section_width_deg` is absent. Saves keep it in step. |
+| `endstop_active_high` | bool | the board's | Set to true if the chute endstop input reads high when physically triggered. |
+| `operating_speed_microsteps_per_second` | int | `3000` | Chute stepper top speed. Every chute move sets it, so it holds after jogs and tests. |
 
 ## `[carousel]`
 
@@ -79,9 +87,15 @@ Remaps logical stepper names to physical firmware channel names when the physica
 | `c_channel_3` | string (physical stepper name) | — | Override which physical stepper drives C-channel 3. |
 | `chute` | string (physical stepper name) | — | Override which physical stepper drives the distribution chute. |
 
+## Stepper driver settings
+
+The tables below hold each stepper motor's settings. The UI's driver settings, StallGuard and direction controls save them (`POST /api/stepper/{name}/tmc`, `POST /stepper/{name}/stallguard-config`, `POST /api/setup-wizard/stepper-directions/{name}`). A change applies to the running driver at once, and every start writes every setting to every driver, saved or default.
+
+The per-motor tables key a motor by its stepper name: `chute_stepper`, `carousel`, `c_channel_1_rotor`, `c_channel_2_rotor`, `c_channel_3_rotor`. The older names `first_c_channel_rotor`, `second_c_channel_rotor` and `third_c_channel_rotor` are still read, and the next save moves them under the new name. A motor moved to another socket by `[stepper_bindings]` keeps its settings.
+
 ## `[stepper_direction_inverts]`
 
-Flip the logical direction of a stepper without reflashing firmware. Keys are logical stepper names (`carousel`, `c_channel_1`, `c_channel_2`, `c_channel_3`, `chute`).
+Flip the logical direction of a stepper without reflashing firmware. Keys are logical stepper names (`carousel`, `c_channel_1`, `c_channel_2`, `c_channel_3`, `chute`). The API's `c_channel_4` is the carousel motor.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
@@ -89,13 +103,38 @@ Flip the logical direction of a stepper without reflashing firmware. Keys are lo
 
 ## `[stepper_current_overrides.<stepper_name>]`
 
-Per-stepper TMC driver current settings. Omit to use firmware defaults. Keys are physical or canonical stepper names.
+Per-stepper TMC driver currents. With no entry, the C-channel rotors run at `irun = 4`, `ihold = 1`, the carousel at `irun = 8`, `ihold = 1`, and the chute at `irun = 16`, `ihold = 4`. A key an entry leaves out takes the default below.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `irun` | int (0–31) | `16` | Run current register value. Higher = more torque, more heat. |
 | `ihold` | int (0–31) | `4` | Hold current register value when the stepper is stopped. |
 | `ihold_delay` | int (0–15) | `8` | Delay (in clock cycles) before current ramps from irun to ihold after a move ends. |
+
+## `[stepper_driver.<stepper_name>]`
+
+Per-stepper TMC driver mode. The control program writes these to each driver at start-up and never changes them by itself while sorting. Saving a change in the stepper settings writes it to the running driver straight away and keeps it in `machine.toml` for the next start.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `microsteps` | int (1, 2, 4 … 256) | `8` | Microsteps per full step. Every speed in µsteps/s scales with it. |
+| `stealthchop` | bool | `true` | StealthChop; `false` runs SpreadCycle. |
+| `coolstep` | bool | `false` | CoolStep load-adaptive current. Above StallGuard's speed floor when StallGuard is on, at every speed otherwise. |
+
+## `[stepper_stallguard.<stepper_name>]`
+
+Per-stepper stall detection. With no entry, the chute (`sgthrs = 55`) and the carousel (`sgthrs = 148`) have it on with `tcoolthrs = 150`; the other motors have it off.
+
+The chute can tune its own (`auto`, off until it's turned on on the chute's StallGuard tab). While it moves at its operating speed it reads its driver's load figure, and it keeps the speed floor a quarter above the TSTEP of that speed and the threshold far under what normal running reads and far over a stall. When the speed, the current, the microstepping or the chopper mode changes, it learns again. Its StallGuard tab shows what it learned, and says when the chute works harder than it did. A threshold or speed floor saved by hand turns it off.
+
+To tune by hand, use the StallGuard tab of the chute's settings page or the classification channel's. The tab takes it in five steps: check the speed (the chute starts at its operating speed), record the motor running freely, record a stall by holding it back by hand, review and save the threshold and speed floor, and optionally check them.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | bool | `true` in an entry | Halt the machine when this motor stalls. |
+| `auto` | bool | `false` | Keep `sgthrs` and `tcoolthrs` set from the operating speed and normal running. Only the chute has it. |
+| `sgthrs` | int (0–255) | the motor's, else `50` | Stall threshold: a stall is SG_RESULT at or below twice this. |
+| `tcoolthrs` | int (0–1048575) | `1048575` in an entry | Speed floor, as TSTEP: stall detection acts only above this speed. |
 
 ## `[cameras]`
 

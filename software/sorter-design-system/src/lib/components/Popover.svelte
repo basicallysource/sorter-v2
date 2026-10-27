@@ -14,7 +14,7 @@
 	</Popover>
 -->
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { tick, type Snippet } from 'svelte';
 	import { place, type Placement } from './place';
 
 	type TriggerProps = {
@@ -57,7 +57,11 @@
 
 	function ontoggle(event: ToggleEvent) {
 		open = event.newState === 'open';
-		if (open) position();
+		if (open) {
+			position();
+			// Content that renders only while it is open has its size a moment later.
+			void tick().then(() => open && position());
+		}
 	}
 
 	// Keep it on its button while the page scrolls or the window changes size.

@@ -220,8 +220,8 @@ def _make_convert_script(preset: RknnPreset) -> str:
     return f'''#!/usr/bin/env python3
 """Convert ONNX -> RKNN inside a bundle directory.
 
-Run from a Linux x86_64 host with rknn-toolkit2 installed
-(Python 3.8-3.11). Inputs/outputs are resolved relative to this file so the
+Run on Linux (x86_64, or aarch64 such as an RK3588 board) with
+rknn-toolkit2 2.x installed. Inputs/outputs are resolved relative to this file so the
 bundle stays self-contained.
 
     cd <bundle>
@@ -236,7 +236,7 @@ try:
     from rknn.api import RKNN
 except ModuleNotFoundError:
     sys.exit(
-        "rknn-toolkit2 is not installed. Install it on an x86_64 Linux host with Python 3.8-3.11."
+        "rknn-toolkit2 is not installed. Install rknn-toolkit2 2.x on a Linux host (x86_64 or aarch64)."
     )
 
 BUNDLE = Path(__file__).resolve().parent
@@ -254,8 +254,9 @@ rknn.config(
     mean_values=[MEAN],
     std_values=[STD],
     target_platform="{preset.target_platform}",
-    quantized_dtype="asymmetric_quantized-8" if {do_quant} else "float16",
     optimization_level=3,
+    # rknn-toolkit2 2.x calls int8 "w8a8"; an fp16 build takes no quantized_dtype.
+    **({{"quantized_dtype": "w8a8"}} if {do_quant} else {{}}),
 )
 
 if rknn.load_onnx(model=str(ONNX_PATH)) != 0:

@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { tip } from '$lib/popover';
-	import { ArrowRight, BookOpen, Boxes, ExternalLink, FlaskConical, History, Zap } from 'lucide-svelte';
+	import { ArrowRight, BookOpen, Boxes, FlaskConical, History, Zap } from 'lucide-svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import SupportBadge from '$lib/components/SupportBadge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import HardwareIcon from '$lib/components/HardwareIcon.svelte';
@@ -90,7 +91,7 @@
 <!-- One BOM line. Which of the four kinds it is comes from where the id
      resolves, the same lookup order the tree uses. -->
 {#snippet lineRow(line: AssemblyLine)}
-	{@const each = lineQty(line, layers)}
+	{@const each = line.optional ? Number(line.qty) : lineQty(line, layers)}
 	{#if line.assembly}
 		{@const sub = getAssembly(line.assembly)}
 		{#if sub}
@@ -104,7 +105,7 @@
 					{#if !counts.size}<span class="ad-thumb ad-thumb-empty"><Boxes size={16} /></span>{/if}
 				</span>
 				<span class="ad-body">
-					<span class="ad-name">{sub.name} <Badge variant="info">Assembly</Badge></span>
+					<span class="ad-name">{sub.name} <Badge variant="info">Assembly</Badge> <OptionalBadge value={sub.optional} /></span>
 					<span class="ad-meta"
 						>{counts.size
 							? `${counts.size} printed part${counts.size === 1 ? '' : 's'} · ${fmtG(grams(counts))}`
@@ -137,7 +138,7 @@
 				<span class="ad-name">
 					<HardwareIcon {hw} size={14} />{hw.name}
 					<AlternativeBadge value={hw.alternative} size={14} />
-					<OptionalBadge value={hardwareOptional(hw)} />
+					<OptionalBadge value={hardwareOptional(hw) || !!line.optional} />
 					<ConflictBadge conflicts={hw.conflicts} size={14} />
 				</span>
 				<span class="ad-meta">Off the shelf</span>
@@ -152,6 +153,8 @@
 			<span class="ad-body">
 				<span class="ad-name">
 					{part.name} <Badge variant="neutral">3D printed</Badge>
+					<SupportBadge {part} />
+					<OptionalBadge value={part.optional} />
 					<ChangeStatus kind="parts" id={part.id} name={part.name} />
 				</span>
 				<span class="ad-meta" use:tip={part.slice_failed ? `Not sliced: ${part.slice_failed}` : undefined}>{part.slice_failed ? 'not sliced' : `${(part.grams ?? 0).toFixed(0)} g each`} · {part.uid}</span>
@@ -178,6 +181,7 @@
 		<div class="mt-2 flex flex-wrap items-center gap-2">
 			<span class="font-mono text-xs text-text">{assembly.uid}</span>
 			{#if assembly.version}<span class="text-xs text-text-muted">v{assembly.version}</span>{/if}
+			<OptionalBadge value={assembly.optional} />
 			<ChangeStatus kind="assemblies" id={assembly.id} name={assembly.name} />
 		</div>
 
@@ -192,7 +196,7 @@
 				rel="noopener"
 				class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
 			>
-				<BookOpen size={12} /> Assembly guide <ExternalLink size={10} />
+				<BookOpen size={12} /> Assembly guide
 			</a>
 		{/if}
 	</header>

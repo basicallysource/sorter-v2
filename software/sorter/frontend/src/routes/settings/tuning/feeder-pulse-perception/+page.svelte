@@ -47,6 +47,8 @@
 
 	let fields = $state<TuningFieldMeta[]>([]);
 	let values = $state<TuningValues>({});
+	// The config as the machine has it (the form may hold unsaved edits).
+	let savedConfig = $state<TuningValues>({});
 	let loading = $state(true);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
@@ -118,6 +120,25 @@
 			enabled_at: number | null;
 		};
 	};
+
+	// How long each exit holds after a piece falls (pulse_perception/landing_hold.py).
+	type LandingHold = {
+		hold_s: number | null;
+		measured: boolean;
+		follows: boolean;
+		landings: number;
+		p90_s?: number;
+	};
+	let holds = $state<Record<string, LandingHold> | null>(null);
+
+	async function loadHolds() {
+		try {
+			const res = await fetch(`${getBackendHttpBase()}/api/tuning/feeder-pulse-perception/hold`);
+			if (res.ok) holds = (await res.json()).hold;
+		} catch {
+			// best-effort; the form above reports connectivity problems
+		}
+	}
 
 	let autotune = $state<AutotuneStatus | null>(null);
 	let autotuneError = $state<string | null>(null);
@@ -361,6 +382,7 @@
 			const data = await res.json();
 			fields = data.fields;
 			values = { ...data.config };
+			savedConfig = { ...data.config };
 			guard.markSaved();
 		} catch (e: any) {
 			error = e.message ?? 'Failed to load config';
@@ -385,6 +407,7 @@
 			}
 			const data = await res.json();
 			values = { ...data.config };
+			savedConfig = { ...data.config };
 			guard.markSaved();
 			saved = true;
 			setTimeout(() => (saved = false), 3000);
@@ -399,6 +422,9 @@
 		load();
 		loadAutotune();
 		loadDataset();
+		loadHolds();
+		const interval = setInterval(loadHolds, 5000);
+		return () => clearInterval(interval);
 	});
 
 	$effect(() => {
@@ -437,6 +463,36 @@
 		flush
 	>
 		<TuningPresets presets={exitPulsePresets} bind:values />
+	</Panel>
+{/if}
+
+{#if holds}
+	<Panel
+		title="Hold after a fall"
+		description="How long each exit pushes nothing after a piece falls, measured from how long pieces take to land on the next channel. The settings are under Hand-off below."
+	>
+		<dl class="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[12rem_minmax(0,1fr)]">
+			{#each [['2', 'C2 to C3'], ['3', 'C3 to the classification channel']] as [channel, label]}
+				{@const hold = holds[channel]}
+				<dt class="text-ink-muted">{label}</dt>
+				<dd>
+					{#if !hold}
+						{savedConfig.hold_follows_landings
+							? 'Measured from when this channel next runs.'
+							: 'The hold setting; it does not follow how long pieces take to land.'}
+					{:else if !hold.follows}
+						The hold setting; it does not follow how long pieces take to land.
+					{:else if hold.measured && hold.hold_s !== null}
+						<span class="num font-medium">{hold.hold_s.toFixed(1)} s</span>: 9 in 10 of the last
+						<span class="num">{hold.landings}</span> pieces landed within
+						<span class="num">{(hold.p90_s ?? 0).toFixed(1)} s</span>.
+					{:else}
+						The hold setting, until 20 pieces have been seen to fall and land
+						(<span class="num">{hold.landings}</span> so far).
+					{/if}
+				</dd>
+			{/each}
+		</dl>
 	</Panel>
 {/if}
 

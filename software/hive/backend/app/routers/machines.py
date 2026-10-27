@@ -6,18 +6,19 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy import delete, func, select, text, tuple_
+from sqlalchemy import delete, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, joinedload
 
-from app.deps import get_current_machine, get_current_user, get_db, require_role, verify_csrf
+from app.deps import get_current_machine, get_current_user, get_db, require_role, statement_timeout, verify_csrf
 from app.errors import APIError
 from app.machine_network import normalize_network_block
 from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
 from app.models.machine_channel_crop import MachineChannelCrop
+from app.models.machine_training_run import MachineTrainingRun
 from app.models.user import User
 from app.schemas.machine import (
     MachineCreate,
@@ -27,11 +28,13 @@ from app.schemas.machine import (
     MachineUpdate,
     MachineWithTokenResponse,
 )
-from app.services import machine_stats
+from app import background
+from app.services import machine_defaults, machine_stats, training_runs
 from app.services.auth import generate_machine_token, verify_password
-from app.services.machine_set_progress import build_set_progress_inventory_index, summarize_machine_set_progress
+from app.services.machine_set_progress import cached_inventory_index, summarize_machine_set_progress
 from app.services.machine_stats import get_machine_stats_worker
 from app.services.storage import delete_machine_files, serve_stored_file
+from app.services.telemetry_limits import effective_limits
 
 router = APIRouter(prefix="/api", tags=["machines"])
 limiter = Limiter(key_func=get_remote_address)
@@ -73,70 +76,32 @@ def get_machine_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Per-machine statistics for the dashboard cards."""
-    from app.models.sample import Sample
-    from app.models.upload_session import UploadSession
-    from app.models.machine_set_progress import MachineSetProgress
+    """Per-machine statistics for the dashboard cards: the caller's machines'
+    rows of machine_stats_cache, which the stats worker keeps (hourly), not a
+    count over their samples on every page load."""
+    from app.models.machine_stats_cache import MachineStatsCache
 
     machine_ids = [
         mid for (mid,) in db.query(Machine.id).filter(Machine.owner_id == current_user.id).all()
     ]
     if not machine_ids:
         return {}
-
-    # Sample counts per machine
-    sample_rows = (
-        db.query(
-            Sample.machine_id,
-            func.count(Sample.id).label("total_samples"),
-            func.count(Sample.id).filter(Sample.review_status == "accepted").label("accepted_samples"),
-            func.min(Sample.captured_at).label("first_capture"),
-            func.max(Sample.captured_at).label("last_capture"),
-        )
-        .filter(Sample.machine_id.in_(machine_ids))
-        .group_by(Sample.machine_id)
-        .all()
-    )
-    sample_map = {str(r.machine_id): r for r in sample_rows}
-
-    # Session counts per machine
-    session_rows = (
-        db.query(
-            UploadSession.machine_id,
-            func.count(UploadSession.id).label("total_sessions"),
-        )
-        .filter(UploadSession.machine_id.in_(machine_ids))
-        .group_by(UploadSession.machine_id)
-        .all()
-    )
-    session_map = {str(r.machine_id): r.total_sessions for r in session_rows}
-
-    # Set progress aggregates per machine
-    progress_rows = (
-        db.query(
-            MachineSetProgress.machine_id,
-            func.sum(MachineSetProgress.quantity_found).label("parts_found"),
-            func.sum(MachineSetProgress.quantity_needed).label("parts_needed"),
-        )
-        .filter(MachineSetProgress.machine_id.in_(machine_ids))
-        .group_by(MachineSetProgress.machine_id)
-        .all()
-    )
-    progress_map = {str(r.machine_id): r for r in progress_rows}
+    cached = {
+        str(row.machine_id): row
+        for row in db.query(MachineStatsCache).filter(MachineStatsCache.machine_id.in_(machine_ids))
+    }
 
     result = {}
     for mid in machine_ids:
-        mid_str = str(mid)
-        sr = sample_map.get(mid_str)
-        pr = progress_map.get(mid_str)
-        result[mid_str] = {
-            "total_samples": sr.total_samples if sr else 0,
-            "accepted_samples": sr.accepted_samples if sr else 0,
-            "first_capture": sr.first_capture.isoformat() if sr and sr.first_capture else None,
-            "last_capture": sr.last_capture.isoformat() if sr and sr.last_capture else None,
-            "total_sessions": session_map.get(mid_str, 0),
-            "parts_found": int(pr.parts_found) if pr and pr.parts_found else 0,
-            "parts_needed": int(pr.parts_needed) if pr and pr.parts_needed else 0,
+        row = cached.get(str(mid))
+        result[str(mid)] = {
+            "total_samples": row.total_samples if row else 0,
+            "accepted_samples": row.accepted_samples if row else 0,
+            "first_capture": row.first_capture.isoformat() if row and row.first_capture else None,
+            "last_capture": row.last_capture.isoformat() if row and row.last_capture else None,
+            "total_sessions": row.total_sessions if row else 0,
+            "parts_found": row.parts_found if row else 0,
+            "parts_needed": row.parts_needed if row else 0,
         }
 
     return result
@@ -198,9 +163,13 @@ def admin_refresh_machine_stats(
     admin: User = Depends(require_role("admin")),
     _csrf: None = Depends(verify_csrf),
 ):
-    """Force an immediate recompute of every machine's cached stats."""
-    count = machine_stats.refresh_all(db)
-    return {"ok": True, "refreshed": count, "worker": get_machine_stats_worker().status()}
+    """Have the machine-stats worker recompute every machine's cached stats
+    now instead of at its next pass. A pass is the fleet-wide aggregates over
+    every piece, so it never runs on a request: this returns at once, and the
+    numbers change when the pass is done (``worker.last_run_at``)."""
+    name = get_machine_stats_worker().name
+    background.request_pass(db, name)
+    return {"ok": True, "requested": True, "worker": background.worker_status(db, name)}
 
 
 def _may_view(machine: Machine, user: User) -> bool:
@@ -269,6 +238,9 @@ def get_machine_overview(
 
 PIECE_IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 
+# The most crops one page of a filtered crop list looks at.
+CROP_WINDOW = 2000
+
 
 def _serialize_machine_piece(piece: MachinePiece, images: list[MachinePieceImage]) -> dict[str, Any]:
     return {
@@ -287,6 +259,10 @@ def _serialize_machine_piece(piece: MachinePiece, images: list[MachinePieceImage
         "color_confidence": piece.color_confidence,
         "bin": {"x": piece.bin_x, "y": piece.bin_y, "z": piece.bin_z},
         "dead": piece.dead,
+        # The operator's verdicts, as the records list carries them.
+        "part_correct": piece.part_correct,
+        "color_corrected_id": piece.color_corrected_id,
+        "correction_updated_at": piece.correction_updated_at.isoformat() if piece.correction_updated_at else None,
         "brickognize_preview_url": piece.brickognize_preview_url,
         "images": [
             {
@@ -312,7 +288,7 @@ def _serialize_machine_piece(piece: MachinePiece, images: list[MachinePieceImage
 @router.get("/machines/{machine_id}/pieces")
 def list_machine_pieces(
     machine_id: UUID,
-    limit: int = Query(60, ge=1, le=200),
+    limit: int = Query(60, ge=1, le=1000),
     cursor: int | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -347,13 +323,6 @@ def list_machine_pieces(
         for im in images:
             images_by_piece.setdefault(im.piece_uuid, []).append(im)
 
-    total = (
-        db.query(func.count(MachinePiece.id))
-        .filter(MachinePiece.machine_id == machine_id)
-        .scalar()
-        or 0
-    )
-
     return {
         "machine": {
             "id": str(machine.id),
@@ -365,7 +334,46 @@ def list_machine_pieces(
             for p in pieces
         ],
         "next_cursor": next_cursor,
-        "total": total,
+        "total": machine_stats.piece_total(db, machine_id),
+    }
+
+
+def _training_run_cursor(run: MachineTrainingRun) -> str:
+    started = run.started_at if run.started_at.tzinfo is not None else run.started_at.replace(tzinfo=timezone.utc)
+    return f"{started.isoformat()}|{run.id}"
+
+
+@router.get("/machines/{machine_id}/training-runs")
+def list_machine_training_runs(
+    machine_id: UUID,
+    limit: int = Query(50, ge=1, le=200),
+    cursor: str | None = Query(None, max_length=120),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """The machine's training runs, newest first, each with the piece,
+    labelled and excluded counts kept on its row (services/training_runs.py).
+    Keyset-paged on (started_at, id): pass next_cursor back as cursor.
+
+    Accessible to the machine's owner or any admin."""
+    machine = _machine_for_viewer(db, machine_id, current_user)
+    query = db.query(MachineTrainingRun).filter(MachineTrainingRun.machine_id == machine.id)
+    if cursor:
+        try:
+            started_raw, run_id_raw = cursor.split("|", 1)
+            after = (datetime.fromisoformat(started_raw), UUID(run_id_raw))
+        except ValueError as exc:
+            raise APIError(400, "Invalid cursor", "CURSOR_INVALID") from exc
+        query = query.filter(tuple_(MachineTrainingRun.started_at, MachineTrainingRun.id) < after)
+    runs = (
+        query.order_by(MachineTrainingRun.started_at.desc(), MachineTrainingRun.id.desc()).limit(limit + 1).all()
+    )
+    has_more = len(runs) > limit
+    runs = runs[:limit]
+    colors = training_runs.palette() if runs else {}
+    return {
+        "items": [training_runs.run_out(run, colors) for run in runs],
+        "next_cursor": _training_run_cursor(runs[-1]) if has_more and runs else None,
     }
 
 
@@ -427,28 +435,41 @@ def list_machine_channel_crops(
 ):
     """Unlabeled C2/C3 bbox crops synced from one machine, newest first.
     Keyset-paginated on the machine's local crop id. Optional channel / zone_code
-    filters. Accessible to the machine's owner or any admin."""
+    filters. Accessible to the machine's owner or any admin.
+
+    With a filter a page looks at no more than CROP_WINDOW crops, so a rare
+    filter can return a short page, or an empty one, with a next_cursor to go
+    on from. ``total`` is the machine's crop count at the stats worker's last
+    pass (hourly)."""
     machine = _machine_for_viewer(db, machine_id, current_user)
 
     query = db.query(MachineChannelCrop).filter(MachineChannelCrop.machine_id == machine_id)
-    if channel is not None:
-        query = query.filter(MachineChannelCrop.channel == channel)
-    if zone_code is not None:
-        query = query.filter(MachineChannelCrop.zone_code == zone_code)
     if cursor is not None:
         query = query.filter(MachineChannelCrop.local_id < cursor)
+    end = None
+    if channel is not None or zone_code is not None:
+        # The last crop of this stretch, from the (machine_id, local_id) index alone.
+        end = (
+            query.with_entities(MachineChannelCrop.local_id)
+            .order_by(MachineChannelCrop.local_id.desc())
+            .offset(CROP_WINDOW - 1)
+            .limit(1)
+            .scalar()
+        )
+        if end is not None:
+            query = query.filter(MachineChannelCrop.local_id >= end)
+        if channel is not None:
+            query = query.filter(MachineChannelCrop.channel == channel)
+        if zone_code is not None:
+            query = query.filter(MachineChannelCrop.zone_code == zone_code)
     crops = query.order_by(MachineChannelCrop.local_id.desc()).limit(limit + 1).all()
 
-    has_more = len(crops) > limit
-    crops = crops[:limit]
-    next_cursor = crops[-1].local_id if (has_more and crops) else None
-
-    total = (
-        db.query(func.count(MachineChannelCrop.id))
-        .filter(MachineChannelCrop.machine_id == machine_id)
-        .scalar()
-        or 0
-    )
+    if len(crops) > limit:
+        crops = crops[:limit]
+        next_cursor = crops[-1].local_id
+    else:
+        next_cursor = end
+    total = machine_stats.channel_crop_total(db, machine_id)
 
     return {
         "machine": {
@@ -532,6 +553,8 @@ def update_machine(
 
 
 @router.delete("/machines/{machine_id}")
+# One DELETE that cascades to every piece, image and crop the machine sent.
+@statement_timeout(seconds=60)
 def delete_machine(
     machine_id: UUID,
     db: Session = Depends(get_db),
@@ -549,6 +572,8 @@ def delete_machine(
 
 
 @router.post("/machines/{machine_id}/purge")
+# Deletes every upload session, cascading to its samples and reviews.
+@statement_timeout(seconds=60)
 def purge_machine_data(
     machine_id: UUID,
     db: Session = Depends(get_db),
@@ -632,7 +657,16 @@ def heartbeat(
                     machine.network_info = network
                     machine.network_reported_at = now
     db.commit()
-    return {"ok": True, "machine_id": str(machine.id)}
+    # The limits ride on the heartbeat so Hive can change them without a
+    # release, and the defaults' version so a machine fetches the block when it
+    # changes (services/machine_defaults.py); a machine that predates either
+    # ignores the key.
+    return {
+        "ok": True,
+        "machine_id": str(machine.id),
+        "limits": effective_limits(db, machine),
+        "defaults_version": machine_defaults.current(db)["version"],
+    }
 
 
 @router.post("/machine/register", response_model=MachineWithTokenResponse)
@@ -721,9 +755,15 @@ def report_machine_set_progress(
     db: Session = Depends(get_db),
     machine: Machine = Depends(get_current_machine),
 ):
-    """Machine reports its set progress snapshot. Authenticated via machine token."""
+    """Machine reports its set progress snapshot. Authenticated via machine token.
+
+    Machines report the whole snapshot every few seconds and it rarely
+    changes, so a report stays cheap: the artifact's inventory is indexed once
+    per compiled version (cached_inventory_index), the version is read without
+    its artifact, and only the rows whose numbers changed are written."""
     from app.models.machine_set_progress import MachineSetProgress
     from app.models.machine_profile_assignment import MachineProfileAssignment
+    from app.models.sorting_profile_version import SortingProfileVersion
 
     assignment = db.query(MachineProfileAssignment).filter(
         MachineProfileAssignment.machine_id == machine.id
@@ -753,21 +793,34 @@ def report_machine_set_progress(
                 "SET_PROGRESS_BUSY",
             )
 
-    expected_version = assignment.active_version or assignment.desired_version
-    expected_version_id = expected_version.id if expected_version is not None else None
+    # The version's id and hash only: its artifact is read on a cache miss.
+    expected_version_id = None
+    compiled_hash = ""
+    for version_id in (assignment.active_version_id, assignment.desired_version_id):
+        if version_id is None:
+            continue
+        found = db.query(SortingProfileVersion.compiled_hash).filter(SortingProfileVersion.id == version_id).first()
+        if found is not None:
+            expected_version_id, compiled_hash = version_id, found.compiled_hash or ""
+            break
     if expected_version_id is None:
         raise APIError(409, "Machine assignment has no active profile version", "SET_PROGRESS_VERSION_UNAVAILABLE")
     if payload.version_id != expected_version_id:
         raise APIError(409, "Reported progress does not match the active assignment version", "SET_PROGRESS_VERSION_MISMATCH")
 
-    expected_artifact_hash = str(assignment.artifact_hash or getattr(expected_version, "compiled_hash", "") or "")
+    expected_artifact_hash = str(assignment.artifact_hash or compiled_hash or "")
     if not expected_artifact_hash:
         raise APIError(409, "Machine assignment has no compiled artifact hash", "SET_PROGRESS_ARTIFACT_UNAVAILABLE")
     if payload.artifact_hash != expected_artifact_hash:
         raise APIError(409, "Reported progress does not match the active assignment artifact", "SET_PROGRESS_ARTIFACT_MISMATCH")
 
-    compiled_artifact = expected_version.compiled_artifact_json if expected_version is not None else {}
-    valid_progress_items = build_set_progress_inventory_index(compiled_artifact)
+    valid_progress_items = cached_inventory_index(
+        expected_version_id,
+        compiled_hash,
+        lambda: db.query(SortingProfileVersion.compiled_artifact_json)
+        .filter(SortingProfileVersion.id == expected_version_id)
+        .scalar(),
+    )
     expected_keys = set(valid_progress_items.keys())
     if not valid_progress_items and payload.items:
         raise APIError(400, "Non-set profiles must report an empty progress snapshot", "SET_PROGRESS_NOT_SET_BASED")
@@ -833,18 +886,20 @@ def report_machine_set_progress(
     # timeout. Every retry then queued behind the previous attempt's row locks,
     # and the pile of abandoned threadpool workers (each pinning its parsed
     # payload, ORM session and artifact index) is what OOM-cycled hive-prod on
-    # 2026-08-20. The upsert's WHERE makes an unchanged row a no-op, so the
-    # steady state (machine re-reports a mostly-identical snapshot) writes
-    # almost nothing and leaves no dead tuples behind.
+    # 2026-08-20. Only the rows whose numbers changed are sent: the steady
+    # state (a machine re-reporting a mostly identical snapshot) builds and
+    # sends no upsert at all, where compiling 8.5k rows of one took seconds.
     progress = MachineSetProgress.__table__
-    existing_keys = {
-        (row.set_num, row.part_num, row.color_id)
+    existing = {
+        (row.set_num, row.part_num, row.color_id): (row.quantity_needed, row.quantity_found)
         for row in db.execute(
-            select(progress.c.set_num, progress.c.part_num, progress.c.color_id).where(
-                progress.c.assignment_id == assignment.id
-            )
+            select(
+                progress.c.set_num, progress.c.part_num, progress.c.color_id,
+                progress.c.quantity_needed, progress.c.quantity_found,
+            ).where(progress.c.assignment_id == assignment.id)
         )
     }
+    existing_keys = set(existing)
 
     deleted = 0
     stale_keys = existing_keys - incoming_keys  # non-empty only right after the profile changed
@@ -856,11 +911,17 @@ def report_machine_set_progress(
             )
         ).rowcount
 
-    # Chunked: the full snapshot is ~8.5k rows x 9 columns, past both
+    changed = [
+        item
+        for key, item in normalized_by_key.items()
+        if existing.get(key) != (item["quantity_needed"], item["quantity_found"])
+    ]
+
+    # Chunked: a first snapshot is ~8.5k rows x 9 columns, past both
     # postgres's and sqlite's bind-parameter caps in one statement.
     insert_fn = pg_insert if db.bind.dialect.name == "postgresql" else sqlite_insert
-    for start in range(0, len(normalized_items), 1000):
-        chunk = normalized_items[start : start + 1000]
+    for start in range(0, len(changed), 1000):
+        chunk = changed[start : start + 1000]
         stmt = insert_fn(progress).values(
             [
                 {
@@ -892,7 +953,7 @@ def report_machine_set_progress(
         db.execute(stmt)
 
     db.commit()
-    return {"ok": True, "updated": len(normalized_items), "deleted": deleted}
+    return {"ok": True, "updated": len(normalized_items), "changed": len(changed), "deleted": deleted}
 
 @router.post("/machines/{machine_id}/archive", response_model=MachineResponse)
 def archive_machine(

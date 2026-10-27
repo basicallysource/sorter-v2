@@ -237,3 +237,24 @@ body {
 		margin: 14mm;
 	}
 }
+
+/* External links: a link that leaves this site opens in a new tab and ends in
+   the same small box-with-arrow icon. Keyed on the two attributes rather than
+   a class, so a link written later gets the icon without anyone remembering
+   it. Links that wrap only an image stay unmarked. */
+a[target='_blank'][href^='http']:not(:has(> img, > picture))::after {
+	content: '';
+	display: inline-block;
+	flex: none;
+	width: 0.8em;
+	height: 0.8em;
+	margin-inline-start: 0.2em;
+	vertical-align: -0.05em;
+	background-color: currentColor;
+	-webkit-mask: var(--external-link-icon) center / contain no-repeat;
+	mask: var(--external-link-icon) center / contain no-repeat;
+}
+
+:root {
+	--external-link-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h6v6'/%3E%3Cpath d='M10 14 21 3'/%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3C/svg%3E");
+}

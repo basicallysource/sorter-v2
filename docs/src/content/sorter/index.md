@@ -37,16 +37,24 @@ With SorterOS running, flash it from **Settings** &rarr; **Control board**: pick
 - **[Shutting down the machine]({{ '/sorter/safe-shutdown/' | relative_url }})** — the two proper ways to power it down, and why pulling the plug is a last resort.
 - **[SorterOS troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }})** — symptom-led entries for install, first-run, and runtime problems.
 
+## Using the UI
+
+Reference pages for the parts of the SorterOS interface you use after setup. Some have no entry in the top menu, and each page says how to reach it.
+
+<ul class="bulleted-list">
+  <li><strong><a href="{{ '/sorter/dashboard/' | relative_url }}">The dashboard</a></strong>: camera tiles, hardware state, incidents and recent pieces, plus the Runtime, Set progress and Parts checklist pages.</li>
+  <li><strong><a href="{{ '/sorter/records/' | relative_url }}">Records</a></strong>: lifetime figures, runs, pieces and incidents. <a href="{{ '/sorter/tracked-piece/' | relative_url }}">The piece page</a> shows everything recorded about one piece.</li>
+  <li><strong><a href="{{ '/sorter/logs/' | relative_url }}">Logs</a></strong>: read the backend log in the browser, with search and a level filter.</li>
+  <li><strong><a href="{{ '/sorter/channel-settings/' | relative_url }}">Channel settings</a></strong>: each channel's camera, Picture, Detection and LED panels, and its rotor controls.</li>
+  <li><strong><a href="{{ '/sorter/perception-debug/' | relative_url }}">Perception debug</a></strong>: what the detector sees on each channel, which boxes the machine acts on, and where the zones are.</li>
+  <li><strong><a href="{{ '/sorter/feeder-simple-pulse/' | relative_url }}">Feeder simple pulse</a></strong> and <strong><a href="{{ '/sorter/tuning/' | relative_url }}">Tuning</a></strong>: every tuning setting, with its default.</li>
+  <li><strong><a href="{{ '/sorter/stallguard/' | relative_url }}">StallGuard</a></strong> and <strong><a href="{{ '/sorter/diagnostics/' | relative_url }}">Diagnostics</a></strong>: the stall check, and the Performance, Cycle time, Jitter test and Power stress test pages.</li>
+  <li><strong><a href="{{ '/sorter/incident-handling/' | relative_url }}">Incident handling</a></strong>: what the machine does when something goes wrong mid-sort.</li>
+  <li><strong><a href="{{ '/sorter/networking/' | relative_url }}">Networking</a></strong> and <strong><a href="{{ '/sorter/training-data/' | relative_url }}">Training data</a></strong>: Wi-Fi and Tailscale, and the Data, Uploads and Training runs pages.</li>
+</ul>
+
 ## Under the hood
 
 - **[Dev flow]({{ '/sorter/dev-flow/' | relative_url }})** — the dev backend and UI services, how to enable them, and the difference between a soft restart and a full restart.
 - **[Sorting profile reference]({{ '/sorter/profile-reference/' | relative_url }})** — the on-disk shape of `sorting_profile.json` — rules, conditions, `part_to_category`, set inventories. Accurate for `schema_version: 1`.
 - **[machine.toml reference]({{ '/sorter/machine-toml-reference/' | relative_url }})** — every field in the machine-specific config file: servo, chute, carousel, stepper bindings and overrides, cameras, and GPIO LEDs. This lives in the docs site, not the SorterOS UI.
-
-## Coming soon
-
-These flows do not yet have dedicated pages:
-
-- **Operating the UI at scale** — running long sessions, reviewing classification samples, tuning vision, checking runtime health.
-
-Until those land, the authoritative sources are `software/README.md` and `software/sorter/backend/coordinator.py`.

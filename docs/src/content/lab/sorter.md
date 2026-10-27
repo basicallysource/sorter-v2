@@ -110,7 +110,7 @@ Distribution is a tower of layers. Each layer holds bins and has its own **chute
 <li><strong>A linear layout.</strong> The first design carried pieces on a conveyor to tipping bins. It is more expandable and suits a wall, and it was compared with the circular design. The circular stack was chosen as the machine for this version.</li>
 <li><strong>Idler wheels on bearing races at the foot of the stack.</strong> The wheels wore and tore at the races and came unscrewed. The bottom Lazy Susan replaced them, and a double Lazy Susan ran a week without problems.</li>
 <li><strong>Early chute drops.</strong> About 78 per cent of test drops landed in the right place. A later test with taller bin walls and a soft flap landed 20 of 20. No figure exists yet for the current geometry.</li>
-<li><strong>Wiring the rotating stack.</strong> Slip rings (parts that pass power to something that turns) and a static servo were discussed. Nothing was adopted, and the layer boards are chained together by ribbon cable.</li>
+<li><strong>Wiring the rotating stack.</strong> Slip rings (parts that pass power to something that turns) and a static servo were discussed. Nothing was adopted, and the layer boards are chained together by ribbon cable. Serial servos, which would cut the wires to the layers, are planned for a later board revision. Reasons and open points are on <a href="{{ '/lab/servos/' | relative_url }}">The servos and the layer adapter boards</a>.</li>
 </ul>
 
 ### Why it is built this way

@@ -234,7 +234,7 @@ Snug all six down before tightening any of them, then swing the door by hand thr
 
 The servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Drop the horn into the servo-side half **splined sleeve first**: the sleeve sits in the hole in the middle of that half and the two arms lie in the slot around it. It does not fit any other way. Bring the flap-side half down over it and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the hexagonal socket and the countersunk holes) into the four short inserts in the servo side.
 
-The flap-side half has a raised hub with a hexagonal socket. The hub points at the door, and the socket is what takes the door's hexagonal spigot in the next step.
+The flap-side half has a raised hub with a hexagonal socket. The hub points at the door, and the socket is what takes the door's hexagonal spigot at first setup, see [coupling a chute door to its servo]({{ '/hardware/helpers/door-servo-coupling/' | relative_url }}).
 
 <div class="img-row">
   <figure>
@@ -247,39 +247,36 @@ The flap-side half has a raised hub with a hexagonal socket. The hub points at t
   </figure>
 </div>
 
-{% include step.html n="8" title="Bolt the servo bracket on and couple it to the door" %}
+{% include step.html n="8" title="Bolt the servo bracket on" %}
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>Set the coupling with care.</strong> It is possible to break a door here. Fit the adapter at roughly the middle of the door's swing and check both ends by hand before you commit to a position.</p>
+  <p><strong>Do not couple the servo to the door yet.</strong> Nobody knows what angle a new servo's shaft is at, and each time the machine starts it swings every flap to 0&deg; on the way to opening it. A door coupled at a guessed angle gets driven into the chute wall at every start, and that can break servos. The adapter goes on at first setup, once the machine has set the shaft to 0&deg;: <a href="{{ '/hardware/helpers/door-servo-coupling/' | relative_url }}">coupling a chute door to its servo</a>.</p>
 </div>
 
 The bracket goes on the same long wall as the servo-side bearing cover, into the three inserts there that are not under a cover: two on the small raised pad and one low down. The two arms do not take the same screw here either:
 
-- **Side arm**, 2 {% include fastener.html size="M3" variant="countersunk" length="12" %}, through the two holes in its ear.
-- **Lower arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="12" %}.
+<ul class="bulleted-list">
+  <li><strong>Side arm</strong>, 2 {% include fastener.html size="M3" variant="countersunk" length="12" %}, through the two holes in its ear.</li>
+  <li><strong>Lower arm</strong>, 1 {% include fastener.html size="M3" variant="countersunk" length="12" %}.</li>
+</ul>
 
-Then couple the servo to the door through the two-piece adapter you built in the step above. Its servo side goes onto the servo's splined output, through the horn clasped inside it, and its flap side has a hexagonal socket that takes **the hex end of the door's shaft**, the end step 4 told you to point at the servo. It is a slip fit, so it pushes on without force.
+**Leave the servo adapter off.** Bolt the bracket on without it: the servo's splined shaft and the hex end of the door's shaft face each other with a gap between them. Put the adapter you built in step 7 and the small screw from the servo's bag in a bag, write the layer on it, and keep it with the chute.
 
-Clock it before you commit: centre the servo (or let it settle at its power-on default), fit the adapter at roughly the middle of the door's swing, then fine-tune once you can check both open and closed by eye.
+**Never turn the servo's shaft by hand**, now or later. Its gearbox barely turns backwards, so forcing it rounds off the teeth inside the horn or breaks the servo.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-module-on-core-window-side-full-a3fa21b3d986.png" alt="Render of the chute core with the servo bracket bolted to its long wall, the side arm running up to the core and the lower arm underneath, the servo adapter discs between the bracket and the bearing cover, and the door inside the opening">
-  <figcaption>The bracket bolted on and the adapter in place, seen from the opening side. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  <figcaption>The bracket bolted on, seen from the opening side. The render also shows the adapter, between the bracket and the bearing cover, which goes on at first setup. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>The MG995 only rotates 180°. Install the servo so the door can reach <strong>both</strong> its fully open and fully closed positions inside that range: clock the horn and set the mounting angle so neither extreme falls outside the servo's travel. Before you tighten anything down, cycle the door by hand through both positions to confirm it swings freely and doesn't bind on the bearings or the core.</p>
-</div>
 
 ## The finished result
 
-The module is finished when the bracket is on the core and the adapter couples the servo to the door, and the door swings freely through its whole travel. One of these per layer.
+The module is finished when the bracket is on the core, the door swings freely through its whole travel, and the adapter and the servo's small screw are bagged with the layer, ready for first setup. One of these per layer.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-door-module-on-core-servo-side-full-57b16ba1789b.png" alt="Render of the door module on the chute core seen from the servo side: the blue servo bracket on the long wall with the side arm running up and the lower arm underneath, the servo adapter discs between the bracket and the bearing cover, the purple race under the opening and the orange door resting inside it">
-  <figcaption>A finished module on its core, from the servo side. The servo itself has no model, so the bracket shows empty. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  <figcaption>A module on its core, from the servo side, shown with the adapter that goes on at first setup. The servo itself has no model, so the bracket shows empty. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
 The servo's plug goes on the [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}). The [Chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page carries the other sub-assemblies that go on the same core, and is where you should return once you're done here.

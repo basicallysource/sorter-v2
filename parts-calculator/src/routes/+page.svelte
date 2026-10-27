@@ -27,7 +27,8 @@
 		platesForPart,
 		type Part,
 		type PartVersion,
-		partDownload
+		partDownload,
+		pillAttributes
 	} from '$lib/filament';
 	import { getBambuColor } from '$lib/bambu-colors';
 	import { partsCsv } from '$lib/parts-csv';
@@ -55,6 +56,8 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
 	import RequiredColorBadge from '$lib/components/RequiredColorBadge.svelte';
+	import SupportBadge from '$lib/components/SupportBadge.svelte';
+	import PrintOrientationBadge from '$lib/components/PrintOrientationBadge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import MissingImage from '$lib/components/MissingImage.svelte';
 	import { Download, Package, ZoomIn, Loader, Info, RotateCcw, Clock, Layers3, AlertTriangle, History, ChevronRight, ChevronDown, ArrowUpRight, FlaskConical } from 'lucide-svelte';
@@ -370,6 +373,7 @@
 		);
 	}
 	const allSelected = $derived(PARTS.every((p) => machineNeeds(p.id) === 0 || qtyOf(p.id) > 0));
+	const noneSelected = $derived(PARTS.every((p) => 'bins' in p.quantities || qtyOf(p.id) === 0));
 
 	const prettyPattern = SETTINGS.infill_pattern.replace('adaptivecubic', 'adaptive cubic');
 	// both boxes at the top of the page start closed, so their one-line summary is
@@ -600,8 +604,9 @@
 					{#if isEdited(p.id)}<span class="border border-primary/60 px-1 text-xs text-primary" use:tip={`Printing ${qtyOf(p.id)}, the machine needs ${machineNeeds(p.id)}`}>qty {qtyOf(p.id)}</span>{/if}
 					<OptionalBadge value={p.optional} />
 					<RequiredColorBadge part={p} {sectionId} />
-					{#if p.support_intentional}<Badge variant="info" tipText="Printed with support material — included in this part's grams">Supports</Badge>{/if}
-						{#if platesForPart(p.id).length}<button type="button" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" onclick={() => openPlatesModal(p.id)} use:tip={'Show plates with this part'}><Layers3 size={11} /> {platesForPart(p.id).length} plate{platesForPart(p.id).length === 1 ? '' : 's'}</button>{/if}{#if os.version}<a href={os.version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Open the exact OnShape version this STL came from'}>OnShape</a>{/if}{#if p.info}<Popover width="16rem" label="About {p.name}" text={p.info} />{/if}<ChangeStatus kind="parts" id={p.id} name={p.name} />{#if p.low_tolerance}<Popover width="18rem" label="Fit notes for {p.name}">{#snippet trigger({ toggle, props })}<Badge as="button" variant="warning" onclick={toggle} {...props}><AlertTriangle size={11} /> Tight fit</Badge>{/snippet}<b class="text-text">Low tolerance.</b> This part has little room for dimensional error, so a test print is worth doing before you commit to the full set.{#if p.low_tolerance_note}<span class="mt-2 block border-t border-border pt-2 text-text">{p.low_tolerance_note}</span>{/if}</Popover>{/if}{#if p.attributes?.length}{#each p.attributes as a}<span class="border border-border bg-[var(--color-bg)] px-1 text-xs text-text-muted" use:tip={a.label}>{a.label}: <span class="text-text">{a.value}</span></span>{/each}{/if}{#if p.versions && p.versions.length > 1}<Popover width="20rem" label="Version history for {p.name}">{#snippet trigger({ toggle, props })}<button type="button" onclick={toggle} {...props} class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Version history'}><History size={11} /> v{p.version} · {p.versions?.length ?? 0} versions</button>{/snippet}<b class="text-text">Version history</b><ul class="mt-1 space-y-2">{#each [...(p.versions ?? [])].reverse() as v}<li class="border-t border-border pt-2 first:border-t-0 first:pt-0"><div class="flex items-center gap-1.5 text-text"><b>v{v.version}</b><span class="text-text-muted">· {fmtDate(v.date)}</span>{#if commitUrl(v.commit)}<a href={commitUrl(v.commit)} target="_blank" rel="noopener" class="ml-auto inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">{v.commit}</a>{:else}<span class="ml-auto italic text-text-muted/70">uncommitted</span>{/if}</div><div class="mt-0.5">{v.message}</div>{#if v.onshape_version}<div class="mt-1"><a href={v.onshape_version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">OnShape</a></div>{/if}</li>{/each}</ul></Popover>{/if}
+					<PrintOrientationBadge part={p} />
+					<SupportBadge part={p} />
+						{#if platesForPart(p.id).length}<button type="button" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" onclick={() => openPlatesModal(p.id)} use:tip={'Show plates with this part'}><Layers3 size={11} /> {platesForPart(p.id).length} plate{platesForPart(p.id).length === 1 ? '' : 's'}</button>{/if}{#if os.version}<a href={os.version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Open the exact OnShape version this STL came from'}>OnShape</a>{/if}{#if p.info}<Popover width="16rem" label="About {p.name}" text={p.info} />{/if}<ChangeStatus kind="parts" id={p.id} name={p.name} />{#if p.low_tolerance}<Popover width="18rem" label="Fit notes for {p.name}">{#snippet trigger({ toggle, props })}<Badge as="button" variant="warning" onclick={toggle} {...props}><AlertTriangle size={11} /> Tight fit</Badge>{/snippet}<b class="text-text">Low tolerance.</b> This part has little room for dimensional error, so a test print is worth doing before you commit to the full set.{#if p.low_tolerance_note}<span class="mt-2 block border-t border-border pt-2 text-text">{p.low_tolerance_note}</span>{/if}</Popover>{/if}{#each pillAttributes(p) as a}<span class="border border-border bg-[var(--color-bg)] px-1 text-xs text-text-muted" use:tip={a.label}>{a.label}: <span class="text-text">{a.value}</span></span>{/each}{#if p.versions && p.versions.length > 1}<Popover width="20rem" label="Version history for {p.name}">{#snippet trigger({ toggle, props })}<button type="button" onclick={toggle} {...props} class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Version history'}><History size={11} /> v{p.version} · {p.versions?.length ?? 0} versions</button>{/snippet}<b class="text-text">Version history</b><ul class="mt-1 space-y-2">{#each [...(p.versions ?? [])].reverse() as v}<li class="border-t border-border pt-2 first:border-t-0 first:pt-0"><div class="flex items-center gap-1.5 text-text"><b>v{v.version}</b><span class="text-text-muted">· {fmtDate(v.date)}</span>{#if commitUrl(v.commit)}<a href={commitUrl(v.commit)} target="_blank" rel="noopener" class="ml-auto inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">{v.commit}</a>{:else}<span class="ml-auto italic text-text-muted/70">uncommitted</span>{/if}</div><div class="mt-0.5">{v.message}</div>{#if v.onshape_version}<div class="mt-1"><a href={v.onshape_version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">OnShape</a></div>{/if}</li>{/each}</ul></Popover>{/if}
 				</span>
 				<span class="pl-meta">
 					{#each sw as s}
@@ -645,9 +650,15 @@
 				{#if activeTab === 'parts'}
 					<span class="text-sm text-text-muted">
 						{selectedParts.length}/{PARTS.length} selected ·
-						<button class="text-primary hover:text-primary-hover" onclick={() => setAll(!allSelected)}>
-							{allSelected ? 'deselect all' : 'select all'}
-						</button>
+						<button
+							class="text-primary hover:text-primary-hover disabled:text-text-muted disabled:hover:text-text-muted"
+							disabled={allSelected}
+							onclick={() => setAll(true)}>select all</button>
+						·
+						<button
+							class="text-primary hover:text-primary-hover disabled:text-text-muted disabled:hover:text-text-muted"
+							disabled={noneSelected}
+							onclick={() => setAll(false)}>select none</button>
 						<button
 							class="ml-3 inline-flex items-center gap-1 text-primary hover:text-primary-hover"
 							onclick={downloadCsv}
@@ -732,6 +743,8 @@
 												{#if shared.has(p.id)}<span class="cursor-help border border-border px-1 text-xs text-text-muted" use:tip={`Used in ${usedIn(p.id).join(', ')}`}>used in {usedIn(p.id).length} places</span>{/if}
 												<OptionalBadge value={p.optional} />
 												<RequiredColorBadge part={p} />
+												<PrintOrientationBadge part={p} />
+												<SupportBadge part={p} />
 												<ChangeStatus kind="parts" id={p.id} name={p.name} />
 											</span>
 											<span class="pl-meta">{usedIn(p.id).join(' · ') || 'not placed yet'}</span>
@@ -867,6 +880,7 @@
 												<span class="pl-name">
 													{group?.name}
 													<Badge variant={block.groupKind === 'folder' ? 'neutral' : 'info'}>{block.groupKind === 'folder' ? 'Folder' : 'Assembly'}</Badge>
+													<OptionalBadge value={a?.optional} />
 													{#if a?.candidates?.some((c) => !c.superseded_by && !c.rejected_at)}<Badge variant="info"><FlaskConical size={11} /> Candidate</Badge>{/if}
 													{#if block.groupKind === 'assembly' && a}<ChangeStatus kind="assemblies" id={a.id} name={a.name} />{/if}
 												</span>

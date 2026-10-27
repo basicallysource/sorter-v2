@@ -5,6 +5,8 @@
 	import ImageLightbox from '$lib/components/ImageLightbox.svelte';
 	import FirmwareTester from '$lib/components/FirmwareTester.svelte';
 	import { mount, unmount } from 'svelte';
+	import PartModal from '$lib/components/PartModal.svelte';
+	import type { ResolvedPart } from '$lib/server/content';
 
 	let { data } = $props();
 
@@ -122,6 +124,21 @@
 		lightbox = { src: e.target.currentSrc || e.target.src, alt: e.target.alt };
 	}
 
+	// A part's name in the text (a `.part-ref` button, made at build time in
+	// content.ts) opens the same card its "Parts needed" tile does. On the window
+	// rather than the article so the page's warning banner is covered too.
+	let refPart = $state<ResolvedPart | null>(null);
+	let refOpen = $state(false);
+
+	function onWindowClick(e: MouseEvent) {
+		if (!(e.target instanceof Element)) return;
+		const id = e.target.closest<HTMLElement>('.part-ref')?.dataset.part;
+		const part = id ? p.partRefs?.[id] : undefined;
+		if (!part) return;
+		refPart = part;
+		refOpen = true;
+	}
+
 	function onContentKeydown(e: KeyboardEvent) {
 		if (e.key !== 'Enter' && e.key !== ' ') return;
 		if (!(e.target instanceof HTMLImageElement) || !zoomable(e.target)) return;
@@ -209,6 +226,8 @@
 		};
 	});
 </script>
+
+<svelte:window onclick={onWindowClick} />
 
 <svelte:head>
 	<title>{title}</title>
@@ -302,5 +321,6 @@
 </div>
 
 <ImageLightbox bind:image={lightbox} />
+<PartModal bind:open={refOpen} part={refPart} />
 
 <PageMeta {fm} />

@@ -144,6 +144,11 @@ export type Assembly = {
 	lines?: AssemblyLine[];
 	connections?: Connection[]; // the joints, as edges over this assembly's lines
 	images?: CatalogImage[]; // photos of it built, section views; the first is its main picture
+	// The machine works without it: fit it if you want what it does. Same
+	// meaning as a printed part's `optional` -- it marks the assembly and is
+	// counted like any other. An `optional` LINE is the other thing: that one
+	// resolves to zero (an unchosen alternative).
+	optional?: boolean;
 };
 
 /** A joint recorded as an edge over the assembly's own lines. `to` is the
@@ -408,6 +413,24 @@ export type PartStamp = {
 	surface?: { axis: number[]; point: number[]; r0: number; slope: number; sign: number };
 };
 
+/** A labelled line on a part's card. `image_url` is an optional picture of it. */
+export type PartAttribute = { label: string; value: string; image_url?: string };
+
+/** The one attribute that is an instruction rather than a characteristic: the
+ *  STL is not exported the way it prints, and the value says how to turn it.
+ *  Put it only on a part whose file needs turning; it renders as the "Turn
+ *  before printing" tag (PrintOrientationBadge), not as a pill. */
+export const PRINT_ORIENTATION = 'Print orientation';
+
+export function printOrientation(p: { attributes?: PartAttribute[] }): PartAttribute | null {
+	return p.attributes?.find((a) => a.label === PRINT_ORIENTATION) ?? null;
+}
+
+/** Every attribute that renders as a plain `Label: value` pill. */
+export function pillAttributes(p: { attributes?: PartAttribute[] }): PartAttribute[] {
+	return (p.attributes ?? []).filter((a) => a.label !== PRINT_ORIENTATION);
+}
+
 export type Part = {
 	id: string;
 	uid: string; // the current version's id -- what a print is engraved with
@@ -427,7 +450,7 @@ export type Part = {
 	versions?: PartVersion[]; // archetype history, newest last
 	candidates?: PartCandidate[]; // revisions under test for this slot, oldest first
 	images?: CatalogImage[]; // extra pictures beyond the render
-	attributes?: { label: string; value: string }[]; // variant characteristics shown in the app
+	attributes?: PartAttribute[]; // variant characteristics shown in the app
 	grams: number | null; // total incl. any support; null when no slicer could do it
 	support_grams: number | null; // the support portion of `grams`; null with it
 	support_used: boolean; // slicer used support to slice this (may be auto-forced)
@@ -1191,6 +1214,22 @@ export function buyList(
 
 export function grams(n: number): string {
 	return n >= 1000 ? `${(n / 1000).toFixed(2)} kg` : `${Math.round(n)} g`;
+}
+
+/** How tall the machine stands, in mm, on its casters. Measured on a finished
+ *  5 layer machine: 1270 to the top plate, 1772 to the top of the bulk bucket.
+ *  Each layer is one C vertical, 160 mm, whatever its bin size; the bucket and
+ *  feeder stand on the top plate, so their 502 mm does not scale. The docs
+ *  Overview page quotes the same figures. */
+export const LAYER_PITCH_MM = 160;
+export function machineHeight(layers: number): { plate: number; bucket: number } {
+	const plate = 1270 + (layers - 5) * LAYER_PITCH_MM;
+	return { plate, bucket: plate + 502 };
+}
+/** 1270 -> "4 ft 2 in", to the nearest inch, for planning a room. */
+export function feetInches(mm: number): string {
+	const inches = Math.round(mm / 25.4);
+	return `${Math.floor(inches / 12)} ft ${inches % 12} in`;
 }
 export function money(n: number): string {
 	return `$${n.toFixed(2)}`;

@@ -100,7 +100,7 @@ When it's ready, the page opens the SorterOS UI by itself.
 
 Nothing needs installing for the module itself: the driver is in the official Orange Pi Ubuntu image that SorterOS is built on, so a SorterOS machine picks it up on its own. Third-party OS images may not have the driver at all.
 
-Once the UI is up, the adapter shows under **Settings → WiFi**, which is where the network and password go in. Over SSH, `nmcli device wifi list` lists what it can see.
+Once the UI is up, the adapter shows under **Settings → Networking**, which is where the network and password go in. Over SSH, `nmcli device wifi list` lists what it can see.
 
 **Take the adapter's address before you unplug the Ethernet.** Joining a network gets the machine a second address, different from the one it has been answering on, and once connected the adapter's row on that same WiFi page shows what it is. Write it down, then pull the Ethernet and browse to it. Doing it the other way round leaves you hunting for the machine, because the page you were reading goes with the cable.
 

@@ -214,33 +214,7 @@ Two more buttons on each card: **Review zone** and **Picture tuning**, in that o
 
 ### Review zone
 
-Use the colored circles to drag the center, the inner and the outer. Then use the colored rectangles to set the drop start and drop end, the exit end, and the precise end and exit start, which are linked and move together. Finally, use the red circle to set the exit outer. Click **Save Zone**.
-
-<div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zone-editor-full-8149e45a5d8b.png" alt="The zone editor over a live C-channel view, with every handle labelled: center, inner, outer, drop start, drop end, precise start, precise end, exit start, exit end and exit outer"><figcaption>What the camera should see, and a starting point for setting the zones. <cite>Screenshot courtesy of Daddy-O's Bricks - Bill.</cite></figcaption></figure>
-</div>
-
-The angles each channel ships with are below. They are drawn against a generic view of the channel, so treat them as a starting geometry rather than a calibration for your machine.
-
-<div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zones-c2-full-0bd7da7975d7.png" alt="Diagram of C-Channel 2 as a ring, with the drop zone from 101 to 180 degrees, a suggested precise zone from 284 to 304 and the exit zone from 304 to 338"><figcaption>C-Channel 2. <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
-</div>
-
-<div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zones-c3-full-4caea0b6340f.png" alt="Diagram of C-Channel 3 as a ring, with the drop zone from 45 to 119 degrees, a suggested precise zone from 295 to 315 and the exit zone from 315 to 360"><figcaption>C-Channel 3. <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
-</div>
-
-<div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zones-c4-full-1cf92c39d8f4.png" alt="Diagram of the classification C-channel as a ring, with the drop zone from 44 to 118 degrees, a suggested precise zone from 290 to 314 and the exit zone from 314 to 350"><figcaption>Classification C-Channel (C4). <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
-</div>
-
-<div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-three-channels-full-b17f9f7815d3.png" alt="The three camera cards side by side, each showing its live view with the drop, precise and exit zones shaded and labelled"><figcaption>Base line for how all 3 channels should look after setup. <cite>Screenshot courtesy of Daddy-O's Bricks - Bill. Labels added by Balloon.</cite></figcaption></figure>
-</div>
-
-**C-Channel 2 and C-Channel 3 do not show their whole ring, and that is expected.** In the picture above, the top or bottom edge of each rotor is cut off by the frame. If the drop zone and the exit zone are both visible, the camera is positioned correctly even though part of the ring is not. Do not raise the lamp to fit more in. [Why the cameras are placed this way]({{ '/lab/sorter/' | relative_url }}#camera-crop) has the reasons and the numbers.
-
-A piece that rides through the part of the ring the camera cannot see vanishes from the picture and reappears further round. To keep the channel turning while it is out of sight, tell the machine where that part is: open **Settings** → **Feeder simple pulse**, find the **Out of view** section, and set the **unseen arc start** (where pieces vanish) and **unseen arc end** (where they come back) for C2 and C3. Both are angles on the same scale as the zone diagrams above, counted in the direction the channel turns. Leave both at 0 if the camera sees the whole ring.
+Press **Review** on each camera, then **Find**, then **Save**. The machine does not use a channel until its zones are saved. Fine adjustment can wait. [Zones]({{ '/sorter/zones/' | relative_url }}) has what each zone is for and how to set it, and what the camera should show.
 
 ### Picture tuning
 

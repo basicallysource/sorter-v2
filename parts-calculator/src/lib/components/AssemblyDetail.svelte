@@ -5,6 +5,7 @@
 	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import SupportBadge from '$lib/components/SupportBadge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import HardwareIcon from '$lib/components/HardwareIcon.svelte';
@@ -104,7 +105,7 @@
 					{#if !counts.size}<span class="ad-thumb ad-thumb-empty"><Boxes size={16} /></span>{/if}
 				</span>
 				<span class="ad-body">
-					<span class="ad-name">{sub.name} <Badge variant="info">Assembly</Badge></span>
+					<span class="ad-name">{sub.name} <Badge variant="info">Assembly</Badge> <OptionalBadge value={sub.optional} /></span>
 					<span class="ad-meta"
 						>{counts.size
 							? `${counts.size} printed part${counts.size === 1 ? '' : 's'} · ${fmtG(grams(counts))}`
@@ -152,6 +153,8 @@
 			<span class="ad-body">
 				<span class="ad-name">
 					{part.name} <Badge variant="neutral">3D printed</Badge>
+					<SupportBadge {part} />
+					<OptionalBadge value={part.optional} />
 					<ChangeStatus kind="parts" id={part.id} name={part.name} />
 				</span>
 				<span class="ad-meta" use:tip={part.slice_failed ? `Not sliced: ${part.slice_failed}` : undefined}>{part.slice_failed ? 'not sliced' : `${(part.grams ?? 0).toFixed(0)} g each`} · {part.uid}</span>
@@ -178,6 +181,7 @@
 		<div class="mt-2 flex flex-wrap items-center gap-2">
 			<span class="font-mono text-xs text-text">{assembly.uid}</span>
 			{#if assembly.version}<span class="text-xs text-text-muted">v{assembly.version}</span>{/if}
+			<OptionalBadge value={assembly.optional} />
 			<ChangeStatus kind="assemblies" id={assembly.id} name={assembly.name} />
 		</div>
 

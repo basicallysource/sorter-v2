@@ -343,6 +343,28 @@
           "chute"
         ]
       }
+    },
+    {
+      "id": "orange-pi-base-corner-insert-access",
+      "name": "One of the Orange Pi housing base's board inserts cannot be pressed in square",
+      "priority": "P1",
+      "condition": "broken",
+      "description": "The board post under the Orange Pi's north-east corner stands in the inside corner of the roof corner post, and its Ø4.0 insert bore is 3.4 mm from both faces of that corner. Both faces rise 31 mm above the top of the post, so a soldering iron cannot sit square over the insert: it rides against the corner post, melts it, and the insert does not go in cleanly. The other three board posts have at least 30 mm clear around them, and the four roof inserts are open from above. The Orange Pi 5 Pro, Max and Ultra base is not affected. The proposed CAD fix is to make that one hole a Ø2.8 self-tapping hole like the roof's, so the base takes seven inserts instead of eight. Reported from builds by ReveryX and BrickCycleAlice; measured off the pinned STL. Tracked as sorter-v2 issue #1162.",
+      "images": [
+        {
+          "url": "https://assets.basically.website/sorter-parts/orange-pi-housing-base-ne-post-insert-full-0eb27e206746.png",
+          "alt": "Left: plan section of the base's north-east corner, the corner post in grey with its two wall grooves, the board post boss in blue and its 4.0 mm bore in red, 3.4 mm from each of the post's two inner faces. Right: the same corner rendered from inside the housing, with the bore and the two post faces it sits against in red.",
+          "caption": "The north-east board post sits in the corner post's inside corner, 3.4 mm from both faces, which run 31 mm up."
+        }
+      ],
+      "targets": {
+        "parts": [
+          "orange-pi-housing-base"
+        ],
+        "assemblies": [
+          "orange-pi-mount"
+        ]
+      }
     }
   ],
   "folders": [
@@ -731,8 +753,8 @@
       "id": "chute-core",
       "uid": "omak",
       "name": "Chute core",
-      "description": "The chute core. 1 per machine.",
-      "internal_notes": "1 per machine. Its own color selector (chute core).",
+      "description": "The chute core. 1 per layer.",
+      "internal_notes": "1 per layer, one in each chute. Its own color selector (chute core).",
       "version": "2",
       "created_at": "2026-06-27",
       "updated_at": "2026-10-11",
@@ -842,7 +864,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Corner down, legs rising at 45° like a V, no supports. The file rests on no face; as exported it needs supports under the T-shaped key"
+          "value": "Corner down, legs rising at 45° like a V, no supports. The file rests on no face; as exported it needs supports under the T-shaped key",
+          "image_url": "https://assets.basically.website/sorter-parts/frame-90deg-bracket-print-orientation-full-004d30d57e54.png"
         }
       ],
       "internal_notes": "12 per frame (per layer); interface qty ASSUMED 12 (Spencer said 'one set per interface' - confirm). Frame color. File: inner_90_bracket.",
@@ -1545,16 +1568,16 @@
       "uid": "1a0l",
       "name": "Chute gear",
       "description": "The chute drive gear, screwed onto the Top interface chute mount with five M3x12 countersunk screws (see the Interface chute gear + mount assembly). Turned by the Interface spur gear/idler gear train off the NEMA 23 stepper.",
-      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Chute gear; it is not joined to -2 or -3. See top-interface.md step 6.",
+      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Chute gear; it is not joined to -2 or -3. See top-interface.md step 6. Re-exported 2026-10-23 at Jayesh-Herndon's report, turned 180 degrees about X so the flat 10 mm face lies on the bed (11,290 mm2); before, the 0.5 mm shelf on its underside printed in air. Mesh otherwise identical.",
       "version": "1",
       "created_at": "2026-07-03",
-      "updated_at": "2026-07-03",
+      "updated_at": "2026-10-23",
       "quantities": {
         "interface": 1
       },
       "assembly": null,
       "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/05b09a7158dd399ac6f8e446/e/12bfe1cca4fda5bc5763c0c9",
-      "stl_hash": "6a600fb6a6b3f2e5cf22f87fdce65ce0cbeddb2063f598de4dd25f63df23fe0f",
+      "stl_hash": "6d1965579cbbb418012db3e5aaf06038f48823ed2e32a94a532212e77ecb4c3d",
       "color": {
         "role": "chute-core"
       },
@@ -1741,6 +1764,46 @@
       "optional": false,
       "support": false,
       "onshape": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/w/95f28d157e2e06c115b488fe/e/5bf04274a6c68015096bd757"
+    },
+    {
+      "id": "colour-strip-clip",
+      "uid": "8e9x",
+      "name": "Colour strip clip",
+      "description": "Hooks over the top of the classification channel's stator wall and carries the colour strip's stud bar. Optional: only for the colour calibration strip.",
+      "version": "1",
+      "created_at": "2026-10-24",
+      "updated_at": "2026-10-24",
+      "quantities": {
+        "classification-channel": 1
+      },
+      "assembly": "colour-calibration-strip",
+      "stl_hash": "373459b6c8b55c49dd1da233418682e96551cb19b458e3dac308d44ee8855f28",
+      "color": {
+        "fixed": "ash-gray",
+        "why": "It stands at the edge of the camera's view, next to the tiles. Gray keeps the camera's exposure and white balance steady: white throws them off."
+      },
+      "optional": true,
+      "support": false
+    },
+    {
+      "id": "colour-strip-studs",
+      "uid": "19i6",
+      "name": "Colour strip stud bar",
+      "description": "A curved bar with eight studs for the colour strip's 1 x 1 tiles. It hooks onto the Colour strip clip so the tiles stand just above the rim, facing into the channel. Optional: only for the colour calibration strip.",
+      "version": "1",
+      "created_at": "2026-10-24",
+      "updated_at": "2026-10-24",
+      "quantities": {
+        "classification-channel": 1
+      },
+      "assembly": "colour-calibration-strip",
+      "stl_hash": "37ee6a4f1b37c1cbe0a0ed749decb553b551c915c4f98da0c3d5111781bda204",
+      "color": {
+        "fixed": "ash-gray",
+        "why": "It stands at the edge of the camera's view, next to the tiles. Gray keeps the camera's exposure and white balance steady: white throws them off."
+      },
+      "optional": true,
+      "support": false
     },
     {
       "id": "idler-gear",
@@ -2304,7 +2367,7 @@
       "id": "chute-door",
       "uid": "p88p",
       "name": "Chute door",
-      "description": "The chute door / flap. 1 per machine.",
+      "description": "The chute door / flap. 1 per layer.",
       "internal_notes": "Door file: gen3_chute_flap_print_side (inverted chute). Chute-core color.",
       "version": "2",
       "created_at": "2026-06-27",
@@ -2836,7 +2899,7 @@
       "id": "bearing-cover-covered",
       "uid": "5qyq",
       "name": "Bearing cover (covered side)",
-      "description": "Chute bearing cover. 1 per machine.",
+      "description": "Chute bearing cover. 1 per layer.",
       "internal_notes": "Left/right bearing cover for the chute. Chute-core color. Chute bearing assembly.",
       "version": "2",
       "created_at": "2026-06-29",
@@ -2873,7 +2936,7 @@
       "id": "bearing-cover-servo",
       "uid": "0iil",
       "name": "Bearing cover (servo side)",
-      "description": "Chute bearing cover. 1 per machine.",
+      "description": "Chute bearing cover. 1 per layer.",
       "internal_notes": "Left/right bearing cover for the chute. Chute-core color. Chute bearing assembly.",
       "version": "2",
       "created_at": "2026-06-29",
@@ -3204,7 +3267,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Upside down, top face on the bed"
+          "value": "Upside down, top face on the bed",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-print-orientation-full-36dd3a93ac7a.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -3231,7 +3295,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Lay flat on the bed; the file has it standing up"
+          "value": "Lay flat on the bed; the file has it standing up",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-print-orientation-full-cb8c4c2f6449.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -3258,7 +3323,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Lay flat on the bed; the file has it standing up"
+          "value": "Lay flat on the bed; the file has it standing up",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-east-print-orientation-full-4a5d7818cef6.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -3285,7 +3351,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Lay flat on the bed; the file has it standing up"
+          "value": "Lay flat on the bed; the file has it standing up",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-print-orientation-full-e9977fd35c2a.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -3312,7 +3379,8 @@
       "attributes": [
         {
           "label": "Print orientation",
-          "value": "Lay flat on the bed; the file has it standing up"
+          "value": "Lay flat on the bed; the file has it standing up",
+          "image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-print-orientation-full-01ea46b73c1c.png"
         }
       ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
@@ -5839,7 +5907,7 @@
       "category": "Heat inserts",
       "description": "ruthex RX-M4x8.1 brass heat-set threaded insert, 8.1 mm long. Melt it into a printed part with a soldering iron to make an M4 thread. It is the only M4 insert in the machine. Do not swap in the short M4S (RX-M4Sx4.0), which is a different part.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-10-02",
+      "updated_at": "2026-10-22",
       "attributes": [
         {
           "label": "Type",
@@ -5866,12 +5934,12 @@
         "vendors": [
           {
             "region": "US",
-            "vendor": "Amazon",
-            "url": "https://www.amazon.com/dp/B07YSV66Y5",
-            "affiliate_url": "https://www.amazon.com/dp/B07YSV66Y5?tag=sorterv2-20",
-            "price": 9.99,
+            "vendor": "CNC Kitchen",
+            "url": "https://www.cnckitchenus.store/products/heat-set-insert-m4-x-8-1-50-pieces",
+            "price": 11.5,
             "pack_qty": 50,
-            "as_of": "2026-07-18"
+            "as_of": "2026-10-22",
+            "note": "CNC Kitchen's own M4 x 8.1 insert, the same size as the ruthex one."
           },
           {
             "region": "EU",
@@ -5894,7 +5962,7 @@
         ]
       },
       "image_url": "https://assets.basically.website/sorter-parts/hsi-m4-full-abb5a013d071.jpg",
-      "internal_notes": "Resolved docs-merge-2026-08-21 name conflict (2026-08-21): the docs called this the LONG variant, but ruthex sells no \"long\" M4. Both catalogs meant the same product, ruthex RX-M4x8.1 (Amazon B07YSV66Y5), whose short counterpart is RX-M4Sx4.0. Naming across the heat inserts now follows ruthex: no \"long\", and an S suffix (M3S/M4S/M5S) if a short one is ever added. Amazon DE carries the same ASIN as Amazon US (B07YSV66Y5, sold by ruthex); ruthex.de sells the same 50 pack."
+      "internal_notes": "Resolved docs-merge-2026-08-21 name conflict (2026-08-21): the docs called this the LONG variant, but ruthex sells no \"long\" M4. Both catalogs meant the same product, ruthex RX-M4x8.1 (Amazon B07YSV66Y5), whose short counterpart is RX-M4Sx4.0. Naming across the heat inserts now follows ruthex: no \"long\", and an S suffix (M3S/M4S/M5S) if a short one is ever added. Amazon DE carries B07YSV66Y5, sold by ruthex; amazon.com no longer lists the M4x8.1 variant (2026-10-22); ruthex.de sells the same 50 pack."
     },
     {
       "id": "standoff-m3-10mm",
@@ -10776,6 +10844,33 @@
           }
         ]
       }
+    },
+    {
+      "id": "lego-tile-1x1",
+      "uid": "t0h2",
+      "kind": "cots",
+      "cots": {
+        "type": "lego",
+        "optional": true
+      },
+      "name": "LEGO tile 1 x 1 (3070b), colour strip set",
+      "category": "LEGO",
+      "description": "Eight 1 x 1 tiles, one of each colour, for the colour calibration strip: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow and Red. Optional.",
+      "note": "Green is BrickLink Green (6), not Bright Green. Real LEGO tiles, not printed ones.",
+      "docs_page": "/hardware/assembly/feeder/c-channels/classification-channel/",
+      "created_at": "2026-10-24",
+      "updated_at": "2026-10-24",
+      "attributes": [
+        {
+          "label": "Part",
+          "value": "3070b (Tile 1 x 1 with groove)"
+        },
+        {
+          "label": "Colours (BrickLink id)",
+          "value": "Black 11, Dark Bluish Gray 85, Light Bluish Gray 86, White 1, Blue 7, Green 6, Yellow 3, Red 5"
+        }
+      ],
+      "image_url": "https://assets.basically.website/sorter-parts/lego-tile-1x1-colour-strip-set-full-edec2cc2429e.png"
     }
   ],
   "assemblies": [
@@ -11085,8 +11180,8 @@
     },
     {
       "id": "classification-chamber",
-      "uid": "qzw4",
-      "version": "4",
+      "uid": "fmsi",
+      "version": "5",
       "name": "C-channel 4 - Classification",
       "description": "The lowest channel, where classification happens: a C-channel drive with the finned rotor and a Camera lamp carrying the IMX415 4K camera. No output guide: the rotor's fins sweep through where one would sit.",
       "docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
@@ -11162,10 +11257,38 @@
         },
         {
           "version": "4",
+          "uid": "qzw4",
           "date": "2026-09-08",
           "message": "The Short and Angled Output Guide comes off C4. The finned rotor's five fins reach r 85.4 mm and sweep up to 21.2 mm past the guide's inner face at r 67.82, so the two cannot both be fitted; the faceted rotor on C1 to C3 clears the same guide by 1.5 to 1.8 mm. This restores the state before e22fce30 (#534), which gave C4 a guide when all four channels were consolidated onto one shape. Reported from a build by Extremetaz. sorter-v2 issue #543.",
           "breaking": false,
-          "commit": "c467c375"
+          "commit": "c467c375",
+          "lines": [
+            {
+              "assembly": "c-channel",
+              "qty": 1,
+              "uid": "npx0"
+            },
+            {
+              "assembly": "rotor-unit-finned",
+              "qty": 1,
+              "uid": "ufmf"
+            },
+            {
+              "assembly": "camera-lamp",
+              "qty": 1,
+              "args": {
+                "camera": "cam-imx415"
+              },
+              "uid": "rjhy"
+            }
+          ]
+        },
+        {
+          "version": "5",
+          "date": "2026-10-24",
+          "message": "Adds the Colour calibration strip, marked optional: a clip over the stator wall and a stud bar carrying eight LEGO tiles of known colours in the camera's view. Counted like the other optional parts. Requested by barthel in Discord, from Spencer's c4-70deg STLs of 2026-10-11.",
+          "breaking": false,
+          "commit": null
         }
       ],
       "lines": [
@@ -11183,9 +11306,61 @@
           "args": {
             "camera": "cam-imx415"
           }
+        },
+        {
+          "assembly": "colour-calibration-strip",
+          "qty": 1
         }
       ],
       "connections": []
+    },
+    {
+      "id": "colour-calibration-strip",
+      "uid": "5ruo",
+      "version": "1",
+      "name": "Colour calibration strip",
+      "description": "Eight LEGO tiles of known colours in the classification camera's view, for colour calibration. A clip over the stator wall carries a stud bar with the tiles. Optional.",
+      "docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
+      "optional": true,
+      "images": [
+        {
+          "url": "https://assets.basically.website/sorter-docs/colour-strip-on-stator-wall-from-inside-png-full-40333c4f233c.png",
+          "alt": "Render of the colour strip on the classification channel's stator wall seen from inside the channel: the clip over the top of the wall and the stud bar hooked onto it, eight tiles from Red on the left to Black on the right standing just above the rim and facing into the channel",
+          "caption": "Rendered from the part geometry, not from a build."
+        }
+      ],
+      "lines": [
+        {
+          "part": "colour-strip-clip",
+          "qty": 1
+        },
+        {
+          "part": "colour-strip-studs",
+          "qty": 1
+        },
+        {
+          "part": "lego-tile-1x1",
+          "qty": 8
+        }
+      ],
+      "connections": [
+        {
+          "from": "lego-tile-1x1",
+          "to": "colour-strip-studs",
+          "qty": 8,
+          "method": "press",
+          "note": "One tile on each stud, in a fixed order from Black to Red.",
+          "draft": true
+        },
+        {
+          "from": "colour-strip-studs",
+          "to": "colour-strip-clip",
+          "qty": 1,
+          "method": "clip",
+          "note": "The bar's thin lip lies along the top of the clip and its hooked edge wraps the clip's outer face.",
+          "draft": true
+        }
+      ]
     },
     {
       "id": "chute-bearing",

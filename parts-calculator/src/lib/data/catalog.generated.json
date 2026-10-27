@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-231e9beb6050.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-bf020132c050.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-433bfa8f8058.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-86c69895209f.zip"
 	},
 	"sections": [
 		{
@@ -356,6 +356,28 @@
 					"layer",
 					"bottom-layer",
 					"chute"
+				]
+			}
+		},
+		{
+			"id": "orange-pi-base-corner-insert-access",
+			"name": "One of the Orange Pi housing base's board inserts cannot be pressed in square",
+			"priority": "P1",
+			"condition": "broken",
+			"description": "The board post under the Orange Pi's north-east corner stands in the inside corner of the roof corner post, and its \u00d84.0 insert bore is 3.4 mm from both faces of that corner. Both faces rise 31 mm above the top of the post, so a soldering iron cannot sit square over the insert: it rides against the corner post, melts it, and the insert does not go in cleanly. The other three board posts have at least 30 mm clear around them, and the four roof inserts are open from above. The Orange Pi 5 Pro, Max and Ultra base is not affected. The proposed CAD fix is to make that one hole a \u00d82.8 self-tapping hole like the roof's, so the base takes seven inserts instead of eight. Reported from builds by ReveryX and BrickCycleAlice; measured off the pinned STL. Tracked as sorter-v2 issue #1162.",
+			"images": [
+				{
+					"url": "https://assets.basically.website/sorter-parts/orange-pi-housing-base-ne-post-insert-full-0eb27e206746.png",
+					"alt": "Left: plan section of the base's north-east corner, the corner post in grey with its two wall grooves, the board post boss in blue and its 4.0 mm bore in red, 3.4 mm from each of the post's two inner faces. Right: the same corner rendered from inside the housing, with the bore and the two post faces it sits against in red.",
+					"caption": "The north-east board post sits in the corner post's inside corner, 3.4 mm from both faces, which run 31 mm up."
+				}
+			],
+			"targets": {
+				"parts": [
+					"orange-pi-housing-base"
+				],
+				"assemblies": [
+					"orange-pi-mount"
 				]
 			}
 		}
@@ -780,8 +802,8 @@
 		},
 		{
 			"id": "classification-chamber",
-			"uid": "qzw4",
-			"version": "4",
+			"uid": "fmsi",
+			"version": "5",
 			"name": "C-channel 4 - Classification",
 			"description": "The lowest channel, where classification happens: a C-channel drive with the finned rotor and a Camera lamp carrying the IMX415 4K camera. No output guide: the rotor's fins sweep through where one would sit.",
 			"docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
@@ -861,7 +883,35 @@
 					"date": "2026-09-08",
 					"message": "The Short and Angled Output Guide comes off C4. The finned rotor's five fins reach r 85.4 mm and sweep up to 21.2 mm past the guide's inner face at r 67.82, so the two cannot both be fitted; the faceted rotor on C1 to C3 clears the same guide by 1.5 to 1.8 mm. This restores the state before e22fce30 (#534), which gave C4 a guide when all four channels were consolidated onto one shape. Reported from a build by Extremetaz. sorter-v2 issue #543.",
 					"breaking": false,
-					"commit": "c467c375"
+					"commit": "c467c375",
+					"lines": [
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "npx0"
+						},
+						{
+							"assembly": "rotor-unit-finned",
+							"qty": 1,
+							"uid": "ufmf"
+						},
+						{
+							"assembly": "camera-lamp",
+							"qty": 1,
+							"args": {
+								"camera": "cam-imx415"
+							},
+							"uid": "rjhy"
+						}
+					]
+				},
+				{
+					"version": "5",
+					"uid": "fmsi",
+					"date": "2026-10-24",
+					"message": "Adds the Colour calibration strip, marked optional: a clip over the stator wall and a stud bar carrying eight LEGO tiles of known colours in the camera's view. Counted like the other optional parts. Requested by barthel in Discord, from Spencer's c4-70deg STLs of 2026-10-11.",
+					"breaking": false,
+					"commit": null
 				}
 			],
 			"lines": [
@@ -879,9 +929,61 @@
 					"args": {
 						"camera": "cam-imx415"
 					}
+				},
+				{
+					"assembly": "colour-calibration-strip",
+					"qty": 1
 				}
 			],
 			"connections": []
+		},
+		{
+			"id": "colour-calibration-strip",
+			"uid": "5ruo",
+			"version": "1",
+			"name": "Colour calibration strip",
+			"description": "Eight LEGO tiles of known colours in the classification camera's view, for colour calibration. A clip over the stator wall carries a stud bar with the tiles. Optional.",
+			"docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
+			"optional": true,
+			"images": [
+				{
+					"url": "https://assets.basically.website/sorter-docs/colour-strip-on-stator-wall-from-inside-png-full-40333c4f233c.png",
+					"alt": "Render of the colour strip on the classification channel's stator wall seen from inside the channel: the clip over the top of the wall and the stud bar hooked onto it, eight tiles from Red on the left to Black on the right standing just above the rim and facing into the channel",
+					"caption": "Rendered from the part geometry, not from a build."
+				}
+			],
+			"lines": [
+				{
+					"part": "colour-strip-clip",
+					"qty": 1
+				},
+				{
+					"part": "colour-strip-studs",
+					"qty": 1
+				},
+				{
+					"part": "lego-tile-1x1",
+					"qty": 8
+				}
+			],
+			"connections": [
+				{
+					"from": "lego-tile-1x1",
+					"to": "colour-strip-studs",
+					"qty": 8,
+					"method": "press",
+					"note": "One tile on each stud, in a fixed order from Black to Red.",
+					"draft": true
+				},
+				{
+					"from": "colour-strip-studs",
+					"to": "colour-strip-clip",
+					"qty": 1,
+					"method": "clip",
+					"note": "The bar's thin lip lies along the top of the clip and its hooked edge wraps the clip's outer face.",
+					"draft": true
+				}
+			]
 		},
 		{
 			"id": "chute-bearing",
@@ -10610,7 +10712,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "The chute core. 1 per machine.",
+			"description": "The chute core. 1 per layer.",
 			"version": "2",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-10-11",
@@ -11175,7 +11277,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Corner down, legs rising at 45\u00b0 like a V, no supports. The file rests on no face; as exported it needs supports under the T-shaped key"
+					"value": "Corner down, legs rising at 45\u00b0 like a V, no supports. The file rests on no face; as exported it needs supports under the T-shaped key",
+					"image_url": "https://assets.basically.website/sorter-parts/frame-90deg-bracket-print-orientation-full-004d30d57e54.png"
 				}
 			],
 			"grams": 13.62,
@@ -14396,7 +14499,7 @@
 			"description": "The chute drive gear, screwed onto the Top interface chute mount with five M3x12 countersunk screws (see the Interface chute gear + mount assembly). Turned by the Interface spur gear/idler gear train off the NEMA 23 stepper.",
 			"version": "1",
 			"created_at": "2026-07-03",
-			"updated_at": "2026-07-03",
+			"updated_at": "2026-10-23",
 			"versions": [
 				{
 					"version": "1",
@@ -14404,17 +14507,17 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6a600fb6a6b3.stl",
-					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-fe39441babb2.png",
-					"grams": 59.95
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6d1965579cbb.stl",
+					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-a500d0910dfa.png",
+					"grams": 61.6
 				}
 			],
 			"attributes": [],
-			"grams": 59.95,
+			"grams": 61.6,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7668,
+			"print_seconds": 7801,
 			"color": {
 				"role": "chute-core"
 			},
@@ -14428,21 +14531,61 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6a600fb6a6b3.stl",
-			"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-fe39441babb2.png",
+			"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6d1965579cbb.stl",
+			"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-a500d0910dfa.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-bottom-0a6e4ff24d79.stl",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-bottom-5edcbbce6fc2.stl",
 					"normal": [
-						0.0,
 						-0.0,
+						0.0,
 						-1.0
 					],
 					"center": [
-						3.44,
-						-115.01,
+						1.49,
+						-114.28,
 						352.68
+					],
+					"size": [
+						12.16,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-top-a0b321d98e4a.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						4.06,
+						-108.82,
+						362.18
+					],
+					"size": [
+						12.16,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-top-2-409ea7f072af.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-3.44,
+						-115.01,
+						362.68
 					],
 					"size": [
 						8.68,
@@ -14451,46 +14594,6 @@
 					"cap": 2.5,
 					"depth": 0.6,
 					"note": "smaller text"
-				},
-				{
-					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-top-d3a507702f2c.stl",
-					"normal": [
-						0.0,
-						0.0,
-						1.0
-					],
-					"center": [
-						-1.49,
-						-114.28,
-						362.68
-					],
-					"size": [
-						12.16,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "bottom 2",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-bottom-2-e8cead646411.stl",
-					"normal": [
-						-0.0,
-						0.0,
-						-1.0
-					],
-					"center": [
-						4.03,
-						-108.82,
-						353.18
-					],
-					"size": [
-						12.16,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
 				}
 			]
 		},
@@ -15291,6 +15394,108 @@
 					"depth": 0.6
 				}
 			]
+		},
+		{
+			"id": "colour-strip-clip",
+			"uid": "8e9x",
+			"name": "Colour strip clip",
+			"quantities": {
+				"classification-channel": 1
+			},
+			"assembly": "colour-calibration-strip",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Hooks over the top of the classification channel's stator wall and carries the colour strip's stud bar. Optional: only for the colour calibration strip.",
+			"version": "1",
+			"created_at": "2026-10-24",
+			"updated_at": "2026-10-24",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "8e9x",
+					"date": "2026-10-24",
+					"message": "Initial version.",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/colour-strip-clip-373459b6c8b5.stl",
+					"render": "https://assets.basically.website/sorter-parts/colour-strip-clip-full-d50b0ae942bd.png",
+					"grams": 5.15
+				}
+			],
+			"attributes": [],
+			"grams": 5.15,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1188,
+			"color": {
+				"fixed": "ash-gray",
+				"why": "It stands at the edge of the camera's view, next to the tiles. Gray keeps the camera's exposure and white balance steady: white throws them off."
+			},
+			"optional": true,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/colour-strip-clip-373459b6c8b5.stl",
+			"render": "https://assets.basically.website/sorter-parts/colour-strip-clip-full-d50b0ae942bd.png",
+			"stamped": []
+		},
+		{
+			"id": "colour-strip-studs",
+			"uid": "19i6",
+			"name": "Colour strip stud bar",
+			"quantities": {
+				"classification-channel": 1
+			},
+			"assembly": "colour-calibration-strip",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "A curved bar with eight studs for the colour strip's 1 x 1 tiles. It hooks onto the Colour strip clip so the tiles stand just above the rim, facing into the channel. Optional: only for the colour calibration strip.",
+			"version": "1",
+			"created_at": "2026-10-24",
+			"updated_at": "2026-10-24",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "19i6",
+					"date": "2026-10-24",
+					"message": "Initial version.",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/colour-strip-studs-37ee6a4f1b37.stl",
+					"render": "https://assets.basically.website/sorter-parts/colour-strip-studs-full-3fdd3e3413fd.png",
+					"grams": 4.69
+				}
+			],
+			"attributes": [],
+			"grams": 4.69,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1219,
+			"color": {
+				"fixed": "ash-gray",
+				"why": "It stands at the edge of the camera's view, next to the tiles. Gray keeps the camera's exposure and white balance steady: white throws them off."
+			},
+			"optional": true,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/colour-strip-studs-37ee6a4f1b37.stl",
+			"render": "https://assets.basically.website/sorter-parts/colour-strip-studs-full-3fdd3e3413fd.png",
+			"stamped": []
 		},
 		{
 			"id": "idler-gear",
@@ -17541,7 +17746,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "The chute door / flap. 1 per machine.",
+			"description": "The chute door / flap. 1 per layer.",
 			"version": "2",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-10-11",
@@ -20018,7 +20223,7 @@
 			"folder": "bearing-covers",
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Chute bearing cover. 1 per machine.",
+			"description": "Chute bearing cover. 1 per layer.",
 			"version": "2",
 			"created_at": "2026-06-29",
 			"updated_at": "2026-10-11",
@@ -20140,7 +20345,7 @@
 			"folder": "bearing-covers",
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Chute bearing cover. 1 per machine.",
+			"description": "Chute bearing cover. 1 per layer.",
 			"version": "2",
 			"created_at": "2026-06-29",
 			"updated_at": "2026-10-11",
@@ -21694,7 +21899,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Upside down, top face on the bed"
+					"value": "Upside down, top face on the bed",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-print-orientation-full-36dd3a93ac7a.png"
 				}
 			],
 			"grams": 52.44,
@@ -21831,7 +22037,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-print-orientation-full-cb8c4c2f6449.png"
 				}
 			],
 			"grams": 8.48,
@@ -21928,7 +22135,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-east-print-orientation-full-4a5d7818cef6.png"
 				}
 			],
 			"grams": 8.2,
@@ -22025,7 +22233,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-print-orientation-full-e9977fd35c2a.png"
 				}
 			],
 			"grams": 13.76,
@@ -22164,7 +22373,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-print-orientation-full-01ea46b73c1c.png"
 				}
 			],
 			"grams": 12.05,
@@ -29350,7 +29560,7 @@
 			"description": "ruthex RX-M4x8.1 brass heat-set threaded insert, 8.1 mm long. Melt it into a printed part with a soldering iron to make an M4 thread. It is the only M4 insert in the machine. Do not swap in the short M4S (RX-M4Sx4.0), which is a different part.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-10-02",
+			"updated_at": "2026-10-22",
 			"attributes": [
 				{
 					"label": "Type",
@@ -29380,12 +29590,12 @@
 				"vendors": [
 					{
 						"region": "US",
-						"vendor": "Amazon",
-						"url": "https://www.amazon.com/dp/B07YSV66Y5",
-						"affiliate_url": "https://www.amazon.com/dp/B07YSV66Y5?tag=sorterv2-20",
-						"price": 9.99,
+						"vendor": "CNC Kitchen",
+						"url": "https://www.cnckitchenus.store/products/heat-set-insert-m4-x-8-1-50-pieces",
+						"price": 11.5,
 						"pack_qty": 50,
-						"as_of": "2026-07-18"
+						"as_of": "2026-10-22",
+						"note": "CNC Kitchen's own M4 x 8.1 insert, the same size as the ruthex one."
 					},
 					{
 						"region": "EU",
@@ -34286,6 +34496,40 @@
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png"
+		},
+		{
+			"id": "lego-tile-1x1",
+			"uid": "t0h2",
+			"kind": "cots",
+			"cots": {
+				"type": "lego",
+				"optional": true
+			},
+			"name": "LEGO tile 1 x 1 (3070b), colour strip set",
+			"category": "LEGO",
+			"description": "Eight 1 x 1 tiles, one of each colour, for the colour calibration strip: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow and Red. Optional.",
+			"note": "Green is BrickLink Green (6), not Bright Green. Real LEGO tiles, not printed ones.",
+			"created_at": "2026-10-24",
+			"updated_at": "2026-10-24",
+			"attributes": [
+				{
+					"label": "Part",
+					"value": "3070b (Tile 1 x 1 with groove)"
+				},
+				{
+					"label": "Colours (BrickLink id)",
+					"value": "Black 11, Dark Bluish Gray 85, Light Bluish Gray 86, White 1, Blue 7, Green 6, Yellow 3, Red 5"
+				}
+			],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": null,
+			"caption": null,
+			"docs_page": "/hardware/assembly/feeder/c-channels/classification-channel/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/lego-tile-1x1-colour-strip-set-full-edec2cc2429e.png"
 		}
 	],
 	"lasercut": [

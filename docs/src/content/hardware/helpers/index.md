@@ -26,20 +26,22 @@ So read these when a page sends you, not in order.
 - **[Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }})**. How the M5 T-nuts go into the aluminum extrusion, and what changes if you bought the cheaper style.
 - **[Preparing the Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})**. Pulling the rubber feet off the bearing, if yours came with them.
 - **[Preparing the 20-tooth timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }})**. Removing the top flange so the pulley fits the interface gear.
+- **[Coupling a chute door to its servo]({{ '/hardware/helpers/door-servo-coupling/' | relative_url }})**. Fitting each door's servo adapter at first setup, with the servo at 0° and the door open. Once per layer.
 - **[Soldering Pico headers]({{ '/hardware/helpers/pico-headers/' | relative_url }})**. **Optional.** The parts list buys a Pico with its pins already on, so a standard build skips this page.
 - **[Preparing the 3D printed cable cage plates]({{ '/hardware/helpers/cable-cage-plates/' | relative_url }})**. **Optional.** Gluing the printed pieces into the two cable cage plates, if you print them instead of having them laser-cut.
 
 ## Making a cable
 
 Seven of the machine's cables are made by hand, one page each. The eighth, the
-USB hub's 24 V lead (`W2`), is a barrel plug screwed into the hub's own power terminal, so it needs no page.
+USB hub's 24 V lead (`PWR2`), is a barrel plug screwed into the hub's own power terminal, so it needs no page.
 
-- **[Preparing the LED strips (L1 to L3, L1p to L3p)]({{ '/hardware/helpers/led-strip/' | relative_url }})**. Cutting a lamp's length of strip and getting its cable on the end, clamped or soldered. Three per machine.
-- **[Make your own PSU output pigtail (PJ1 to PJ3)]({{ '/hardware/helpers/psu-pigtail/' | relative_url }})**. The barrel jack and its two fork terminals, for each of the PSU box's three outputs. Three per machine.
-- **[Make the control board's 24 V lead (W1)]({{ '/hardware/helpers/board-24v-lead/' | relative_url }})**. Barrel plug at the PSU, JST-VH at the board. The one lead nobody sells ready made, so the harness order has it made, or you do.
-- **[Make the Orange Pi's 24 V lead (W3)]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }})**. A barrel plug onto the buck converter's own input wires. The shortest of the three 24 V leads (`W1`, `W2`, `W3`).
-- **[Make the channel stepper leads (S1 to S4)]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }})**. The four c-channel motor leads. The lead in the motor's box cannot be used as it comes. Four per machine.
-- **[Make the chute stepper lead (CH)]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }})**. The chute motor has bare flying leads, so this one gets a tail and a housing.
-- **[Make the chute limit switch lead (LIM)]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }})**. Push-on tabs at the switch, a 3-pin housing at the board. Nothing soldered.
+- **[Preparing the LED strips (LED2a to LED4a, LED2 to LED4)]({{ '/hardware/helpers/led-strip/' | relative_url }})**. Cutting a lamp's length of strip and getting its cable on the end, clamped or soldered. Three per machine.
+- **[Make your own PSU output pigtail (PSU1 to PSU3)]({{ '/hardware/helpers/psu-pigtail/' | relative_url }})**. The barrel jack and its two fork terminals, for each of the PSU box's three outputs. Three per machine.
+- **[Make the control board's 24 V lead (PWR1)]({{ '/hardware/helpers/board-24v-lead/' | relative_url }})**. Barrel plug at the PSU, JST-VH at the board. The one lead nobody sells ready made, so the harness order has it made, or you do.
+- **[Make the Orange Pi's 24 V lead (PWR3)]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }})**. A barrel plug onto the buck converter's own input wires. The shortest of the three 24 V leads (`PWR1`, `PWR2`, `PWR3`).
+- **[Make the channel stepper leads (STP1 to STP4)]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }})**. The four c-channel motor leads. The lead in the motor's box cannot be used as it comes. Four per machine.
+- **[Make the chute stepper lead (CHU1)]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }})**. The chute motor has bare flying leads, so this one gets a tail and a housing.
+- **[Make the chute limit switch lead (LIM1)]({{ '/hardware/helpers/limit-switch-lead/' | relative_url }})**. Push-on tabs at the switch, a 3-pin housing at the board. Nothing soldered.
+- **[Labelling the cables]({{ '/hardware/helpers/cable-labels/' | relative_url }})**. The ID label for both ends of every cable, on paper in A4 or US Letter, or as flags for a Brother label printer. Each lead page above ends by sending you here.
 
 Every socket these leads plug into is on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), and the drawings and lengths are on [ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}).

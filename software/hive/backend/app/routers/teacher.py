@@ -8,10 +8,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
+
+from app.services.sample_filters import SampleFilters
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.deps import get_db, require_role, verify_csrf
+from app import background
+from app.deps import get_db, require_role, statement_timeout, verify_csrf
 from app.errors import APIError
 from app.models.sample import Sample
 from app.models.teacher_job import TeacherJob, TeacherJobItem
@@ -42,21 +45,23 @@ from app.services.teacher_prompts import (
 
 from app.config import settings
 from app.schemas.sample import SampleDetailResponse
-from app.services.condition_worker import get_condition_worker
-from app.services.teacher_worker import get_teacher_worker
 
 
 router = APIRouter(prefix="/api/admin/teacher", tags=["teacher"])
 
 
 @router.get("/condition/status")
-def condition_worker_status(_admin: User = Depends(require_role("admin"))) -> dict[str, Any]:
-    """Live status of the condition auto-labeler loop. Admin-only."""
-    return get_condition_worker().status()
+def condition_worker_status(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+) -> dict[str, Any]:
+    """Status of the condition auto-labeler loop, from the process it runs in. Admin-only."""
+    return background.worker_status(db, background.CONDITION)
 
 
 @router.post("/condition/wake")
 def condition_worker_wake(
+    db: Session = Depends(get_db),
     _admin: User = Depends(require_role("admin")),
     _csrf: None = Depends(verify_csrf),
 ) -> dict[str, Any]:
@@ -65,9 +70,8 @@ def condition_worker_wake(
     Useful after toggling the enabled flag or just uploading a batch of
     condition crops — saves waiting out the poll interval.
     """
-    worker = get_condition_worker()
-    worker.wake()
-    return worker.status()
+    background.request_pass(db, background.CONDITION)
+    return background.worker_status(db, background.CONDITION)
 
 
 SUPPORTED_SOURCE_ROLES: tuple[str, ...] = tuple(sorted(SOURCE_ROLE_TO_ZONE))
@@ -100,20 +104,11 @@ def _resolve_adapter_secret(user: User, adapter: TeacherAdapter) -> str:
     return key
 
 
-class TeacherJobFilter(BaseModel):
-    """Same shape as the samples list filters so the admin can re-run on what they see."""
+class TeacherJobFilter(SampleFilters):
+    """The samples list filters, so the admin re-runs the teacher on what they
+    see, plus the scope."""
 
     scope: str | None = None
-    machine_id: UUID | None = None
-    upload_session_id: UUID | None = None
-    source_role: str | None = None
-    capture_reason: str | None = None
-    review_status: str | None = None
-    kind: str | None = None
-    my_review: str | None = None
-    annotated: str | None = None
-    exposure: str | None = None
-    max_age_hours: int | None = None
 
 
 class CreateTeacherJobRequest(BaseModel):
@@ -193,6 +188,8 @@ def _job_to_summary(job: TeacherJob) -> TeacherJobSummary:
 
 
 @router.post("/jobs", response_model=TeacherJobSummary)
+# Selects every sample the filter matches and inserts one item per sample.
+@statement_timeout(seconds=60)
 def create_teacher_job(
     payload: CreateTeacherJobRequest,
     db: Session = Depends(get_db),
@@ -211,12 +208,7 @@ def create_teacher_job(
 
     filt = payload.filter
     from app.models.machine import Machine as _Machine
-    from app.routers.samples import (
-        apply_annotated_filter as _apply_annotated,
-        apply_exposure_filter as _apply_exposure,
-        apply_kind_filter as _apply_kind,
-        apply_my_review_filter as _apply_my_review,
-    )
+    from app.services.sample_filters import apply_sample_filters
 
     # Never enqueue archived rows (per-sample or per-machine) — admins
     # already pulled those out of circulation. Same guard the list +
@@ -228,31 +220,9 @@ def create_teacher_job(
     )
     if filt.scope == "mine":
         query = query.filter(Sample.machine.has(owner_id=admin.id))
-    if filt.machine_id is not None:
-        query = query.filter(Sample.machine_id == filt.machine_id)
-    if filt.upload_session_id is not None:
-        query = query.filter(Sample.upload_session_id == filt.upload_session_id)
-    if filt.source_role:
-        query = query.filter(Sample.source_role == filt.source_role)
-    if filt.capture_reason:
-        query = query.filter(Sample.capture_reason == filt.capture_reason)
-    if filt.review_status:
-        query = query.filter(Sample.review_status == filt.review_status)
-    if filt.max_age_hours is not None and filt.max_age_hours > 0:
-        from datetime import timedelta
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=filt.max_age_hours)
-        query = query.filter(Sample.uploaded_at >= cutoff)
-    # Honor the same kind/my_review/annotated filters as the list view so
-    # "Re-run teacher" on a filtered list operates on exactly what the
-    # admin sees. Bug fix: previously these were silently dropped, so a
-    # job built from e.g. ?annotated=raw would still pick up everything.
-    query = _apply_kind(query, filt.kind)
-    if filt.my_review:
-        query = _apply_my_review(query, filt.my_review, admin.id)
-    if filt.annotated:
-        query = _apply_annotated(query, filt.annotated)
-    if filt.exposure:
-        query = _apply_exposure(query, filt.exposure)
+    # The same filters as the samples list, through the same function, so a
+    # re-run on a filtered list covers exactly what the admin sees.
+    query = apply_sample_filters(query, filt, admin.id)
 
     # Only enqueue samples whose source_role has a teacher zone — otherwise we'd just burn
     # Gemini credits on the wrong prompt. We also skip rows missing image_path defensively.
@@ -292,7 +262,7 @@ def create_teacher_job(
     )
     db.commit()
     db.refresh(job)
-    get_teacher_worker().notify()
+    background.request_pass(db, background.TEACHER)
     return _job_to_summary(job)
 
 

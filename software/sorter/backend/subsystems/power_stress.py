@@ -1,3 +1,9 @@
+"""The power stress test: every stepper, servo, the chute and the LEDs driven
+at once, in stable, random and mixed phases, so a machine's wall draw can be
+measured under its worst sustained load. What one run measured on a real
+machine, and what it means for sizing a supply: https://docs.basically.website/n/kvdd/
+"""
+
 from __future__ import annotations
 
 import random

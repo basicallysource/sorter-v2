@@ -276,22 +276,35 @@ def exitOnlySections(channel: ChannelDef) -> frozenset[int]:
     return exit_only if exit_only else channel.exit_sections
 
 
+def _exitEntry(channel: ChannelDef) -> tuple[frozenset[int], int, bool] | None:
+    """The REAL exit's sections, the section a piece enters it at, and whether
+    pieces travel in reverse; None when the channel has no exit."""
+    exit_only = exitOnlySections(channel)
+    ordered = _orderedCircularSections(exit_only)
+    if not ordered:
+        return None
+    reverse = bool(getattr(channel, "reverse", False))
+    return exit_only, (ordered[-1] if reverse else ordered[0]), reverse
+
+
+def _sectionsToEntry(section: int, entry: int, reverse: bool) -> int:
+    return (section - entry) % SECTION_COUNT if reverse else (entry - section) % SECTION_COUNT
+
+
 def forwardGapToExitDeg(bbox: Bbox, channel: ChannelDef) -> float:
     """How far (output degrees) the channel can turn before the most forward
     part of this piece's box reaches the REAL exit (``exitOnlySections``); 0
     when part of it is already there. An exit move sized to the piece behind
     the lead keeps that piece on the channel."""
-    exit_only = exitOnlySections(channel)
-    ordered = _orderedCircularSections(exit_only)
-    if not ordered:
+    exit_entry = _exitEntry(channel)
+    if exit_entry is None:
         return 0.0
-    reverse = bool(getattr(channel, "reverse", False))
-    entry = ordered[-1] if reverse else ordered[0]
+    exit_only, entry, reverse = exit_entry
     best: int | None = None
     for section in bboxSections(bbox, channel):
         if section in exit_only:
             return 0.0
-        gap = (section - entry) % SECTION_COUNT if reverse else (entry - section) % SECTION_COUNT
+        gap = _sectionsToEntry(section, entry, reverse)
         if best is None or gap < best:
             best = gap
     return float(best or 0) * SECTION_DEG

@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Make the channel stepper leads (S1 to S4)
+title: Make the channel stepper leads (STP1 to STP4)
 type: how-to
 section: hardware
 slug: helper-channel-stepper-lead
-kicker: Helpers — Channel stepper leads (S1 to S4)
-lede: The four leads (S1 to S4) from the control board to the c-channel motors. Four per machine, all identical, each made by replacing the Dupont plug on the motor's own lead with a 4-pin JST connector.
+kicker: Helpers — Channel stepper leads (STP1 to STP4)
+lede: The four leads (STP1 to STP4) from the control board to the c-channel motors. Four per machine, all identical, each made by replacing the Dupont plug on the motor's own lead with a 4-pin JST connector.
 permalink: /hardware/helpers/channel-stepper-lead/
 author: effreek
 contributors: [daddyosbricksbill, spencer, brickcyclealice, barthel]
@@ -21,7 +21,7 @@ parts_needed:
 tools_needed: ["Multimeter, to check the finished lead", "Side cutters, to cut the Dupont housing off", "Wire strippers, for 26 AWG (0.13 mm²) wire", "Crimping pliers for open-barrel contacts, with a die for 24 AWG (0.20 mm²) wire", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
-These are the channel stepper leads (`S1` to `S4`) on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical. The crossover has been built on a motor's own lead by swapping the two middle contacts in its Dupont plug; this page makes the same lead with a PH housing instead of the plug.
+These are the channel stepper leads (`STP1` to `STP4`) on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical. The crossover has been built on a motor's own lead by swapping the two middle contacts in its Dupont plug; this page makes the same lead with a PH housing instead of the plug.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -33,7 +33,7 @@ These are the channel stepper leads (`S1` to `S4`) on the [harness drawings]({{ 
 ## The two ends
 
 <dl class="spec-list">
-  <dt>Board end</dt><dd>JST <b>PH</b> housing, 4-pin (PHR-4), 2.0 mm (0.079 in) pitch, into <code>J27</code>, <code>J31</code>, <code>J35</code> or <code>J39</code>. Positions 1 to 4 are <code>A2</code>, <code>A1</code>, <code>B1</code>, <code>B2</code>.</dd>
+  <dt>Board end</dt><dd>JST <b>PH</b> housing, 4-pin (PHR-4), 2.0 mm (0.079 in) pitch, into <code>J27</code> (<code>STP1</code>, C1), <code>J39</code> (<code>STP2</code>, C2), <code>J31</code> (<code>STP3</code>, C3) or <code>J35</code> (<code>STP4</code>, C4). Positions 1 to 4 are <code>A2</code>, <code>A1</code>, <code>B1</code>, <code>B2</code>.</dd>
   <dt>Motor end</dt><dd>The 6-pin JST <b>PH</b> housing the motor's lead already ends in, plugged into the socket on the motor can. Only four of the six positions carry a contact. Leave it alone.</dd>
   <dt>Wire</dt><dd>The motor's own lead, four conductors of 26 AWG (0.13 mm²). The harness drawing says 1 m (39 in); see the note on length below.</dd>
 </dl>
@@ -57,7 +57,7 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Check the wire diagram that came with your motor before you cut anything.</b> StepperOnline supplies a small wire diagram with the motor that names the wire in every position of the 6-pin housing, with its colour and its coil (A+, A-, B+, B-). Lay the motor's own drawing next to the figure below: positions 1 and 4 must be the same coil, and positions 3 and 6 the other. If your drawing differs, follow it.</p>
+  <p><b>Check the wire diagram that came with your motor before you cut anything.</b> StepperOnline supplies a small wire diagram with the motor that names the wire in every position of the 6-pin housing, with its colour and its coil (A+, A-, B+, B-). Lay the motor's own drawing next to the figure below: positions 1 and 4 must be the same coil, and positions 3 and 6 the other. If your drawing differs, follow it. With no drawing, or no meter, you can <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#how-to-find-the-wires-for-a-motor-coil-without-a-multimeter">find which wires are one coil by joining two and turning the shaft</a>.</p>
 </div>
 
 <figure class="single-figure">
@@ -93,7 +93,7 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
   <li>Hold each end with a small piece of heat shrink or a turn of tape, so that the braid cannot creep back along the wires.</li>
 </ol>
 
-**Leave the sleeving loose enough to bend.** The anchor under <b>How long</b>, below, goes on over the sleeving: pull the tie tight enough to hold, but not so tight that it crushes the braid.
+**Leave the sleeving loose enough to bend.** The anchor under <b>How long</b>, below, goes on over the sleeving: pull the strap tight enough to hold, but not so tight that it crushes the braid.
 
 ## How long
 
@@ -101,11 +101,15 @@ under <b>Re-house the lead</b>, below. Motor positions 2 and 5 stay empty.
   <p><b>The length is not measured.</b> The harness drawing says 1 m (39 in), which is also what the motors ship with and the length you keep. It was set while the c-channel positions were still moving, so check the run on your own frame before you cut the plug off.</p>
 </div>
 
-Whatever the length, **anchor the cable above the connector**. Zip-tie it to the frame a short way back from the plug and leave a service loop, so that nothing hanging off the cable can lever the housing sideways.
+Whatever the length, **anchor the cable above the connector**. Strap it to the frame a short way back from the plug with a hook-and-loop strap rather than a zip tie ([why]({{ '/hardware/electronics/connecting/' | relative_url }}#securing-the-cables)), and leave a service loop, so that nothing hanging off the cable can lever the housing sideways.
+
+## Label the cable
+
+Put a label with the ID (`STP1` to `STP4`) on both ends, close to the connector. The four leads look identical, so label each one before you start the next. The printable labels and the Brother label printer files are on [Labelling the cables]({{ '/hardware/helpers/cable-labels/' | relative_url }}).
 
 ## The finished result
 
-Four leads (`S1` to `S4`), each with a 4-pin PHR-4 at the board end and a 6-pin PHR-6 at the motor end with two of its six positions empty.
+Four leads (`STP1` to `STP4`), each with a 4-pin PHR-4 at the board end and a 6-pin PHR-6 at the motor end with two of its six positions empty.
 
 <div class="img-placeholder">Image coming: one finished lead laid out straight, both housings in the frame, the motor end close enough to show the two empty positions</div>
 
@@ -115,5 +119,5 @@ Onto the four channel stepper sockets at [connecting the components]({{ '/hardwa
 
 ## Reference
 
-The vendor drawing for this cable (`S1` to `S4`), its bill of materials and its downloads are on the [WireViz
+The vendor drawing for this cable (`STP1` to `STP4`), its bill of materials and its downloads are on the [WireViz
 drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}) page. It shows the same lead in the form a cable supplier quotes from.

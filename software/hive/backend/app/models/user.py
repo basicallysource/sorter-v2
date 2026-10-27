@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, String
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, String, false
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -22,6 +22,11 @@ class User(Base):
     preferred_teacher_model = Column(String, nullable=True)
     role = Column(String, nullable=False, default="member")
     is_active = Column(Boolean, nullable=False, default=True)
+    # The owner's opt-in to a live activity listing: when on, a public consumer
+    # holding a fleet:read key may list this user's machines in a "what is
+    # sorting right now" view. Off by default; off means those machines are
+    # left out of any such listing.
+    share_activity = Column(Boolean, nullable=False, default=False, server_default=false())
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

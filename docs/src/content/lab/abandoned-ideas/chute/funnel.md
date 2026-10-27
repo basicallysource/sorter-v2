@@ -1,0 +1,95 @@
+---
+layout: default
+title: Funnel brackets
+type: explanation
+section: lab
+slug: lab-abandoned-chute-assembly-funnel
+kicker: Design and research — Abandoned ideas — Chute
+lede: The two brackets that hang off the chute core, and the funnel that snaps into them.
+og_image: https://assets.basically.website/sorter-docs/assembly-funnel-brackets-on-core-w1600-a42943aca2db.jpg
+permalink: /lab/variants/abandoned/chute/funnel/
+author: spencer
+contributors: [barthel, brickcyclealice]
+tools_needed: ["Hex key, 2 mm"]
+---
+
+<div class="notice">This page describes the earlier chute, which is no longer built. It is kept so that an old photo or message still makes sense. The current chute is on <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">Chute</a>, and <a href="{{ '/lab/variants/abandoned/chute/' | relative_url }}">The earlier chute</a> says what changed.</div>
+
+## Parts, as they were
+
+<ul class="bulleted-list">
+  <li>1 × Funnel (half size)</li>
+  <li>1 × Funnel (third size)</li>
+  <li>1 × Funnel bracket (left)</li>
+  <li>1 × Funnel bracket (right)</li>
+  <li>4 × M3 × 12 mm countersunk</li>
+</ul>
+
+The funnel catches what the door releases and guides it into the bin below. It hangs off two printed brackets that are part of the chute.
+
+The fasteners and quantities are in the parts list above and are called out inline at each step.
+
+{% include fastener-legend.html %}
+
+- **One funnel per layer**, in one of two sizes, and it is your choice which. Step 2 is that decision; the brackets are the same either way, so they go on before you have made it.
+- The brackets screw into the [chute core]({{ '/lab/variants/abandoned/chute/chute-core/' | relative_url }})'s M3 heat inserts, so there is nothing to tap.
+- The 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} they take are in the list above, and they go into the core's inserts rather than into anything on this page.
+- **The funnel itself takes no fasteners.** It snaps into the brackets, which is step 3.
+
+{% include step.html n="1" title="Fit the funnel brackets to the chute core" %}
+
+Every chute carries a Funnel bracket (left) and a Funnel bracket (right), one of each. They screw into the [chute core]({{ '/lab/variants/abandoned/chute/chute-core/' | relative_url }})'s M3 heat inserts, which are pressed in on that page.
+
+Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair. Use the 12 mm, not the 8 mm.
+
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-core-funnel-brackets-full-36040ab587fd.png" alt="Render of one long side of the chute core with the two heat inserts a funnel bracket screws into circled in red">
+  <figcaption>The two inserts one funnel bracket screws into, at the lower end of one long side of the chute core. The other long side carries the mirror pair for the second bracket. <cite>Render: Balloon.</cite></figcaption>
+</figure>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-funnel-bracket-on-core-servo-end-w1600-1e06a5f96c10.jpg" alt="A funnel bracket bolted to the side of a chute core on the bench, its two countersunk screws driven home in the face and its three slotted arms standing clear, with the servo bracket and the door at the other end of the core">
+  <figcaption>One bracket on, seen from the servo end, with both of its screws home. The second is the mirror of it on the other long side. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+{% include step.html n="2" title="Pick the funnel size for the layer" %}
+
+**This is a builder's decision, taken once per layer.** What you are choosing is how finely that layer divides its ring: into 12 bins or into 18. The funnel and the bin set are a matched pair, so the size you pick decides both at once. A layer has one funnel, so every bin on it is the same size and you cannot mix 12 and 18 within a layer, but a machine can mix sizes from layer to layer. Decide before you print either part.
+
+**Half size: 12 bins on that layer**, six Bin (half, left) and six Bin (half, right).
+
+- Wider funnel mouth, so this layer takes the biggest pieces the machine can sort.
+- Twelve destinations instead of eighteen, so fewer categories land on this layer.
+
+**Third size: 18 bins on that layer**, six each of Bin (third, left), Bin (third, center) and Bin (third, right-back).
+
+- Half again as many destinations, which is what you want for the small parts that make up most of a pile.
+- Narrower mouth. The opening is what limits piece size on a layer, so anything too big for it has to be routed to a half-size layer instead.
+
+Neither is cheaper to build, and neither holds more.
+
+**If you have no reason to prefer one:** the [parts calculator](https://parts-calculator.basically.website/) starts a fresh machine at two third-size layers and one half-size, which is a sensible default. Most LEGO is small, so most of your destinations should be, but you want at least one layer that can take the big pieces. Nothing in the machine or the software ties a size to a particular height, so which level carries the half-size layer is yours to choose too.
+
+The calculator takes a size per layer and totals the print for whatever mix you pick.
+
+{% include step.html n="3" title="Hang the funnel" %}
+
+**Nothing is screwed or glued here.** Each bracket has two arms: the one with the two countersunk holes is the one that went onto the core in step 1, and the plain arm is a sprung slide. The funnel has a rail down each side that runs into that arm. Push the funnel onto the pair of brackets, the arm flexes to let the rail past, and it springs back and holds the funnel there.
+
+It should feel like it has landed. If the funnel can be lifted straight back off without the arm flexing, it has not gone far enough in.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-funnel-hung-on-brackets-w1600-0ac96b70b9bc.jpg" alt="A funnel hung on its two brackets on a chute core lying on the bench, the wide funnel mouth to the left with a bracket arm across each side rail, and the servo in its printed bracket at the far end of the core">
+  <figcaption>A funnel snapped into its two brackets. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+## The finished result
+
+Both brackets are bolted to the core, one each side of the throat, with their sprung arms hanging down ready for the funnel.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-funnel-brackets-on-core-w1600-a42943aca2db.jpg" alt="A chute core on the bench with a funnel bracket bolted to its near side, the bracket's two slotted arms standing clear of the core and its two countersunk screws driven home, the second bracket visible behind it">
+  <figcaption>Both brackets on the core, the near one showing its two screws and the slots its arms flex in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+The [Chute core]({{ '/lab/variants/abandoned/chute/chute-core/' | relative_url }}) page carries the other three sub-assemblies that go on the same core, and is where you should return once you're done here.

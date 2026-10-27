@@ -1,10 +1,10 @@
-import math
 from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse, Response
-from sqlalchemy import case, distinct, func
+from sqlalchemy import cast, func
+from sqlalchemy.dialects.postgresql import BIT
 from sqlalchemy.orm import Session
 
 from app.deps import (
@@ -13,6 +13,7 @@ from app.deps import (
     get_db,
     require_api_key_scopes,
     require_role,
+    statement_timeout,
     verify_csrf,
 )
 from app.errors import APIError
@@ -26,6 +27,7 @@ from app.schemas.sample import (
     BatchDeleteSamplesResponse,
     SampleDetailResponse,
     SampleListResponse,
+    SamplePageResponse,
     SampleResponse,
     SampleAnnotationsPayload,
     SampleClassificationPayload,
@@ -34,7 +36,16 @@ from app.schemas.sample import (
     SaveSampleClassificationRequest,
     SaveSampleClassificationResponse,
 )
-from app.services.access_window import apply_sample_access, sample_access_visible
+from app.services import sample_diversity
+from app.services.access_window import api_key_machine_ids, apply_sample_access, sample_access_visible
+from app.services.review_queue import sample_counts, sample_page, thumb_url
+from app.services.sample_filters import (
+    SampleFilters,
+    apply_sample_filters,
+    attach_my_reviews,
+    list_defaults,
+    sample_filters_query,
+)
 from app.services.channel_crop_render import render_channel_crop
 from app.services.storage import delete_sample_files, serve_stored_file
 from app.services.storage_backend import get_backend
@@ -62,197 +73,6 @@ def _normalized_optional_string(value: str | None) -> str | None:
         return None
     normalized = value.strip()
     return normalized or None
-
-
-def _visible_sample_query(
-    db: Session,
-    current_user: User,
-    scope: str | None,
-    *,
-    include_archived: bool = False,
-):
-    """Read-side query.
-
-    Default scope is 'all' — samples are public to any logged-in user. ``scope='mine'``
-    restricts to the caller's machines.
-
-    Always hides samples whose machine is archived. Archived rigs (old hardware,
-    decommissioned setups) shouldn't show up in browse/diversity/training pulls; their
-    samples stay in the DB so an admin can un-archive without data loss.
-
-    Per-sample archive flag (``Sample.archived_at``) is also filtered out by default.
-    Admins can opt in to seeing them with ``include_archived=True`` so they have a
-    surface to un-archive from.
-    """
-    query = db.query(Sample).filter(Sample.machine.has(Machine.archived_at.is_(None)))
-    if not include_archived:
-        query = query.filter(Sample.archived_at.is_(None))
-    if scope == "mine":
-        query = query.filter(Sample.machine.has(owner_id=current_user.id))
-    # Access rule: members only ever see their own machines' samples (regardless
-    # of scope=all); reviewers and admins see everything. Prevents a random
-    # registrant from enumerating the whole corpus.
-    query = apply_sample_access(db, query, current_user)
-    return query
-
-
-# Capture reasons that mark a sample as a piece-condition crop (collected by
-# the sorter's condition_collector or the archived condition_teacher). Kept as
-# a single source of truth so the kind filter on /samples and the queue filter
-# on /review can't drift.
-CONDITION_CAPTURE_REASONS: tuple[str, ...] = (
-    "piece_condition_collector",
-    "piece_condition_teacher",
-)
-
-
-def apply_kind_filter(query, kind: str | None):
-    """Filter a Sample query down to 'regular' or 'condition' samples.
-
-    `kind=condition` keeps only condition-collector / condition-teacher rows.
-    `kind=regular` keeps everything *but* those. Anything else (None / 'all')
-    is a no-op so the filter is safe to call unconditionally.
-    """
-
-    if kind == "condition":
-        return query.filter(Sample.capture_reason.in_(CONDITION_CAPTURE_REASONS))
-    if kind == "regular":
-        return query.filter(
-            (Sample.capture_reason.is_(None))
-            | (Sample.capture_reason.notin_(CONDITION_CAPTURE_REASONS))
-        )
-    return query
-
-
-def apply_exposure_filter(query, exposure: str | None):
-    """Filter to a single exposure bucket — underexposed / good / overexposed.
-
-    Thresholds mirror ``ExposureStats.classify`` so the server-side filter
-    and the per-sample badge stay in sync.
-
-    Values (exclusive):
-      - 'under'  → only samples we *know* are underexposed (lights off)
-      - 'over'   → only samples we *know* are overexposed (saturation)
-      - 'normal' → samples we know are good-light, PLUS rows that don't have
-                   stats yet (un-backfilled). The benefit-of-the-doubt makes
-                   'normal' a safe default during/after migration windows.
-      - None / unknown → no filter (operator opts out entirely)
-    """
-
-    if exposure not in {"under", "normal", "over"}:
-        return query
-    from app.services.image_stats import (
-        OVEREXPOSED_CLIPPED_HIGH,
-        OVEREXPOSED_MEAN_MIN,
-        UNDEREXPOSED_CLIPPED_LOW,
-        UNDEREXPOSED_MEAN_MAX,
-    )
-
-    is_under = (Sample.luminance_mean <= UNDEREXPOSED_MEAN_MAX) | (
-        Sample.clipped_low_ratio >= UNDEREXPOSED_CLIPPED_LOW
-    )
-    is_over = (Sample.luminance_mean >= OVEREXPOSED_MEAN_MIN) | (
-        Sample.clipped_high_ratio >= OVEREXPOSED_CLIPPED_HIGH
-    )
-
-    if exposure == "under":
-        return query.filter(is_under)
-    if exposure == "over":
-        return query.filter(is_over)
-    # 'normal' = neither under nor over, OR no stats yet (assume normal so
-    # un-backfilled rows aren't silently hidden during the backfill window).
-    return query.filter(Sample.luminance_mean.is_(None) | (~is_under & ~is_over))
-
-
-def apply_annotated_filter(query, annotated: str | None):
-    """Filter by whether the Hive teacher (Gemini/Perceptron) has already
-    re-run on the sample.
-
-    The signal is ``extra_metadata.teacher_rerun`` — that key is set only
-    by ``apply_teacher_result_to_sample`` after a successful teacher pass.
-    Raw sorter-side detections (the boxes that arrive with the upload)
-    are often incomplete or off, so reviewers usually want to wait until
-    a teacher has validated them.
-
-    Values:
-      - 'teacher' — has a teacher_rerun audit entry (training-ready)
-      - 'raw'     — no teacher_rerun yet (likely still needs a pass)
-      - anything else / None — no filter
-    """
-
-    if annotated not in {"teacher", "raw"}:
-        return query
-    # `col["teacher_rerun"] IS NOT NULL` is the portable key-exists check: it
-    # renders `->` on Postgres JSONB and `json_extract` on SQLite. (The raw JSONB
-    # `?` operator would be tighter but collides with the SQLite bind-parameter
-    # placeholder, breaking the test dialect.) teacher_rerun's value is always a
-    # non-null audit dict, so key-exists and value-not-null coincide here.
-    has_teacher = Sample.extra_metadata["teacher_rerun"].isnot(None)
-    if annotated == "teacher":
-        return query.filter(has_teacher)
-    return query.filter(~has_teacher | Sample.extra_metadata.is_(None))
-
-
-def apply_my_review_filter(query, my_review: str | None, viewer_id):
-    """Filter samples by the viewer's own review decision.
-
-    Values:
-      - 'unreviewed' — viewer hasn't reviewed yet
-      - 'reviewed'   — viewer reviewed (either decision)
-      - 'accepted'   — viewer accepted
-      - 'rejected'   — viewer rejected
-      - anything else / None — no filter
-
-    Uses a subquery against sample_reviews so the existing
-    (sample_id, reviewer_id) unique index does the work.
-    """
-
-    if my_review not in {"unreviewed", "reviewed", "accepted", "rejected"}:
-        return query
-
-    from sqlalchemy import select as sa_select
-    from app.models.sample_review import SampleReview
-
-    base = sa_select(SampleReview.sample_id).where(
-        SampleReview.reviewer_id == viewer_id
-    )
-    if my_review == "accepted":
-        ids = base.where(SampleReview.decision == "accept")
-    elif my_review == "rejected":
-        ids = base.where(SampleReview.decision == "reject")
-    else:
-        ids = base  # reviewed or unreviewed both key off the existence subquery
-
-    if my_review == "unreviewed":
-        return query.filter(Sample.id.notin_(ids))
-    return query.filter(Sample.id.in_(ids))
-
-
-def attach_my_reviews(items: list, db: Session, viewer_id) -> None:
-    """Populate ``my_review_decision`` on each Sample row via one batch lookup.
-
-    Mutates the ORM instances in place so the from-attributes pydantic
-    validation picks the value up without a second pass.
-    """
-
-    if not items or viewer_id is None:
-        for sample in items:
-            sample.my_review_decision = None
-        return
-    from app.models.sample_review import SampleReview
-
-    sample_ids = [s.id for s in items]
-    rows = (
-        db.query(SampleReview.sample_id, SampleReview.decision)
-        .filter(
-            SampleReview.reviewer_id == viewer_id,
-            SampleReview.sample_id.in_(sample_ids),
-        )
-        .all()
-    )
-    by_id = {sample_id: decision for sample_id, decision in rows}
-    for sample in items:
-        sample.my_review_decision = by_id.get(sample.id)
 
 
 def _get_sample_for_read(db: Session, sample_id: UUID) -> Sample:
@@ -289,204 +109,17 @@ def get_sample_filter_options(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    query = _visible_sample_query(db, current_user, scope)
-    source_roles = [
-        value
-        for (value,) in (
-            query.with_entities(Sample.source_role)
-            .filter(Sample.source_role.isnot(None))
-            .distinct()
-            .order_by(Sample.source_role.asc())
-            .all()
-        )
-        if isinstance(value, str) and value
-    ]
-    source_role_counts = {
-        value: int(count or 0)
-        for value, count in (
-            query.with_entities(Sample.source_role, func.count(Sample.id))
-            .filter(Sample.source_role.isnot(None))
-            .group_by(Sample.source_role)
-            .all()
-        )
-        if isinstance(value, str) and value
-    }
-    capture_reasons = [
-        value
-        for (value,) in (
-            query.with_entities(Sample.capture_reason)
-            .filter(Sample.capture_reason.isnot(None))
-            .distinct()
-            .order_by(Sample.capture_reason.asc())
-            .all()
-        )
-        if isinstance(value, str) and value
-    ]
+    """The sources and capture reasons the filters offer, with counts: summed
+    from the per-machine counts the stats worker keeps (hourly), not counted
+    over the samples table on every page load."""
+    counts = sample_counts(db, current_user, mine_only=scope == "mine", machine_ids=None)
+    sources = counts["source_role_counts"]
+    reasons = counts["capture_reason_counts"]
     return {
-        "source_roles": source_roles,
-        "source_role_counts": source_role_counts,
-        "capture_reasons": capture_reasons,
+        "source_roles": sorted(sources),
+        "source_role_counts": sources,
+        "capture_reasons": sorted(reasons),
     }
-
-
-_DIVERSITY_BUCKET_KEYS = ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9-12", "13+")
-_DIVERSITY_TARGET_PER_BUCKET = 50
-_DIVERSITY_TREND_POINTS = 24
-# Machine-diversity target — how many distinct machines we want contributing samples for a
-# given (capture_reason × source_role) before the coverage stops being penalized. A piece
-# captured by only one rig overfits the model to that rig's lighting/optics/wear; spreading
-# across rigs is a multiplicative factor on top of bucket coverage.
-_DIVERSITY_MACHINE_TARGET = 3
-
-_DIVERSITY_TARGETS_DEFAULT: dict[str, int] = {k: _DIVERSITY_TARGET_PER_BUCKET for k in _DIVERSITY_BUCKET_KEYS}
-
-# Per-source overrides. classification_channel only sees individual pieces under the camera —
-# anything above 8 is effectively a counting error, 6–8 are rare edge cases. So we exclude 9+
-# and weight 6/7/8 with a smaller target so they don't dominate the coverage score.
-_DIVERSITY_TARGETS_PER_ROLE: dict[str, dict[str, int]] = {
-    "classification_channel": {
-        "0": 50, "1": 50, "2": 50, "3": 50, "4": 50, "5": 50,
-        "6": 25, "7": 25, "8": 25,
-        "9-12": 0, "13+": 0,
-    },
-}
-
-
-def _targets_for_role(source_role: str | None) -> dict[str, int]:
-    return _DIVERSITY_TARGETS_PER_ROLE.get(source_role or "", _DIVERSITY_TARGETS_DEFAULT)
-
-
-_PIECE_BUCKET_CASE = case(
-    (Sample.detection_count.is_(None), "unknown"),
-    (Sample.detection_count == 0, "0"),
-    (Sample.detection_count == 1, "1"),
-    (Sample.detection_count == 2, "2"),
-    (Sample.detection_count == 3, "3"),
-    (Sample.detection_count == 4, "4"),
-    (Sample.detection_count == 5, "5"),
-    (Sample.detection_count == 6, "6"),
-    (Sample.detection_count == 7, "7"),
-    (Sample.detection_count == 8, "8"),
-    (Sample.detection_count <= 12, "9-12"),
-    else_="13+",
-)
-
-
-def _piece_bucket_key(count: int | None) -> str | None:
-    if count is None:
-        return None
-    if 0 <= count <= 8:
-        return str(count)
-    if count <= 12:
-        return "9-12"
-    return "13+"
-
-
-def _empty_buckets() -> dict[str, int]:
-    return {k: 0 for k in _DIVERSITY_BUCKET_KEYS}
-
-
-def _bucket_fills(buckets: dict[str, int], targets: dict[str, int]) -> dict[str, float | None]:
-    out: dict[str, float | None] = {}
-    for k in _DIVERSITY_BUCKET_KEYS:
-        t = targets.get(k, 0)
-        if t <= 0:
-            out[k] = None  # bucket is not applicable for this role
-        else:
-            out[k] = min(buckets[k], t) / t
-    return out
-
-
-def _avg_fills(per_role: list[dict[str, float | None]]) -> dict[str, float | None]:
-    out: dict[str, float | None] = {}
-    for k in _DIVERSITY_BUCKET_KEYS:
-        relevant = [rf[k] for rf in per_role if rf[k] is not None]
-        out[k] = sum(relevant) / len(relevant) if relevant else None
-    return out
-
-
-def _coverage_from_fills(fills: dict[str, float | None]) -> float:
-    relevant = [v for v in fills.values() if v is not None]
-    if not relevant:
-        return 0.0
-    return sum(relevant) / len(relevant)
-
-
-def _trend_boundaries(samples: list[tuple[int | None, datetime, UUID | None]]) -> list[datetime]:
-    if not samples:
-        return []
-    t_first = samples[0][1]
-    t_last = samples[-1][1]
-    if t_first == t_last:
-        return [t_last]
-    step = (t_last - t_first) / _DIVERSITY_TREND_POINTS
-    return [t_first + step * (i + 1) for i in range(_DIVERSITY_TREND_POINTS)]
-
-
-def _machine_factor(machine_count: int) -> float:
-    target = _DIVERSITY_MACHINE_TARGET
-    if target <= 0:
-        return 1.0
-    return min(machine_count, target) / target
-
-
-def _eta_seconds_from_trend(
-    coverage: float,
-    trend: list[float],
-    boundaries: list[datetime],
-) -> float | None:
-    """Linearly extrapolate ETA-to-100% from the trend's most recent slope.
-
-    Uses the last quarter of the trend window (min 2 points). Returns None if there is no
-    progress in that window — that signals the donut is stalled and a useful ETA can't be
-    given without more data.
-    """
-    if coverage >= 1.0:
-        return 0.0
-    if len(trend) < 2 or len(boundaries) < 2 or len(trend) != len(boundaries):
-        return None
-    window = max(2, len(trend) // 4)
-    recent_trend = trend[-window:]
-    recent_bounds = boundaries[-window:]
-    delta_t = (recent_bounds[-1] - recent_bounds[0]).total_seconds()
-    delta_c = recent_trend[-1] - recent_trend[0]
-    if delta_t <= 0 or delta_c <= 0:
-        return None
-    slope = delta_c / delta_t
-    remaining = 1.0 - coverage
-    return remaining / slope
-
-
-def _trend_on_grid(
-    samples: list[tuple[int | None, datetime, UUID | None]],
-    boundaries: list[datetime],
-    targets: dict[str, int],
-) -> list[float]:
-    """Cumulative coverage of the role's samples sampled at the group's shared time grid.
-
-    Boundaries come from the *group* timeline so that all roles within a group line up — that
-    way the group-level trend can be the mean of role trends without time-axis skew. The
-    cumulative machine count at each boundary is folded in so the trend reflects the same
-    machine-factor penalty as the live coverage number.
-    """
-    if not boundaries:
-        return []
-    counts = _empty_buckets()
-    machines: set[UUID] = set()
-    trend: list[float] = []
-    idx = 0
-    for boundary in boundaries:
-        while idx < len(samples) and samples[idx][1] <= boundary:
-            key = _piece_bucket_key(samples[idx][0])
-            if key in counts:
-                counts[key] += 1
-            machine_id = samples[idx][2]
-            if machine_id is not None:
-                machines.add(machine_id)
-            idx += 1
-        base = _coverage_from_fills(_bucket_fills(counts, targets))
-        trend.append(base * _machine_factor(len(machines)))
-    return trend
 
 
 @router.get("/diversity")
@@ -496,286 +129,65 @@ def get_sample_diversity(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    """Live diversity overview, grouped by capture_reason × source_role × piece-bucket.
+    """Diversity overview, grouped by capture_reason × source_role × piece-bucket.
 
     Each piece-count bucket has a target sample count (matches training/_progress targets).
     `coverage` per node is the mean of `min(count, target) / target` across buckets, multiplied
     by ``machine_factor = min(distinct_machines, machine_target) / machine_target`` — so a fully
     bucketed reason that comes from a single rig still scores below 1.0. The frontend renders
     each donut filling toward target with the machine factor surfaced separately.
+
+    Added up from the weekly rows the stats worker keeps (services.sample_diversity,
+    hourly) for the machines the caller may see, not counted over the samples table.
     """
-    base = _visible_sample_query(db, current_user, scope).filter(Sample.capture_reason.isnot(None))
-    if capture_reason:
-        base = base.filter(Sample.capture_reason == capture_reason)
-
-    rows = (
-        base.with_entities(
-            Sample.capture_reason,
-            Sample.source_role,
-            _PIECE_BUCKET_CASE.label("bucket"),
-            func.count(Sample.id).label("samples"),
-            func.avg(Sample.detection_score).label("avg_score"),
-            func.max(Sample.uploaded_at).label("last_uploaded_at"),
-        )
-        .group_by(Sample.capture_reason, Sample.source_role, "bucket")
-        .all()
-    )
-
-    timeline_rows = (
-        base.with_entities(
-            Sample.capture_reason,
-            Sample.source_role,
-            Sample.machine_id,
-            Sample.detection_count,
-            Sample.uploaded_at,
-        )
-        .order_by(Sample.uploaded_at.asc())
-        .all()
-    )
-
-    machine_rows_by_pair = (
-        base.with_entities(
-            Sample.capture_reason,
-            Sample.source_role,
-            func.count(distinct(Sample.machine_id)).label("machine_count"),
-        )
-        .group_by(Sample.capture_reason, Sample.source_role)
-        .all()
-    )
-    machines_by_pair: dict[tuple[str, str], int] = {
-        (reason, role or "unknown"): int(count or 0)
-        for reason, role, count in machine_rows_by_pair
-        if reason is not None
-    }
-
-    machine_rows_by_reason = (
-        base.with_entities(
-            Sample.capture_reason,
-            func.count(distinct(Sample.machine_id)).label("machine_count"),
-        )
-        .group_by(Sample.capture_reason)
-        .all()
-    )
-    machines_by_reason: dict[str, int] = {
-        reason: int(count or 0) for reason, count in machine_rows_by_reason if reason is not None
-    }
-
-    timeline_by_pair: dict[tuple[str, str], list[tuple[int | None, datetime, UUID | None]]] = {}
-    timeline_by_reason: dict[str, list[tuple[int | None, datetime, UUID | None]]] = {}
-    for reason, role, machine_id, count, ts in timeline_rows:
-        if reason is None or ts is None:
-            continue
-        role_key = role or "unknown"
-        timeline_by_reason.setdefault(reason, []).append((count, ts, machine_id))
-        timeline_by_pair.setdefault((reason, role_key), []).append((count, ts, machine_id))
-
-    groups: dict[str, dict] = {}
-
-    for reason, source_role, bucket, samples, avg_score, last_uploaded_at in rows:
-        if reason is None:
-            continue
-        group = groups.setdefault(
-            reason,
-            {
-                "capture_reason": reason,
-                "total": 0,
-                "unknown": 0,
-                "score_weighted_sum": 0.0,
-                "score_weight": 0,
-                "buckets": _empty_buckets(),
-                "by_source_role": {},
-                "last_uploaded_at": None,
-            },
-        )
-        role_key = source_role or "unknown"
-        role = group["by_source_role"].setdefault(
-            role_key,
-            {
-                "source_role": role_key,
-                "total": 0,
-                "unknown": 0,
-                "score_weighted_sum": 0.0,
-                "score_weight": 0,
-                "buckets": _empty_buckets(),
-                "last_uploaded_at": None,
-            },
-        )
-
-        n = int(samples or 0)
-        score = float(avg_score) if avg_score is not None else None
-
-        group["total"] += n
-        role["total"] += n
-        if bucket in _DIVERSITY_BUCKET_KEYS:
-            group["buckets"][bucket] += n
-            role["buckets"][bucket] += n
-        else:
-            group["unknown"] += n
-            role["unknown"] += n
-
-        if score is not None:
-            group["score_weighted_sum"] += score * n
-            group["score_weight"] += n
-            role["score_weighted_sum"] += score * n
-            role["score_weight"] += n
-
-        if last_uploaded_at is not None:
-            if group["last_uploaded_at"] is None or last_uploaded_at > group["last_uploaded_at"]:
-                group["last_uploaded_at"] = last_uploaded_at
-            if role["last_uploaded_at"] is None or last_uploaded_at > role["last_uploaded_at"]:
-                role["last_uploaded_at"] = last_uploaded_at
-
-    def _finalize_score(node: dict) -> None:
-        weight = node.pop("score_weight")
-        weighted = node.pop("score_weighted_sum")
-        node["avg_score"] = (weighted / weight) if weight > 0 else None
-        if node["last_uploaded_at"] is not None:
-            node["last_uploaded_at"] = node["last_uploaded_at"].isoformat()
-
-    output_groups = []
-    for group in groups.values():
-        reason = group["capture_reason"]
-        boundaries = _trend_boundaries(timeline_by_reason.get(reason, []))
-
-        finalized_roles = []
-        role_fills: list[dict[str, float | None]] = []
-        role_trends: list[list[float]] = []
-        group_targets_union = {k: 0 for k in _DIVERSITY_BUCKET_KEYS}
-        for role in group["by_source_role"].values():
-            role_samples = timeline_by_pair.get((reason, role["source_role"]), [])
-            role_targets = _targets_for_role(role["source_role"])
-            fills = _bucket_fills(role["buckets"], role_targets)
-            role_machine_count = machines_by_pair.get((reason, role["source_role"]), 0)
-            role_machine_factor = _machine_factor(role_machine_count)
-            role["bucket_fills"] = fills
-            role["bucket_targets"] = dict(role_targets)
-            base_coverage = _coverage_from_fills(fills)
-            role["coverage_base"] = base_coverage
-            role["coverage"] = base_coverage * role_machine_factor
-            role["machine_count"] = role_machine_count
-            role["machine_target"] = _DIVERSITY_MACHINE_TARGET
-            role["machine_factor"] = role_machine_factor
-            role["coverage_trend"] = _trend_on_grid(role_samples, boundaries, role_targets)
-            role["eta_seconds"] = _eta_seconds_from_trend(role["coverage"], role["coverage_trend"], boundaries)
-            _finalize_score(role)
-            finalized_roles.append(role)
-            role_fills.append(fills)
-            role_trends.append(role["coverage_trend"])
-            for k in _DIVERSITY_BUCKET_KEYS:
-                if role_targets.get(k, 0) > group_targets_union[k]:
-                    group_targets_union[k] = role_targets[k]
-
-        group["by_source_role"] = sorted(
-            finalized_roles, key=lambda r: (-r["total"], r["source_role"])
-        )
-
-        # Group view: average per-role fills and trends across roles where the bucket is
-        # in scope. A bucket only counts as full when *every* relevant role has it filled
-        # — that's the balanced-diversity signal. Machine factor is applied on top of the
-        # already-multiplied role trends so the group line stays in sync.
-        group_fills = _avg_fills(role_fills)
-        group_machine_count = machines_by_reason.get(reason, 0)
-        group_machine_factor = _machine_factor(group_machine_count)
-        group["bucket_fills"] = group_fills
-        group["bucket_targets"] = group_targets_union
-        base_group_coverage = _coverage_from_fills(group_fills)
-        group["coverage_base"] = base_group_coverage
-        group["coverage"] = base_group_coverage * group_machine_factor
-        group["machine_count"] = group_machine_count
-        group["machine_target"] = _DIVERSITY_MACHINE_TARGET
-        group["machine_factor"] = group_machine_factor
-        if role_trends and boundaries:
-            n_roles = len(role_trends)
-            group["coverage_trend"] = [
-                sum(rt[i] for rt in role_trends) / n_roles for i in range(len(boundaries))
-            ]
-        else:
-            group["coverage_trend"] = []
-        group["eta_seconds"] = _eta_seconds_from_trend(
-            group["coverage"], group["coverage_trend"], boundaries
-        )
-        _finalize_score(group)
-        output_groups.append(group)
-
-    output_groups.sort(key=lambda g: (-g["total"], g["capture_reason"]))
-
-    return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "total": sum(g["total"] for g in output_groups),
-        "default_target_per_bucket": _DIVERSITY_TARGET_PER_BUCKET,
-        "machine_target": _DIVERSITY_MACHINE_TARGET,
-        "bucket_keys": list(_DIVERSITY_BUCKET_KEYS),
-        "groups": output_groups,
-    }
+    machines = db.query(Machine.id).filter(Machine.archived_at.is_(None))
+    if scope == "mine" or current_user.role not in ("admin", "reviewer"):
+        machines = machines.filter(Machine.owner_id == current_user.id)
+    key_machines = api_key_machine_ids(current_user)
+    if key_machines is not None:
+        machines = machines.filter(Machine.id.in_(key_machines))
+    return sample_diversity.overview(db, [mid for (mid,) in machines], capture_reason)
 
 
-@router.get("", response_model=SampleListResponse)
+@router.get("", response_model=SamplePageResponse)
 def list_samples(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(36, ge=1, le=100),
-    machine_id: UUID | None = None,
-    upload_session_id: UUID | None = None,
-    source_role: str | None = None,
-    capture_reason: str | None = None,
-    review_status: str | None = None,
-    kind: str | None = Query(None, pattern="^(regular|condition|all)$"),
-    my_review: str | None = Query(None, pattern="^(unreviewed|reviewed|accepted|rejected)$"),
-    annotated: str | None = Query(None, pattern="^(teacher|raw|all)$"),
-    exposure: str | None = Query(None, pattern="^(under|normal|over)$"),
+    cursor: str | None = None,
+    limit: int = Query(36, ge=1, le=100),
+    filters: SampleFilters = Depends(sample_filters_query),
     archived: str | None = Query(None, pattern="^(active|archived|all)$"),
-    max_age_hours: int | None = Query(None, ge=1, le=24 * 365),
     scope: str | None = Query(None, pattern="^(mine|all)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
+    """One page of the samples the filters show, newest first, keyset-paged
+    (pass next_cursor back as cursor). machine_id may be given several times.
+    needs_review keeps the review queue's fresh work: samples the caller has
+    not reviewed that still need reviews to reach consensus.
+
+    A page looks at a bounded stretch of samples (review_queue.sample_page),
+    so with rare filters it can come back short, or empty, with a next_cursor:
+    the list goes on until next_cursor is null.
+
+    Unless asked otherwise this shows teacher-validated samples in good light:
+    raw sorter boxes are usually incomplete, and under- or overexposed frames
+    are rarely worth reviewing (annotated=all and exposure=under|over opt in).
+    A palette filter shows raw samples too: its frames are the classification
+    camera's, which the teacher pass rarely reaches (annotated=teacher opts out)."""
     # `archived` is admin-only — members never see archived samples regardless
     # of what they pass. Default ('active' or unset) hides them.
     is_admin = current_user.role == "admin"
-    include_archived = is_admin and archived in ("archived", "all")
-    only_archived = is_admin and archived == "archived"
-
-    query = _visible_sample_query(db, current_user, scope, include_archived=include_archived)
-    if only_archived:
-        query = query.filter(Sample.archived_at.isnot(None))
-    query = apply_kind_filter(query, kind)
-    query = apply_my_review_filter(query, my_review, current_user.id)
-    # Default-hide raw samples — reviewers shouldn't waste time on boxes
-    # the teacher hasn't validated yet. Explicit ?annotated=all opts back
-    # in to seeing everything.
-    query = apply_annotated_filter(query, annotated or "teacher")
-    # Default to the 'normal' (good light) bucket — under/over frames are
-    # rarely worth reviewing. Operator can opt into either of the bad
-    # buckets explicitly to find + bulk-archive them.
-    query = apply_exposure_filter(query, exposure or "normal")
-
-    if machine_id:
-        query = query.filter(Sample.machine_id == machine_id)
-    if upload_session_id:
-        query = query.filter(Sample.upload_session_id == upload_session_id)
-    if source_role:
-        query = query.filter(Sample.source_role == source_role)
-    if capture_reason:
-        query = query.filter(Sample.capture_reason == capture_reason)
-    if review_status:
-        query = query.filter(Sample.review_status == review_status)
-    if max_age_hours is not None:
-        from datetime import timedelta
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
-        query = query.filter(Sample.uploaded_at >= cutoff)
-
-    query = query.order_by(Sample.uploaded_at.desc())
-
-    total = query.count()
-    pages = math.ceil(total / page_size) if total > 0 else 1
-    items = query.offset((page - 1) * page_size).limit(page_size).all()
+    archived_view = archived if is_admin and archived in ("archived", "all") else "active"
+    filters = list_defaults(filters)
+    items, next_cursor = sample_page(
+        db, current_user, filters, limit=limit, cursor=cursor, mine_only=scope == "mine", archived=archived_view
+    )
     attach_my_reviews(items, db, current_user.id)
-
-    return SampleListResponse(
+    for sample in items:
+        sample.thumb_url = thumb_url(sample.image_path)
+    return SamplePageResponse(
         items=[SampleResponse.model_validate(s) for s in items],
-        total=total,
-        page=page,
-        page_size=page_size,
-        pages=pages,
+        next_cursor=next_cursor,
+        has_more=next_cursor is not None,
     )
 
 
@@ -792,11 +204,13 @@ def get_similar_samples(
 
     Excludes the sample itself, archived rows, and anything whose pHash is
     null (un-decodable image, or older sample that hasn't been backfilled).
-    Distance is computed in SQL via ``bit_count(phash # :target)`` so the
-    server doesn't need to materialize every row.
-    """
-    from sqlalchemy import text
 
+    Hamming distance has no index to narrow it, so this compares the target
+    against every active sample's hash, but only through
+    ``ix_samples_phash_active``, which holds the hash, id and machine of each
+    and nothing else: an index-only scan computing ``bit_count(phash # t)``,
+    never a read of the samples table. Only the hits' rows are then loaded.
+    """
     target = db.query(Sample).filter(Sample.id == sample_id).first()
     if target is None or not sample_access_visible(db, current_user, target):
         raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
@@ -805,29 +219,22 @@ def get_similar_samples(
         # falling back to "newest samples" — empty is the truthful answer.
         return SampleListResponse(items=[], total=0, page=1, page_size=limit, pages=0)
 
-    # Hamming distance via XOR + popcount inline in SQL. Postgres ``#`` is
-    # bitwise XOR on integers and ``bit_count`` (Postgres 14+) counts set
-    # bits. We rank by distance, drop self + archived rows + nulls, and
-    # cap by ``max_distance`` so a wildly different image doesn't surface.
-    bit_distance = text("bit_count(samples.phash # :target_phash)")
-    similar_q = (
-        db.query(Sample, bit_distance.label("distance"))
+    # Postgres ``#`` is bitwise XOR on integers; ``bit_count`` (14+) counts the
+    # bits of a bit string, so the XOR is cast to bit(64) first.
+    distance = func.bit_count(cast(Sample.phash.op("#")(int(target.phash)), BIT(64)))
+    hits = (
+        db.query(Sample.id)
         .filter(Sample.machine.has(Machine.archived_at.is_(None)))
         .filter(Sample.archived_at.is_(None))
         .filter(Sample.phash.isnot(None))
         .filter(Sample.id != target.id)
-        .filter(bit_distance <= int(max_distance))
+        .filter(distance <= int(max_distance))
     )
     # Members only get similar hits among their own machines' samples.
-    similar_q = apply_sample_access(db, similar_q, current_user)
-    rows = (
-        similar_q.order_by(text("distance"))
-        .params(target_phash=int(target.phash))
-        .limit(limit)
-        .all()
-    )
-
-    items = [sample for sample, _distance in rows]
+    hits = apply_sample_access(db, hits, current_user)
+    ids = [sample_id for (sample_id,) in hits.order_by(distance, Sample.id).limit(limit)]
+    by_id = {s.id: s for s in db.query(Sample).filter(Sample.id.in_(ids))} if ids else {}
+    items = [by_id[i] for i in ids if i in by_id]
     attach_my_reviews(items, db, current_user.id)
     return SampleListResponse(
         items=[SampleResponse.model_validate(s) for s in items],
@@ -939,37 +346,9 @@ def save_sample_classification(
     )
 
 
-def _apply_archive_filters(query, payload: BatchArchiveSamplesRequest, viewer_id):
-    """Shared filter assembly for archive + unarchive endpoints.
-
-    Mirrors the /api/samples list filters 1:1 — anything the operator sees
-    on the page must be what the destructive action operates on.
-    """
-
-    query = apply_kind_filter(query, payload.kind)
-    query = apply_my_review_filter(query, payload.my_review, viewer_id)
-    query = apply_annotated_filter(query, payload.annotated)
-    query = apply_exposure_filter(query, payload.exposure)
-    if payload.machine_id:
-        try:
-            machine_uuid = UUID(payload.machine_id)
-        except ValueError:
-            raise APIError(400, "machine_id must be a UUID", "INVALID_MACHINE_ID")
-        query = query.filter(Sample.machine_id == machine_uuid)
-    if payload.source_role:
-        query = query.filter(Sample.source_role == payload.source_role)
-    if payload.capture_reason:
-        query = query.filter(Sample.capture_reason == payload.capture_reason)
-    if payload.review_status:
-        query = query.filter(Sample.review_status == payload.review_status)
-    if payload.max_age_hours is not None:
-        from datetime import timedelta
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=payload.max_age_hours)
-        query = query.filter(Sample.uploaded_at >= cutoff)
-    return query
-
-
 @router.post("/batch-archive", response_model=BatchArchiveSamplesResponse)
+# Counts and then updates every sample a filter matches, up to max_archive.
+@statement_timeout(seconds=60)
 def batch_archive_samples(
     payload: BatchArchiveSamplesRequest,
     db: Session = Depends(get_db),
@@ -989,9 +368,12 @@ def batch_archive_samples(
         .filter(Sample.machine.has(Machine.archived_at.is_(None)))
         .filter(Sample.archived_at.is_(None))
     )
-    query = _apply_archive_filters(query, payload, admin.id)
+    query = apply_sample_filters(query, payload, admin.id)
 
-    matched = query.count()
+    # Counted only as far as the cap: past it the answer is "too many" anyway.
+    # Newest first, so the count walks the index of what the filters show
+    # rather than the table from its oldest rows.
+    matched = query.order_by(Sample.uploaded_at.desc(), Sample.id.desc()).limit(payload.max_archive + 1).count()
 
     if payload.dry_run:
         return BatchArchiveSamplesResponse(
@@ -1005,8 +387,8 @@ def batch_archive_samples(
     if matched > payload.max_archive:
         raise APIError(
             400,
-            f"Filter matches {matched} samples — narrow the filter or raise max_archive "
-            f"(currently {payload.max_archive}). Refusing to archive in one shot.",
+            f"Filter matches more than {payload.max_archive} samples — narrow the filter or raise "
+            f"max_archive. Refusing to archive in one shot.",
             "BATCH_ARCHIVE_TOO_LARGE",
         )
 
@@ -1024,6 +406,8 @@ def batch_archive_samples(
 
 
 @router.post("/batch-unarchive", response_model=BatchArchiveSamplesResponse)
+# The same walk as batch-archive, over the archived ones.
+@statement_timeout(seconds=60)
 def batch_unarchive_samples(
     payload: BatchArchiveSamplesRequest,
     db: Session = Depends(get_db),
@@ -1037,9 +421,9 @@ def batch_unarchive_samples(
         .filter(Sample.machine.has(Machine.archived_at.is_(None)))
         .filter(Sample.archived_at.isnot(None))
     )
-    query = _apply_archive_filters(query, payload, admin.id)
+    query = apply_sample_filters(query, payload, admin.id)
 
-    matched = query.count()
+    matched = query.order_by(Sample.uploaded_at.desc(), Sample.id.desc()).limit(payload.max_archive + 1).count()
 
     if payload.dry_run:
         return BatchArchiveSamplesResponse(
@@ -1053,8 +437,8 @@ def batch_unarchive_samples(
     if matched > payload.max_archive:
         raise APIError(
             400,
-            f"Filter matches {matched} archived samples — narrow the filter or raise "
-            f"max_archive (currently {payload.max_archive}).",
+            f"Filter matches more than {payload.max_archive} archived samples — narrow the filter "
+            f"or raise max_archive.",
             "BATCH_UNARCHIVE_TOO_LARGE",
         )
 
@@ -1069,6 +453,8 @@ def batch_unarchive_samples(
 
 
 @router.post("/batch-delete", response_model=BatchDeleteSamplesResponse)
+# Counts, loads and deletes every sample a filter matches, up to max_delete.
+@statement_timeout(seconds=60)
 def batch_delete_samples(
     payload: BatchDeleteSamplesRequest,
     db: Session = Depends(get_db),
@@ -1087,30 +473,12 @@ def batch_delete_samples(
 
     query = db.query(Sample).filter(Sample.machine.has(owner_id=current_user.id))
 
-    # Mirror the /api/samples list filters 1:1 — anything the operator sees
-    # on the page must be what the destructive action operates on.
-    query = apply_kind_filter(query, payload.kind)
-    query = apply_my_review_filter(query, payload.my_review, current_user.id)
-    query = apply_annotated_filter(query, payload.annotated)
-    query = apply_exposure_filter(query, payload.exposure)
-    if payload.machine_id:
-        try:
-            machine_uuid = UUID(payload.machine_id)
-        except ValueError:
-            raise APIError(400, "machine_id must be a UUID", "INVALID_MACHINE_ID")
-        query = query.filter(Sample.machine_id == machine_uuid)
-    if payload.source_role:
-        query = query.filter(Sample.source_role == payload.source_role)
-    if payload.capture_reason:
-        query = query.filter(Sample.capture_reason == payload.capture_reason)
-    if payload.review_status:
-        query = query.filter(Sample.review_status == payload.review_status)
-    if payload.max_age_hours is not None:
-        from datetime import timedelta
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=payload.max_age_hours)
-        query = query.filter(Sample.uploaded_at >= cutoff)
+    # The same filters as the list, through the same function: what the
+    # operator sees on the page is what the destructive action operates on.
+    query = apply_sample_filters(query, payload, current_user.id)
 
-    matched = query.count()
+    # Counted only as far as the cap: past it the answer is "too many" anyway.
+    matched = query.limit(payload.max_delete + 1).count()
 
     if payload.dry_run:
         return BatchDeleteSamplesResponse(
@@ -1124,8 +492,8 @@ def batch_delete_samples(
     if matched > payload.max_delete:
         raise APIError(
             400,
-            f"Filter matches {matched} samples — narrow the filter or raise max_delete "
-            f"(currently {payload.max_delete}). Refusing to delete in one shot.",
+            f"Filter matches more than {payload.max_delete} samples — narrow the filter or raise "
+            f"max_delete. Refusing to delete in one shot.",
             "BATCH_DELETE_TOO_LARGE",
         )
 

@@ -67,11 +67,23 @@ class TestReviewQueue:
         _login_user(client, test_reviewer["email"], test_reviewer["password"])
         headers = _auth_headers(client)
 
-        resp = client.get("/api/review/queue/next", headers=headers)
+        # The review queue is the samples list's fresh work for this reviewer.
+        resp = client.get(
+            "/api/samples", params={"needs_review": "true", "annotated": "all"}, headers=headers
+        )
         assert resp.status_code == 200
-        data = resp.json()
-        assert data is not None
-        assert "id" in data
+        items = resp.json()["items"]
+        assert len(items) == 1 and "id" in items[0]
+
+        # Once reviewed it leaves this reviewer's queue.
+        resp = client.post(
+            f"/api/review/samples/{items[0]['id']}", json={"decision": "accept"}, headers=headers
+        )
+        assert resp.status_code in (200, 201), resp.text
+        resp = client.get(
+            "/api/samples", params={"needs_review": "true", "annotated": "all"}, headers=headers
+        )
+        assert resp.json()["items"] == []
 
 
 class TestSubmitReview:

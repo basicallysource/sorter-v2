@@ -6,14 +6,17 @@
 		type MachineOverview,
 		type MachineConfigBackupSummary,
 		type MachineConfigBackupDetail,
-		type MachineCameraSpec
+		type MachineCameraSpec,
+		type MachineTrainingRun
 	} from '$lib/api';
+	import { formatDateTime } from '$lib/time';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import ColorChip from '$lib/components/ColorChip.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import KeyValue from '$lib/components/KeyValue.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
@@ -37,6 +40,12 @@
 	let detail = $state<MachineConfigBackupDetail | null>(null);
 	let detailLoading = $state(false);
 	let openStateKey = $state<string | null>(null);
+
+	// The machine's training runs, newest first, a page at a time.
+	let runs = $state<MachineTrainingRun[]>([]);
+	let runsCursor = $state<string | null>(null);
+	let runsLoading = $state(false);
+	let runsError = $state<string | null>(null);
 
 	const machine = $derived(overview?.machine ?? null);
 	const stats = $derived(overview?.stats ?? null);
@@ -131,6 +140,26 @@
 		return [board.device_name, board.family].filter(Boolean).join(', ') || '-';
 	}
 
+	function runSeconds(run: MachineTrainingRun): number {
+		const end = run.ended_at ? new Date(run.ended_at).getTime() : Date.now();
+		return (end - new Date(run.started_at).getTime()) / 1000;
+	}
+
+	async function loadRuns(id: string, cursor: string | null) {
+		runsLoading = true;
+		runsError = null;
+		try {
+			const page = await api.getMachineTrainingRuns(id, { limit: 50, cursor });
+			if (id !== machineId) return;
+			runs = cursor ? [...runs, ...page.items] : page.items;
+			runsCursor = page.next_cursor;
+		} catch (err) {
+			runsError = (err as { error?: string }).error || 'Failed to load the training runs.';
+		} finally {
+			runsLoading = false;
+		}
+	}
+
 	function triggerVariant(trigger: string): 'success' | 'neutral' | 'warning' {
 		if (trigger === 'manual') return 'warning';
 		if (trigger === 'heartbeat') return 'neutral';
@@ -144,6 +173,9 @@
 		error = null;
 		backups = [];
 		overview = null;
+		runs = [];
+		runsCursor = null;
+		loadRuns(id, null);
 		api
 			.getMachineOverview(id)
 			.then((ov) => {
@@ -327,6 +359,49 @@
 					stats?.last_capture ?? null
 				)}.{#if stats?.computed_at}{' '}Numbers as of {formatDate(stats.computed_at)}, refreshed hourly.{/if}
 			</p>
+		</Panel>
+
+		<Panel
+			title="Training runs"
+			description="While training mode is on, every piece the machine sees counts as the color it is fed. Excluded pieces and runs do not count."
+			flush
+		>
+			{#snippet actions()}
+				<span class="num text-sm text-ink-muted">{runs.length}{runsCursor ? '+' : ''} run{runs.length === 1 ? '' : 's'}</span>
+			{/snippet}
+			{#if runsError}
+				<div class="px-(--pad-panel) pb-(--pad-panel)"><Alert tone="danger">{runsError}</Alert></div>
+			{:else if runs.length === 0 && runsLoading}
+				<div class="flex justify-center p-4"><Spinner size={24} /></div>
+			{:else if runs.length === 0}
+				<div class="px-(--pad-panel) pb-(--pad-panel)">
+					<EmptyState title="No training runs">Runs show here once the machine syncs them.</EmptyState>
+				</div>
+			{:else}
+				<ul class="divide-y divide-line">
+					{#each runs as run (run.run_uuid)}
+						<li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-(--pad-panel) py-3 text-sm">
+							<span class="text-ink">{formatDateTime(run.started_at)}</span>
+							<span class="num text-ink-muted">{duration(runSeconds(run))}</span>
+							<span class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-ink">
+								{#each run.colors as color (color.id)}
+									<ColorChip name={color.name ?? `Color ${color.id}`} rgb={color.rgb} />
+								{/each}
+							</span>
+							{#if run.excluded}<Badge>Excluded</Badge>{/if}
+							{#if !run.ended_at}<Badge tone="success" dot>Collecting</Badge>{/if}
+							<span class="num ml-auto text-ink-muted">
+								{num(run.pieces)} pieces, {num(run.labeled)} labeled, {num(run.excluded_pieces)} excluded
+							</span>
+						</li>
+					{/each}
+				</ul>
+				{#if runsCursor}
+					<div class="border-t border-line px-(--pad-panel) py-2">
+						<Button size="sm" variant="ghost" disabled={runsLoading} onclick={() => loadRuns(machineId, runsCursor)}>Load more</Button>
+					</div>
+				{/if}
+			{/if}
 		</Panel>
 
 		<section class="flex flex-col gap-(--gap-panels)">

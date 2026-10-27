@@ -84,9 +84,22 @@ class ClassificationAttempt:
     part_name: Optional[str] = None
     preview_url: Optional[str] = None
     confidence: Optional[float] = None
-    # Top color this request returned (Brickognize reports colors per request).
+    # Top color this request returned (Brickognize reports colors per request)
+    # and its score.
     color_id: Optional[str] = None
     color_name: Optional[str] = None
+    color_score: Optional[float] = None
+    # This request's ranked answers, kept as the piece's predictions
+    # (piece_predictions): its first items and its highest-scoring colors, each
+    # a dict with id, name, score and rank (the position in Brickognize's
+    # response). Not sent to the UI over the socket.
+    items: List[dict] = field(default_factory=list)
+    colors: List[dict] = field(default_factory=list)
+    # The piece's stored images this request sent, as piece_predictions keeps
+    # them: {"set": "burst" | "link", "seq", "channel"}, seq being the image's
+    # place in recognition_image_set / link_match_image_set. Not sent to the UI
+    # over the socket.
+    images: Optional[List[dict]] = None
     error: Optional[str] = None
     duration_s: Optional[float] = None
     # Capture timestamps of the exact images submitted in this request. The UI
@@ -129,6 +142,11 @@ class KnownObject:
     # the UI drops dead pieces from the recent list. Self-clears if the piece
     # later progresses and re-emits.
     dead: bool = False
+    # What went wrong on this piece's way through the machine, oldest first,
+    # in words for the operator: each {"kind", "message", "at", "after_s"}
+    # (see notePieceProblem). A timed-out piece says here why it never reached
+    # a bin; a piece sent to misc says why it went there.
+    problems: List[Dict[str, Any]] = field(default_factory=list)
     part_id: Optional[str] = None
     part_name: Optional[str] = None
     part_category: Optional[str] = None
@@ -259,3 +277,29 @@ class KnownObject:
     distribution_motion_started_at: Optional[float] = None
     distribution_positioned_at: Optional[float] = None
     distributed_at: Optional[float] = None
+
+
+def notePieceProblem(
+    obj: Optional[KnownObject],
+    kind: str,
+    message: str,
+    *,
+    after_s: Optional[float] = None,
+) -> None:
+    """Add one entry to ``obj.problems`` (see KnownObject.problems). ``kind`` is
+    a short code the UI can label; ``message`` is the sentence it shows, with
+    the specifics (what, where, how long); ``after_s`` is the wait that ran out
+    or how far into the piece's trip it happened. The same note twice in a row
+    is kept once."""
+    if obj is None:
+        return
+    entry = {
+        "kind": kind,
+        "message": message,
+        "at": time.time(),
+        "after_s": None if after_s is None else round(float(after_s), 1),
+    }
+    last = obj.problems[-1] if obj.problems else None
+    if last is not None and last.get("kind") == kind and last.get("message") == message:
+        return
+    obj.problems.append(entry)

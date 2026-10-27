@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
-	import Disclosure from '$lib/components/ui/Disclosure.svelte';
+	import Panel from '$lib/components/ui/Panel.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
@@ -10,6 +10,8 @@
 	import Field from '$lib/components/ui/Field.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import ChevronUp from '@lucide/svelte/icons/chevron-up';
 	import Play from '@lucide/svelte/icons/play';
 	import Pause from '@lucide/svelte/icons/pause';
 	import Square from '@lucide/svelte/icons/square';
@@ -52,7 +54,6 @@
 
 	const manager = getMachinesContext();
 
-	let open = $state(false);
 	let mode = $state<StressMode>('sweep');
 	let targetMaxDeg = $state(340);
 	let durationSec = $state(60);
@@ -67,6 +68,10 @@
 	let busy = $state(false);
 
 	let runs = $state<RunRecord[]>([]);
+	// The latest few runs; the rest on request, so the list never scrolls inside the page.
+	const RUNS_SHOWN = 6;
+	let showAllRuns = $state(false);
+	const shownRuns = $derived(showAllRuns ? runs : runs.slice(0, RUNS_SHOWN));
 	let selectedRunId = $state<string | null>(null);
 	let pollHandle: ReturnType<typeof setInterval> | null = null;
 
@@ -238,15 +243,6 @@
 		return 'neutral';
 	}
 
-	// Opening the section loads the current run and the past ones.
-	$effect(() => {
-		if (!open) return;
-		untrack(() => {
-			void loadStatus();
-			void loadRuns();
-		});
-	});
-
 	function startPolling() {
 		if (pollHandle !== null) return;
 		pollHandle = setInterval(() => {
@@ -262,11 +258,8 @@
 	}
 
 	$effect(() => {
-		if (open && active) {
-			startPolling();
-		} else if (!active) {
-			stopPolling();
-		}
+		if (active) startPolling();
+		else stopPolling();
 	});
 
 	$effect(() => {
@@ -295,8 +288,10 @@
 		});
 	});
 
+	// The current run and the past ones, when the page opens.
 	onMount(() => {
 		void loadStatus();
+		void loadRuns();
 	});
 
 	onDestroy(() => {
@@ -481,7 +476,7 @@
 	}
 
 	$effect(() => {
-		if (open && telemetryLive) startTelemetryPolling();
+		if (telemetryLive) startTelemetryPolling();
 		else stopTelemetryPolling();
 	});
 </script>
@@ -499,232 +494,243 @@
 	<span class="inline-block size-2 shrink-0 {color}" aria-hidden="true"></span>
 {/snippet}
 
-{#if active && activeRun}
-	<div class="px-(--pad-panel) py-(--pad-row)">
-		<div class="rounded-control bg-well p-3">
-			<div class="mb-2 flex items-center justify-between gap-2">
-				<Badge tone={statusTone(activeRun.status)} dot>{statusLabel(activeRun.status)}</Badge>
-				<span class="text-sm text-ink-muted">{activeRun.mode}</span>
-			</div>
-			{@render facts([
-				['Elapsed', `${formatDuration(activeRun.total_time_s)} of ${formatDuration(activeRun.duration_target_s)}`],
-				['Distance', `${activeRun.total_distance_deg.toFixed(1)}°`],
-				['Last target', activeRun.last_target_deg != null ? `${activeRun.last_target_deg.toFixed(1)}°` : 'None'],
-				['Speed', `${activeRun.speed_microsteps_per_sec} µsteps/s`]
-			])}
-		</div>
-	</div>
-{/if}
-
-<Disclosure
+<Panel
 	title="Stress test"
-	help="Bounce the chute back and forth at speed to exercise the mechanics and the stepper"
-	bind:open
+	description="Bounce the chute back and forth at speed to exercise the mechanics and the stepper."
 >
-	<div class="flex flex-col gap-4 px-(--pad-panel) pb-(--pad-row)">
-		<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-			<Field label="Pattern" for="stress-mode">
-				<Select
-					id="stress-mode"
-					bind:value={mode}
-					disabled={active || busy}
-					options={[
-						{ value: 'sweep', label: 'Sweep between home and the target' },
-						{ value: 'random', label: 'Random, from 0° to the target' }
-					]}
-				/>
-			</Field>
-			<Field label="Target" for="stress-target" help="At most {CHUTE_STRESS_MAX_ANGLE}°.">
-				<Input
-					id="stress-target"
-					type="number"
-					min={1}
-					max={CHUTE_STRESS_MAX_ANGLE}
-					step={1}
-					bind:value={targetMaxDeg}
-					disabled={active || busy}
-					unit="°"
-				/>
-			</Field>
-			<Field label="Duration" for="stress-duration">
-				<Input id="stress-duration" type="number" min={1} step={1} bind:value={durationSec} disabled={active || busy} unit="s" />
-			</Field>
-			{#if !useMaxSpeed}
-				<Field label="Speed" for="stress-speed">
-					<Input
-						id="stress-speed"
-						type="number"
-						min={1}
-						step={100}
-						bind:value={speedOverride}
+	<div class="flex flex-col gap-6">
+		{#if active && activeRun}
+			<div class="rounded-control bg-well p-3">
+				<div class="mb-2 flex items-center justify-between gap-2">
+					<Badge tone={statusTone(activeRun.status)} dot>{statusLabel(activeRun.status)}</Badge>
+					<span class="text-sm text-ink-muted">{activeRun.mode}</span>
+				</div>
+				{@render facts([
+					['Elapsed', `${formatDuration(activeRun.total_time_s)} of ${formatDuration(activeRun.duration_target_s)}`],
+					['Distance', `${activeRun.total_distance_deg.toFixed(1)}°`],
+					['Last target', activeRun.last_target_deg != null ? `${activeRun.last_target_deg.toFixed(1)}°` : 'None'],
+					['Speed', `${activeRun.speed_microsteps_per_sec} µsteps/s`]
+				])}
+			</div>
+		{/if}
+
+		<div class="flex flex-col gap-4">
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+				<Field label="Pattern" for="stress-mode">
+					<Select
+						id="stress-mode"
+						bind:value={mode}
 						disabled={active || busy}
-						unit="µsteps/s"
+						options={[
+							{ value: 'sweep', label: 'Sweep between home and the target' },
+							{ value: 'random', label: 'Random, from 0° to the target' }
+						]}
 					/>
 				</Field>
-			{/if}
-		</div>
-		<div class="flex flex-wrap gap-x-6 gap-y-2">
-			<Checkbox bind:checked={useMaxSpeed} disabled={active || busy}>
-				Use the operating speed ({operatingSpeed} µsteps/s)
-			</Checkbox>
-			<Checkbox bind:checked={invertDirection} disabled={active || busy}>Invert the direction</Checkbox>
-		</div>
-
-		<div class="flex flex-wrap gap-2">
-			{#if !active}
-				<Button variant="primary" icon={Play} loading={busy} onclick={startRun}>Start the stress test</Button>
-			{:else}
-				{#if activeRun?.status === 'paused'}
-					<Button icon={Play} loading={busy} onclick={resumeRun}>Resume</Button>
-				{:else}
-					<Button icon={Pause} loading={busy} disabled={activeRun?.status === 'stopping'} onclick={pauseRun}>
-						Pause
-					</Button>
+				<Field label="Target" for="stress-target" help="At most {CHUTE_STRESS_MAX_ANGLE}°.">
+					<Input
+						id="stress-target"
+						type="number"
+						min={1}
+						max={CHUTE_STRESS_MAX_ANGLE}
+						step={1}
+						bind:value={targetMaxDeg}
+						disabled={active || busy}
+						unit="°"
+					/>
+				</Field>
+				<Field label="Duration" for="stress-duration">
+					<Input id="stress-duration" type="number" min={1} step={1} bind:value={durationSec} disabled={active || busy} unit="s" />
+				</Field>
+				{#if !useMaxSpeed}
+					<Field label="Speed" for="stress-speed">
+						<Input
+							id="stress-speed"
+							type="number"
+							min={1}
+							step={100}
+							bind:value={speedOverride}
+							disabled={active || busy}
+							unit="µsteps/s"
+						/>
+					</Field>
 				{/if}
-				<Button variant="danger" icon={Square} disabled={busy} onclick={stopRun}>Stop</Button>
-			{/if}
+			</div>
+			<div class="flex flex-wrap gap-x-6 gap-y-2">
+				<Checkbox bind:checked={useMaxSpeed} disabled={active || busy}>
+					Use the operating speed ({operatingSpeed} µsteps/s)
+				</Checkbox>
+				<Checkbox bind:checked={invertDirection} disabled={active || busy}>Invert the direction</Checkbox>
+			</div>
 		</div>
 
 		{#if errorMsg}
 			<Alert tone="danger">{errorMsg}</Alert>
-		{:else if statusMsg}
-			<p class="text-sm text-ink-muted">{statusMsg}</p>
+		{/if}
+	</div>
+	{#snippet footer()}
+		{#if statusMsg && !errorMsg}
+			<p class="mr-auto min-w-0 text-sm text-ink-muted">{statusMsg}</p>
+		{/if}
+		{#if !active}
+			<Button variant="primary" icon={Play} loading={busy} onclick={startRun}>Start the stress test</Button>
+		{:else}
+			{#if activeRun?.status === 'paused'}
+				<Button icon={Play} loading={busy} onclick={resumeRun}>Resume</Button>
+			{:else}
+				<Button icon={Pause} loading={busy} disabled={activeRun?.status === 'stopping'} onclick={pauseRun}>
+					Pause
+				</Button>
+			{/if}
+			<Button variant="danger" icon={Square} disabled={busy} onclick={stopRun}>Stop</Button>
+		{/if}
+	{/snippet}
+</Panel>
+
+<Panel title="Stress test runs" description="What each run did, and what the driver read while it ran.">
+	{#snippet actions()}
+		<Button variant="ghost" size="sm" onclick={() => void loadRuns()}>Refresh</Button>
+	{/snippet}
+	<div class="flex flex-col gap-4">
+		{#if runs.length === 0}
+			<p class="text-sm text-ink-muted">No stress runs yet.</p>
+		{:else}
+			<ul class="divide-y divide-line overflow-hidden rounded-control bg-well">
+				{#each shownRuns as run (run.id)}
+					<li>
+						<button
+							type="button"
+							aria-pressed={selectedRunId === run.id}
+							onclick={() => (selectedRunId = selectedRunId === run.id ? null : run.id)}
+							class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors
+								{selectedRunId === run.id ? 'bg-primary-soft' : 'hover:bg-hover'}"
+						>
+							<span class="min-w-0 truncate text-ink">{formatTimestamp(run.started_at)}</span>
+							<Badge tone={statusTone(run.status)}>{statusLabel(run.status)}</Badge>
+						</button>
+					</li>
+				{/each}
+			</ul>
+			{#if runs.length > RUNS_SHOWN}
+				<div>
+					<Button
+						variant="ghost"
+						size="sm"
+						icon={showAllRuns ? ChevronUp : ChevronDown}
+						onclick={() => (showAllRuns = !showAllRuns)}
+					>
+						{showAllRuns ? `Show the latest ${RUNS_SHOWN}` : `Show all ${runs.length} runs`}
+					</Button>
+				</div>
+			{/if}
 		{/if}
 
-		<div class="flex flex-col gap-2 border-t border-line pt-3">
-			<div class="flex items-center justify-between gap-2">
-				<span class="label">Past runs</span>
-				<Button variant="ghost" size="sm" onclick={() => void loadRuns()}>Refresh</Button>
+		{#if selectedRun}
+			<div class="rounded-control bg-well p-3">
+				{@render facts([
+					['Started', formatTimestamp(selectedRun.started_at)],
+					['Ended', formatTimestamp(selectedRun.ended_at)],
+					['Pattern', selectedRun.mode],
+					['Target', `${selectedRun.target_max_deg.toFixed(1)}°`],
+					['Planned', formatDuration(selectedRun.duration_target_s)],
+					['Ran', formatDuration(selectedRun.total_time_s)],
+					['Distance', `${selectedRun.total_distance_deg.toFixed(1)}°`],
+					['Speed', `${selectedRun.speed_microsteps_per_sec} µsteps/s`]
+				])}
+				{#if selectedRun.error}
+					<p class="mt-2 text-sm text-danger-ink">{selectedRun.error}</p>
+				{/if}
 			</div>
+		{/if}
 
-			{#if runs.length === 0}
-				<p class="text-sm text-ink-muted">No stress runs yet.</p>
-			{:else}
-				<ul class="max-h-48 divide-y divide-line overflow-y-auto rounded-control bg-well">
-					{#each runs as run (run.id)}
-						<li>
-							<button
-								type="button"
-								aria-pressed={selectedRunId === run.id}
-								onclick={() => (selectedRunId = selectedRunId === run.id ? null : run.id)}
-								class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors
-									{selectedRunId === run.id ? 'bg-primary-soft' : 'hover:bg-hover'}"
-							>
-								<span class="min-w-0 truncate text-ink">{formatTimestamp(run.started_at)}</span>
-								<Badge tone={statusTone(run.status)}>{statusLabel(run.status)}</Badge>
-							</button>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-
-			{#if selectedRun}
-				<div class="rounded-control bg-well p-3">
-					{@render facts([
-						['Started', formatTimestamp(selectedRun.started_at)],
-						['Ended', formatTimestamp(selectedRun.ended_at)],
-						['Pattern', selectedRun.mode],
-						['Target', `${selectedRun.target_max_deg.toFixed(1)}°`],
-						['Planned', formatDuration(selectedRun.duration_target_s)],
-						['Ran', formatDuration(selectedRun.total_time_s)],
-						['Distance', `${selectedRun.total_distance_deg.toFixed(1)}°`],
-						['Speed', `${selectedRun.speed_microsteps_per_sec} µsteps/s`]
-					])}
-					{#if selectedRun.error}
-						<p class="mt-2 text-sm text-danger-ink">{selectedRun.error}</p>
-					{/if}
+		{#if selectedRunId}
+			<div class="flex flex-col gap-3 border-t border-line pt-4">
+				<div class="flex items-center justify-between gap-2">
+					<div class="flex items-center gap-2">
+						<span class="label">Driver readings</span>
+						{#if telemetryLive}<Badge tone="success" dot>Live</Badge>{/if}
+					</div>
+					<Button variant="ghost" size="sm" onclick={() => selectedRunId && void loadTelemetry(selectedRunId)}>
+						Refresh
+					</Button>
 				</div>
-			{/if}
 
-			{#if selectedRunId}
-				<div class="flex flex-col gap-3 border-t border-line pt-3">
-					<div class="flex items-center justify-between gap-2">
-						<div class="flex items-center gap-2">
-							<span class="label">Driver readings</span>
-							{#if telemetryLive}<Badge tone="success" dot>Live</Badge>{/if}
+				{#if telemetryLoading}
+					<p class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} /> Loading the readings</p>
+				{:else if telemetryError}
+					<p class="text-sm text-ink-muted">{telemetryError}</p>
+				{:else if telemetryPoints.length === 0}
+					<p class="text-sm text-ink-muted">No readings for this run.</p>
+				{:else}
+					{#if telemetrySettings}
+						<div class="rounded-control bg-well p-3">
+							<div class="label mb-2">Driver settings, read from the hardware as the run started</div>
+							{@render facts([
+								[
+									'Chopper mode',
+									decodedField('gconf', 'stealthchop') === undefined
+										? 'Unknown'
+										: decodedField('gconf', 'stealthchop')
+											? 'StealthChop'
+											: 'SpreadCycle',
+									decodedField('gconf', 'stealthchop') ? 'text-warning-ink' : undefined
+								],
+								['Microsteps', String(decodedField('chopconf', 'microsteps') ?? 'Unknown')],
+								[
+									'Interpolation to 256',
+									decodedField('chopconf', 'intpol') === undefined
+										? 'Unknown'
+										: decodedField('chopconf', 'intpol')
+											? 'On'
+											: 'Off'
+								],
+								['Run current (IRUN)', `${configuredCurrent()?.['irun'] ?? '?'} of 31`],
+								['Hold current (IHOLD)', `${configuredCurrent()?.['ihold'] ?? '?'} of 31`],
+								['CS_ACTUAL at the start', `${decodedField('drv_status', 'cs_actual') ?? '?'} of 31`],
+								[
+									'Heat warning at the start',
+									decodedField('drv_status', 'otpw') === undefined
+										? 'Unknown'
+										: decodedField('drv_status', 'otpw')
+											? 'Yes'
+											: 'No',
+									decodedField('drv_status', 'otpw') ? 'text-danger-ink' : undefined
+								],
+								['Driver temperature at the start', snapshotTempBand()]
+							])}
+							<div class="mt-2 border-t border-line pt-2">
+								{@render facts([
+									['GCONF', hex32(telemetrySettings.registers?.['gconf']), 'font-mono text-ink'],
+									['CHOPCONF', hex32(telemetrySettings.registers?.['chopconf']), 'font-mono text-ink'],
+									['DRV_STATUS', hex32(telemetrySettings.registers?.['drv_status']), 'font-mono text-ink'],
+									['PWM_SCALE', hex32(telemetrySettings.registers?.['pwm_scale']), 'font-mono text-ink']
+								])}
+							</div>
 						</div>
-						<Button variant="ghost" size="sm" onclick={() => selectedRunId && void loadTelemetry(selectedRunId)}>
-							Refresh
-						</Button>
+					{/if}
+
+					<div class="flex flex-wrap gap-x-5 gap-y-2">
+						<Checkbox bind:checked={showSg}>{@render swatch('bg-primary')} SG_RESULT</Checkbox>
+						<Checkbox bind:checked={showPwm}>{@render swatch('bg-danger')} PWM_SCALE</Checkbox>
+						<Checkbox bind:checked={showCs}>{@render swatch('bg-warning')} CS_ACTUAL</Checkbox>
+						<Checkbox bind:checked={showTstep}>{@render swatch('bg-success')} TSTEP</Checkbox>
 					</div>
 
-					{#if telemetryLoading}
-						<p class="flex items-center gap-2 text-sm text-ink-muted"><Spinner size={14} /> Loading the readings</p>
-					{:else if telemetryError}
-						<p class="text-sm text-ink-muted">{telemetryError}</p>
-					{:else if telemetryPoints.length === 0}
-						<p class="text-sm text-ink-muted">No readings for this run.</p>
-					{:else}
-						{#if telemetrySettings}
-							<div class="rounded-control bg-well p-3">
-								<div class="label mb-2">Driver settings, read from the hardware as the run started</div>
-								{@render facts([
-									[
-										'Chopper mode',
-										decodedField('gconf', 'stealthchop') === undefined
-											? 'Unknown'
-											: decodedField('gconf', 'stealthchop')
-												? 'StealthChop'
-												: 'SpreadCycle',
-										decodedField('gconf', 'stealthchop') ? 'text-warning-ink' : undefined
-									],
-									['Microsteps', String(decodedField('chopconf', 'microsteps') ?? 'Unknown')],
-									[
-										'Interpolation to 256',
-										decodedField('chopconf', 'intpol') === undefined
-											? 'Unknown'
-											: decodedField('chopconf', 'intpol')
-												? 'On'
-												: 'Off'
-									],
-									['Run current (IRUN)', `${configuredCurrent()?.['irun'] ?? '?'} of 31`],
-									['Hold current (IHOLD)', `${configuredCurrent()?.['ihold'] ?? '?'} of 31`],
-									['CS_ACTUAL at the start', `${decodedField('drv_status', 'cs_actual') ?? '?'} of 31`],
-									[
-										'Heat warning at the start',
-										decodedField('drv_status', 'otpw') === undefined
-											? 'Unknown'
-											: decodedField('drv_status', 'otpw')
-												? 'Yes'
-												: 'No',
-										decodedField('drv_status', 'otpw') ? 'text-danger-ink' : undefined
-									],
-									['Driver temperature at the start', snapshotTempBand()]
-								])}
-								<div class="mt-2 border-t border-line pt-2">
-									{@render facts([
-										['GCONF', hex32(telemetrySettings.registers?.['gconf']), 'font-mono text-ink'],
-										['CHOPCONF', hex32(telemetrySettings.registers?.['chopconf']), 'font-mono text-ink'],
-										['DRV_STATUS', hex32(telemetrySettings.registers?.['drv_status']), 'font-mono text-ink'],
-										['PWM_SCALE', hex32(telemetrySettings.registers?.['pwm_scale']), 'font-mono text-ink']
-									])}
-								</div>
-							</div>
-						{/if}
+					<ChuteStressTelemetryChart points={telemetryPoints} {showSg} {showCs} {showPwm} {showTstep} height={260} />
 
-						<div class="flex flex-wrap gap-x-5 gap-y-2">
-							<Checkbox bind:checked={showSg}>{@render swatch('bg-primary')} SG_RESULT</Checkbox>
-							<Checkbox bind:checked={showPwm}>{@render swatch('bg-danger')} PWM_SCALE</Checkbox>
-							<Checkbox bind:checked={showCs}>{@render swatch('bg-warning')} CS_ACTUAL</Checkbox>
-							<Checkbox bind:checked={showTstep}>{@render swatch('bg-success')} TSTEP</Checkbox>
-						</div>
-
-						<ChuteStressTelemetryChart points={telemetryPoints} {showSg} {showCs} {showPwm} {showTstep} height={260} />
-
-						<p class="text-sm text-ink-muted">
-							Each series is scaled to its own range; the ranges below are absolute.
-							<span class="num">{telemetryPoints.length}</span> readings.
-						</p>
-						{@render facts([
-							...(sgStat ? [['SG_RESULT', `${sgStat.min} to ${sgStat.max} (now ${sgStat.last})`] as [string, string]] : []),
-							...(pwmStat ? [['PWM_SCALE', `${pwmStat.min} to ${pwmStat.max} (now ${pwmStat.last})`] as [string, string]] : []),
-							...(csStat ? [['CS_ACTUAL', `${csStat.min} to ${csStat.max} (now ${csStat.last})`] as [string, string]] : []),
-							...(tstepStat ? [['TSTEP', `${tstepStat.min} to ${tstepStat.max}`] as [string, string]] : []),
-							['Overheat or heat warning readings', String(warnCount), warnCount > 0 ? 'text-danger-ink' : undefined]
-						])}
-					{/if}
-				</div>
-			{/if}
-		</div>
+					<p class="text-sm text-ink-muted">
+						Each series is scaled to its own range; the ranges below are absolute.
+						<span class="num">{telemetryPoints.length}</span> readings.
+					</p>
+					{@render facts([
+						...(sgStat ? [['SG_RESULT', `${sgStat.min} to ${sgStat.max} (now ${sgStat.last})`] as [string, string]] : []),
+						...(pwmStat ? [['PWM_SCALE', `${pwmStat.min} to ${pwmStat.max} (now ${pwmStat.last})`] as [string, string]] : []),
+						...(csStat ? [['CS_ACTUAL', `${csStat.min} to ${csStat.max} (now ${csStat.last})`] as [string, string]] : []),
+						...(tstepStat ? [['TSTEP', `${tstepStat.min} to ${tstepStat.max}`] as [string, string]] : []),
+						['Overheat or heat warning readings', String(warnCount), warnCount > 0 ? 'text-danger-ink' : undefined]
+					])}
+				{/if}
+			</div>
+		{/if}
 	</div>
-</Disclosure>
+</Panel>

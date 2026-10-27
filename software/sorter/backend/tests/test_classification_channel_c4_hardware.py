@@ -7,6 +7,8 @@ import unittest
 from unittest.mock import patch
 
 
+from hardware_settings.motors import motorNamed
+from hardware_settings.steppers import readStepperSettings
 from irl.config import mkIRLConfig
 from server.routers import setup, steppers
 
@@ -41,9 +43,9 @@ classification_channel = 2
 
         config = mkIRLConfig()
 
-        self.assertEqual(8, config.carousel_stepper.microsteps)
         self.assertEqual(4000, config.carousel_stepper.default_steps_per_second)
         self.assertIs(config.c_channel_4_rotor_stepper, config.carousel_stepper)
+        self.assertEqual(8, readStepperSettings(motorNamed("c_channel_4")).microsteps)
 
     def test_stepper_api_exposes_c4_as_alias_for_carousel_port(self) -> None:
         stepper = object()

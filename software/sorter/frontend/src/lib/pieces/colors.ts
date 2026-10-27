@@ -1,9 +1,11 @@
 import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
 import { onColor } from '$lib/theme';
+import { currentPalette, setCurrentPalette } from './palette.svelte';
 
-// The full BrickLink LEGO color palette, served by GET /api/pieces/colors and
-// used to populate the correction color picker. Cached per backend base so the
-// palette is fetched once per machine per session rather than on every open.
+// The BrickLink palette a piece's true color is picked from, served by GET
+// /api/pieces/colors (Hive's, or the machine's saved copy). Cached per backend
+// base so it is fetched once per machine per session; an empty answer (the
+// machine has never reached Hive) is not cached, so the next open asks again.
 
 export type BrickLinkColor = {
 	id: number;
@@ -28,7 +30,10 @@ export async function fetchLegoColors(base: string): Promise<BrickLinkColor[]> {
 		if (!res.ok) throw new Error(`colors ${res.status}`);
 		const json = (await res.json()) as ColorsResponse;
 		const results = Array.isArray(json?.results) ? json.results : [];
-		cache.set(base, results);
+		if (results.length > 0) {
+			cache.set(base, results);
+			setCurrentPalette(results);
+		}
 		return results;
 	})();
 	inflight.set(base, p);
@@ -53,18 +58,25 @@ export function swatchTextColor(rgb: string | null | undefined): string {
 	return hex ? onColor(hex) : onColor('#ffffff');
 }
 
-// The LEGO color a piece's color id or name refers to (Brickognize and the
-// machine report either), or null when it is not one of LEGO_COLORS.
+// A piece's color as a name and a swatch. Pieces carry BrickLink color ids
+// ("11"), so the BrickLink palette (once loaded) answers by id, for every
+// color; before it loads, or for a name alone, the operator palette answers
+// by name. Null when neither knows it.
 export function findLegoColor(
 	color_id: string | null | undefined,
 	color_name: string | null | undefined
 ): LegoColor | null {
-	if (color_id) {
-		const by_id = LEGO_COLORS.find((c) => c.id === color_id);
-		if (by_id) return by_id;
+	const palette = currentPalette();
+	if (color_id && /^\d+$/.test(color_id)) {
+		const bl = palette.find((c) => String(c.id) === color_id);
+		const hex = swatchHex(bl?.rgb);
+		if (bl && hex) return { id: color_id, name: bl.name, hex };
 	}
 	if (color_name) {
 		const lower = color_name.toLowerCase();
+		const bl = palette.find((c) => c.name.toLowerCase() === lower);
+		const hex = swatchHex(bl?.rgb);
+		if (bl && hex) return { id: String(bl.id), name: bl.name, hex };
 		const by_name = LEGO_COLORS.find((c) => c.name.toLowerCase() === lower);
 		if (by_name) return by_name;
 	}

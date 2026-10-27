@@ -9,12 +9,22 @@
 		subject: string;
 		todo: string;
 		actions: { key: string; label: string }[];
+		// A recovery procedure working on it (backend recovery/): which step of
+		// how many, what that step does, and how it went.
+		recovery?: {
+			title: string;
+			step: number;
+			steps: number;
+			doing: string;
+			state: 'running' | 'freed' | 'gave up' | 'stopped';
+		};
 	};
 </script>
 
 <script lang="ts">
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import ProgressBar from '$lib/components/ui/ProgressBar.svelte';
 
 	let { card, baseUrl }: { card: IncidentCardData; baseUrl: string } = $props();
 
@@ -49,6 +59,24 @@
 	class="shrink-0 max-lg:order-first"
 >
 	<p>{card.todo}</p>
+	{#if card.recovery}
+		{@const recovery = card.recovery}
+		<div class="mt-2 flex flex-col gap-1.5">
+			<ProgressBar
+				value={recovery.state === 'running' ? recovery.step - 1 : recovery.steps}
+				max={recovery.steps}
+				label={recovery.title}
+				tone={recovery.state === 'running' ? 'primary' : 'warning'}
+			/>
+			{#if recovery.state === 'running'}
+				<p class="text-ink-muted">Step {recovery.step} of {recovery.steps}: {recovery.doing}</p>
+			{:else if recovery.state === 'stopped'}
+				<p class="text-ink-muted">Stopped at step {recovery.step} of {recovery.steps}.</p>
+			{:else if recovery.state === 'gave up'}
+				<p class="text-ink-muted">Tried all {recovery.steps} steps; it is still stuck.</p>
+			{/if}
+		</div>
+	{/if}
 	{#if error}
 		<p class="mt-1.5 text-danger-ink">{error}</p>
 	{/if}

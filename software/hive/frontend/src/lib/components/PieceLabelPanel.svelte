@@ -5,6 +5,7 @@
 </script>
 
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import {
 		api,
 		IMAGE_QUALITY_REASONS,
@@ -13,14 +14,19 @@
 		type ColorLabelPieceDetail,
 		type ImageQualityFlags,
 		type ImageQualityReason,
-		type PartBrickLinkColor,
+		type LikelyColorsResponse,
 		type PartSummary,
 		type PossibleCropCandidate
 	} from '$lib/api';
-	import { hexToLab, isExoticFinish, labDistance } from '$lib/colorLab';
 	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
+	import { formatDateTime, relativeTime } from '$lib/time';
+	import { labelSourceText, runPurpose } from '$lib/trainingRun';
+	import { modelLabel, percent } from '$lib/colorModels';
+	import { takePiece } from '$lib/pieceCache';
+	import { sentence } from '$lib/text';
 	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
+	import PaletteFrame from '$lib/components/PaletteFrame.svelte';
 	import PartBrickLinkColors from '$lib/components/PartBrickLinkColors.svelte';
 	import PiecePartPicker from '$lib/components/PiecePartPicker.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
@@ -28,7 +34,8 @@
 	import Alert from '$lib/components/Alert.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
-	import Input from '$lib/components/Input.svelte';
+	import ColorChip from '$lib/components/ColorChip.svelte';
+	import ColorChoice from '$lib/components/ColorChoice.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Popover from '$lib/components/Popover.svelte';
@@ -37,32 +44,32 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Ban from '@lucide/svelte/icons/ban';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Check from '@lucide/svelte/icons/check';
 	import Flag from '@lucide/svelte/icons/flag';
+	import Info from '@lucide/svelte/icons/info';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import Star from '@lucide/svelte/icons/star';
 	import X from '@lucide/svelte/icons/x';
 
 	type CharState = 'empty' | 'progress' | 'ready';
 
+	// The labeling pane beside the Piece samples list: one piece, stepped
+	// through the list's queue.
 	type Props = {
 		machineId: string;
 		pieceUuid: string;
-		// 'page' is the standalone full-width labeling route; 'pane' is the compact
-		// stacked layout used inside the list page's split view.
-		layout?: 'page' | 'pane';
 		position?: { index: number; total: number; hasMore: boolean };
 		onNext: () => void | Promise<void>;
 		onPrev: () => void | Promise<void>;
-		// Present in pane mode — renders a close control instead of the back-to-list link.
-		onClose?: () => void;
+		onClose: () => void;
 		onChange?: (key: nav.PieceKey, patch: PieceLabelPatch) => void;
 	};
 
 	let {
 		machineId,
 		pieceUuid,
-		layout = 'page',
 		position = { index: -1, total: 0, hasMore: true },
 		onNext,
 		onPrev,
@@ -82,7 +89,10 @@
 		{ value: 'pieces_entangled', label: 'Pieces entangled' }
 	];
 
-	const SIMILAR_COUNT = 8;
+	// How many likely colors the True color panel shows as swatches.
+	const LIKELY_COUNT = 8;
+	const STATE_DOT = { empty: 'bg-ink-faint', progress: 'bg-warning', ready: 'bg-success' } as const;
+	const STATE_WORDS = { empty: 'not started', progress: 'in progress', ready: 'ready' } as const;
 	const ZONE_LABEL: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
 
 	const pieceKey = $derived(`${machineId}|${pieceUuid}`);
@@ -96,7 +106,6 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let submitting = $state(false);
-	let search = $state('');
 
 	// Same-piece crops
 	let cropCandidates = $state<PossibleCropCandidate[]>([]);
@@ -112,6 +121,9 @@
 	// action is open to admins or anyone with their own OpenRouter key on file.
 	let predictionSource = $state<'ai' | 'model' | 'heuristic'>('heuristic');
 	let linkModel = $state<string | null>(null); // active link model name when source === 'model'
+	let linkThreshold = $state<number | null>(null); // the score the link model picks at
+	// The ticks are this labeler's saved selection, not the prediction's picks.
+	let ticksAreSaved = $state(false);
 	let aiReasoning = $state<string | null>(null);
 	let aiRunning = $state(false);
 	const canRunAi = $derived(auth.isAdmin || auth.user?.openrouter_configured === true);
@@ -160,6 +172,87 @@
 		return null;
 	});
 
+	// Every answer for the piece's color, to step through: each color model's
+	// stored answer (the active model first, then newest first), the active
+	// model's own guess when it has none stored yet, what the machine's
+	// predictors said while sorting (Brickognize's, each request's first
+	// color), and each later run over the machine's images, by its label.
+	type ColorAnswer = {
+		key: string;
+		label: string;
+		title: string;
+		color_id: number | null;
+		color_name: string | null;
+		rgb: string | null;
+		confidence: number | null;
+	};
+	const answers = $derived.by((): ColorAnswer[] => {
+		if (!detail) return [];
+		const out: ColorAnswer[] = [];
+		const stored = detail.model_answers ?? [];
+		const mp = detail.model_prediction;
+		if (mp && !stored.some((a) => a.is_active)) {
+			out.push({
+				key: 'active',
+				label: modelLabel(mp.model_name),
+				title: `${mp.model_name}, the active model, from ${mp.sample_count} crop${mp.sample_count === 1 ? '' : 's'}`,
+				color_id: mp.color_id,
+				color_name: mp.color_name,
+				rgb: mp.rgb,
+				confidence: mp.confidence
+			});
+		}
+		for (const a of stored) {
+			out.push({
+				key: a.model_sha256,
+				label: modelLabel(a.model_name),
+				title: `${a.model_name}${a.is_active ? ', the active model' : ''}, from ${a.crops} crop${a.crops === 1 ? '' : 's'}`,
+				color_id: a.color_id,
+				color_name: a.color_name,
+				rgb: a.rgb,
+				confidence: a.confidence
+			});
+		}
+		for (const p of detail.machine_predictions ?? []) {
+			if (p.kind !== 'color' || p.rank !== 0) continue;
+			const id = /^\d+$/.test(p.value_id) ? Number(p.value_id) : null;
+			const known = id != null ? colorsById.get(id) : undefined;
+			if ((p.source ?? 'live') !== 'live') {
+				// A later run over the piece's images, named by its label.
+				const crops = p.images?.length;
+				out.push({
+					key: `run|${p.source}|${p.request}`,
+					label: p.source,
+					title: `${p.model_name ?? p.request}, run later on the sorter's images${crops != null ? ` (${crops} crop${crops === 1 ? '' : 's'})` : ''}`,
+					color_id: id,
+					color_name: p.value_name ?? known?.name ?? p.value_id,
+					rgb: known?.rgb ?? null,
+					confidence: p.score
+				});
+				continue;
+			}
+			// Named after whoever answered: Brickognize, or the hosted model the sorter asked.
+			const who =
+				p.provider === 'brickognize'
+					? 'Brickognize'
+					: p.model_name
+						? `${modelLabel(p.model_name)}, hosted`
+						: 'basically color model';
+			out.push({
+				key: `machine|${p.request}|${p.provider}`,
+				label: p.request === 'combined' || p.provider !== 'brickognize' ? who : `${who}, ${sentence(p.request).toLowerCase()}`,
+				title: `${p.model_name ?? who}, asked by the sorter (its ${sentence(p.request).toLowerCase()} request)`,
+				color_id: id,
+				color_name: p.value_name ?? known?.name ?? p.value_id,
+				rgb: known?.rgb ?? null,
+				confidence: p.score
+			});
+		}
+		return out;
+	});
+	let answerIndex = $state(0);
+	const shownAnswer = $derived(answers[Math.min(answerIndex, answers.length - 1)] ?? null);
+
 	const guessColorId = $derived.by(() => {
 		const id = suggestion?.color_id;
 		return id != null && colorsById.has(id) ? id : null;
@@ -187,78 +280,99 @@
 					(c.key === 'color' && cantTell) || (c.key === 'part' && partCantTell && myPart == null)
 			)
 	);
+	// Short, so the bar stays one row; its tooltip says what it accepts (the
+	// bar's status dots show it too).
 	const ctaLabel = $derived.by(() => {
 		if (touched.length === 0) return 'Skip';
 		if (touched.length === characteristics.length) return 'Continue';
 		if (onlyCantTells) return 'Move on';
-		return 'Accept ' + touched.map((c) => c.label.toLowerCase()).join(' + ');
+		return 'Accept';
+	});
+	const ctaTitle = $derived(
+		`${onlyCantTells ? 'Move on' : 'Accept ' + touched.map((c) => c.label.toLowerCase()).join(' + ')} (Enter)`
+	);
+
+	// The colors this piece was predicted to be, for the likely-colors ranking:
+	// the machine's (every request's colors when the machine sent them, else
+	// the color it applied, with its confidence) and Hive's own guess.
+	// Under the part's name: its number, the machine, and when the machine saw
+	// it ("Sun Oct 11, 9:38 pm, 15 hours ago").
+	const pieceDescription = $derived.by(() => {
+		if (!detail) return '';
+		const parts = [detail.part.part_id, detail.machine_name ?? 'Machine'].filter(Boolean);
+		const seen = detail.seen_at ?? detail.recorded_at;
+		if (seen) parts.push(`seen ${formatDateTime(seen)} (${relativeTime(seen)})`);
+		return parts.join(', ');
+	});
+	const likelyPredictions = $derived.by(() => {
+		if (!detail) return '';
+		const scores = new Map<number, number | null>();
+		const add = (id: number, score: number | null) => {
+			const before = scores.get(id);
+			scores.set(id, before == null ? score : score == null ? before : Math.max(before, score));
+		};
+		const rows = detail.machine_predictions ?? [];
+		const machine = rows.filter((r) => r.kind === 'color' && /^\d+$/.test(r.value_id));
+		for (const r of machine) add(Number(r.value_id), r.score);
+		const applied = detail.prediction.color_id;
+		if (machine.length === 0 && applied && /^\d+$/.test(applied)) {
+			add(Number(applied), detail.prediction.color_confidence ?? null);
+		}
+		if (detail.model_prediction) add(detail.model_prediction.color_id, detail.model_prediction.confidence);
+		else if (detail.pixel_guess?.color_id != null) add(detail.pixel_guess.color_id, null);
+		return [...scores]
+			.map(([id, score]) => (score == null ? `${id}` : `${id}:${score.toFixed(4)}`))
+			.join(',');
 	});
 
-	const filteredColors = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		if (!q) return colors;
-		return colors.filter((c) => c.name.toLowerCase().includes(q) || String(c.id) === q);
+	// What marks a predicted color among the likely ones.
+	const likelyMarks = $derived.by(() => {
+		const marks: Record<number, string> = {};
+		const applied = detail?.prediction.color_id;
+		// Named after whoever answered the colour the sorter applied.
+		if (applied && /^\d+$/.test(applied)) marks[Number(applied)] = modelLabel(detail?.prediction.color_provider_label ?? 'Brickognize');
+		if (guessColorId != null) marks[guessColorId] = 'The guess';
+		return marks;
 	});
 
-	const labById = $derived(new Map(colors.map((c) => [c.id, hexToLab(c.rgb)] as const)));
+	// The ranking, and the part's BrickLink sales it was made from. Owned here
+	// so the True color column and the "Sold on BrickLink" column read one
+	// answer. A human part correction wins over the machine's part: it is
+	// better ground truth, and the only part an unidentified piece has.
+	let likely = $state<LikelyColorsResponse | null>(null);
+	let likelyError = $state<string | null>(null);
+	let likelyRequest = 0;
 
-	// BrickLink for-sale mix for this part. Owned here rather than in the sidebar
-	// because the numbers matter most next to the colors you're choosing between.
-	let blItems = $state<PartBrickLinkColor[]>([]);
-	let blItemNo = $state<string | null>(null);
-	let blUpdatedAt = $state<string | null>(null);
-	let blLoading = $state(false);
-	let blError = $state<string | null>(null);
-	let blSource = $state<'live' | 'cache'>('cache');
-
-	async function loadBrickLink(partId: string) {
-		blLoading = true;
-		blError = null;
+	async function loadLikely(partId: string | null, predictions: string) {
+		const request = ++likelyRequest;
+		likely = null;
+		likelyError = null;
 		try {
-			const res = await api.partBrickLinkColors(partId, 250);
-			blItems = res.items;
-			blItemNo = res.item_no;
-			blUpdatedAt = res.updated_at;
-			blSource = res.source;
+			const res = await api.likelyColors(partId, predictions);
+			if (request === likelyRequest) likely = res;
 		} catch {
-			blError = 'Failed to load';
-		} finally {
-			blLoading = false;
+			if (request === likelyRequest) likelyError = 'Could not load the BrickLink numbers';
 		}
 	}
 
 	$effect(() => {
-		// A human part correction wins over the machine's guess — it's better
-		// ground truth, and for an unidentified piece it's the only thing that can
-		// populate this column at all. Re-runs when the correction changes.
-		const partId = myPart?.part_num ?? detail?.part.part_id ?? null;
-		if (!partId) {
-			blItems = [];
-			blItemNo = null;
-			return;
-		}
-		void loadBrickLink(partId);
+		if (!detail) return;
+		void loadLikely(myPart?.part_num ?? detail.part.part_id ?? null, likelyPredictions);
 	});
 
-	function isExotic(c: BrickLinkColor): boolean {
-		return isExoticFinish(c.name, c.is_trans);
-	}
-
-	// Rank the palette against the guess, but push exotic finishes way down so the
-	// shortlist is dominated by plain solid colors (a piece is rarely pearl/metal).
-	const similarColors = $derived.by(() => {
-		const target = hexToLab(suggestion?.rgb ?? null);
-		if (!target) return [] as BrickLinkColor[];
-		return colors
-			.filter((c) => c.id !== guessColorId && labById.get(c.id) != null)
-			.map((c) => {
-				const lab = labById.get(c.id)!;
-				return { color: c, d: labDistance(lab, target) + (isExotic(c) ? 55 : 0) };
-			})
-			.sort((a, b) => a.d - b.d)
-			.slice(0, SIMILAR_COUNT)
-			.map((x) => x.color);
-	});
+	const soldItems = $derived(
+		(likely?.colors ?? [])
+			.filter((c) => (c.qty ?? 0) > 0)
+			.sort((a, b) => (b.qty ?? 0) - (a.qty ?? 0))
+	);
+	const likelyIds = $derived(new Set((likely?.colors ?? []).slice(0, LIKELY_COUNT).map((c) => c.color_id)));
+	const likelyNote = $derived(
+		likelyError
+			? 'By color alone: the BrickLink numbers did not load.'
+			: likely?.source === 'none'
+				? 'By color alone: no BrickLink numbers for this part.'
+				: null
+	);
 
 	function errMsg(e: unknown, fallback: string): string {
 		return e && typeof e === 'object' && 'error' in e
@@ -266,16 +380,26 @@
 			: fallback;
 	}
 
+	// Only the newest load may write the panel's state: an answer that arrives
+	// after another load started (another piece, or this one again) is dropped,
+	// so it can never overwrite what the labeler has done since.
+	let loadToken = 0;
+
 	async function load(mid: string, puid: string, k: string) {
+		const token = ++loadToken;
+		const current = () => token === loadToken && pieceKey === k;
 		loading = true;
 		error = null;
+		// Fetched ahead (lib/pieceCache) when the list knew it was coming: shown
+		// at once, then refreshed below. A prefetch that failed is asked again.
+		const ahead = takePiece(mid, puid);
 		try {
 			if (colors.length === 0) colors = await nav.getColors();
 			const [d, crops] = await Promise.all([
-				api.colorLabelPieceDetail(mid, puid),
-				api.possibleCrops(mid, puid)
+				ahead ? ahead.detail.catch(() => api.colorLabelPieceDetail(mid, puid)) : api.colorLabelPieceDetail(mid, puid),
+				ahead ? ahead.crops.catch(() => api.possibleCrops(mid, puid)) : api.possibleCrops(mid, puid)
 			]);
-			if (pieceKey !== k) return; // props changed mid-load
+			if (!current()) return;
 			detail = d;
 			myColorId = d.my_label?.color_id ?? null;
 			cantTell = d.my_label?.cant_tell ?? false;
@@ -288,10 +412,25 @@
 			partVerdict = d.correction.part_correct;
 			feedback = null;
 			applyCrops(crops);
+			if (ahead) void refresh(mid, puid, current);
 		} catch (e: unknown) {
-			if (pieceKey === k) error = errMsg(e, 'Failed to load piece');
+			if (current()) error = errMsg(e, 'Failed to load piece');
 		} finally {
-			if (pieceKey === k) loading = false;
+			if (current()) loading = false;
+		}
+	}
+
+	// After showing a prefetched piece: what it says now. The labeler's own
+	// state (their picks, their label) is left as it is; the candidates are
+	// replaced only while their picks are untouched.
+	async function refresh(mid: string, puid: string, current: () => boolean) {
+		try {
+			const [d, crops] = await Promise.all([api.colorLabelPieceDetail(mid, puid), api.possibleCrops(mid, puid)]);
+			if (!current()) return;
+			detail = d;
+			if (!cropDirty) applyCrops(crops);
+		} catch {
+			// The prefetched answer stays on screen.
 		}
 	}
 
@@ -308,6 +447,14 @@
 
 	const SOURCE_PICK_LABEL = { ai: 'AI', model: 'model', heuristic: 'heuristic' } as const;
 
+	// What the pre-selection came from, with the number the link model picks at.
+	const pickSourceText = $derived.by(() => {
+		if (predictionSource === 'ai') return 'a vision model';
+		if (predictionSource === 'heuristic') return 'the time and angle guess';
+		const name = linkModel ? `the link model (${linkModel})` : 'the link model';
+		return linkThreshold != null ? `${name}, at a score of ${linkThreshold.toFixed(2)} or more` : name;
+	});
+
 	// Load a possible-crops result into state. If the user already saved a
 	// selection, restore it; otherwise pre-select the active source's picks — the
 	// AI's stored prediction, else the link model's scores, else the heuristic.
@@ -317,6 +464,7 @@
 		cropDirty = false;
 		predictionSource = crops.prediction_source;
 		linkModel = crops.link_model;
+		linkThreshold = crops.link_threshold;
 		aiReasoning = crops.ai_reasoning;
 		const savedPos = crops.my_link.filter((m) => m.is_same).map((m) => m.local_id);
 		// A just-run AI prediction overrides the saved selection in the UI so the
@@ -325,12 +473,14 @@
 			const present = new Set(crops.candidates.map((c) => c.local_id));
 			cropSelected = new Set(savedPos.filter((id) => present.has(id)));
 			cropSaved = true;
+			ticksAreSaved = true;
 		} else {
 			const source = preferAi ? 'ai' : crops.prediction_source;
 			cropSelected = new Set(
 				crops.candidates.filter((c) => isPredictionPick(c, source)).map((c) => c.local_id)
 			);
 			cropSaved = crops.my_link.length > 0;
+			ticksAreSaved = false;
 		}
 	}
 
@@ -350,12 +500,10 @@
 	}
 
 	async function goNext() {
-		search = '';
 		await onNext();
 	}
 
 	async function goPrev() {
-		search = '';
 		await onPrev();
 	}
 
@@ -715,8 +863,11 @@
 
 	function onKey(e: KeyboardEvent) {
 		if (e.target instanceof HTMLInputElement) return;
-		// Keys inside an open popover (the reject and quality menus) are its own.
+		// Keys inside an open popover (the reject and quality menus) are its own,
+		// and so are they while one is open from its button (Escape closes it,
+		// not the pane).
 		if (e.target instanceof Element && e.target.closest('[popover]')) return;
+		if (document.querySelector(':popover-open')) return;
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			void commitAndAdvance();
@@ -726,18 +877,20 @@
 		} else if (e.key === 'ArrowLeft') {
 			e.preventDefault();
 			void goPrev();
-		} else if (e.key === 'Escape' && onClose) {
+		} else if (e.key === 'Escape') {
 			e.preventDefault();
 			onClose();
 		}
 	}
 
-	// Reload whenever the target piece changes.
+	// Reload whenever the target piece changes, and only then: load() reads
+	// state (colors) that it also writes, and an effect tracking that state would
+	// run it a second time for the same piece.
 	$effect(() => {
 		const mid = machineId;
 		const puid = pieceUuid;
 		if (!mid || !puid) return;
-		void load(mid, puid, `${mid}|${puid}`);
+		untrack(() => void load(mid, puid, `${mid}|${puid}`));
 	});
 </script>
 
@@ -793,135 +946,239 @@
 	</div>
 {/snippet}
 
-<!-- Back to the list (the page) or close (the pane), and where this piece is in it -->
-{#snippet header()}
-	<div class="flex items-center justify-between gap-3">
-		{#if onClose}
-			<Button size="sm" variant="ghost" icon={X} onclick={onClose}>Close</Button>
-		{:else}
-			<Button size="sm" variant="ghost" icon={ArrowLeft} href={nav.dashboardUrl()}>All pieces</Button>
-		{/if}
-		{#if position.total > 0 && position.index >= 0}
-			<span class="num text-sm text-ink-muted">{position.index + 1} of {position.total}{position.hasMore ? '+' : ''}</span>
-		{/if}
-	</div>
-{/snippet}
-
-<!-- What is done across every characteristic, and the way on -->
-{#snippet summaryBar()}
+<!-- One row: close, the piece before, where this piece is in the list, what is
+     done of each answer, then the keys and directions, reject, skip, and the
+     way on. -->
+{#snippet bar()}
 	<Panel flush>
-		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-(--pad-panel) py-3">
-			<Button variant="ghost" size="sm" icon={ArrowLeft} onclick={goPrev}>Back</Button>
-			<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-				{#each characteristics as ch (ch.key)}
-					<span class="flex items-center gap-1.5 text-sm text-ink-muted">{ch.label} {@render statusBadge(ch.state)}</span>
-				{/each}
-			</div>
-			<div class="flex flex-wrap items-center gap-2 sm:ml-auto">
-				<span class="hidden text-sm text-ink-muted xl:inline">Enter accepts, the right arrow or Space skips, the left arrow goes back</span>
-				<Popover label="Why reject this sample" width="17rem" placement="bottom-end" bind:open={rejectOpen}>
-					{#snippet trigger(props)}
-						<Button {...props} size="sm" icon={Ban}>{rejected ? 'Rejected' : 'Reject'}</Button>
-					{/snippet}
-					<div class="label mb-2">Reject this sample, because</div>
-					<div class="flex flex-col gap-2">
-						{#each REJECT_REASONS as r (r.value)}
-							<Checkbox checked={rejectReasons.has(r.value)} onchange={() => toggleReason(r.value)}>{r.label}</Checkbox>
-						{/each}
-					</div>
-					<div class="mt-3 flex justify-end">
-						<Button variant="danger" size="sm" loading={rejecting} disabled={rejectReasons.size === 0} onclick={submitReject}
-							>Reject and go on</Button
+		<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-3 py-2">
+			<Button size="sm" variant="ghost" icon={X} label="Close (Escape)" onclick={onClose} />
+			<Button size="sm" variant="ghost" icon={ArrowLeft} label="The piece before (left arrow)" onclick={goPrev} />
+			{#if position.total > 0 && position.index >= 0}
+				<span class="num mr-1 text-sm text-ink-muted">{position.index + 1} of {position.total}{position.hasMore ? '+' : ''}</span>
+			{/if}
+			{#if detail}
+				<!-- What is done of each answer: a status dot and its name -->
+				<span class="flex items-center gap-2.5">
+					{#each characteristics as ch (ch.key)}
+						<span class="flex items-center gap-1 text-xs text-ink-muted" title={`${ch.label}: ${STATE_WORDS[ch.state]}`}
+							><span class="size-1.5 shrink-0 rounded-full {STATE_DOT[ch.state]}"></span>{ch.label}</span
 						>
-					</div>
-				</Popover>
-				<!-- Skip is always there, and resets what was recorded for this piece
-				     (skipAndReset); the accept appears once something is entered. -->
-				<Button variant="ghost" size="sm" onclick={skipAndReset}>Skip</Button>
-				{#if touched.length > 0}
-					<Button variant="primary" size="sm" icon={ArrowRight} loading={cropSaving} onclick={commitAndAdvance}>{ctaLabel}</Button>
-				{/if}
-			</div>
+					{/each}
+				</span>
+				<div class="ml-auto flex items-center gap-1.5">
+					<Popover label="Keys, and how to label a piece" width="24rem" placement="bottom-end">
+						{#snippet trigger(props)}
+							<Button {...props} size="sm" variant="ghost" icon={Info} label="Keys, and how to label a piece" />
+						{/snippet}
+						{@render directions()}
+					</Popover>
+					<Popover label="Why reject this sample" width="17rem" placement="bottom-end" bind:open={rejectOpen}>
+						{#snippet trigger(props)}
+							<Button {...props} size="sm" icon={Ban} label={rejected ? 'Rejected: change why' : 'Reject this sample'} />
+						{/snippet}
+						<div class="label mb-2">Reject this sample, because</div>
+						<div class="flex flex-col gap-2">
+							{#each REJECT_REASONS as r (r.value)}
+								<Checkbox checked={rejectReasons.has(r.value)} onchange={() => toggleReason(r.value)}>{r.label}</Checkbox>
+							{/each}
+						</div>
+						<div class="mt-3 flex justify-end">
+							<Button variant="danger" size="sm" loading={rejecting} disabled={rejectReasons.size === 0} onclick={submitReject}
+								>Reject and go on</Button
+							>
+						</div>
+					</Popover>
+					<!-- Skip is always there, and resets what was recorded for this piece
+					     (skipAndReset); the accept appears once something is entered. -->
+					<Button variant="ghost" size="sm" title="Skip, and clear what you entered (right arrow or Space)" onclick={skipAndReset}>Skip</Button>
+					{#if touched.length > 0}
+						<Button variant="primary" size="sm" icon={ArrowRight} loading={cropSaving} title={ctaTitle} onclick={commitAndAdvance}>{ctaLabel}</Button>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</Panel>
 {/snippet}
 
-<!-- The piece itself: its crops, and the model's and the pixels' color -->
+<!-- The keys, and the directions, behind the bar's info button -->
+{#snippet directions()}
+	<div class="label mb-2">Keys</div>
+	<dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+		<dt class="font-mono text-ink">Enter</dt>
+		<dd class="text-ink-muted">Accept what you entered and go on</dd>
+		<dt class="font-mono text-ink">&rarr; or Space</dt>
+		<dd class="text-ink-muted">Skip, and clear what you entered</dd>
+		<dt class="font-mono text-ink">&larr;</dt>
+		<dd class="text-ink-muted">The piece before</dd>
+		<dt class="font-mono text-ink">Escape</dt>
+		<dd class="text-ink-muted">Close the piece</dd>
+	</dl>
+	<div class="label mt-4 mb-2">How to label a piece</div>
+	<ol class="flex list-decimal flex-col gap-1.5 pl-5 text-sm text-ink">
+		<li>Judge the piece's true color from the crops of both channels, and the palette's swatches when it was in view.</li>
+		<li>Pick the color. If you can tell it, that is enough: you can skip the same-piece step.</li>
+		<li>Under True part, confirm the mold the machine guessed or search for the right one.</li>
+		<li>Under Same piece across channels, keep or add the earlier crops of this same piece.</li>
+		<li>If you can't tell the color, or can't find the piece earlier, do the half you are sure of and go on.</li>
+	</ol>
+{/snippet}
+
+<!-- What the model and the pixels make of the color, in one line; the numbers
+     behind the info button -->
+{#snippet guesses()}
+	{#if detail}
+		{@const mp = detail.model_prediction}
+		{@const pg = detail.pixel_guess}
+		<div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+			{#if shownAnswer}
+				{@const a = shownAnswer}
+				{@const at = answers.indexOf(a)}
+				<!-- Which model (or the machine) said it; the arrows step through every answer -->
+				<span class="flex min-w-0 items-center gap-1.5">
+					{#if answers.length > 1}
+						<Button size="sm" variant="ghost" icon={ChevronLeft} label="The answer before" disabled={at === 0} onclick={() => (answerIndex = at - 1)} />
+					{/if}
+					<span title={a.title}><Badge tone="info"><Sparkles size={12} />{a.label}</Badge></span>
+					<ColorChip name={a.color_name ?? (a.color_id != null ? `Color ${a.color_id}` : 'No color')} rgb={a.rgb} class="min-w-0 text-ink" />
+					{#if a.confidence != null}<span class="num text-ink-muted">{percent(a.confidence)}</span>{/if}
+					{#if answers.length > 1}
+						<Button size="sm" variant="ghost" icon={ChevronRight} label="The answer after" disabled={at >= answers.length - 1} onclick={() => (answerIndex = at + 1)} />
+						<span class="num text-xs text-ink-muted">{at + 1} of {answers.length}</span>
+					{/if}
+				</span>
+			{/if}
+			{#if pg}
+				<span class="flex min-w-0 items-center gap-1.5" title={`The pixels' average, #${pg.rgb}: nearest ${pg.color_name} (${pg.color_id}) over ${pg.sample_count} crop${pg.sample_count === 1 ? '' : 's'}`}>
+					<span class="text-ink-muted">Pixels</span>
+					<span aria-hidden="true" class="size-4 shrink-0 rounded-check border border-line-strong" style:background-color={`#${pg.rgb}`}></span>
+					<span class="truncate text-ink">{pg.color_name}</span>
+				</span>
+			{/if}
+			{#if mp || pg}
+				<Popover label="The color guesses" width="20rem">
+					{#snippet trigger(props)}
+						<Button {...props} size="sm" variant="ghost" icon={Info} label="The color guesses" />
+					{/snippet}
+					<div class="flex flex-col gap-3 text-sm">
+						{#if mp}
+							<div>
+								<div class="font-medium text-ink">The model's color</div>
+								<div class="num text-ink-muted">
+									<span class="text-ink">{mp.color_name ?? mp.color_id}</span> ({mp.color_id}), {Math.round(mp.confidence * 100)}% from
+									{mp.sample_count} crop{mp.sample_count === 1 ? '' : 's'}, by {mp.model_name}
+								</div>
+							</div>
+						{/if}
+						{#if pg}
+							<div>
+								<div class="font-medium text-ink">The pixels' average</div>
+								<div class="num flex items-center gap-1.5 text-ink-muted">
+									{#if pg.color_id != null && colorsById.has(pg.color_id)}
+										<span aria-hidden="true" class="inline-block size-3.5 shrink-0 rounded-check border border-line-strong" style:background-color={`#${colorsById.get(pg.color_id)?.rgb ?? '000'}`}></span>
+									{/if}
+									<span>#{pg.rgb}, nearest <span class="text-ink">{pg.color_name}</span> ({pg.color_id}) over {pg.sample_count} crop{pg.sample_count === 1 ? '' : 's'}</span>
+								</div>
+							</div>
+						{/if}
+					</div>
+				</Popover>
+			{:else if !shownAnswer}
+				<span class="text-ink-muted">No suggestion: the crops are not available.</span>
+			{/if}
+		</div>
+	{/if}
+{/snippet}
+
+<!-- The training run the machine saw the piece in: the color it labels the
+     piece with (a color label like a person's, unless excluded) and what was
+     being fed then (the piece's segment of the run, else the whole run) -->
+{#snippet trainingRun()}
+	{#if detail?.training_run}
+		{@const tr = detail.training_run}
+		{@const fed = tr.segment ?? { colors: tr.colors, started_at: tr.started_at }}
+		<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+			<Badge tone="info">Training run</Badge>
+			{#if tr.color_id}
+				<span title={labelSourceText(tr.label_source)}>
+					<ColorChip name={tr.color_name ?? `Color ${tr.color_id}`} rgb={tr.color_rgb} class="text-ink" />
+				</span>
+			{:else}
+				<span class="text-ink-muted">{labelSourceText(null)}</span>
+			{/if}
+			{#if tr.run_excluded}
+				<Badge>Run excluded</Badge>
+			{:else if tr.excluded}
+				<Badge>Excluded</Badge>
+			{/if}
+			<span class="min-w-0 text-ink-muted">
+				{runPurpose(tr.mode, fed.colors)}{#if fed.started_at}, {formatDateTime(fed.started_at)}{/if}
+			</span>
+		</div>
+	{/if}
+{/snippet}
+
+<!-- The piece itself: its crops, what the model and the pixels make of its
+     color, the training run it was seen in, and the color reference palette
+     near it -->
 {#snippet pieceCard()}
 	{#if detail}
-		<Panel
-			title={detail.part.part_name || detail.part.part_id || 'Unidentified'}
-			description={`${detail.part.part_id ? `${detail.part.part_id}, ` : ''}${detail.machine_name ?? 'Machine'}`}
-		>
-			<div class="flex flex-wrap gap-2">
-				{#each detail.images as img (img.seq)}
-					<div class="relative">
-						<ZoomImage
-							src={api.colorLabelImageUrl(machineId, pieceUuid, img.seq)}
-							alt={`Crop ${img.seq}`}
-							title={`Crop ${img.seq}${img.source ? `, ${img.source}` : ''}`}
-							class="size-28 rounded-item object-contain"
-						/>
-						{#if img.used}
-							<span class="absolute right-0.5 bottom-0.5 inline-flex h-(--size-badge) items-center rounded-badge bg-success px-1.5 text-xs font-medium text-on-success"
-								>Used</span
-							>
-						{/if}
-						{@render qualityOverlay(img, 'piece_image', img.seq)}
-					</div>
-				{/each}
-			</div>
-
-			<div class="mt-4 flex flex-col gap-3 border-t border-line pt-4">
-				{#if detail.model_prediction}
-					{@const mp = detail.model_prediction}
-					<div class="flex items-center gap-3">
-						<span class="size-10 shrink-0 rounded-item border border-line" style={`background:#${mp.rgb ?? '888888'}`} title={`The model's color, #${mp.rgb ?? '?'}`}></span>
-						<div class="min-w-0 text-sm text-ink-muted">
-							<div class="flex items-center gap-1.5 font-medium text-ink">
-								<Sparkles size={14} class="text-info-ink" /> The model's color <span class="font-normal text-ink-muted">{mp.model_name}</span>
-							</div>
-							<div class="num">
-								<span class="text-ink">{mp.color_name ?? mp.color_id}</span> ({mp.color_id}), {Math.round(mp.confidence * 100)}% from {mp.sample_count}
-								crop{mp.sample_count === 1 ? '' : 's'}
-							</div>
+		<Panel title={detail.part.part_name || detail.part.part_id || 'Unidentified'} description={pieceDescription}>
+			<div class="flex flex-col gap-3">
+				<div class="flex flex-wrap gap-2">
+					{#each detail.images as img (img.seq)}
+						<div class="relative">
+							<ZoomImage
+								src={img.url ?? api.colorLabelImageUrl(machineId, pieceUuid, img.seq)}
+								alt={`Crop ${img.seq}`}
+								title={`Crop ${img.seq}${img.source ? `, ${img.source}` : ''}`}
+								class="size-28 rounded-item object-contain"
+							/>
+							{#if img.used}
+								<span class="absolute right-0.5 bottom-0.5 inline-flex h-(--size-badge) items-center rounded-badge bg-success px-1.5 text-xs font-medium text-on-success"
+									>Used</span
+								>
+							{/if}
+							{@render qualityOverlay(img, 'piece_image', img.seq)}
 						</div>
-					</div>
-				{/if}
-
-				{#if detail.pixel_guess}
-					{@const pg = detail.pixel_guess}
-					<div class="flex items-center gap-3 {detail.model_prediction ? 'opacity-70' : ''}">
-						<span class="size-10 shrink-0 rounded-item border border-line" style={`background:#${pg.rgb}`} title={`The pixels' average, #${pg.rgb}`}></span>
-						<div class="min-w-0 text-sm text-ink-muted">
-							<div class="font-medium text-ink">The pixels' average</div>
-							<div class="num flex items-center gap-1.5">
-								{#if pg.color_id != null && colorsById.has(pg.color_id)}
-									<span class="inline-block size-3.5 rounded-check border border-line" style={`background:#${colorsById.get(pg.color_id)?.rgb ?? '000'}`}></span>
-								{/if}
-								<span><span class="text-ink">{pg.color_name}</span> ({pg.color_id}), the nearest over {pg.sample_count} crop{pg.sample_count === 1 ? '' : 's'}</span>
-							</div>
-						</div>
-					</div>
-				{/if}
-
-				{#if !detail.model_prediction && !detail.pixel_guess}
-					<p class="text-sm text-ink-muted">No suggestion: the crops are not available.</p>
-				{/if}
+					{/each}
+				</div>
+				{@render guesses()}
+				{@render trainingRun()}
+				<PaletteFrame palette={detail.palette} colors={colorsById} />
 			</div>
 		</Panel>
 	{/if}
 {/snippet}
 
-<!-- The same physical piece in the channels before it -->
+<!-- The same physical piece in the channels before it. What the picks come
+     from is behind the info button. -->
 {#snippet cropsCard()}
-	<Panel
-		title="Same piece across channels"
-		description="Our guess at which C2 and C3 crops are this same physical piece. Keep or drop the picks, add any we missed, then accept."
-	>
+	<Panel title="Same piece across channels">
 		{#snippet actions()}{@render statusBadge(piecesState)}{/snippet}
 		<div class="mb-3 flex flex-wrap items-center gap-2">
-			<span class="num mr-auto text-sm text-ink-muted">{cropSelected.size} of {cropCandidates.length} chosen</span>
+			<div class="mr-auto flex items-center gap-1">
+				<span class="num text-sm text-ink-muted">{cropSelected.size} of {cropCandidates.length} chosen{ticksAreSaved ? ', as you saved' : ''}</span>
+				<Popover label="About these picks" width="20rem">
+					{#snippet trigger(props)}
+						<Button {...props} size="sm" variant="ghost" icon={Info} label="About these picks" />
+					{/snippet}
+					<div class="flex flex-col gap-2 text-sm text-ink-muted">
+						<p>Our guess at which C2 and C3 crops are this same physical piece. Keep or drop the picks, add any we missed, then accept.</p>
+						<p class="flex items-start gap-1.5">
+							{#if ticksAreSaved}
+								<Check size={14} class="mt-0.5 shrink-0" /><span>Your saved choice is ticked. Sparkles show the picks from {pickSourceText}.</span>
+							{:else if predictionSource === 'ai'}
+								<Sparkles size={14} class="mt-0.5 shrink-0 text-info-ink" /><span>Picks from a vision model{aiReasoning ? `: ${aiReasoning}` : '.'}</span>
+							{:else if predictionSource === 'model'}
+								<Sparkles size={14} class="mt-0.5 shrink-0 text-info-ink" /><span>Picks from {pickSourceText}.{canRunAi ? " Run AI for a vision model's guess." : ''}</span>
+							{:else}
+								<span>Picks from the time and angle guess.{canRunAi ? " Run AI for a vision model's guess." : ''}</span>
+							{/if}
+						</p>
+					</div>
+				</Popover>
+			</div>
 			<Button size="sm" variant="ghost" disabled={cropSelected.size === 0 || cropLoading} onclick={selectNoCrops}>Choose none</Button>
 			<Button size="sm" loading={cropSaving} disabled={cropCandidates.length === 0 || cropLoading} onclick={rejectAllCrops}>None of these</Button>
 			{#if canRunAi}
@@ -935,18 +1192,6 @@
 				onclick={saveCrops}>Accept</Button
 			>
 		</div>
-		<p class="mb-3 flex items-center gap-1.5 text-sm text-ink-muted">
-			{#if predictionSource === 'ai'}
-				<Sparkles size={14} class="shrink-0 text-info-ink" />Picks from a vision model{aiReasoning ? `: ${aiReasoning}` : '.'}
-			{:else if predictionSource === 'model'}
-				<Sparkles size={14} class="shrink-0 text-info-ink" />Picks from the link model{linkModel ? ` (${linkModel})` : ''}.{canRunAi
-					? ' Run AI for a vision model\'s guess.'
-					: ''}
-			{:else}
-				Picks from the time and angle guess.{canRunAi ? ' Run AI for a vision model\'s guess.' : ''}
-			{/if}
-		</p>
-
 		{#if cropLoading}
 			<div class="flex justify-center py-8"><Spinner size={32} /></div>
 		{:else if cropError}
@@ -954,7 +1199,7 @@
 		{:else if cropCandidates.length === 0}
 			<p class="py-4 text-sm text-ink-muted">No candidate crops in range for this piece.</p>
 		{:else}
-			<div class="flex max-h-[42vh] flex-wrap gap-2 overflow-y-auto pr-1">
+			<div class="flex flex-wrap gap-2">
 				{#each cropCandidates as c (c.local_id)}
 					{@const selected = cropSelected.has(c.local_id)}
 					{@const isPick = isPredictionPick(c, predictionSource)}
@@ -967,7 +1212,7 @@
 							class="flex flex-col items-center gap-1 rounded-item p-1 {selected ? 'bg-primary-soft' : 'bg-well opacity-70 hover:opacity-100'}"
 						>
 							{#if c.available}
-								<img src={api.channelCropLabelImageUrl(machineId, c.local_id)} alt={`Crop ${c.local_id}`} loading="lazy" class="size-16 rounded-item object-contain" />
+								<img src={c.thumb_url ?? api.channelCropLabelImageUrl(machineId, c.local_id)} alt={`Crop ${c.local_id}`} loading="lazy" class="size-16 rounded-item object-contain" />
 							{:else}
 								<div class="flex size-16 items-center justify-center text-sm text-ink-faint">Gone</div>
 							{/if}
@@ -1008,38 +1253,17 @@
 	{/if}
 {/snippet}
 
-{#snippet colorRow(color: BrickLinkColor, isGuess: boolean)}
-	{@const selected = color.id === myColorId}
-	<button
-		type="button"
-		aria-pressed={selected}
-		class="flex items-center gap-2 rounded-item px-2 py-1 text-left disabled:opacity-45 {selected
-			? 'bg-primary-soft'
-			: isGuess
-				? 'bg-info-soft hover:bg-hover'
-				: 'hover:bg-hover'}"
-		title={`${color.name} (${color.id})`}
-		onclick={() => pickColor(color.id)}
-		disabled={submitting}
-	>
-		<span class="size-5 shrink-0 rounded-check border border-line {color.is_trans ? 'opacity-70' : ''}" style={`background:#${color.rgb ?? '000'}`}></span>
-		<span class="min-w-0 flex-1 truncate text-sm {selected ? 'font-medium text-primary-ink' : 'text-ink'}"
-			>{color.name}{#if isGuess}<span class="ml-1 text-info-ink">(the guess)</span>{/if}</span
-		>
-		{#if selected}<Check size={16} class="shrink-0 text-primary-ink" />{/if}
-	</button>
-{/snippet}
-
-<!-- The true color. In the pane the list has a fixed height; on the page it
-     fills the sticky column and scrolls. -->
+<!-- The true color: the likely colors (near the predictions, and sold in that
+     color) beside the part's top colors sold on BrickLink, then a search of
+     every color that lists only what is typed, or all of them on request -->
 {#snippet colorPicker()}
-	<Panel title="True color" fill={layout === 'page'} class={layout === 'page' ? 'min-h-0 flex-1' : ''}>
+	<Panel title="True color">
 		{#snippet actions()}{@render statusBadge(colorState)}{/snippet}
-		<div class="flex min-h-0 flex-col gap-3 {layout === 'page' ? 'h-full' : ''}">
+		<div class="flex flex-col gap-3">
 			<button
 				type="button"
 				aria-pressed={cantTell}
-				class="flex items-center gap-2 rounded-item px-2 py-1.5 text-left text-sm disabled:opacity-45 {cantTell
+				class="flex items-center gap-2 rounded-item px-2 py-1 text-left text-sm disabled:opacity-45 {cantTell
 					? 'bg-primary-soft font-medium text-primary-ink'
 					: 'bg-well text-ink-muted hover:bg-hover'}"
 				onclick={pickCantTell}
@@ -1050,28 +1274,34 @@
 				{#if cantTell}<Check size={16} class="shrink-0" />{/if}
 			</button>
 
-			{#if guessColorId != null && colorsById.get(guessColorId)}
-				{@render colorRow(colorsById.get(guessColorId)!, true)}
-			{/if}
-
-			{#if !search.trim() && similarColors.length > 0}
-				<div>
-					<div class="label mb-1.5">Closest to the guess</div>
-					<div class="flex flex-col gap-0.5">
-						{#each similarColors as color (color.id)}{@render colorRow(color, false)}{/each}
-					</div>
-				</div>
-				<div class="label">Every color</div>
-			{/if}
-
-			<Input type="search" bind:value={search} placeholder="Search the colors" />
-
-			<div class="flex min-h-0 flex-col gap-0.5 overflow-y-auto pr-1 {layout === 'page' ? 'flex-1' : 'max-h-[60vh]'}">
-				{#each filteredColors as color (color.id)}{@render colorRow(color, false)}{/each}
-			</div>
-			{#if filteredColors.length === 0}
-				<p class="py-4 text-center text-sm text-ink-muted">No colors match "{search}".</p>
-			{/if}
+			{#key pieceKey}
+				<ColorChoice
+					palette={colors}
+					likely={likely?.colors ?? (likelyError ? [] : null)}
+					value={myColorId}
+					marks={likelyMarks}
+					count={LIKELY_COUNT}
+					note={likelyNote}
+					disabled={submitting}
+					onpick={(id) => void pickColor(id)}
+				>
+					{#snippet aside()}
+						<PartBrickLinkColors
+							palette={colors}
+							items={soldItems}
+							{guessColorId}
+							{likelyIds}
+							value={myColorId}
+							updatedAt={likely?.updated_at ?? null}
+							source={likely?.source ?? 'none'}
+							loading={likely == null && likelyError == null}
+							error={likelyError}
+							disabled={submitting}
+							onpick={(id) => void pickColor(id)}
+						/>
+					{/snippet}
+				</ColorChoice>
+			{/key}
 		</div>
 	</Panel>
 {/snippet}
@@ -1114,54 +1344,8 @@
 	{/if}
 {/snippet}
 
-<!-- For reference: this machine's labeled colors (what is true here) and the
-     part's colors on BrickLink (what exists at all) -->
-{#snippet referenceCols()}
-	{#if detail}
-		<div class="flex flex-col gap-(--gap-panels) {layout === 'page' ? 'sm:flex-row' : ''}">
-			<div class="min-w-0 flex-1 {layout === 'page' ? 'lg:overflow-y-auto' : ''}">
-				<MachineLabeledPieces {machineId} {pieceUuid} />
-			</div>
-			<div class="min-w-0 flex-1 {layout === 'page' ? 'lg:overflow-y-auto' : ''}">
-				<PartBrickLinkColors
-					palette={colors}
-					items={blItems}
-					{guessColorId}
-					partName={myPart?.name ?? detail.part.part_name}
-					itemNo={blItemNo}
-					updatedAt={blUpdatedAt}
-					source={blSource}
-					loading={blLoading}
-					error={blError}
-				/>
-			</div>
-		</div>
-	{/if}
-{/snippet}
-
-{#snippet directions()}
-	<Panel title="How to label a piece">
-		<ol class="flex list-decimal flex-col gap-2 pl-5 text-sm text-ink">
-			<li>Judge the piece's true color from the crops of <span class="font-medium">both channels</span>.</li>
-			<li>Pick the color in the column. If you can tell it, that is enough: you can skip the same-piece step.</li>
-			<li>
-				Under <span class="font-medium">True part</span>, confirm the mold the machine guessed or search the catalog for the right
-				one. If the piece came back unidentified, search for what it is.
-			</li>
-			<li>
-				Under <span class="font-medium">Same piece across channels</span>, keep or add the earlier crops of this same piece. Skip
-				it if the piece's own box already shows all of it.
-			</li>
-			<li>
-				Try to do both for each piece. If you can't tell the color, or can't find the piece in the earlier pictures, do the half
-				you are sure of and go on.
-			</li>
-		</ol>
-	</Panel>
-{/snippet}
-
 <div class="flex flex-col gap-(--gap-panels)">
-	{@render header()}
+	{@render bar()}
 
 	{#if error}<Alert tone="danger">{error}</Alert>{/if}
 
@@ -1170,37 +1354,12 @@
 	{:else if !detail}
 		<Panel><EmptyState title="Piece not found" /></Panel>
 	{:else}
-		{@render summaryBar()}
-
-		{#if layout === 'page'}
-			<!-- The wide page: reference, then the piece, then the color and part column -->
-			<div class="flex flex-col gap-(--gap-panels) lg:flex-row lg:items-start">
-				<aside
-					class="flex shrink-0 flex-col gap-(--gap-panels) sm:flex-row lg:sticky lg:top-[calc(var(--size-topbar)+1rem)] lg:h-[calc(100dvh-var(--size-topbar)-2rem)] lg:w-[26rem]"
-				>
-					{@render referenceCols()}
-				</aside>
-				<div class="flex min-w-0 flex-col gap-(--gap-panels) lg:flex-1">
-					{@render pieceCard()}
-					{@render cropsCard()}
-				</div>
-				<div
-					class="flex flex-col gap-(--gap-panels) lg:sticky lg:top-[calc(var(--size-topbar)+1rem)] lg:max-h-[calc(100dvh-var(--size-topbar)-2rem)] lg:w-96"
-				>
-					{@render partPicker()}
-					{@render colorPicker()}
-					{@render brickognizeCard()}
-				</div>
-			</div>
-			{@render directions()}
-		{:else}
-			<!-- The pane beside the list: one column -->
-			{@render pieceCard()}
-			{@render colorPicker()}
-			{@render partPicker()}
-			{@render cropsCard()}
-			{@render brickognizeCard()}
-			{@render referenceCols()}
-		{/if}
+		{@render pieceCard()}
+		{@render colorPicker()}
+		{@render partPicker()}
+		{@render cropsCard()}
+		{@render brickognizeCard()}
+		<!-- For reference: this machine's labeled colors, what is true here -->
+		<MachineLabeledPieces {machineId} {pieceUuid} />
 	{/if}
 </div>

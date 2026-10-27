@@ -43,7 +43,7 @@
 			<div class="flex items-center justify-between gap-6 py-2.5">
 				<span class="shrink-0 text-sm text-ink-muted">Machine</span>
 				<a
-					href={`/samples?scope=all&machine_id=${machine.id}`}
+					href={`/samples?machine=${machine.id}`}
 					class="flex min-w-0 items-center gap-1.5 text-sm font-medium text-primary-ink hover:underline"
 					title={owner?.display_name ? `${owner.display_name}, ${machine.name}` : machine.name}
 				>

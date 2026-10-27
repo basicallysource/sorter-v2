@@ -6,13 +6,18 @@ export {
 	effectiveStatus,
 	mergeKnownObject,
 	type Piece,
+	type PieceProblem,
 	type PieceSummary,
 	type PieceDetailEnvelope,
+	type PiecePrediction,
+	type PredictionAnswer,
+	type PredictionImage,
 	type PiecesListResponse
 } from './store.svelte';
 
 export {
 	fetchLegoColors,
+	findLegoColor,
 	swatchHex,
 	swatchTextColor,
 	type BrickLinkColor

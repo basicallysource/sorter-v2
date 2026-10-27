@@ -17,9 +17,9 @@ The lead pages each say what to crimp onto what. This page is the one place that
 
 ## Two kinds of crimp, two pairs of pliers
 
-**Open-barrel contacts** are bare metal, the size of a grain of rice or smaller. One end is two sets of small wings, the other end is the pin or the socket. They are the **PH** contacts (the 2.0 mm (0.079 in) JST housings), the **VH** contacts (the 3.96 mm (0.156 in) JST housing on the control board's 24 V lead, `W1`) and the **Dupont** contacts. You crimp them with pliers made for open-barrel contacts.
+**Open-barrel contacts** are bare metal, the size of a grain of rice or smaller. One end is two sets of small wings, the other end is the pin or the socket. They are the **PH** contacts (the 2.0 mm (0.079 in) JST housings), the **VH** contacts (the 3.96 mm (0.156 in) JST housing on the control board's 24 V lead, `PWR1`) and the **Dupont** contacts. You crimp them with pliers made for open-barrel contacts.
 
-**Insulated terminals** are a metal barrel inside a coloured or clear plastic sleeve: the **butt connectors** (one wire in each end), the **#187 receptacles** on the limit switch, and the **fork terminals** on the PSU pigtails (`PJ1` to `PJ3`). You crimp them with insulated-terminal pliers.
+**Insulated terminals** are a metal barrel inside a coloured or clear plastic sleeve: the **butt connectors** (one wire in each end), the **#187 receptacles** on the limit switch, and the **fork terminals** on the PSU pigtails (`PSU1` to `PSU3`). You crimp them with insulated-terminal pliers.
 
 **The two pairs are not interchangeable.** An insulated terminal in open-barrel pliers is squashed rather than gripped, and an open-barrel contact in insulated-terminal pliers is not closed properly. Each lead page names which pliers each crimp needs.
 

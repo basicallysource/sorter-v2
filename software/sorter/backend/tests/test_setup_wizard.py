@@ -138,10 +138,10 @@ class SetupWizardConfigTests(unittest.TestCase):
             self.assertTrue(setup._camera_assignments_complete(assignments))
 
     def test_discovery_requires_classification_channel_stepper(self) -> None:
-        for overrides, expected in (({}, "carousel"), ({"carousel": "distribution_aux_1"}, "distribution_aux_1")):
+        for bindings, expected in (("", "carousel"), ('[stepper_bindings]\ncarousel = "distribution_aux_1"\n', "distribution_aux_1")):
+            self.machine_params_path.write_text(bindings)
             with (
-                self.subTest(overrides=overrides),
-                patch.object(setup, "loadStepperBindingOverrides", return_value=overrides),
+                self.subTest(bindings=bindings),
                 patch.object(setup, "_enumerate_usb_devices", return_value=[]),
                 patch.object(setup.shared_state, "gc_ref", SimpleNamespace(machine_id="test-machine")),
                 patch.object(setup.shared_state, "getActiveIRL", return_value=None),

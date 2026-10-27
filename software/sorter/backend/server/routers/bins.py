@@ -45,7 +45,6 @@ from irl.bin_layout import (
     applyNotInInventory,
     notInInventoryMatchesLayout,
 )
-from irl.parse_user_toml import DEFAULT_CHUTE_FIRST_BIN_CENTER, DEFAULT_CHUTE_PILLAR_WIDTH_DEG
 from server import shared_state
 from server.routers.chute import _chute_move, _chute_settings_from_config
 from server.routers.steppers import _ensure_not_homing
@@ -553,8 +552,8 @@ def get_bins_layout() -> Dict[str, Any]:
     layout_config = getBinLayout()
     config = machine_toml.read()
     chute_cfg = _chute_settings_from_config(config)
-    first_bin_center = float(chute_cfg.get("first_bin_center", DEFAULT_CHUTE_FIRST_BIN_CENTER))
-    pillar_width_deg = float(chute_cfg.get("pillar_width_deg", DEFAULT_CHUTE_PILLAR_WIDTH_DEG))
+    first_bin_center = float(chute_cfg["first_bin_center"])
+    pillar_width_deg = float(chute_cfg["pillar_width_deg"])
     usable_per_section = 60.0 - pillar_width_deg
 
     layers_out = []
@@ -941,15 +940,10 @@ def get_bin_snapshots() -> Dict[str, Any]:
 
 
 @router.get("/api/bins/snapshots/{snapshot_id}")
-def get_bin_snapshot_detail(snapshot_id: str, include_images: bool = False) -> Dict[str, Any]:
+def get_bin_snapshot_detail(snapshot_id: str) -> Dict[str, Any]:
     snapshot = get_bin_snapshot(snapshot_id)
     if snapshot is None:
         raise HTTPException(status_code=404, detail="Unknown snapshot.")
-    if not include_images:
-        for layer in snapshot.get("layers", []):
-            for item in layer.get("items", []):
-                for field in _BIN_ITEM_IMAGE_FIELDS:
-                    item.pop(field, None)
     return snapshot
 
 
@@ -975,32 +969,10 @@ def export_current_bin_contents_csv() -> Response:
     return _csv_response(content, "bin-contents-current.csv")
 
 
-_BIN_ITEM_IMAGE_FIELDS = ("thumbnail", "top_image", "bottom_image")
-
-
-def _strip_bin_content_images(payload: dict[str, Any]) -> dict[str, Any]:
-    # Inline base64 images blow the polled contents payload up to ~8MB, which
-    # saturated a deployed machine's uplink. brickognize_preview_url (a plain
-    # URL) stays; callers that truly need pixels pass include_images=true.
-    bins = payload.get("bins")
-    if not isinstance(bins, list):
-        return payload
-    for bin_entry in bins:
-        if not isinstance(bin_entry, dict):
-            continue
-        for list_key in ("items", "recent_pieces"):
-            entries = bin_entry.get(list_key)
-            if not isinstance(entries, list):
-                continue
-            for entry in entries:
-                if isinstance(entry, dict):
-                    for field in _BIN_ITEM_IMAGE_FIELDS:
-                        entry.pop(field, None)
-    return payload
-
-
 @router.get("/api/bins/contents")
-def get_bin_contents(include_images: bool = False) -> Dict[str, Any]:
+def get_bin_contents() -> Dict[str, Any]:
+    # No pictures in the payload (inline base64 once made it ~8 MB and
+    # saturated a machine's uplink): the UI shows brickognize_preview_url.
     persisted = get_current_bin_contents_snapshot()
     result: Dict[str, Any] | None = None
     if persisted.get("bins"):
@@ -1015,4 +987,4 @@ def get_bin_contents(include_images: bool = False) -> Dict[str, Any]:
                 result = snapshot if isinstance(snapshot, dict) else persisted
             except Exception as exc:
                 raise HTTPException(status_code=500, detail=f"Failed to build bin contents: {exc}")
-    return result if include_images else _strip_bin_content_images(result)
+    return result

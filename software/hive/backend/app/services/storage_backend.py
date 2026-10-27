@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import os
 import shutil
+import threading
+import time
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from pathlib import Path
 from typing import BinaryIO, Iterator
 
@@ -10,6 +13,47 @@ from fastapi import HTTPException, Response
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 
 from app.config import settings
+
+# A stored file can hold several small files back to back (a batch of channel
+# crops is one upload and one stored file). The key of one of them is the
+# file's key plus "#<offset>+<length>"; reads and serving take that range, and
+# deleting one of them leaves the file (its machine's prefix removes it).
+_RANGE_SEPARATOR = "#"
+
+
+def ranged_key(key: str, offset: int, length: int) -> str:
+    return f"{key}{_RANGE_SEPARATOR}{int(offset)}+{int(length)}"
+
+
+def split_ranged_key(key: str) -> tuple[str, int | None, int | None]:
+    """(file key, offset, length) of a ranged key; (key, None, None) for any other."""
+    base, sep, span = key.rpartition(_RANGE_SEPARATOR)
+    offset, plus, length = span.partition("+")
+    if not sep or not plus or not offset.isdigit() or not length.isdigit() or int(length) == 0:
+        return key, None, None
+    return base, int(offset), int(length)
+
+
+def _ranged_response(
+    data: bytes, headers: dict[str, str] | None, filename: str | None, media_type: str | None
+) -> Response:
+    combined: dict[str, str] = dict(headers or {})
+    if filename:
+        combined.setdefault("Content-Disposition", f'attachment; filename="{filename}"')
+    resolved = media_type or ("image/png" if data.startswith(b"\x89PNG") else "image/jpeg")
+    return Response(content=data, media_type=resolved, headers=combined)
+
+
+def _remaining_bytes(source: BinaryIO) -> int | None:
+    """How many bytes are left to read from ``source``, or None when it cannot seek."""
+    try:
+        position = source.tell()
+        source.seek(0, os.SEEK_END)
+        end = source.tell()
+        source.seek(position)
+    except (AttributeError, OSError, ValueError):
+        return None
+    return max(0, end - position)
 
 
 class StorageBackend(ABC):
@@ -43,6 +87,13 @@ class StorageBackend(ABC):
         media_type: str | None = None,
     ) -> Response: ...
 
+    def presigned_get_url(self, key: str) -> str | None:
+        """A URL the browser can load the object from directly, or None when the
+        backend has none (local disk, or S3 in proxy mode) and the image has to
+        come through the API. Lets a list response hand out its thumbnails
+        instead of costing one API round trip each."""
+        return None
+
 
 class LocalStorageBackend(StorageBackend):
     def __init__(self, base_dir: str) -> None:
@@ -58,6 +109,8 @@ class LocalStorageBackend(StorageBackend):
             shutil.copyfileobj(source, out)
 
     def delete(self, key: str) -> None:
+        if split_ranged_key(key)[1] is not None:
+            return
         full = (self._full(key)).resolve()
         base = self.base.resolve()
         if not str(full).startswith(str(base)):
@@ -74,14 +127,22 @@ class LocalStorageBackend(StorageBackend):
             shutil.rmtree(full)
 
     def exists(self, key: str) -> bool:
-        return self._full(key).exists()
+        return self._full(split_ranged_key(key)[0]).exists()
 
     def read_bytes(self, key: str) -> bytes:
-        full = self._full(key).resolve()
+        file_key, offset, length = split_ranged_key(key)
+        full = self._full(file_key).resolve()
         base = self.base.resolve()
         if not str(full).startswith(str(base)):
             raise FileNotFoundError(key)
-        return full.read_bytes()
+        if offset is None:
+            return full.read_bytes()
+        with open(full, "rb") as handle:
+            handle.seek(offset)
+            data = handle.read(length)
+        if len(data) != length:
+            raise FileNotFoundError(key)
+        return data
 
     def iter_sizes(self) -> Iterator[tuple[str, int]]:
         base = self.base.resolve()
@@ -104,6 +165,12 @@ class LocalStorageBackend(StorageBackend):
         filename: str | None = None,
         media_type: str | None = None,
     ) -> Response:
+        if split_ranged_key(key)[1] is not None:
+            try:
+                data = self.read_bytes(key)
+            except (FileNotFoundError, OSError) as exc:
+                raise HTTPException(status_code=404, detail="File not found") from exc
+            return _ranged_response(data, headers, filename, media_type)
         full = self._full(key).resolve()
         base = self.base.resolve()
         if not str(full).startswith(str(base)):
@@ -139,6 +206,11 @@ class S3StorageBackend(StorageBackend):
         self.bucket = bucket
         self.serve_mode = serve_mode
         self.presigned_expiry = presigned_expiry
+        # Recently minted URLs, reused for half their life: a URL minted each
+        # time is a new URL each time, and the browser would download the same
+        # thumbnail again on every list load. Bounded, so it cannot grow.
+        self._presigned: OrderedDict[str, tuple[float, str]] = OrderedDict()
+        self._presigned_lock = threading.Lock()
         self.client = boto3.client(
             "s3",
             endpoint_url=endpoint_url or None,
@@ -147,13 +219,34 @@ class S3StorageBackend(StorageBackend):
             aws_secret_access_key=secret_access_key,
         )
 
+    # Up to boto3's own multipart threshold a file goes in one PUT.
+    SINGLE_PUT_MAX_BYTES = 8 * 1024 * 1024
+
+    # What the store answers an image with: a crop or a frame never changes
+    # under its key, and the URL a page loads it from is kept for half the
+    # signature's life (presigned_get_url), so the browser keeps the bytes and
+    # a second look at a piece reads nothing.
+    IMAGE_CACHE_CONTROL = "private, max-age=86400, immutable"
+
     def write_stream(self, key: str, source: BinaryIO, content_type: str | None = None) -> None:
         extra: dict = {}
         if content_type:
             extra["ContentType"] = content_type
+            if content_type.startswith("image/"):
+                extra["CacheControl"] = self.IMAGE_CACHE_CONTROL
+        size = _remaining_bytes(source)
+        if size is not None and size <= self.SINGLE_PUT_MAX_BYTES:
+            # A crop or a frame (tens to hundreds of KB, several a second)
+            # goes as one put_object. upload_fileobj starts a transfer manager
+            # and its threads on every call, and sends a file body with
+            # "Expect: 100-continue", a round trip of its own before the bytes.
+            self.client.put_object(Bucket=self.bucket, Key=key, Body=source.read(), **extra)
+            return
         self.client.upload_fileobj(source, self.bucket, key, ExtraArgs=extra or None)
 
     def delete(self, key: str) -> None:
+        if split_ranged_key(key)[1] is not None:
+            return
         self.client.delete_object(Bucket=self.bucket, Key=key)
 
     def delete_prefix(self, prefix: str) -> None:
@@ -171,17 +264,45 @@ class S3StorageBackend(StorageBackend):
 
     def exists(self, key: str) -> bool:
         try:
-            self.client.head_object(Bucket=self.bucket, Key=key)
+            self.client.head_object(Bucket=self.bucket, Key=split_ranged_key(key)[0])
             return True
         except Exception:
             return False
 
     def read_bytes(self, key: str) -> bytes:
+        file_key, offset, length = split_ranged_key(key)
+        extra = {} if offset is None else {"Range": f"bytes={offset}-{offset + length - 1}"}
         try:
-            obj = self.client.get_object(Bucket=self.bucket, Key=key)
+            obj = self.client.get_object(Bucket=self.bucket, Key=file_key, **extra)
         except self.client.exceptions.NoSuchKey as exc:
             raise FileNotFoundError(key) from exc
-        return obj["Body"].read()
+        data = obj["Body"].read()
+        if offset is not None and len(data) != length:
+            raise FileNotFoundError(key)
+        return data
+
+    _PRESIGNED_CACHE_MAX = 20_000
+
+    def presigned_get_url(self, key: str) -> str | None:
+        # A signed link is to a whole file; a part of one is served by Hive.
+        if self.serve_mode != "redirect" or split_ranged_key(key)[1] is not None:
+            return None
+        now = time.monotonic()
+        with self._presigned_lock:
+            hit = self._presigned.get(key)
+            if hit is not None and now - hit[0] < self.presigned_expiry / 2:
+                self._presigned.move_to_end(key)
+                return hit[1]
+        # Signing is a local HMAC; no request goes to the store.
+        url = self.client.generate_presigned_url(
+            "get_object", Params={"Bucket": self.bucket, "Key": key}, ExpiresIn=self.presigned_expiry
+        )
+        with self._presigned_lock:
+            self._presigned[key] = (now, url)
+            self._presigned.move_to_end(key)
+            while len(self._presigned) > self._PRESIGNED_CACHE_MAX:
+                self._presigned.popitem(last=False)
+        return url
 
     def iter_sizes(self) -> Iterator[tuple[str, int]]:
         paginator = self.client.get_paginator("list_objects_v2")
@@ -196,6 +317,12 @@ class S3StorageBackend(StorageBackend):
         filename: str | None = None,
         media_type: str | None = None,
     ) -> Response:
+        if split_ranged_key(key)[1] is not None:
+            try:
+                data = self.read_bytes(key)
+            except Exception as exc:
+                raise HTTPException(status_code=404, detail="File not found") from exc
+            return _ranged_response(data, headers, filename, media_type)
         if self.serve_mode == "redirect":
             params: dict = {"Bucket": self.bucket, "Key": key}
             if filename:
@@ -287,3 +414,44 @@ def get_backend() -> StorageBackend:
 def reset_backend_for_tests() -> None:
     global _backend_instance
     _backend_instance = None
+
+
+# One pool for the whole process, so concurrent requests share these threads
+# instead of each starting its own.
+READ_MANY_WORKERS = 16
+_read_pool = None
+_read_pool_lock = threading.Lock()
+
+
+def _pool():
+    global _read_pool
+    with _read_pool_lock:
+        if _read_pool is None:
+            from concurrent.futures import ThreadPoolExecutor
+
+            _read_pool = ThreadPoolExecutor(max_workers=READ_MANY_WORKERS, thread_name_prefix="storage-read")
+        return _read_pool
+
+
+def read_many(keys: list[str]) -> dict[str, bytes | None]:
+    """Read several objects at once. Each read on S3 is a network round trip
+    (tens of ms) that releases the GIL, so a piece's 40 crops cost about as long
+    as the slowest few rather than all of them in a row. A key that cannot be
+    read maps to None.
+
+    Call it with no database transaction open: a connection held idle in a
+    transaction while this waits pins a pool slot and an old snapshot."""
+    unique = list(dict.fromkeys(k for k in keys if k))
+    if not unique:
+        return {}
+    backend = get_backend()
+
+    def _read(key: str) -> bytes | None:
+        try:
+            return backend.read_bytes(key)
+        except Exception:
+            return None
+
+    if len(unique) == 1:
+        return {unique[0]: _read(unique[0])}
+    return dict(zip(unique, _pool().map(_read, unique)))

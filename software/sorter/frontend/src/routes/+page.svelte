@@ -18,20 +18,23 @@
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import CollapsibleSection from '$lib/components/CollapsibleSection.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
+	import TrainingPanel from '$lib/components/training/TrainingPanel.svelte';
+	import { getTraining, type TrainingState } from '$lib/training/api';
 	import RuntimeStats, { RUNTIME_SPANS, type RuntimeSpan } from '$lib/components/RuntimeStats.svelte';
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
-	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
 	import House from '@lucide/svelte/icons/house';
 	import Plug from '@lucide/svelte/icons/plug';
 
 	const machine = getMachineContext();
 	const manager = getMachinesContext();
 
-	let dashboardCrops = $state<Record<string, DashboardFeedCrop | null>>({});
-	let cropBaseUrl = $state<string | null>(null);
+	let setupCheckedFor = $state<string | null>(null);
 	let startSystemError = $state<string | null>(null);
 	let startSystemPending = $state(false);
 	let runtimeSpan = $state<RuntimeSpan>('1h');
+	// Training mode, polled: while it is on, its panel takes Recent pieces' place.
+	let training = $state<TrainingState | null>(null);
+	let trainingFor = '';
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
@@ -81,25 +84,26 @@
 		}
 	}
 
-	function cropFor(role: string): DashboardFeedCrop | null {
-		if (role === 'classification_channel' || role === 'carousel') {
-			return dashboardCrops.classification_channel ?? dashboardCrops.carousel ?? null;
+	async function loadTraining() {
+		if (!machine.machine) return;
+		const baseUrl = currentBackendBaseUrl();
+		if (baseUrl !== trainingFor) {
+			trainingFor = baseUrl;
+			training = null;
 		}
-		return dashboardCrops[role] ?? null;
+		try {
+			const next = await getTraining(baseUrl);
+			if (baseUrl === trainingFor) training = next;
+		} catch {
+			// keep what is shown; a machine without training mode stays on Recent pieces
+		}
 	}
 
-	async function fetchDashboardCrops(baseUrl: string) {
-		try {
-			const res = await fetch(`${baseUrl}/api/polygons`);
-			if (!res.ok) {
-				dashboardCrops = {};
-				return;
-			}
-			dashboardCrops = buildDashboardFeedCrops(await res.json());
-		} catch {
-			dashboardCrops = {};
-		}
-	}
+	onMount(() => {
+		void loadTraining();
+		const timer = setInterval(() => void loadTraining(), 3000);
+		return () => clearInterval(timer);
+	});
 
 	// A brand-new machine should open on the setup wizard, not an empty Dashboard.
 	// Once per browser session, so Dashboard stays reachable while setting up.
@@ -116,15 +120,13 @@
 
 	$effect(() => {
 		if (!machine.machine) {
-			dashboardCrops = {};
-			cropBaseUrl = null;
+			setupCheckedFor = null;
 			return;
 		}
 
 		const baseUrl = currentBackendBaseUrl();
-		if (cropBaseUrl === baseUrl) return;
-		cropBaseUrl = baseUrl;
-		void fetchDashboardCrops(baseUrl);
+		if (setupCheckedFor === baseUrl) return;
+		setupCheckedFor = baseUrl;
 		void openSetupIfNew(baseUrl);
 	});
 
@@ -139,13 +141,6 @@
 	function cameraLabel(role: string): string {
 		return CAMERA_LABELS[role] ?? role;
 	}
-
-	onMount(() => {
-		if (machine.machine) {
-			const baseUrl = currentBackendBaseUrl();
-			void fetchDashboardCrops(baseUrl);
-		}
-	});
 </script>
 
 <svelte:head><title>Sorter - Dashboard</title></svelte:head>
@@ -169,8 +164,7 @@
 				<CameraFeed
 					camera="c_channel_2"
 					label={cameraLabel('c_channel_2')}
-					crop={cropFor('c_channel_2')}
-					controls={['annotations', 'crop', 'fullscreen']}
+					controls={['annotations', 'fullscreen']}
 					class="@container"
 				>
 					{#snippet actions()}
@@ -180,8 +174,7 @@
 				<CameraFeed
 					camera="c_channel_3"
 					label={cameraLabel('c_channel_3')}
-					crop={cropFor('c_channel_3')}
-					controls={['annotations', 'crop', 'fullscreen']}
+					controls={['annotations', 'fullscreen']}
 					class="@container"
 				>
 					{#snippet actions()}
@@ -191,8 +184,7 @@
 				<CameraFeed
 					camera="classification_channel"
 					label={cameraLabel('classification_channel')}
-					crop={cropFor('classification_channel')}
-					controls={['annotations', 'crop', 'fullscreen']}
+					controls={['annotations', 'fullscreen']}
 					class="@container md:col-span-2"
 				>
 					{#snippet actions()}
@@ -275,9 +267,22 @@
 				{/if}
 
 				<div class="max-lg:order-last lg:contents">
-					<CollapsibleSection title="Recent pieces" storageKey="recent" grow>
-						<RecentObjects />
-					</CollapsibleSection>
+					{#if training && training.config.enabled}
+						<CollapsibleSection title="Training data" storageKey="training" grow>
+							{#snippet actions()}
+								<Badge tone="info">Training mode</Badge>
+							{/snippet}
+							<TrainingPanel
+								base={currentBackendBaseUrl()}
+								{training}
+								onchange={(next) => (training = next)}
+							/>
+						</CollapsibleSection>
+					{:else}
+						<CollapsibleSection title="Recent pieces" storageKey="recent" grow>
+							<RecentObjects />
+						</CollapsibleSection>
+					{/if}
 				</div>
 				<div class="max-lg:order-last lg:contents">
 					<CollapsibleSection title="Runtime" storageKey="runtimeTabs">

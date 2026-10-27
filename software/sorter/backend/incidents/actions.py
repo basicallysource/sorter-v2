@@ -16,6 +16,13 @@ def _done(gc: Any, incident: dict[str, Any]) -> None:
     gc.runtime_stats.clearActiveIncident(kind=incident.get("kind"), resolved_by="operator")
 
 
+def _stopRecovery(gc: Any, incident: dict[str, Any]) -> None:
+    import recovery
+
+    if not recovery.stop(gc):
+        raise RuntimeError("Nothing is being tried for it.")
+
+
 def _clearC4(gc: Any, incident: dict[str, Any]) -> None:
     from server import shared_state
 
@@ -51,6 +58,7 @@ def _passThrough(gc: Any, incident: dict[str, Any]) -> None:
 
 ACTIONS: dict[str, Action] = {
     "done": Action("Done", _done),
+    "stop_recovery": Action("Stop", _stopRecovery),
     "clear_c4": Action("Turn to clear", _clearC4),
     "clear_stall": Action("Done", _clearStall),
     "rehome_chute": Action("Home chute", _rehomeChute),

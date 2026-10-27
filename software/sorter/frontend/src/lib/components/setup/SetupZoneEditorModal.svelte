@@ -1,11 +1,6 @@
 <script lang="ts">
-	import ZoneSection from '$lib/components/settings/ZoneSection.svelte';
-
-	type Channel =
-		| 'second'
-		| 'third'
-		| 'carousel'
-		| 'classification_channel';
+	import ChannelSection from '$lib/components/settings/ChannelSection.svelte';
+	import type { ZoneChannelId } from '$lib/settings/stations';
 
 	let {
 		role,
@@ -15,32 +10,12 @@
 		onsaved?: () => void;
 	} = $props();
 
-	function modalConfig(targetRole: string): { channels: Channel[] } {
-		switch (targetRole) {
-			case 'c_channel_2':
-				return {
-					channels: ['second']
-				};
-			case 'c_channel_3':
-				return {
-					channels: ['third']
-				};
-			case 'carousel':
-				return {
-					channels: ['carousel']
-				};
-			case 'classification_channel':
-				return {
-					channels: ['classification_channel']
-				};
-			default:
-				return {
-					channels: ['second']
-				};
-		}
-	}
-
-	const config = $derived(modalConfig(role));
+	const CHANNEL: Record<typeof role, ZoneChannelId> = {
+		c_channel_2: 2,
+		c_channel_3: 3,
+		carousel: 4,
+		classification_channel: 4
+	};
 </script>
 
-<ZoneSection channels={config.channels} wizardMode={true} {onsaved} />
+<ChannelSection channel={CHANNEL[role]} wizard {onsaved} />

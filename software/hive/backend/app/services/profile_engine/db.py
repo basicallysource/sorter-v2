@@ -7,6 +7,8 @@ import time
 
 import requests
 
+from app.services.redact import redact_secrets
+
 from .brickstore_db import parseDatabase
 
 
@@ -40,6 +42,10 @@ class PartsData:
     api_total_parts: int | None
 
     generation: int
+    # Drop the old parts before loading the new ones on a reload, instead of
+    # holding both (~350 MB more) until the swap. Only for a process where
+    # nothing reads the catalog while a sync reloads it: a catalog task.
+    release_before_reload: bool
 
     def __init__(self):
         self.parts = {}
@@ -50,6 +56,7 @@ class PartsData:
         self.bl_to_rb_part = {}
         self.api_total_parts = None
         self.generation = 0
+        self.release_before_reload = False
 
 
 def initDb(db_path):
@@ -163,7 +170,16 @@ def _migratePriceGuidesFromJson(conn):
     print(f"[db] migrated {migrated} price guides from JSON to structured table")
 
 
-def reloadPartsData(conn, parts_data):
+def reloadPartsData(conn, parts_data, rebuild_search=True):
+    # The compiler's shared index holds the catalog it was built from: dropped
+    # first, so the old copy is freed the moment the new one replaces it rather
+    # than staying alive beside it until the next compile.
+    from app.services.profile_engine.compiler import forget_index
+
+    forget_index()
+    if getattr(parts_data, "release_before_reload", False):
+        parts_data.parts = {}
+        parts_data.bl_to_rb_part = {}
     parts_data.categories = _loadCategories(conn)
     parts_data.bricklink_categories = _loadBricklinkCategories(conn)
     parts_data.colors = _loadColors(conn)
@@ -171,8 +187,11 @@ def reloadPartsData(conn, parts_data):
     parts_data.rb_to_bl_color = _buildRbToBlColorMap(parts_data.colors)
     parts_data.bl_to_rb_part = _buildBlToRbPartMap(parts_data.parts)
     # This is the one "catalog changed" hook every sync already goes through, so
-    # rebuilding here is what keeps the search index from ever going stale.
-    rebuildPartSearch(conn)
+    # rebuilding here is what keeps the search index from ever going stale. A
+    # process that does not run the syncs (Hive's web process: they run in the
+    # worker process) leaves the index to the one that does.
+    if rebuild_search:
+        rebuildPartSearch(conn)
     row = conn.execute("SELECT value FROM meta WHERE key='api_total_parts'").fetchone()
     parts_data.api_total_parts = int(row[0]) if row else None
     parts_data.generation += 1
@@ -253,8 +272,8 @@ def loadPartsDict(conn):
 
     # load bricklink items
     bl_items = {}
-    for row in conn.execute("SELECT item_no, part_num, name, type, category_id, weight, year_released, is_obsolete, synced_at FROM bricklink_items"):
-        item_no, part_num, name, item_type, category_id, weight, year_released, is_obsolete, synced_at = row
+    for row in conn.execute("SELECT item_no, part_num, name, type, category_id, weight, year_released, is_obsolete, synced_at, dim_x_studs, dim_y_studs FROM bricklink_items"):
+        item_no, part_num, name, item_type, category_id, weight, year_released, is_obsolete, synced_at, dim_x, dim_y = row
         bl_items[item_no] = {
             "item_no": item_no,
             "part_num": part_num,
@@ -265,6 +284,8 @@ def loadPartsDict(conn):
             "year_released": year_released,
             "is_obsolete": is_obsolete,
             "synced_at": synced_at,
+            "dim_x": dim_x,
+            "dim_y": dim_y,
         }
 
     # load structured price guides. price_guides is now keyed by (item_no, color),
@@ -317,6 +338,9 @@ def loadPartsDict(conn):
                             "weight": f'{bl_item["weight"]:.2f}' if bl_item["weight"] else "0.00",
                             "year_released": bl_item["year_released"],
                             "is_obsolete": bool(bl_item["is_obsolete"]),
+                            # The footprint in studs, x the shorter side.
+                            "dim_x": bl_item["dim_x"],
+                            "dim_y": bl_item["dim_y"],
                         },
                     },
                     "catalog_synced_at": bl_item["synced_at"],
@@ -574,6 +598,38 @@ def upsertParts(conn, parts_list):
     for p in parts_list:
         upsertPart(conn, p)
     conn.commit()
+
+
+def importParts(conn, part_rows):
+    """Rebrickable's parts list, (part_num, name, part_cat_id) rows from its
+    parts download: new parts are added, known ones renamed and recategorized.
+    What only Rebrickable's API gave (BrickLink IDs, years, a picture) stays
+    as it is, and a new part has no BrickLink IDs. A part without years or a
+    picture takes them from the sets it is in (the imported set inventories),
+    the way Rebrickable works its years out. Returns how many parts the list
+    has."""
+    total = conn.executemany(
+        "INSERT INTO parts (part_num, name, part_cat_id) VALUES (?, COALESCE(?, ''), ?) "
+        "ON CONFLICT(part_num) DO UPDATE SET name = excluded.name, part_cat_id = excluded.part_cat_id",
+        part_rows,
+    ).rowcount
+    conn.execute(
+        """UPDATE parts
+           SET year_from = COALESCE(parts.year_from, seen.year_from),
+               year_to = COALESCE(parts.year_to, seen.year_to),
+               part_img_url = COALESCE(parts.part_img_url, seen.img_url)
+           FROM (
+               SELECT ip.part_num, MIN(s.year) AS year_from, MAX(s.year) AS year_to, MAX(ip.img_url) AS img_url
+               FROM rebrickable_inventory_parts ip
+               JOIN rebrickable_inventories i ON i.id = ip.inventory_id
+               JOIN rebrickable_sets s ON s.set_num = i.set_num
+               WHERE ip.part_num IN (SELECT part_num FROM parts WHERE year_from IS NULL OR part_img_url IS NULL)
+               GROUP BY ip.part_num
+           ) AS seen
+           WHERE seen.part_num = parts.part_num"""
+    )
+    conn.commit()
+    return total
 
 
 def upsertBricklinkCategory(conn, cat_id, name, parent_id=0):
@@ -871,12 +927,14 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None, on
                 break
             except requests.exceptions.RequestException as exc:
                 if attempt == 4:
-                    raise
+                    # The request URL carries the API key; the error must not.
+                    raise RuntimeError(f"BrickLink price request failed: {redact_secrets(str(exc))}") from None
                 wait_s = 2 ** attempt
                 if progress_fn:
                     progress_fn(batch_start, total, f"network error ({exc.__class__.__name__}), retry {attempt + 1}/4 in {wait_s}s")
                 time.sleep(wait_s)
-        resp.raise_for_status()
+        if not resp.ok:
+            raise RuntimeError(f"BrickLink price request failed: {resp.status_code} {resp.reason}")
         result = resp.json()
         batches_sent += 1
 
@@ -1005,8 +1063,10 @@ def adminCatalogOverview(conn):
             "bricklink_item_colors": _tableCount(conn, "bricklink_item_colors"),
             "part_bricklink_ids": _tableCount(conn, "part_bricklink_ids"),
             "price_guides": _tableCount(conn, "price_guides"),
+            "rebrickable_themes": _tableCount(conn, "rebrickable_themes"),
             "rebrickable_sets": _tableCount(conn, "rebrickable_sets"),
-            "rebrickable_set_inventory": _tableCount(conn, "rebrickable_set_inventory"),
+            "rebrickable_inventories": _tableCount(conn, "rebrickable_inventories"),
+            "rebrickable_inventory_parts": _tableCount(conn, "rebrickable_inventory_parts"),
         },
         "coverage": {
             "parts_total": parts_total,

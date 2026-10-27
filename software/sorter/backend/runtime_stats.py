@@ -16,6 +16,38 @@ MAX_KNOWN_OBJECT_LOOKUP_ENTRIES = 1000
 C4_WAITING_FOR_PIECE = "waiting_for_piece"
 
 
+def _timedOutProblem(entry: dict[str, Any], now: float, silent_s: float) -> dict[str, Any]:
+    """The note a reaped piece carries (KnownObject.problems): how long it went
+    without a word, and what it was doing when it went quiet."""
+    stage = str(getattr(entry.get("stage"), "value", entry.get("stage")) or "")
+    status = str(
+        getattr(entry.get("classification_status"), "value", entry.get("classification_status")) or ""
+    )
+    if stage == "distributing":
+        doing = "on its way to its bin"
+    elif status in ("pending", "classifying"):
+        doing = "still being identified"
+    elif status == "classified":
+        doing = "identified and waiting to go to its bin"
+    elif status == "multi_drop_fail":
+        doing = "part of a double feed, waiting to go to misc"
+    else:
+        doing = "waiting to go to misc"
+    if entry.get("problems"):
+        why = "The note above says what happened to it."
+    else:
+        why = "Nothing on the classification channel said what happened to it."
+    return {
+        "kind": "timed_out",
+        "message": (
+            f"Never reached a bin: it went {silent_s:.0f} s without an update while it was "
+            f"{doing}, so it was written off. {why}"
+        ),
+        "at": now,
+        "after_s": round(float(silent_s), 1),
+    }
+
+
 def _appendSample(samples: list[float], value: float) -> None:
     samples.append(value)
     if len(samples) > MAX_TIMING_SAMPLES:
@@ -75,6 +107,10 @@ class RuntimeStatsCollector:
         self._is_running = False
         self._running_total_s = 0.0
         self._running_started_at_monotonic: float | None = None
+        # Wall time the machine last started running: the stuck-piece reaper
+        # counts a piece's silence from here at the earliest, so a pause never
+        # writes off the pieces that sat through it.
+        self._running_since_wall = 0.0
         self._piece_by_uuid: dict[str, dict[str, Any]] = {}
         # Bounded LRU of every KnownObject payload we've ever observed in this
         # process, keyed by uuid. Populated unconditionally (even when the
@@ -130,6 +166,11 @@ class RuntimeStatsCollector:
     def servo_bus_offline_since_ts(self) -> float | None:
         return self._servo_bus_offline_since_ts
 
+    @property
+    def is_running(self) -> bool:
+        """Whether the machine is sorting now."""
+        return self._is_running
+
     def setLifecycleState(
         self,
         lifecycle_state: str,
@@ -167,6 +208,7 @@ class RuntimeStatsCollector:
 
         if (not was_running) and self._is_running:
             self._running_started_at_monotonic = now_monotonic
+            self._running_since_wall = now_wall
             for current in self._state_current.values():
                 current["entered_at_monotonic"] = now_monotonic
                 current["entered_at_wall"] = now_wall
@@ -245,16 +287,21 @@ class RuntimeStatsCollector:
                 last_seen = entry.get("created_at")
             if not isinstance(last_seen, (int, float)):
                 continue
-            if now - float(last_seen) <= timeout_s:
+            silent_from = max(float(last_seen), self._running_since_wall)
+            if now - silent_from <= timeout_s:
                 continue
+            problem = _timedOutProblem(entry, now, now - silent_from)
+            problems = list(entry.get("problems") or []) + [problem]
             entry["dead"] = True
             entry["updated_at"] = now
+            entry["problems"] = problems
             self._stuck_reaped_total += 1
             self._last_updated_at = now
             live = self._piece_by_uuid.get(str(entry.get("uuid") or ""))
             if live is not None:
                 live["dead"] = True
                 live["updated_at"] = now
+                live["problems"] = list(problems)
             reaped.append(dict(entry))
         return reaped
 
@@ -373,7 +420,7 @@ class RuntimeStatsCollector:
 
         The active-incident slot is the one operator-facing hold blocking flow
         right now; auto-recovered incidents (a C4 stall the watchdog rotated
-        clear, a feeder jam an upstream nudge freed) come and go without ever
+        clear) come and go without ever
         landing there, so the slot-coupled openIncident path never saw them.
         This opens and immediately resolves a row in the same durable log the
         dashboard reads — recording that the incident happened and how it
@@ -592,9 +639,6 @@ class RuntimeStatsCollector:
                     "classification_status": classification_status,
                     "count": 0,
                     "last_distributed_at": None,
-                    "thumbnail": piece.get("thumbnail"),
-                    "top_image": piece.get("top_image"),
-                    "bottom_image": piece.get("bottom_image"),
                     "brickognize_preview_url": piece.get("brickognize_preview_url"),
                 }
                 bucket["items"].append(item)
@@ -604,12 +648,6 @@ class RuntimeStatsCollector:
                 item_last = item.get("last_distributed_at")
                 if not isinstance(item_last, (int, float)) or distributed_at > item_last:
                     item["last_distributed_at"] = float(distributed_at)
-                    if piece.get("thumbnail"):
-                        item["thumbnail"] = piece.get("thumbnail")
-                    if piece.get("top_image"):
-                        item["top_image"] = piece.get("top_image")
-                    if piece.get("bottom_image"):
-                        item["bottom_image"] = piece.get("bottom_image")
                     if piece.get("brickognize_preview_url"):
                         item["brickognize_preview_url"] = piece.get("brickognize_preview_url")
 
@@ -622,9 +660,6 @@ class RuntimeStatsCollector:
                     "category_id": category_id,
                     "classification_status": classification_status,
                     "distributed_at": float(distributed_at) if isinstance(distributed_at, (int, float)) else None,
-                    "thumbnail": piece.get("thumbnail"),
-                    "top_image": piece.get("top_image"),
-                    "bottom_image": piece.get("bottom_image"),
                     "brickognize_preview_url": piece.get("brickognize_preview_url"),
                 }
             )

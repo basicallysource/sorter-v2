@@ -19,6 +19,10 @@ import local_state
 # epoch and flushes what it held into the open bin snapshot (bin_snapshots,
 # bin_snapshot_layers, bin_snapshot_items), which closes when every bin is
 # cleared. metadata holds the active session's id and the open snapshot's id.
+#
+# No pictures are kept here: the Bins pages show Brickognize's preview image
+# (a URL). Earlier versions stored base64 JPEGs in thumbnail / top_image /
+# bottom_image; clearStoredImages empties those columns on old databases.
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 _META_KEY_OPEN_BIN_SNAPSHOT_ID = "open_bin_snapshot_id"
@@ -35,9 +39,20 @@ _PIECE_COLUMNS = (
     "p.piece_uuid, p.layer_index, p.section_index, p.bin_index, p.bin_epoch, "
     "p.distributed_at, p.created_at, p.classified_at, "
     "p.part_id, p.color_id, p.color_name, p.category_id, p.classification_status, "
-    "p.thumbnail, p.top_image, p.bottom_image, p.brickognize_preview_url, "
+    "p.brickognize_preview_url, "
     "s.profile_id, s.profile_name "
 )
+
+# The columns of a bin item, in bin_item_aggregates and bin_snapshot_items.
+_ITEM_COLUMNS = (
+    "item_key, part_id, color_id, color_name, category_id, classification_status, "
+    "count, last_distributed_at, brickognize_preview_url"
+)
+
+# Columns that held base64 JPEGs in older versions.
+_IMAGE_COLUMNS = ("thumbnail", "top_image", "bottom_image")
+_IMAGE_TABLES = ("piece_events", "bin_item_aggregates", "bin_snapshot_items")
+_META_KEY_IMAGES_CLEARED = "stored_images_cleared"
 
 
 def _createTables(conn: sqlite3.Connection) -> None:
@@ -95,9 +110,6 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "classification_status TEXT, "
         "count INTEGER NOT NULL DEFAULT 0, "
         "last_distributed_at REAL, "
-        "thumbnail TEXT, "
-        "top_image TEXT, "
-        "bottom_image TEXT, "
         "brickognize_preview_url TEXT, "
         "PRIMARY KEY(session_id, layer_index, section_index, bin_index, item_key), "
         "FOREIGN KEY(session_id) REFERENCES sorting_sessions(id) ON DELETE CASCADE"
@@ -120,9 +132,6 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "color_name TEXT, "
         "category_id TEXT, "
         "classification_status TEXT, "
-        "thumbnail TEXT, "
-        "top_image TEXT, "
-        "bottom_image TEXT, "
         "brickognize_preview_url TEXT, "
         "UNIQUE(session_id, piece_uuid), "
         "FOREIGN KEY(session_id) REFERENCES sorting_sessions(id) ON DELETE CASCADE"
@@ -185,9 +194,6 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "classification_status TEXT, "
         "count INTEGER NOT NULL DEFAULT 0, "
         "last_distributed_at REAL, "
-        "thumbnail TEXT, "
-        "top_image TEXT, "
-        "bottom_image TEXT, "
         "brickognize_preview_url TEXT, "
         "PRIMARY KEY(snapshot_layer_id, item_key), "
         "FOREIGN KEY(snapshot_layer_id) REFERENCES bin_snapshot_layers(id) ON DELETE CASCADE"
@@ -296,12 +302,8 @@ def _carry_forward_bin_contents_conn(
     )
     conn.execute(
         "INSERT OR IGNORE INTO bin_item_aggregates"
-        "(session_id, layer_index, section_index, bin_index, item_key, part_id, color_id, "
-        "color_name, category_id, classification_status, count, last_distributed_at, "
-        "thumbnail, top_image, bottom_image, brickognize_preview_url) "
-        "SELECT ?, layer_index, section_index, bin_index, item_key, part_id, color_id, "
-        "color_name, category_id, classification_status, count, last_distributed_at, "
-        "thumbnail, top_image, bottom_image, brickognize_preview_url "
+        f"(session_id, layer_index, section_index, bin_index, {_ITEM_COLUMNS}) "
+        f"SELECT ?, layer_index, section_index, bin_index, {_ITEM_COLUMNS} "
         "FROM bin_item_aggregates WHERE session_id = ?",
         (new_session_id, old_session_id),
     )
@@ -418,8 +420,8 @@ def record_piece_distribution(piece: dict[str, Any]) -> None:
         )
 
         cursor = conn.execute(
-            "INSERT OR IGNORE INTO piece_events(session_id, piece_uuid, layer_index, section_index, bin_index, bin_epoch, distributed_at, created_at, classified_at, part_id, color_id, color_name, category_id, classification_status, thumbnail, top_image, bottom_image, brickognize_preview_url) "
-            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO piece_events(session_id, piece_uuid, layer_index, section_index, bin_index, bin_epoch, distributed_at, created_at, classified_at, part_id, color_id, color_name, category_id, classification_status, brickognize_preview_url) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 session_id,
                 piece_uuid,
@@ -435,9 +437,6 @@ def record_piece_distribution(piece: dict[str, Any]) -> None:
                 piece.get("color_name"),
                 piece.get("category_id"),
                 piece.get("classification_status"),
-                piece.get("thumbnail"),
-                piece.get("top_image"),
-                piece.get("bottom_image"),
                 piece.get("brickognize_preview_url"),
             ),
         )
@@ -447,14 +446,11 @@ def record_piece_distribution(piece: dict[str, Any]) -> None:
             return
 
         conn.execute(
-            "INSERT INTO bin_item_aggregates(session_id, layer_index, section_index, bin_index, item_key, part_id, color_id, color_name, category_id, classification_status, count, last_distributed_at, thumbnail, top_image, bottom_image, brickognize_preview_url) "
-            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?) "
+            "INSERT INTO bin_item_aggregates(session_id, layer_index, section_index, bin_index, item_key, part_id, color_id, color_name, category_id, classification_status, count, last_distributed_at, brickognize_preview_url) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?) "
             "ON CONFLICT(session_id, layer_index, section_index, bin_index, item_key) DO UPDATE SET "
             "count = bin_item_aggregates.count + 1, "
             "last_distributed_at = CASE WHEN excluded.last_distributed_at > bin_item_aggregates.last_distributed_at OR bin_item_aggregates.last_distributed_at IS NULL THEN excluded.last_distributed_at ELSE bin_item_aggregates.last_distributed_at END, "
-            "thumbnail = COALESCE(excluded.thumbnail, bin_item_aggregates.thumbnail), "
-            "top_image = COALESCE(excluded.top_image, bin_item_aggregates.top_image), "
-            "bottom_image = COALESCE(excluded.bottom_image, bin_item_aggregates.bottom_image), "
             "brickognize_preview_url = COALESCE(excluded.brickognize_preview_url, bin_item_aggregates.brickognize_preview_url)",
             (
                 session_id,
@@ -468,9 +464,6 @@ def record_piece_distribution(piece: dict[str, Any]) -> None:
                 piece.get("category_id"),
                 piece.get("classification_status"),
                 float(distributed_at),
-                piece.get("thumbnail"),
-                piece.get("top_image"),
-                piece.get("bottom_image"),
                 piece.get("brickognize_preview_url"),
             ),
         )
@@ -562,8 +555,8 @@ def _flush_bin_layer_to_snapshot_conn(
     )
     snapshot_layer_id = cursor.lastrowid
     conn.execute(
-        "INSERT INTO bin_snapshot_items(snapshot_layer_id, item_key, part_id, color_id, color_name, category_id, classification_status, count, last_distributed_at, thumbnail, top_image, bottom_image, brickognize_preview_url) "
-        "SELECT ?, item_key, part_id, color_id, color_name, category_id, classification_status, count, last_distributed_at, thumbnail, top_image, bottom_image, brickognize_preview_url "
+        f"INSERT INTO bin_snapshot_items(snapshot_layer_id, {_ITEM_COLUMNS}) "
+        f"SELECT ?, {_ITEM_COLUMNS} "
         "FROM bin_item_aggregates WHERE session_id = ? AND layer_index = ? AND section_index = ? AND bin_index = ?",
         (snapshot_layer_id, session_id, layer_index, section_index, bin_index),
     )
@@ -739,7 +732,8 @@ def get_current_bin_contents_snapshot() -> dict[str, Any]:
             items = [
                 dict(item)
                 for item in conn.execute(
-                    "SELECT * FROM bin_item_aggregates WHERE session_id = ? AND layer_index = ? AND section_index = ? AND bin_index = ? ORDER BY count DESC, last_distributed_at DESC",
+                    f"SELECT session_id, layer_index, section_index, bin_index, {_ITEM_COLUMNS} "
+                    "FROM bin_item_aggregates WHERE session_id = ? AND layer_index = ? AND section_index = ? AND bin_index = ? ORDER BY count DESC, last_distributed_at DESC",
                     (active_session_id, li, si, bi),
                 ).fetchall()
             ]
@@ -752,13 +746,11 @@ def get_current_bin_contents_snapshot() -> dict[str, Any]:
                     "category_id": piece["category_id"],
                     "classification_status": piece["classification_status"],
                     "distributed_at": piece["distributed_at"],
-                    "thumbnail": piece["thumbnail"],
-                    "top_image": piece["top_image"],
-                    "bottom_image": piece["bottom_image"],
                     "brickognize_preview_url": piece["brickognize_preview_url"],
                 }
                 for piece in conn.execute(
-                    "SELECT * FROM piece_events WHERE session_id = ? AND layer_index = ? AND section_index = ? AND bin_index = ? AND bin_epoch = ? ORDER BY distributed_at DESC LIMIT 8",
+                    "SELECT piece_uuid, part_id, color_id, color_name, category_id, classification_status, "
+                    "distributed_at, brickognize_preview_url FROM piece_events WHERE session_id = ? AND layer_index = ? AND section_index = ? AND bin_index = ? AND bin_epoch = ? ORDER BY distributed_at DESC LIMIT 8",
                     (active_session_id, li, si, bi, epoch),
                 ).fetchall()
             ]
@@ -834,7 +826,8 @@ def get_bin_snapshot(snapshot_id: str) -> dict[str, Any] | None:
             layer["items"] = [
                 dict(item)
                 for item in conn.execute(
-                    "SELECT * FROM bin_snapshot_items WHERE snapshot_layer_id = ? ORDER BY count DESC, last_distributed_at DESC",
+                    f"SELECT snapshot_layer_id, {_ITEM_COLUMNS} "
+                    "FROM bin_snapshot_items WHERE snapshot_layer_id = ? ORDER BY count DESC, last_distributed_at DESC",
                     (int(layer["id"]),),
                 ).fetchall()
             ]
@@ -892,3 +885,74 @@ def get_current_bin_pieces() -> list[dict[str, Any]]:
             (active_session_id,),
         ).fetchall()
         return [dict(row) for row in rows]
+
+
+def clearStoredImages(*, batch: int = 2000, pause_s: float = 0.05) -> bool:
+    """Empty the base64 image columns older versions filled (see the note at
+    the top), a short write transaction per batch of rows, once per database.
+    Returns True when there is nothing left to clear."""
+    with _connection() as conn:
+        if _get_meta(conn, _META_KEY_IMAGES_CLEARED) == "1":
+            return True
+    for table in _IMAGE_TABLES:
+        with _connection() as conn:
+            columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        present = [c for c in _IMAGE_COLUMNS if c in columns]
+        if not present:
+            continue
+        set_sql = ", ".join(f"{c} = NULL" for c in present)
+        any_sql = " OR ".join(f"{c} IS NOT NULL" for c in present)
+        after = 0
+        while True:
+            with _connection() as conn:
+                rows = conn.execute(
+                    f"SELECT rowid FROM {table} WHERE rowid > ? ORDER BY rowid LIMIT ?",
+                    (after, batch),
+                ).fetchall()
+                if not rows:
+                    break
+                after = int(rows[-1][0])
+                conn.execute(
+                    f"UPDATE {table} SET {set_sql} WHERE rowid >= ? AND rowid <= ? AND ({any_sql})",
+                    (int(rows[0][0]), after),
+                )
+                conn.commit()
+            time.sleep(pause_s)
+    with _connection() as conn:
+        _set_meta(conn, _META_KEY_IMAGES_CLEARED, "1")
+        conn.commit()
+    return True
+
+
+def pruneOldEvents(cutoff: float, *, batch: int = 2000) -> int:
+    """Delete per-piece bin events distributed before `cutoff`, except those of
+    pieces still physically in a bin (the active session's current epoch of a
+    bin). Counts per bin and per item are kept apart (bin_state_current,
+    bin_item_aggregates, bin_snapshot_*) and stay. Returns the rows deleted."""
+    deleted = 0
+    after = 0
+    while True:
+        with _bin_state_write_lock, _connection() as conn:
+            active = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID) or ""
+            rows = conn.execute(
+                "SELECT id, distributed_at FROM piece_events WHERE id > ? ORDER BY id LIMIT ?",
+                (after, batch),
+            ).fetchall()
+            if not rows:
+                break
+            after = int(rows[-1]["id"])
+            old = [int(r["id"]) for r in rows if float(r["distributed_at"]) < cutoff]
+            if old:
+                placeholders = ", ".join("?" for _ in old)
+                deleted += conn.execute(
+                    f"DELETE FROM piece_events WHERE id IN ({placeholders}) AND NOT EXISTS ("
+                    "SELECT 1 FROM bin_state_current b WHERE b.session_id = ? "
+                    "AND b.session_id = piece_events.session_id AND b.layer_index = piece_events.layer_index "
+                    "AND b.section_index = piece_events.section_index AND b.bin_index = piece_events.bin_index "
+                    "AND b.bin_epoch = piece_events.bin_epoch)",
+                    [*old, active],
+                ).rowcount
+                conn.commit()
+        if len(old) < len(rows):
+            break
+    return deleted

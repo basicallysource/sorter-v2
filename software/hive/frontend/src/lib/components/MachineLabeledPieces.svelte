@@ -80,7 +80,7 @@
 						<div class="flex size-12 shrink-0 items-center justify-center rounded-item {it.thumb_seq != null ? '' : 'bg-well'}">
 							{#if it.thumb_seq != null}
 								<ZoomImage
-									src={api.machineLabeledPieceImageUrl(machineId, it.piece_uuid, it.thumb_seq)}
+									src={it.thumb_url ?? api.machineLabeledPieceImageUrl(machineId, it.piece_uuid, it.thumb_seq)}
 									alt={it.color_name}
 									class="size-12 object-contain"
 								/>

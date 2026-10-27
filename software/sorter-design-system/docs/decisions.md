@@ -3,6 +3,122 @@
 What was decided, and when. When a rule changes, the rule's own file changes
 and a dated entry goes here; the history is git.
 
+## 2026-10-18
+
+- **Dense settings rows keep their explanation behind an info icon, at the
+  owner's request.** The page that says what a sorter shares, and with whom,
+  has a dozen settings, and a sentence of help under each made it as long as
+  three screens. The owner asked for it small, with the reason for each
+  setting one hover away. So `SettingRow` takes `info`: a small `info` icon
+  button after the name whose `Tooltip` shows the text on hover and on
+  keyboard focus (a click focuses it, for a touch screen), and the row stays
+  one line. This is an exception to "help is always visible, never in a
+  tooltip", for dense lists only: it holds what a setting is for, and a
+  warning or a cost stays under the setting as `help`.
+- **The side nav has sub-tabs, always shown.** The chute's aiming and its
+  StallGuard lived under Helpers, away from the chute. Now an item can list
+  pages of its own (`children`) indented under it, so Hardware > Chute has
+  Chute aiming and StallGuard right under it, and Classification channel has
+  its StallGuard. They are always shown rather than opening with their item:
+  the list is five rows, a hidden page is a page nobody finds, and the column
+  does not change height as someone moves through it. The item is the first
+  view of its own pages and is not repeated in the list.
+- **A line joins a sub-tab to its item.** The indent alone did not say that a
+  sub-tab belongs to the item above it. Now a 1px `line` (the quiet divider;
+  `line-strong` outlines a control) runs down from the middle of the item's
+  icon and turns right into each sub-tab's name (`├─`, and `└─` for the last),
+  in the space to the left of the name, so the indent is as it was. At first
+  it was drawn under the rows and started inside the item's box, so a
+  highlighted item or sub-tab sat on top of it and looked crossed through.
+  Now it starts at the bottom of the item's box, and a sub-tab's box starts
+  right of the line (where the item's icon ends), so the line and its arms
+  stay outside every box.
+- **The stepper's panel is under the camera at every width.** It sat at the
+  camera's right from `xl` up, a 23rem column in which the jog control, what each
+  press moves and the driver settings were cramped, and the camera was
+  narrower than it needed to be. Now it is as wide as the camera, with the jog
+  control at its left and the choice of what a press moves beside it.
+- **The chute's page has panels, not fold-outs.** It was a 450px card with its
+  stress test, driver settings and endstop settings folded into rows, homing a
+  section in the middle, and the past runs of the stress test in a box that
+  scrolled inside the page. Now it is the page's width, homing is two buttons
+  at the top, and each job is a panel that is always shown with its one action
+  in its footer; the list of past runs shows a few and the rest on request, so
+  the page has one scroll. A motor under a camera keeps its driver settings
+  folded, since that page is about the camera.
+- **StallGuard belongs to a motor.** One page with a motor picker became a
+  tab on each motor's own page: the motor's stall settings at the top, the
+  calibration tools (a sweep, its load curve, the suggested threshold) below.
+- **A camera's turn buttons are one `NudgeControl`.** The dashboard's camera
+  cards had three ghost buttons (-1°, +1°, 180°), each a fixed amount. Now a
+  channel has one control, `‹ 10° ›`: left and right turn it by the amount in
+  the middle, and the amount opens a popover with 10°, 180° and a field for
+  any other amount, kept per channel. It is narrower than the three buttons
+  were, so no label has to hide in a narrow tile.
+- **A task done once is numbered steps in one panel.** Tuning StallGuard was
+  four panels and a form of eleven controls (readings, a sweep, its runs, its
+  curve with the suggestion), and nothing on it said where to start or what
+  came after. Now it is `Step`s in a flush panel: check the speed, record the
+  motor running freely, record a stall, review and save, check it. A step
+  unlocks when the one before it is done, only the step to do is open, and a
+  done step is a line with its result, so a person who has never seen the page
+  is told what to do next and why. What an expert changes (how a sweep moves,
+  every past recording) is in an Expert tools panel of `Disclosure`s, reachable
+  and out of the way. The chute aiming wizard draws the same shape by hand and
+  can take `Step` when it is next touched.
+
+## 2026-10-15
+
+- **A page with views shows them as tabs and in the top bar.** The Sorter's
+  Records page had grown into one long column (the lifetime numbers, the
+  runs, the charts, the incidents, the daily table, then a hundred pieces),
+  and its pieces were 350px tall each. Now the page's views are `Tabs` that
+  are links, each with an address of its own, and the top bar's Records item
+  has a chevron that opens the same views, so a view is one click from
+  anywhere and Back works. One list of views feeds both.
+- **A piece in a list is one divided row, with its review at the right.** The
+  review (Part correct?, Color correct?, Report an issue) was a block under the
+  photos, taller than everything else on the piece. `PieceReview` has a
+  compact layout now: three one-control rows, the colors in a popover and the
+  issues behind one button, so a piece is about a third of its old height and
+  the answer sits beside the pictures it is about.
+- **Capture issues are six icon switches, not a menu.** The compact review's
+  "Report an issue" opened a list of six switches: click it, click the issue,
+  get out of it, for every piece. Now each issue is its own icon in the row
+  (`IssueToggle`): one click flags it, the icon turns to the warning tint, a
+  tooltip names it. Lucide has no picture of a LEGO piece, so the six glyphs
+  are drawn here (`IssueIcon`), the one exception to "never draw an icon"
+  besides the chute flap and the brand marks.
+- **A photo enlarges under the pointer.** A piece's photos are 80px thumbnails,
+  and seeing one meant clicking it open in a dialog and closing it again, for
+  every photo of every piece. Now `ImageZoom` shows the photo large beside it
+  as the pointer goes over it and puts it away as the pointer leaves, with no
+  click. It is the second thing that opens on hover (the first is a tooltip),
+  and it only says more about what is already shown.
+- **A long list has a `Pager`, and does not move under the reader.** Page
+  number to type, first and last, and how many there are. The app fixes the
+  list at the newest item when a search starts and says how many arrived
+  after, so paging never skips or repeats an item while the machine keeps
+  adding them.
+
+## 2026-10-12
+
+- **Every color only when it is asked for.** The list of every color under
+  the likely ones was always open, a long scroll of its own that caught the
+  wheel, so the rest of a labeling pane could not be scrolled past it. Now
+  the search lists its matches only as they are typed (Enter picks the
+  first), "All colors" lists the whole palette on request, and no list
+  scrolls inside the page. The likely colors' tiles are smaller, and a
+  block beside them (`aside`) holds what an app ranks them against: on
+  Hive, the part's top colors sold on BrickLink.
+- **One color review, and the likely colors right under "No".** The
+  sorter's correction block was its own markup, its color list a popover of
+  the whole palette in catalog order, and Hive's labeling page ranked its
+  "Closest to the guess" list with a rule of its own. Both now use
+  `PieceReview` and `ColorChoice`: the questions as rows with consistent
+  spacing, and the likely colors (near the prediction, and sold in that
+  color) as swatches right under the question, every color behind a search.
+
 ## 2026-09-30
 
 - **A profile's rules are a stack of cards, each with its own picture, and no
@@ -90,7 +206,7 @@ and a dated entry goes here; the history is git.
   the current page's mark come from one set of tokens, so nothing reads
   cramped next to its neighbor. The current page's mark is 3px and as wide as
   its link.
-- **Channel pages show their camera**, with the stepper's controls beside it
+- **Channel pages show their camera**, with the stepper's controls under it
   as one jog control.
 - **The wordmark is "Sorter"** in sentence case, not capitals.
 - **Round shapes**: a status dot, a radio, and a person's avatar on Hive.
@@ -135,8 +251,8 @@ and a dated entry goes here; the history is git.
 - **A page whose main thing is a camera uses the whole width.** A channel
   page was capped at 1152px like a page of forms, so on a wide screen the
   camera was small and half the window empty. It now takes the content width
-  up to 1800px, the camera beside the stepper's panel from `xl` and above it
-  below; pages of forms keep 1152px.
+  up to 1800px, with the stepper's panel under the camera; pages of forms keep
+  1152px.
 - **A button that opens a menu is three dots.** The top bar's machine menu
   showed a power icon, which read as a button that powers the machine off.
   It is `ellipsis` with a name; `power` and `power-off` are only for the

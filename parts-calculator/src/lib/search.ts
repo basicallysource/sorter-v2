@@ -87,6 +87,11 @@ function norm(s: string): string {
 		.replace(/[–—]/g, '-');
 }
 
+/** A uid read off a print, with the characters people can't tell apart folded
+ *  together: `0` is `o`, and `1` and `i` are `l`. Same length as the input, so a
+ *  highlight range found on the folded text is valid on the original. */
+const foldUid = (s: string) => norm(s).replace(/0/g, 'o').replace(/[1i]/g, 'l');
+
 /** The same text with every separator gone, so `m3x8` finds `M3 × 8` and
  *  `cchannel` finds `C-channel`. Positions are lost, so this only ever sets a
  *  score, never a highlight range. */
@@ -151,15 +156,18 @@ function scoreToken(raw: string, s: Searchable): Hit | null {
 
 	const name = norm(s.name);
 	const uid = s.uid ? norm(s.uid) : '';
+	const uidFold = s.uid ? foldUid(s.uid) : '';
+	const qFold = foldUid(raw);
 	const id = s.id ? norm(s.id) : '';
 
 	// A complete uid is unambiguous — nothing else it could have meant.
-	if (uid && uid === q) return { score: W.uidExact, name: null, uid: [0, q.length] };
+	if (uid && (uid === q || uidFold === qFold)) return { score: W.uidExact, name: null, uid: [0, q.length] };
 	if (name === q) return { score: W.nameExact, name: [0, name.length], uid: null };
 	if (id && id === q) return { score: W.idExact, name: null, uid: null };
 
 	if (name.startsWith(q)) return { score: W.namePrefix, name: [0, q.length], uid: null };
-	if (uid.startsWith(q)) return { score: W.uidPrefix, name: null, uid: [0, q.length] };
+	if (uid.startsWith(q) || (uidFold && uidFold.startsWith(qFold)))
+		return { score: W.uidPrefix, name: null, uid: [0, q.length] };
 
 	const nw = wordStart(q, name);
 	if (nw >= 0) return { score: W.nameWord, name: [nw, nw + q.length], uid: null };

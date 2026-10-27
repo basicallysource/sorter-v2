@@ -148,6 +148,9 @@ def run_openrouter_chat(
             continue
 
     if not content and not parsed_tool_calls:
+        if finish_reason == "length":
+            # The model used its whole budget before answering: not a key problem.
+            raise APIError(502, "AI response was truncated (too long). Try a simpler request.", "AI_RESPONSE_TRUNCATED")
         raise APIError(502, "OpenRouter returned an empty response", "OPENROUTER_EMPTY_RESPONSE")
 
     return OpenRouterResponse(

@@ -37,8 +37,21 @@ _cache_lock = threading.Lock()
 _refreshing: set[tuple[str, Optional[int]]] = set()
 _refreshing_lock = threading.Lock()
 
+# The palette: in memory once fetched from Hive, saved to the database so a
+# machine that boots without Hive still has it. A copy from the database is
+# served while Hive is unreachable and Hive is asked again after a while.
 _bricklink_colors_cache: Optional[list[dict[str, Any]]] = None
+_bricklink_colors_from_hive = False
+_bricklink_colors_tried_at = 0.0
 _bricklink_colors_lock = threading.Lock()
+_PALETTE_RETRY_S = 300.0
+
+# Likely colors per (part, predictions), asked of Hive when someone opens a
+# piece's review; kept briefly so reopening it does not ask again.
+_LIKELY_TTL_S = 600.0
+_LIKELY_MAX_ENTRIES = 256
+_likely_cache: dict[tuple[str, str], tuple[float, dict[str, Any]]] = {}
+_likely_lock = threading.Lock()
 
 
 def getPrimaryHiveTarget() -> Optional[dict[str, Any]]:
@@ -253,12 +266,33 @@ def getBatchMovingAvgPrices(
 
 
 def listBrickLinkColors(gc: GlobalConfig) -> list[dict[str, Any]]:
-    # BrickLink color palette for the correction dropdown. Static for the process
-    # lifetime, so fetch once and memoize. Empty on any failure.
-    global _bricklink_colors_cache
+    """The BrickLink palette a piece's true color is picked from: Hive's, else
+    the copy saved the last time Hive answered, else empty."""
+    global _bricklink_colors_cache, _bricklink_colors_from_hive, _bricklink_colors_tried_at
     with _bricklink_colors_lock:
-        if _bricklink_colors_cache is not None:
+        if _bricklink_colors_cache is not None and (
+            _bricklink_colors_from_hive or time.time() - _bricklink_colors_tried_at < _PALETTE_RETRY_S
+        ):
             return _bricklink_colors_cache
+        _bricklink_colors_tried_at = time.time()
+
+    from hive_metadata_cache import get_cached_palette, put_cached_palette
+
+    results = _fetchPalette(gc)
+    if results:
+        put_cached_palette(results)
+        from_hive = True
+    else:
+        results = get_cached_palette() or []
+        from_hive = False
+    with _bricklink_colors_lock:
+        if results:
+            _bricklink_colors_cache = results
+            _bricklink_colors_from_hive = from_hive
+    return results
+
+
+def _fetchPalette(gc: GlobalConfig) -> list[dict[str, Any]]:
     client = _client()
     if client is None:
         return []
@@ -268,11 +302,63 @@ def listBrickLinkColors(gc: GlobalConfig) -> list[dict[str, Any]]:
         gc.logger.warn(f"hive bricklink colors fetch failed: {exc}")
         return []
     results = payload.get("results") if isinstance(payload, dict) else None
-    if not isinstance(results, list):
-        return []
-    with _bricklink_colors_lock:
-        _bricklink_colors_cache = results
-    return results
+    return [c for c in results if isinstance(c, dict)] if isinstance(results, list) else []
+
+
+def getLikelyColors(
+    gc: GlobalConfig, part_id: Optional[str], predictions: list[tuple[int, Optional[float]]]
+) -> dict[str, Any]:
+    """Every color ranked for a piece: Hive's ranking (how near each color is
+    to the predictions, times how likely the part exists in it on BrickLink),
+    or, when Hive cannot answer, the same ranking by color alone over the
+    saved palette. `fallback` says why: "no_hive" (none configured),
+    "hive_unreachable", "hive_too_old" (a Hive without the ranking) or
+    "no_part" (nothing to look up)."""
+    import color_rank
+
+    key = (part_id or "", color_rank.format_predictions(predictions))
+    now = time.time()
+    with _likely_lock:
+        hit = _likely_cache.get(key)
+        if hit is not None and now - hit[0] < _LIKELY_TTL_S:
+            return hit[1]
+
+    client = _client()
+    fallback = "no_hive" if client is None else None
+    if client is not None and part_id:
+        fallback = "hive_unreachable"
+        try:
+            payload = client.likely_colors(part_id, key[1] or None)
+        except HiveError as exc:
+            if exc.status_code == 404:
+                fallback = "hive_too_old"
+            gc.logger.warn(f"hive likely colors failed for {part_id}: {exc}")
+            payload = None
+        except Exception as exc:
+            gc.logger.warn(f"hive likely colors failed for {part_id}: {exc}")
+            payload = None
+        if isinstance(payload, dict) and isinstance(payload.get("colors"), list):
+            result = {**payload, "fallback": None}
+            with _likely_lock:
+                if len(_likely_cache) >= _LIKELY_MAX_ENTRIES:
+                    for stale in sorted(_likely_cache, key=lambda k: _likely_cache[k][0])[: _LIKELY_MAX_ENTRIES // 2]:
+                        del _likely_cache[stale]
+                _likely_cache[key] = (now, result)
+            return result
+    elif client is not None:
+        fallback = "no_part"
+
+    palette = listBrickLinkColors(gc)
+    return {
+        "part_id": part_id,
+        "item_no": None,
+        "source": "none",
+        "updated_at": None,
+        "total_qty": 0,
+        "predictions": [{"color_id": color_id, "score": score} for color_id, score in predictions],
+        "colors": color_rank.rank_colors(palette, predictions),
+        "fallback": fallback,
+    }
 
 
 def maxDimensionMm(metadata: Optional[dict[str, Any]]) -> Optional[float]:

@@ -10,18 +10,24 @@ APT_OPTS=(-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold 
 
 log() { echo "[chroot_apt $(date -u +%H:%M:%S)] $*"; }
 
+# Tool versions the image is built with. Bump them on purpose and build
+# again; "latest" changes behaviour between builds (pnpm 12 stopped running
+# dependency build scripts without approval and broke a fresh build).
+PNPM_VERSION=12.11.2
+UV_VERSION=0.13.1
+
 # resolv.conf is written by build.py from the host side before entering
 # the chroot, so DNS is already working when we get here.
 
 log "apt update"
 apt-get update -y
 
-# Node 22 via NodeSource (pnpm@latest requires >=22.13).
+# Node 22 via NodeSource.
 if ! node --version 2>/dev/null | grep -q '^v22'; then
     log "installing Node 22"
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
     apt-get install "${APT_OPTS[@]}" nodejs
-    npm install -g pnpm@latest
+    npm install -g "pnpm@${PNPM_VERSION}"
 fi
 
 log "installing core packages"
@@ -56,7 +62,7 @@ systemctl enable systemd-timesyncd.service || true
 # run idempotently on first boot when internet is available.
 
 log "installing uv"
-curl -fsSL https://astral.sh/uv/install.sh | env HOME=/root sh
+curl -fsSL "https://astral.sh/uv/${UV_VERSION}/install.sh" | env HOME=/root sh
 # Symlink into /usr/local/bin so all users can invoke it.
 ln -sf /root/.local/bin/uv /usr/local/bin/uv
 

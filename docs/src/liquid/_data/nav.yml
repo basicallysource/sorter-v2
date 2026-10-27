@@ -119,26 +119,30 @@ sections:
             url: /hardware/helpers/pulley-gear-mod/
           - title: Soldering Pico headers
             url: /hardware/helpers/pico-headers/
+          - title: Coupling a chute door to its servo
+            url: /hardware/helpers/door-servo-coupling/
           - title: Preparing the 3D printed cable cage plates
             url: /hardware/helpers/cable-cage-plates/
-          - title: Preparing the LED strip and its drop (L1 to L3, L1p to L3p)
+          - title: Preparing the LED strips (LED2a to LED4a, LED2 to LED4)
             url: /hardware/helpers/led-strip/
           - title: Using a multimeter
             url: /hardware/helpers/multimeter/
           - title: Crimping connectors
             url: /hardware/helpers/crimping/
-          - title: Make your own PSU output pigtail (PJ1 to PJ3)
+          - title: Make your own PSU output pigtail (PSU1 to PSU3)
             url: /hardware/helpers/psu-pigtail/
-          - title: Make the control board's 24 V lead (W1)
+          - title: Make the control board's 24 V lead (PWR1)
             url: /hardware/helpers/board-24v-lead/
-          - title: Make the Orange Pi's 24 V lead (W3)
+          - title: Make the Orange Pi's 24 V lead (PWR3)
             url: /hardware/helpers/pi-24v-lead/
-          - title: Make the channel stepper leads (S1 to S4)
+          - title: Make the channel stepper leads (STP1 to STP4)
             url: /hardware/helpers/channel-stepper-lead/
-          - title: Make the chute stepper lead (CH)
+          - title: Make the chute stepper lead (CHU1)
             url: /hardware/helpers/chute-stepper-lead/
-          - title: Make the chute limit switch lead (LIM)
+          - title: Make the chute limit switch lead (LIM1)
             url: /hardware/helpers/limit-switch-lead/
+          - title: Labelling the cables
+            url: /hardware/helpers/cable-labels/
       - title: Parts
         url: /hardware/parts/
         children:
@@ -181,16 +185,57 @@ sections:
             url: /sorter/preparing-lego/
           - title: Your first sort run
             url: /sorter/tutorials/first-sort-run/
+          - title: Bins and profiles
+            url: /sorter/bins-and-profiles/
+          - title: Exporting what the machine sorted
+            url: /sorter/export-counts/
           - title: Shutting down the machine
             url: /sorter/safe-shutdown/
           - title: Troubleshooting
             url: /sorter/troubleshooting/
+          - title: Repair git and get on stable
+            url: /sorter/repair-git-get-on-stable/
+      - title: Using the UI
+        pages:
+          - title: The dashboard
+            url: /sorter/dashboard/
+          - title: Records
+            url: /sorter/records/
+            children:
+              - title: The piece page
+                url: /sorter/tracked-piece/
+          - title: Logs
+            url: /sorter/logs/
+          - title: Channel settings
+            url: /sorter/channel-settings/
+          - title: Zones
+            url: /sorter/zones/
+          - title: Perception debug
+            url: /sorter/perception-debug/
+          - title: Feeder simple pulse
+            url: /sorter/feeder-simple-pulse/
+          - title: Tuning
+            url: /sorter/tuning/
+          - title: StallGuard
+            url: /sorter/stallguard/
+          - title: Diagnostics
+            url: /sorter/diagnostics/
+          - title: Incident handling
+            url: /sorter/incident-handling/
+          - title: Networking
+            url: /sorter/networking/
+          - title: Training data
+            url: /sorter/training-data/
       - title: Under the hood
         pages:
+          - title: The Linux system
+            url: /sorter/linux-system/
           - title: Dev flow
             url: /sorter/dev-flow/
           - title: Sorting profile reference
             url: /sorter/profile-reference/
+          - title: machine.toml reference
+            url: /sorter/machine-toml-reference/
           - title: What leaves the machine
             url: /sorter/what-leaves-the-machine/
 
@@ -222,13 +267,35 @@ sections:
         url: /hive/review-samples/
 
   - id: lab
-    title: Lab
+    title: Design and research
     url: /lab/
-    description: Research, experiments, and contributor references — model performance, deployment paths, hardware benchmarks, shared visual language.
+    description: How the machine is designed and why, what is connected to what, tested variants, and the research behind it.
     pages:
       - title: Overview
         url: /lab/
+      - title: How the sorter is put together
+        url: /lab/sorter/
+      - title: Design intentions for the printed parts
+        url: /lab/printed-parts/
+      - title: How the cameras are lit
+        url: /lab/lighting/
     groups:
+      - title: Electronics
+        pages:
+          - title: How the electronics talk to each other
+            url: /lab/electronics/
+          - title: What is connected to the Orange Pi
+            url: /lab/orange-pi/
+          - title: What is connected to the Pico
+            url: /lab/pico/
+          - title: The USB connections and the hub
+            url: /lab/usb/
+          - title: The motors
+            url: /lab/motors/
+          - title: The servos and the layer adapter boards
+            url: /lab/servos/
+          - title: Power distribution
+            url: /lab/power/
       - title: Object Detection Research
         pages:
           - title: Overview
@@ -239,3 +306,27 @@ sections:
             url: /lab/object-detection/device-benchmarking/
           - title: Hailo HEF Workflow
             url: /lab/object-detection/hailo-hef-workflow/
+      - title: Variants
+        pages:
+          - title: Tested variants
+            url: /lab/variants/
+          - title: Concepts
+            url: /lab/concepts/
+            children:
+              - title: Floating chute stack
+                url: /lab/concepts/floating-chute-stack/
+              - title: Push-button power manager
+                url: /lab/concepts/power-manager/
+          - title: Abandoned ideas
+            url: /lab/variants/abandoned/
+            children:
+              - title: Classification
+                url: /lab/variants/abandoned/classification/
+              - title: Feeder
+                url: /lab/variants/abandoned/feeder/
+              - title: Distribution
+                url: /lab/variants/abandoned/distribution/
+              - title: Electronics and software
+                url: /lab/variants/abandoned/electronics-and-software/
+              - title: The earlier chute
+                url: /lab/variants/abandoned/chute/

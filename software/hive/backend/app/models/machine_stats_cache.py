@@ -51,11 +51,19 @@ class MachineStatsCache(Base):
     # Sample-derived (see samples / upload_sessions / machine_set_progress).
     total_samples = Column(Integer, nullable=False, default=0)
     accepted_samples = Column(Integer, nullable=False, default=0)
+    # The other review states, so the dashboard's sample tiles are a sum over
+    # these rows instead of a count over the samples table per request.
+    unreviewed_samples = Column(Integer, nullable=False, default=0)
+    in_review_samples = Column(Integer, nullable=False, default=0)
+    rejected_samples = Column(Integer, nullable=False, default=0)
+    conflict_samples = Column(Integer, nullable=False, default=0)
     first_capture = Column(DateTime(timezone=True), nullable=True)
     last_capture = Column(DateTime(timezone=True), nullable=True)
     total_sessions = Column(Integer, nullable=False, default=0)
     parts_found = Column(Integer, nullable=False, default=0)
     parts_needed = Column(Integer, nullable=False, default=0)
+    # The machine's upstream channel crops, for the crops page's count.
+    channel_crops = Column(BigInteger, nullable=False, default=0)
 
     # Whole distribution maps for this machine, the input the analytics fold
     # sums over. Shape:
@@ -65,6 +73,9 @@ class MachineStatsCache(Base):
     # Names ride along because a caller ranking parts wants to print one, and
     # re-joining a catalog per request is the cost this cache exists to avoid.
     distributions = Column(JSON, nullable=False, default=dict)
+    # The machine's control-data segments summed per combination of modes, for
+    # the admin inventory (routers/control_data.py).
+    control_data = Column(JSON, nullable=False, default=dict)
 
     computed_at = Column(
         DateTime(timezone=True),

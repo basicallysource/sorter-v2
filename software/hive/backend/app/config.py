@@ -1,7 +1,7 @@
 import base64
 import secrets
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal
 
 from cryptography.fernet import Fernet
 from pydantic_settings import BaseSettings
@@ -11,6 +11,32 @@ _INSECURE_SECRET_VALUES = frozenset({"", "change-me-in-production"})
 
 class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
+    # Which part of Hive this process is (agent-docs/process-roles.md):
+    #   all    everything in one process: requests and every background worker.
+    #          The default, so a dev server and the tests need nothing else.
+    #   web    answers requests and starts no background work at all.
+    #   worker the background workers and nothing else (`python -m app.worker`).
+    # Production runs one `web` and one `worker` from the same image, so a slow
+    # pass over the fleet can never take the interpreter from a request.
+    HIVE_ROLE: Literal["all", "web", "worker"] = "all"
+    # How long one SQL statement of a request may run before Postgres cancels
+    # it, set per transaction (SET LOCAL) in every process that answers
+    # requests. A page fails in seconds instead of holding a connection for a
+    # minute; anything that needs longer is a job. Machine traffic
+    # (/api/machine/..., /api/devices/...) has its own budget. An endpoint that
+    # legitimately runs longer says so with `@statement_timeout(...)` (app.deps).
+    # 0 turns it off. The engine's own 60 s (database.py) still applies to
+    # everything else: workers, startup, scripts.
+    REQUEST_STATEMENT_TIMEOUT_MS: int = 15_000
+    MACHINE_STATEMENT_TIMEOUT_MS: int = 20_000
+    # The worker process reports its workers' state to the database this often
+    # (what the web process shows on the admin pages) and touches
+    # WORKER_HEARTBEAT_FILE after each report, which is its container's
+    # healthcheck. It looks for requests from the web process (run a pass now,
+    # start a catalog sync) every WORKER_POLL_INTERVAL_S.
+    WORKER_HEARTBEAT_INTERVAL_S: float = 15.0
+    WORKER_POLL_INTERVAL_S: float = 2.0
+    WORKER_HEARTBEAT_FILE: str = "/tmp/hive-worker-heartbeat"
     DATABASE_URL: str = "postgresql://hive:hive_dev@localhost:5432/hive"
     JWT_SECRET: str | None = None
     UPLOAD_DIR: str = "data/uploads"
@@ -55,16 +81,21 @@ class Settings(BaseSettings):
     DISCORD_CLIENT_ID: str | None = None
     DISCORD_CLIENT_SECRET: str | None = None
     DISCORD_REDIRECT_URI: str | None = None
-    REBRICKABLE_API_KEY: str = ""
     BLA_API_KEY: str = ""
     SORTING_PROFILE_PARTS_DB_PATH: str = "data/profile_builder/parts.db"
     SORTING_PROFILE_BRICKSTORE_DB_PATH: str = "~/Library/Caches/BrickStore/database-v12"
     SORTING_PROFILE_LDRAW_LIBRARY_DIR: str = "ldraw_lib"
     PROFILE_CATALOG_AUTO_SYNC_ENABLED: bool = True
     PROFILE_CATALOG_AUTO_SYNC_CHECK_INTERVAL_MINUTES: int = 60
+    PROFILE_CATALOG_AUTO_SYNC_SETS_MAX_AGE_HOURS: int = 24
     PROFILE_CATALOG_AUTO_SYNC_PARTS_MAX_AGE_HOURS: int = 24
     PROFILE_CATALOG_AUTO_SYNC_COLORS_MAX_AGE_HOURS: int = 24
     PROFILE_CATALOG_AUTO_SYNC_CATEGORIES_MAX_AGE_HOURS: int = 168
+    # The worker process never loads the parts catalog; a sync or the default
+    # profiles run in a child process (app.services.catalog_tasks), one at a
+    # time, stopped after this long. A sync cut short runs again at the next
+    # auto-sync check.
+    CATALOG_TASK_TIMEOUT_MINUTES: float = 120
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     # Perceptron exposes an OpenAI-compatible /v1/chat/completions endpoint.
     PERCEPTRON_BASE_URL: str = "https://api.perceptron.inc/v1"
@@ -83,14 +114,50 @@ class Settings(BaseSettings):
     # (machine_stats_cache). Clamped to a 60s floor in the worker.
     MACHINE_STATS_REFRESH_INTERVAL_MINUTES: int = 60
     # How often the background worker walks the object store for the admin
-    # server-health page (server_storage_cache). The walk lists every S3 key so
-    # it's slow; a few hours is plenty. Clamped to a 5min floor in the worker.
-    SERVER_STORAGE_REFRESH_INTERVAL_MINUTES: int = 180
+    # server-health page (server_storage_cache). The walk lists every S3 key (over
+    # an hour at ~12M objects), so once a day is plenty for a number on an
+    # admin page. Clamped to a 5min floor in the worker.
+    SERVER_STORAGE_REFRESH_INTERVAL_MINUTES: int = 1440
     # How often the background worker recomputes what the fleet has sorted by
     # weight. One sequential scan of machine_pieces plus a catalog lookup, so it
     # belongs on a clock and never on a request. A lifetime total half an hour
     # stale differs from a live one in a digit nobody reads. 60s floor.
     FLEET_MASS_REFRESH_INTERVAL_MINUTES: int = 30
+    # How often the fleet records are recomputed: per-machine speed, who reached
+    # each milestone first, the newest parts and colors found. Two grouped scans
+    # of machine_pieces, so a clock and never a request. 60s floor.
+    FLEET_RECORDS_REFRESH_INTERVAL_MINUTES: int = 15
+    # The general job queue (app.services.job_queue): rows in `jobs`, run by
+    # worker threads in the process that runs background work (HIVE_ROLE
+    # worker or all; a web process never runs jobs, whatever this says). Off
+    # by default: jobs can still be queued while it is off, and they wait until
+    # a process with it on picks them up.
+    JOB_WORKER_ENABLED: bool = False
+    # Worker threads. One keeps background work to at most one core of the
+    # box, whatever is queued.
+    JOB_WORKER_CONCURRENCY: int = 1
+    # How long an idle worker waits before looking for due jobs again (it is
+    # also woken at once when this process queues one).
+    JOB_WORKER_POLL_INTERVAL_S: float = 5.0
+    # Rest after each job, so a long backlog never keeps a core busy back to
+    # back and the API always gets a turn.
+    JOB_WORKER_PAUSE_S: float = 0.5
+    # Nice value for the worker threads on Linux (per thread there): 0 leaves
+    # them at the API's priority, higher lets every request go first.
+    JOB_WORKER_NICE: int = 10
+    # How long finished jobs are kept before the worker deletes them.
+    JOB_KEEP_DONE_HOURS: float = 72.0
+    JOB_KEEP_FAILED_DAYS: float = 30.0
+    # Local dir scanned for colour-reference palette finders (`.onnx` with
+    # hive.kind = swatch_finder). One row per file is reconciled into the
+    # swatch_models table; while one is active, every classification-camera
+    # sample gets a swatch_find job. Uploaded here out of band.
+    SWATCH_MODEL_DIR: str = "data/swatch_models"
+    # The sample source roles that are the classification camera's raw frames.
+    SWATCH_FIND_SOURCE_ROLES: tuple[str, ...] = ("classification_channel",)
+    # onnxruntime threads for one swatch_find pass (a 3840x2160 frame runs
+    # its network at 960x544).
+    SWATCH_FINDER_THREADS: int = 1
     # Newest full-size GLM as of 2026-09: ~$1.4/M in, ~$4.4/M out, roughly half
     # of Sonnet 5 on the blended cost factor. The settings page reads this from
     # GET /api/ai/models rather than hardcoding it.

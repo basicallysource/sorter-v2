@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app import background
 from app.deps import (
     API_KEY_SCOPE_SERVER_HEALTH_READ,
     get_db,
@@ -15,8 +16,9 @@ from app.deps import (
 from app.errors import APIError
 from app.models.user import User
 from app.schemas.auth import AdminUpdateUserRequest, UserResponse
-from app.services import access_window
+from app.services import access_window, telemetry_limits
 from app.services.server_health import get_server_health, get_storage_stats_worker
+from app.services.server_status import server_status
 from app.services.storage import delete_machine_files
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -33,8 +35,9 @@ def server_health(
 
     Storage figures come from a cache a background worker walks on a slow
     cadence — reading them is instant. refresh_storage=true just nudges that
-    worker to walk again soon and returns the current cache immediately (the
-    walk itself is far too slow to run inside the request).
+    worker (in the worker process) to walk again soon and returns the current
+    cache immediately (the walk itself is far too slow to run inside the
+    request). Memory is this process's own: the web process's.
 
     The only admin route reachable by API key, so that monitoring can watch the
     box over days without a human holding a browser session open. Still
@@ -42,8 +45,22 @@ def server_health(
     is what actually authorizes it, and a key needs both the role and
     `server_health:read`."""
     if refresh_storage:
-        get_storage_stats_worker().wake()
+        background.request_pass(db, get_storage_stats_worker().name)
     return get_server_health(db)
+
+
+@router.get("/server")
+def server(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+):
+    """Everything the admin Server page shows (``services/server_status.py``):
+    each route's request timings over the last hour, this process, the job
+    queue, the background workers, the database's health, the disk, memory
+    and the stored files. Read when the page asks; nothing here is kept.
+
+    A signed-in admin only. Monitoring by API key reads ``/server-health``."""
+    return server_status(db)
 
 
 @router.get("/users", response_model=list[UserResponse])
@@ -97,11 +114,12 @@ def delete_user(
     if user.id == admin.id:
         raise APIError(400, "Cannot delete your own account via admin panel", "CANNOT_DELETE_SELF")
 
-    for machine in user.machines:
-        delete_machine_files(str(machine.id))
-
+    # Files go only once the rows are gone: a delete that fails keeps both.
+    machine_ids = [str(machine.id) for machine in user.machines]
     db.delete(user)
     db.commit()
+    for machine_id in machine_ids:
+        delete_machine_files(machine_id)
     return {"ok": True}
 
 
@@ -141,3 +159,42 @@ def put_access_window(
 
     access_window.set_window(db, role, entity, data.anchor, data.size, data.offset)
     return access_window.list_effective_windows(db)
+
+
+class TelemetryLimitsUpdate(BaseModel):
+    """A partial update: fields left out keep their current value."""
+
+    model_config = {"extra": "forbid"}
+
+    sample_burst_interval_s: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    sample_floor_interval_s: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    sample_ramp_hours: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    sample_store_max_bytes: int | None = Field(default=None, gt=0)
+    upload_bytes_per_minute: int | None = Field(default=None, gt=0)
+    upload_files_per_minute: int | None = Field(default=None, gt=0)
+
+
+@router.get("/telemetry-limits")
+def get_telemetry_limits(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+):
+    """The limits every machine gets on its heartbeat: how fast it may capture
+    training samples, how big its local sample store may grow, and its upload
+    budget. ``updated_at`` is null while the built-in defaults apply."""
+    return telemetry_limits.global_limits(db)
+
+
+@router.put("/telemetry-limits")
+def put_telemetry_limits(
+    data: TelemetryLimitsUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Change some of the limits. Machines pick the new values up on their next
+    heartbeat."""
+    try:
+        return telemetry_limits.update_global_limits(db, data.model_dump(exclude_none=True))
+    except telemetry_limits.TelemetryLimitsError as exc:
+        raise APIError(400, str(exc), "INVALID_TELEMETRY_LIMITS") from exc

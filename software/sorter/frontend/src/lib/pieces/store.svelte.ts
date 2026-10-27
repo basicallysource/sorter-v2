@@ -4,6 +4,18 @@ export type PieceOrigin = 'rest' | 'ws';
 
 export type BinRef = { x: number; y: number; z: number };
 
+// One thing that went wrong with a piece on its way through the machine
+// (backend PieceProblem): `kind` is a short code (timed_out, track_lost, ...),
+// `message` the sentence for the operator with its specifics and timings, `at`
+// when it happened (unix seconds) and `after_s` the wait that ran out, or how
+// far into the piece's trip it happened.
+export type PieceProblem = {
+	kind: string;
+	message: string;
+	at: number;
+	after_s?: number | null;
+};
+
 // Mirror of the backend PieceSummary model (server/routers/pieces.py). Every
 // data field is optional/nullable — old rows predate several columns.
 export type PieceSummary = {
@@ -24,6 +36,8 @@ export type PieceSummary = {
 	color_confidence?: number | null;
 	bin?: BinRef | null;
 	dead?: boolean;
+	// What went wrong with the piece, oldest first; empty or absent when nothing did.
+	problems?: PieceProblem[] | null;
 	has_images?: boolean;
 	preview_url?: string | null;
 	est_value?: number | null;
@@ -43,6 +57,38 @@ export type PieceSummary = {
 	rejection_reasons?: string[] | null;
 };
 
+// One of the piece's stored images a prediction was made from: "burst" (a
+// classification channel crop) or "link" (an upstream crop the piece-link
+// model matched), by its place in that set.
+export type PredictionImage = {
+	set: 'burst' | 'link' | string;
+	seq: number;
+	channel: number | null;
+};
+
+export type PredictionAnswer = {
+	kind: 'part' | 'color' | string;
+	rank: number;
+	value_id: string;
+	value_name: string | null;
+	score: number | null;
+	applied: boolean;
+};
+
+// One request's ranked answers and where they came from (backend
+// piece_predictions): `source` is "live" for the machine's classification while
+// sorting, or a later run's label.
+export type PiecePrediction = {
+	source: string;
+	request: string;
+	provider: string;
+	model_name: string | null;
+	model_sha: string | null;
+	images: PredictionImage[] | null;
+	created_at: number | null;
+	answers: PredictionAnswer[];
+};
+
 // GET /api/pieces/{uuid} — tiered envelope. `detail` is the full KnownObject
 // payload only when the piece is still in backend memory (detail_available).
 export type PieceDetailEnvelope = {
@@ -50,6 +96,8 @@ export type PieceDetailEnvelope = {
 	summary: PieceSummary;
 	detail: KnownObjectData | null;
 	detail_available: boolean;
+	// Every prediction made for the piece, the live ones first.
+	predictions?: PiecePrediction[];
 };
 
 export type PiecesListResponse = {

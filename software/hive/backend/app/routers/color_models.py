@@ -10,13 +10,15 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.deps import get_db, require_role, verify_csrf
+from app.deps import get_db, require_role, statement_timeout, verify_csrf
 from app.errors import APIError
 from app.models.color_model import ColorModel
+from app.models.machine import Machine
 from app.models.user import User
-from app.services import color_predictor
+from app.services import color_model_runs, color_predictor
 
 router = APIRouter(prefix="/api/color-models", tags=["color-models"])
 
@@ -78,3 +80,44 @@ def deactivate_color_model(
     if row is None:
         raise APIError(404, "Color model not found", "COLOR_MODEL_NOT_FOUND")
     return {"ok": True, "model": _serialize(row)}
+
+
+class ColorModelBackfillRequest(BaseModel):
+    machine_id: UUID
+    # Sha256s of the models to run; every registered model when left out.
+    models: list[str] | None = None
+    with_palette: bool = False
+    with_candidates: bool = False
+    rerun: bool = False
+    limit: int = Field(default=color_model_runs.BACKFILL_MAX, ge=1, le=color_model_runs.BACKFILL_MAX)
+
+
+@router.post("/backfill")
+# Selects up to BACKFILL_MAX of one machine's queued pieces and queues batches of them per model.
+@statement_timeout(seconds=60)
+def backfill_color_models(
+    payload: ColorModelBackfillRequest,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+) -> dict:
+    """Run every colour model (or the ones named) over one machine's labelable
+    pieces, or the ones with the colour reference palette near them or with
+    same-piece candidates, as color_model_run jobs behind the live work. The
+    registry is reconciled with the model folder first, so a newly copied
+    model is included."""
+    if db.get(Machine, payload.machine_id) is None:
+        raise APIError(404, "Machine not found", "MACHINE_NOT_FOUND")
+    color_predictor.reconcile(db)
+    try:
+        return color_model_runs.backfill(
+            db,
+            machine_id=payload.machine_id,
+            model_sha256s=payload.models,
+            with_palette=payload.with_palette,
+            with_candidates=payload.with_candidates,
+            rerun=payload.rerun,
+            limit=payload.limit,
+        )
+    except ValueError as exc:
+        raise APIError(400, str(exc), "UNKNOWN_COLOR_MODEL") from exc

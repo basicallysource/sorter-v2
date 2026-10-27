@@ -85,7 +85,7 @@
 <Card {href} label="Sample {sample.local_sample_id}" padded={false} class="overflow-hidden">
 	<div class="relative aspect-square overflow-hidden bg-media">
 		<img
-			src={api.sampleImageUrl(sample.id)}
+			src={sample.thumb_url ?? api.sampleImageUrl(sample.id)}
 			alt="Sample {sample.local_sample_id}"
 			class="size-full object-cover"
 			loading="lazy"

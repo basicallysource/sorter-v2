@@ -192,6 +192,14 @@ def _startPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
         gc.logger.warning(f"Failed to start channel-crop collector: {exc}")
 
     try:
+        from zones import watch as piece_watch
+
+        piece_watch.start(service, gc.logger)
+        gc.logger.info("Piece watch started.")
+    except Exception as exc:
+        gc.logger.warning(f"Failed to start the piece watch: {exc}")
+
+    try:
         import control_data_store
         from perception.transition_capture import ControlDataCollector
 
@@ -560,12 +568,33 @@ def main() -> None:
     sample_collector = SampleCollector(gc, camera_service)
     sample_collector.start()
     gc.sample_collector = sample_collector
-    # Reconciles local piece history (records + crops) up to every enabled Hive,
-    # watermark-based so months of backlog sync without redundant re-uploads.
+    # What is shared with which Hive; read once here so per-target choices kept
+    # by older versions move into it before anything rewrites the Hive config.
+    import sharing
+    sharing.everyHive()
+    # How the machine is set up and runs (stepper load, camera readings, specs,
+    # stalls), as telemetry records the sync worker sends.
+    import fleet_telemetry
+    gc.fleet_telemetry = fleet_telemetry.start(gc)
+    # Sends everything kept for Hive (piece history, crops, control data,
+    # training samples, telemetry) to every enabled Hive, watermark-based so
+    # months of backlog sync without redundant re-uploads.
     from server.hive_sync import HiveSyncWorker
     hive_sync_worker = HiveSyncWorker(gc)
     hive_sync_worker.start()
     gc.hive_sync_worker = hive_sync_worker
+    # Keeps the database and the file stores bounded: piece history past its
+    # window once every Hive has it, old cycles and held pieces, tombstones,
+    # and the database's free pages.
+    from storage_maintenance import StorageMaintenance
+    StorageMaintenance(gc, hive_sync_worker).start()
+    # Keep-alive to every enabled Hive; its replies carry the limits each sets.
+    from server.hive_heartbeat import HiveHeartbeat
+    hive_heartbeat = HiveHeartbeat(hive_sync_worker)
+    hive_heartbeat.start()
+    gc.hive_heartbeat = hive_heartbeat
+    import sample_store
+    sample_store.removeLegacyArchive()
     vision.start()
     # A detection slot with no usable model gets Hive's default for this
     # machine's runtime, in the background (nothing happens when every slot
@@ -719,7 +748,7 @@ def main() -> None:
         )
 
         chute = getattr(next_controller.coordinator.distribution, "chute", None) if hasattr(next_controller, "coordinator") else None
-        if chute is not None and not _noPowerModeActive(gc):
+        if chute is not None and not _noPowerModeActive(gc) and not gc.disable_chute:
             gc.logger.info("Homing chute...")
             try:
                 if chute.home():
@@ -729,6 +758,8 @@ def main() -> None:
             except Exception as e:
                 next_controller.coordinator.cleanup()
                 raise RuntimeError(f"Chute homing failed: {e}") from e
+        elif chute is not None and gc.disable_chute and not _noPowerModeActive(gc):
+            gc.logger.info("Skipping chute homing: the chute is disabled.")
         elif chute is not None:
             gc.logger.info("Skipping chute homing in no-power development mode.")
 
@@ -797,6 +828,18 @@ def main() -> None:
             gc.run_recorder.save()
         except Exception as exc:
             gc.logger.warning(f"Failed to save run recorder during shutdown: {exc}")
+        try:
+            import fleet_telemetry
+
+            fleet_telemetry.shutdown()
+        except Exception as exc:
+            gc.logger.warning(f"Failed to keep the telemetry window during shutdown: {exc}")
+        try:
+            import upload_stats
+
+            upload_stats.flush()
+        except Exception as exc:
+            gc.logger.warning(f"Failed to flush upload statistics during shutdown: {exc}")
         if not db.drain(5.0):
             gc.logger.warning("Shutting down with database writes still queued")
 
@@ -839,6 +882,11 @@ def main() -> None:
             daemon=True,
             name="stall-monitor",
         ).start()
+        # And keeps the threshold and speed floor of each motor with automatic
+        # tuning on set from what its load reads in normal running.
+        import stallguard_tuner
+
+        stallguard_tuner.start(gc)
     elif DISABLE_STALLGUARD:
         gc.logger.info("StallGuard monitor not started (DISABLE_STALLGUARD=1).")
 

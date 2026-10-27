@@ -1,13 +1,12 @@
-from typing import Any, Callable, Optional, cast
+from typing import Optional, cast
 import io
 import os
-import threading
 import requests
 import numpy as np
 import cv2
 from PIL import Image
 from global_config import GlobalConfig
-from .brickognize_types import BrickognizeResponse, BrickognizeItem, BrickognizeColor
+from .brickognize_types import BrickognizeColor, BrickognizeItem, BrickognizeResponse
 
 API_URL = "https://api.brickognize.com/predict/?predict_color=true"
 # Fallback (connect, read) timeouts in seconds for the rare gc-less call path.
@@ -19,109 +18,7 @@ API_TIMEOUT_S = (60.0, 60.0)
 # should pre-trim, but we hard-cap here too so a stray oversized batch degrades
 # (drops the tail) instead of erroring out the whole classification.
 MAX_QUERY_IMAGES = 8
-ANY_COLOR = "any_color"
-ANY_COLOR_NAME = "Any Color"
 FILTER_CATEGORIES = ["primo", "duplo"]
-
-
-def classify(
-    gc: GlobalConfig,
-    top_image: Optional[np.ndarray],
-    bottom_image: Optional[np.ndarray],
-    callback: Callable[
-        [
-            Optional[str],
-            str,
-            str,
-            Optional[float],
-            Optional[str],
-            Optional[str],
-            Optional[dict[str, Any]],
-        ],
-        None,
-    ],
-) -> None:
-    thread = threading.Thread(
-        target=_doClassify,
-        args=(gc, top_image, bottom_image, callback),
-        daemon=True,
-    )
-    thread.start()
-
-
-def _doClassify(
-    gc: GlobalConfig,
-    top_image: Optional[np.ndarray],
-    bottom_image: Optional[np.ndarray],
-    callback: Callable[
-        [
-            Optional[str],
-            str,
-            str,
-            Optional[float],
-            Optional[str],
-            Optional[str],
-            Optional[dict[str, Any]],
-        ],
-        None,
-    ],
-) -> None:
-    gc.logger.info("Brickognize: classifying piece")
-    try:
-        top_result = None
-        bottom_result = None
-        if top_image is not None:
-            top_result = _classifyImage(gc, top_image)
-        if bottom_image is not None:
-            bottom_result = _classifyImage(gc, bottom_image)
-
-        best_item, best_view = _pickBestItem(top_result, bottom_result)
-        best_color = _pickBestColor(top_result, bottom_result)
-        color_id = best_color["id"] if best_color else ANY_COLOR
-        color_name = best_color["name"] if best_color else ANY_COLOR_NAME
-        result_payload: dict[str, Any] = {
-            "provider": "brickognize",
-            "top_result": top_result,
-            "bottom_result": bottom_result,
-            "best_item": best_item,
-            "best_view": best_view,
-            "best_color": best_color,
-        }
-        if best_item:
-            gc.logger.info(
-                f"Brickognize: {best_item['id']} ({best_item['name']}) "
-                f"score={best_item['score']:.2f} color={color_name}"
-            )
-            callback(
-                best_item["id"],
-                color_id,
-                color_name,
-                best_item["score"],
-                best_item.get("img_url"),
-                best_view,
-                result_payload,
-            )
-        else:
-            gc.logger.warn("Brickognize: no items found")
-            callback(None, color_id, color_name, None, None, None, result_payload)
-    except Exception as e:
-        gc.logger.error(f"Brickognize: classification failed: {e}")
-        callback(
-            None,
-            ANY_COLOR,
-            ANY_COLOR_NAME,
-            None,
-            None,
-            None,
-            {
-                "provider": "brickognize",
-                "error": str(e),
-            },
-        )
-
-
-def _classifyImage(gc: Optional[GlobalConfig], image: np.ndarray) -> BrickognizeResponse:
-    return _classifyImages(gc, [image])
 
 
 def _classifyImages(
@@ -190,30 +87,16 @@ def _classifyImages(
     return result
 
 
-def _pickBestItem(
-    top_result: Optional[BrickognizeResponse],
-    bottom_result: Optional[BrickognizeResponse],
-) -> tuple[Optional[BrickognizeItem], Optional[str]]:
-    all_items: list[tuple[BrickognizeItem, str]] = []
-    if top_result is not None:
-        all_items += [(item, "top") for item in top_result.get("items", [])]
-    if bottom_result is not None:
-        all_items += [(item, "bottom") for item in bottom_result.get("items", [])]
-    if not all_items:
-        return None, None
-    best_item, best_view = max(all_items, key=lambda item: item[0].get("score", 0))
-    return best_item, best_view
+def rankedItems(result: object, n: int) -> list[BrickognizeItem]:
+    """A response's first n items (after the category filter), in Brickognize's
+    order, each carrying its rank in the unfiltered response."""
+    items = result.get("items", []) if isinstance(result, dict) else []
+    return [item for item in items if isinstance(item, dict)][:n]
 
 
-def _pickBestColor(
-    top_result: Optional[BrickognizeResponse],
-    bottom_result: Optional[BrickognizeResponse],
-) -> Optional[BrickognizeColor]:
-    all_colors: list[BrickognizeColor] = []
-    if top_result is not None:
-        all_colors += top_result.get("colors", [])
-    if bottom_result is not None:
-        all_colors += bottom_result.get("colors", [])
-    if not all_colors:
-        return None
-    return max(all_colors, key=lambda x: x.get("score", 0))
+def rankedColors(result: object, n: int) -> list[BrickognizeColor]:
+    """A response's n highest-scoring colors, best first, each carrying its rank
+    in the response."""
+    colors = result.get("colors", []) if isinstance(result, dict) else []
+    valid = [color for color in colors if isinstance(color, dict)]
+    return sorted(valid, key=lambda color: color.get("score", 0), reverse=True)[:n]

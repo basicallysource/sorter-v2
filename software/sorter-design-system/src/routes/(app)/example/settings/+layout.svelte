@@ -9,11 +9,18 @@
 	import { page } from '$app/state';
 	import SideNav from '$lib/components/SideNav.svelte';
 	import Select from '$lib/components/Select.svelte';
-	import { cameraSections, settingsGroups } from './nav';
+	import { cameraSections, settingsGroups, settingsPages } from './nav';
 
 	let { children } = $props();
 
-	const items = settingsGroups.flatMap((g) => g.items);
+	const items = settingsPages;
+	// The narrow screen's select: a sub-tab is named with its item.
+	const options = settingsGroups.flatMap((g) =>
+		g.items.flatMap((i) => [
+			{ value: i.href, label: i.label },
+			...(i.children ?? []).map((c) => ({ value: c.href, label: `${i.label} / ${c.label}` }))
+		])
+	);
 	const wide = $derived(cameraSections.includes(page.params.section ?? ''));
 	const here = $derived(
 		items
@@ -33,12 +40,7 @@
 				: 'max-w-6xl'}"
 		>
 			<div class="lg:hidden">
-				<Select
-					label="Settings page"
-					value={here}
-					options={items.map((i) => ({ value: i.href, label: i.label }))}
-					onchange={(href) => goto(href)}
-				/>
+				<Select label="Settings page" value={here} {options} onchange={(href) => goto(href)} />
 			</div>
 			{@render children()}
 		</div>

@@ -8,11 +8,9 @@ kicker: Electronics — Control board housing
 lede: Closing the control board into its printed housing, with the 40 mm fan on a GPIO-controlled port and the reset plunger in its lid.
 permalink: /hardware/electronics/installation/control-board-housing/
 author: spencer
+contributors: [barthel]
 og_image: https://assets.basically.website/sorter-docs/assembly-control-board-housing-housing-angled-w1600-d8c3ed33682d.jpg
-warning: >-
-  **AI-generated first draft.** Steps 1, 2 and 5 are photographed from a build. Nobody has printed
-  the cover, the plunger or the fan retainers yet, so steps 3, 4, 6 and 7 are written from the
-  models, and the pictures in them are renders.
+last_verified: 2026-10-11
 tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Soldering iron or heat-set insert press"]
 parts_needed:
   - part: ctrl-board-housing-base

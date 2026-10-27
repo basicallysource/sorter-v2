@@ -27,6 +27,7 @@ sudo python3 build.py --ref my-branch      # test image: first boot checks out m
 sudo python3 build.py --phase overlay      # re-run one phase
 sudo python3 build.py --phase zip          # compress for a release
 sudo python3 build.py --ref my-branch --from out/<previous>.img   # test image in a minute or two: skips grow + chroot
+sudo python3 build.py --from sorteros-v4.1.1-<date>.img     # a patch release that changes only overlay/ or the portal
 ```
 
 Output: `out/sorteros-v<version>-<date>.img`; `--phase zip` compresses it

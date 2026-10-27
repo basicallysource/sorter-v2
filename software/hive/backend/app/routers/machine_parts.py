@@ -1,11 +1,13 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from app.deps import get_current_machine
 from app.errors import APIError
 from app.models.machine import Machine
+from app.schemas.likely_colors import LikelyColorsResponse
+from app.services import color_rank, likely_colors
 from app.services.profile_catalog import get_profile_catalog_service
 
 router = APIRouter(prefix="/api/machine/parts", tags=["machine-parts"])
@@ -30,6 +32,20 @@ def batch_part_prices(payload: BatchPriceRequest, _machine: Machine = Depends(ge
     return {"prices": get_profile_catalog_service().batch_piece_prices(pairs)}
 
 
+@router.get("/{part_num}/likely-colors", response_model=LikelyColorsResponse)
+def get_likely_colors(
+    part_num: str,
+    predictions: str | None = Query(None, max_length=400),
+    limit: int = Query(likely_colors.DEFAULT_LIMIT, ge=1, le=likely_colors.DEFAULT_LIMIT),
+    _machine: Machine = Depends(get_current_machine),
+):
+    """Every labelable color ranked for a piece of this part, from the machine's
+    color predictions (`predictions=<BrickLink color id>:<score>,...`): how near
+    each color is to them, times how likely the part exists in it on BrickLink.
+    The same ranking people get on Hive's labeling page."""
+    return likely_colors.likely_colors(part_num, color_rank.parse_predictions(predictions), limit)
+
+
 @router.get("/{part_num}")
 def get_part_metadata(
     part_num: str,
@@ -44,4 +60,5 @@ def get_part_metadata(
 
 @catalog_router.get("/bricklink-colors")
 def list_bricklink_colors(_machine: Machine = Depends(get_current_machine)):
-    return {"results": get_profile_catalog_service().list_bricklink_colors()}
+    """The palette a machine's operator picks a piece's true color from."""
+    return {"results": likely_colors.labelable_palette()}

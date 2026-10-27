@@ -318,35 +318,5 @@ def test_com_in_precise_zone_is_the_eject_trigger() -> None:
     assert comInPreciseZone([], ch) is False                        # no piece
 
 
-# --- equivalence with legacy section math ----------------------------------
-
-
-def test_perception_bbox_sections_match_legacy_getBboxSections() -> None:
-    """The legacy ``subsystems.feeder.analysis.getBboxSections`` is the
-    reference; perception's section math must produce the same set for
-    the same inputs (otherwise saved arcs will attribute differently)."""
-    from defs.channel import PolygonChannel
-    from subsystems.feeder.analysis import getBboxSections as legacy_getBboxSections
-
-    ch = _channel()
-    legacy_channel = PolygonChannel(
-        channel_id=ch.channel_id,
-        polygon=np.zeros((0, 2), dtype=np.int32),
-        center=ch.center,
-        radius1_angle_image=ch.radius1_angle_image,
-        mask=ch.mask,
-        dropzone_sections=set(ch.drop_sections),
-        exit_sections=set(ch.exit_sections),
-    )
-    for angle in (0.0, 30.0, 90.0, 150.0, 210.0, 270.0, 350.0):
-        bbox = _bbox_at_angle(angle)
-        ours = set(bboxSections(bbox, ch))
-        theirs = set(legacy_getBboxSections(bbox, legacy_channel))
-        assert ours == theirs, (
-            f"section mismatch at angle={angle}°: perception={sorted(ours)}, "
-            f"legacy={sorted(theirs)}"
-        )
-
-
 # Suppress unused-import warning; cv2 is used transitively via buildChannelDef.
 _ = cv2

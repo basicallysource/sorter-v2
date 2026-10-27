@@ -25,6 +25,13 @@ gets used. It is a scope of its own and not a flag on `fleet:read`, so a
 consumer that should only ever see this view cannot hold a credential that asks
 for the other one.
 
+**`GET /fleet/detail` is the operator tier** (scope `fleet:detail`): the
+identified roster with everything running the fleet takes added to each row —
+software, hardware, health, sorting profile, uploads, daily history — plus the
+status reports of sorters that name no machine here. For a consumer that works
+for the operator and no one else. It still carries no address, hardware serial
+or contact detail; `services/fleet_detail.py` says what is left out and why.
+
 **`GET /fleet/mass` is in the anonymous tier** (scope `stats:read`): what the
 fleet has sorted by weight rather than by count. No machine and no person in
 it, so it belongs beside `/stats` — the consumer drawing the headline counter is
@@ -61,6 +68,7 @@ from app.deps import (
     API_KEY_PREFIX,
     API_KEY_SCOPE_CONTRIBUTORS_READ,
     API_KEY_SCOPE_FLEET_ANON,
+    API_KEY_SCOPE_FLEET_DETAIL,
     API_KEY_SCOPE_FLEET_READ,
     API_KEY_SCOPE_STATS_READ,
     get_db,
@@ -69,10 +77,12 @@ from app.deps import (
     resolve_public_scopes,
 )
 from app.models.machine import Machine
+from app.models.machine_daily_stats import MachineDailyStats
 from app.models.machine_piece import MachinePiece
+from app.models.machine_stats_cache import MachineStatsCache
 from app.models.user import User
 from app.models.user_identity import UserIdentity
-from app.services import analytics, fleet_mass, leaderboard, machine_stats
+from app.services import analytics, fleet_detail, fleet_mass, fleet_records, leaderboard, machine_stats
 
 router = APIRouter(prefix="/api/public", tags=["public-stats"])
 
@@ -136,6 +146,7 @@ def require_stats_key(
 require_contributors_key = require_public_scope(API_KEY_SCOPE_CONTRIBUTORS_READ)
 require_fleet_key = require_public_scope(API_KEY_SCOPE_FLEET_READ)
 require_fleet_anon_key = require_public_scope(API_KEY_SCOPE_FLEET_ANON)
+require_fleet_detail_key = require_public_scope(API_KEY_SCOPE_FLEET_DETAIL)
 
 
 @router.get("/stats", dependencies=[Depends(require_stats_key)])
@@ -160,8 +171,8 @@ def get_public_stats(db: Session = Depends(get_db)):
         # Weight, from the fleet-mass worker's last pass. Read and not computed:
         # this endpoint is polled continuously and the scan behind mass belongs
         # on a clock. `computed_at` is null until the first pass lands, which is
-        # about a second after boot.
-        "mass": fleet_mass.latest(),
+        # about a second after the worker process first starts.
+        "mass": fleet_mass.latest(db),
     }
 
 
@@ -181,7 +192,9 @@ def get_public_fleet(db: Session = Depends(get_db)):
     are what a consumer uses to say whether a machine is working RIGHT NOW and
     an hour-stale answer to that is a wrong one. The 30-day count is the one a
     leaderboard should rank on: a day is too short to mean much and a lifetime
-    total is the same order forever.
+    total is the same order forever. It is the last 30 UTC days, today
+    included, summed from the worker's daily table plus the pieces seen since
+    its last pass, so a month costs what an hour does.
 
     Every non-archived machine is listed, each flagged `is_active` against
     ACTIVE_MACHINE_MIN_PIECES, and both counts are returned. Filtering here
@@ -199,9 +212,16 @@ def _roster(db: Session) -> dict:
     assembled by its own query would eventually disagree with this one about
     how many machines exist, and two endpoints disagreeing about the size of
     the fleet is worse than either being slightly wrong.
+
+    Each row carries `owner_shares_activity`, the owner's opt-in to a live
+    activity listing. It is the owner's own setting and not something the
+    roster infers, it is off unless they turned it on, and off means a consumer
+    must leave that machine out of any "who is sorting right now" view. The
+    roster itself still lists every machine, so the counts do not move with the
+    opt-in; `/fleet/anon` projects its fields by name, so the opt-in is not in it.
     """
     rows = (
-        db.query(Machine, UserIdentity)
+        db.query(Machine, UserIdentity, User.share_activity)
         .outerjoin(
             UserIdentity,
             and_(
@@ -209,17 +229,18 @@ def _roster(db: Session) -> dict:
                 UserIdentity.provider == "discord",
             ),
         )
+        .outerjoin(User, User.id == Machine.owner_id)
         .filter(Machine.archived_at.is_(None))
         .order_by(Machine.created_at)
         .all()
     )
-    ids = [machine.id for machine, _ in rows]
+    ids = [machine.id for machine, _, _ in rows]
     lifetime = machine_stats.get_fleet_stats(db)
     recent = _pieces_by_machine_since(db, ids, hours=24)
     this_hour = _pieces_by_machine_since(db, ids, hours=1)
-    this_month = _pieces_by_machine_since(db, ids, hours=24 * 30)
+    this_month = _pieces_by_machine_last_days(db, ids, days=30)
     machines = []
-    for machine, identity in rows:
+    for machine, identity, shares_activity in rows:
         mid = str(machine.id)
         stats_row = lifetime.get(mid, {})
         pieces_seen = int(stats_row.get("pieces_seen") or 0)
@@ -238,9 +259,20 @@ def _roster(db: Session) -> dict:
                 "pieces_seen": pieces_seen,
                 "distributed": int(stats_row.get("distributed") or 0),
                 "overall_ppm": float(stats_row.get("overall_ppm") or 0.0),
+                # Distinct parts and colors this machine has identified, from
+                # the same hourly cache as pieces_seen.
+                "unique_parts": int(stats_row.get("unique_parts") or 0),
+                "unique_colors": int(stats_row.get("unique_colors") or 0),
                 "last_24h_pieces": recent.get(mid, 0),
                 "last_hour_pieces": this_hour.get(mid, 0),
                 "last_30d_pieces": this_month.get(mid, 0),
+                # The owner's opt-in to a live activity listing (users.share_activity).
+                # Off is the default, and it means "leave this machine out of any
+                # live activity listing": a consumer that shows which machines are
+                # sorting right now must skip every row where this is false. It is
+                # the owner's choice, set on their Hive account settings, and false
+                # when the machine has no owner row to ask.
+                "owner_shares_activity": bool(shares_activity),
                 "owner_discord": None
                 if identity is None
                 else {
@@ -345,6 +377,20 @@ def get_public_fleet_anon(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/fleet/detail", dependencies=[Depends(require_fleet_detail_key)])
+def get_public_fleet_detail(db: Session = Depends(get_db)):
+    """The roster as the operator needs it: every machine with what it runs,
+    what it is built from, how it is, and what it sorted day by day.
+
+    Built on `_roster`, so its machines and counts are the roster's exactly;
+    each row only gains fields. Those come from tables the workers keep
+    (the stats cache, the daily table, the last status report and hardware
+    report) and from the profile and upload bookkeeping, all small, so this
+    costs about what `/fleet` does. See `services/fleet_detail.py`.
+    """
+    return fleet_detail.build(db, _roster(db))
+
+
 @router.get("/fleet/mass", dependencies=[Depends(require_stats_key)])
 def get_public_fleet_mass(db: Session = Depends(get_db)):
     """How much the fleet has sorted, by mass rather than by count.
@@ -362,7 +408,23 @@ def get_public_fleet_mass(db: Session = Depends(get_db)):
     one remains because it is the surface a consumer that wants only weight
     asks, and it costs it nothing to ask.
     """
-    return fleet_mass.latest()
+    return fleet_mass.latest(db)
+
+
+@router.get("/fleet/records", dependencies=[Depends(require_fleet_key)])
+def get_public_fleet_records(db: Session = Depends(get_db)):
+    """What a leaderboard needs beyond the roster's counters: each machine's
+    speed over the last day and month (and the day's double feeds), which
+    machine processed each of the fleet's milestone pieces, the first machine
+    to reach each milestone on its own, and the newest parts and colors the
+    fleet had never seen before.
+
+    In the identified tier because every answer is keyed by machine id, which
+    `/fleet` turns into a name and an owner. Served from the worker's last pass
+    and never computed here — see `services/fleet_records.py`, which also says
+    why a milestone, once answered, does not change.
+    """
+    return fleet_records.latest(db)
 
 
 def _pieces_by_machine_since(db: Session, ids: list, *, hours: int) -> dict[str, int]:
@@ -383,6 +445,46 @@ def _pieces_by_machine_since(db: Session, ids: list, *, hours: int) -> dict[str,
         .all()
     )
     return {str(mid): int(n) for mid, n in rows}
+
+
+def _pieces_by_machine_last_days(db: Session, ids: list, *, days: int) -> dict[str, int]:
+    """Piece count per machine over the last ``days`` UTC days, today included.
+
+    The days up to the stats worker's last pass come from machine_daily_stats
+    (hourly); only the pieces seen since that pass are counted live, off the
+    (machine_id, seen_at) index, so this reads an hour of pieces rather than a
+    month. A machine the worker has not seen yet is counted live, whole.
+    """
+    if not ids:
+        return {}
+    today = datetime.now(timezone.utc).date()
+    first_day = today - timedelta(days=days - 1)
+    window_start = datetime(first_day.year, first_day.month, first_day.day, tzinfo=timezone.utc)
+    passes = dict(
+        db.query(MachineStatsCache.machine_id, MachineStatsCache.computed_at).filter(
+            MachineStatsCache.machine_id.in_(ids)
+        )
+    )
+    counts = {
+        str(mid): int(n)
+        for mid, n in db.query(MachineDailyStats.machine_id, func.sum(MachineDailyStats.pieces_seen))
+        .filter(MachineDailyStats.machine_id.in_(list(passes)), MachineDailyStats.day >= first_day)
+        .group_by(MachineDailyStats.machine_id)
+    }
+    since: dict[datetime, list] = {}
+    for mid in ids:
+        last_pass = passes.get(mid)
+        if last_pass is not None and last_pass.tzinfo is None:
+            last_pass = last_pass.replace(tzinfo=timezone.utc)
+        since.setdefault(max(last_pass or window_start, window_start), []).append(mid)
+    for start, mids in since.items():
+        for mid, n in (
+            db.query(MachinePiece.machine_id, func.count())
+            .filter(MachinePiece.machine_id.in_(mids), MachinePiece.seen_at >= start)
+            .group_by(MachinePiece.machine_id)
+        ):
+            counts[str(mid)] = counts.get(str(mid), 0) + int(n)
+    return counts
 
 
 def _rolling_24h_pieces(db: Session, ids: list) -> int:

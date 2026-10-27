@@ -44,6 +44,24 @@ def save_upload_file(
     return key
 
 
+def save_sample_frame_file(
+    machine_id: str, source_session_id: str, local_sample_id: str, file: UploadFile
+) -> str:
+    # Deterministic key built only from the machine's own sample identity, so
+    # the frame can be written before Hive looks up (or creates) the upload
+    # session, and a re-sent sample overwrites its file instead of leaving a
+    # second copy behind. The caller has already checked that it is a JPEG.
+    key = _join_key(
+        _safe_path_component(machine_id, "machine id"),
+        "samples",
+        _safe_path_component(source_session_id, "session id"),
+        f"{_safe_path_component(local_sample_id, 'sample id')}.jpg",
+    )
+    file.file.seek(0)
+    get_backend().write_stream(key, file.file, content_type="image/jpeg")
+    return key
+
+
 def save_piece_image_file(
     machine_id: str, piece_uuid: str, seq: int, source: str | None, file: UploadFile, suffix: str
 ) -> str:
@@ -75,6 +93,26 @@ def save_channel_crop_file(
     )
     file.file.seek(0)
     get_backend().write_stream(key, file.file, content_type=file.content_type)
+    return key
+
+
+# A batch of channel crops: up to this many crops, their JPEGs back to back in
+# one stored file of at most MAX_CROP_BATCH_BYTES.
+MAX_CROP_BATCH_ITEMS = 1000
+MAX_CROP_BATCH_BYTES = 8 * 1024 * 1024
+JPEG_MAGIC = b"\xff\xd8\xff"
+
+
+def save_channel_crop_batch_file(machine_id: str, first_local_id: int, last_local_id: int, data: bytes) -> str:
+    # Keyed on the batch's crop ids, so a re-send of the same batch overwrites
+    # it. Each crop's own key is a range in this file (storage_backend.ranged_key).
+    key = _join_key(
+        _safe_path_component(machine_id, "machine id"),
+        "channel_crops",
+        "batches",
+        f"{int(first_local_id)}-{int(last_local_id)}.bin",
+    )
+    get_backend().write_stream(key, io.BytesIO(data), content_type="application/octet-stream")
     return key
 
 

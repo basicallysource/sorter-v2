@@ -4,6 +4,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Input from '$lib/components/Input.svelte';
 	import PartImage from '$lib/components/PartImage.svelte';
+	import Alert from '$lib/components/Alert.svelte';
 	import X from '@lucide/svelte/icons/x';
 
 	type SetResult = {
@@ -26,6 +27,7 @@
 	let results = $state<SetResult[]>([]);
 	let loading = $state(false);
 	let searched = $state(false);
+	let error = $state<string | null>(null);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function handleInput() {
@@ -34,6 +36,7 @@
 		if (!q) {
 			results = [];
 			searched = false;
+			error = null;
 			return;
 		}
 		debounceTimer = setTimeout(() => void doSearch(q), 400);
@@ -42,14 +45,16 @@
 	async function doSearch(q: string) {
 		loading = true;
 		searched = true;
+		error = null;
 		try {
 			const opts: { min_year?: number; max_year?: number } = {};
 			if (minYear) opts.min_year = parseInt(String(minYear), 10);
 			if (maxYear) opts.max_year = parseInt(String(maxYear), 10);
 			const res = await api.searchProfileCatalogSets(q, opts);
 			results = res.results;
-		} catch {
+		} catch (e: any) {
 			results = [];
+			error = e?.error || 'The set search failed.';
 		} finally {
 			loading = false;
 		}
@@ -88,6 +93,8 @@
 
 	{#if loading}
 		<p class="flex items-center justify-center gap-2 py-4 text-sm text-ink-muted"><Spinner size={14} />Searching</p>
+	{:else if error}
+		<Alert tone="danger">{error}</Alert>
 	{:else if searched && results.length === 0}
 		<p class="py-4 text-center text-sm text-ink-muted">No sets found.</p>
 	{:else if results.length > 0}

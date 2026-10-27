@@ -292,12 +292,10 @@ class C4FiveSectorPlatter:
         *,
         wall_offset_deg: float = 0.0,
     ) -> "C4FiveSectorPlatter":
+        from hardware_settings.motors import motorNamed
+        from hardware_settings.steppers import readStepperSettings
+
         classification_config = getattr(irl_config, "classification_channel_config", None)
-        stepper_config = getattr(irl_config, "c_channel_4_rotor_stepper", None) or getattr(
-            irl_config,
-            "carousel_stepper",
-            None,
-        )
         return cls(
             sector_count=int(
                 getattr(
@@ -320,9 +318,9 @@ class C4FiveSectorPlatter:
                     DEFAULT_C4_MOTOR_STEPS_PER_REVOLUTION,
                 )
             ),
-            microsteps=int(
-                getattr(stepper_config, "microsteps", DEFAULT_C4_MICROSTEPS)
-            ),
+            # The carousel motor's saved microstepping, which its driver runs on
+            # from every start and right after a change.
+            microsteps=readStepperSettings(motorNamed("carousel")).microsteps,
             wall_offset_deg=float(wall_offset_deg),
             motion_profile=C4MotionProfile.from_irl_config(irl_config),
         )

@@ -90,7 +90,7 @@ def describe(incident: dict[str, Any] | None) -> dict[str, Any] | None:
     else:
         title, todo, actions = kind.title, kind.todo, kind.actionsFor(incident)
     fields = _Fields(incident, subject)
-    return {
+    card = {
         "kind": incident.get("kind"),
         "title": title,
         "subject": subject,
@@ -98,6 +98,16 @@ def describe(incident: dict[str, Any] | None) -> dict[str, Any] | None:
         "actions": [{"key": key, "label": ACTIONS[key].label} for key in actions],
         "since": incident.get("triggered_at"),
     }
+    progress = incident.get("recovery")
+    if isinstance(progress, dict):
+        # A recovery procedure is working on it (recovery/): what it is doing,
+        # and Stop while it runs; once it gives up or is stopped, the card asks
+        # the operator again.
+        card["recovery"] = dict(progress)
+        if progress.get("state") == "running":
+            card["todo"] = str(progress.get("title") or "Trying to free it") + "."
+            card["actions"] = [{"key": "stop_recovery", "label": ACTIONS["stop_recovery"].label}]
+    return card
 
 
 def act(gc: Any, action: str) -> dict[str, Any]:

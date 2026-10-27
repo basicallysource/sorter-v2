@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import queue
 import time
+from collections import deque
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -21,6 +22,7 @@ from defs.known_object import ClassificationStatus, KnownObject, PieceStage
 from piece_transport import ClassificationChannelTransport
 from runtime_stats import C4_WAITING_FOR_PIECE, RuntimeStatsCollector
 from subsystems.classification_channel.two_piece import flow as two_piece
+from piece_cycles import CycleRecorder
 from subsystems.classification_channel.two_piece.flow import (
     TwoPieceClassificationChannel,
     _Phase,
@@ -92,6 +94,9 @@ def _mkChannel(transport, shared) -> TwoPieceClassificationChannel:
     ch.irl_config = SimpleNamespace()
     ch.ctx = SimpleNamespace(reset=lambda: None, known_object=None)
     ch._pieces = {}
+    ch._lost, ch._last_step_at, ch._turned_at = [], None, 0.0
+    ch._rotation_started_at = 0.0
+    ch._pair_until, ch._pair_group = 0.0, None
     ch._phase = _Phase.WAITING
     ch._eject_target = None
     ch._stage_target = None
@@ -100,7 +105,11 @@ def _mkChannel(transport, shared) -> TwoPieceClassificationChannel:
     ch._multi_drop_streak = 0
     ch._multi_drop_last_ts = -1.0
     ch._multi_drop_seq = 0
+    ch._recent_ejects = deque(maxlen=16)
     ch._bucket_hold_cycles = 0
+    ch._cycles = CycleRecorder()
+    ch._was_ready = False
+    ch._ready_since = None
     return ch
 
 
@@ -425,3 +434,19 @@ def test_waiting_with_the_drop_zone_clear_reads_as_waiting_for_a_piece() -> None
     assert ch.phaseName() == C4_WAITING_FOR_PIECE
     ch._phase = _Phase.EJECTING
     assert ch.phaseName() == "ejecting"
+
+
+
+def test_a_ready_head_goes_out_alone_when_no_next_piece_comes() -> None:
+    transport = ClassificationChannelTransport()
+    shared = _mkShared(transport)
+    ch = _mkChannel(transport, shared)
+    obj = _positioned(transport, shared)
+    shared.set_distribution_gate(True, reason=None)
+    head = _addPiece(ch, 7, gap_to_exit=40.0, obj=obj, placed=True)
+    ch._ready_since = time.monotonic() - 5.0
+    ch._maybeStartRotation()
+    assert ch._phase == _Phase.WAITING  # a next piece may still come
+    ch._ready_since = time.monotonic() - two_piece._HEAD_ALONE_AFTER_S - 1.0
+    ch._maybeStartRotation()
+    assert ch._phase == _Phase.EJECTING and ch._eject_target is head and ch._stage_target is None

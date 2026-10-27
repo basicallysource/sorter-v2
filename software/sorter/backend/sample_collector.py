@@ -5,37 +5,86 @@ import threading
 import time
 from typing import Any
 
+import hive_defaults
+import hive_limits
+import sample_store
 from global_config import GlobalConfig
 from local_state import get_sample_collection_state, set_sample_collection_state
-from sample_ingest import ingestSampleFrame
+from sample_ingest import buildSample
 
-DEFAULT_INTERVAL_S = 10.0
-# Floor the interval so a bad rate value can't spin the loop into a busy save
-# storm that fills the disk and pins a core.
-MIN_INTERVAL_S = 0.1
+# One full frame per camera every two minutes at most, and by default: faster
+# only re-sends near-identical frames and loads the machine and Hive. A saved
+# setting faster than this is raised to it when it is read.
+DEFAULT_INTERVAL_S = 120.0
+MIN_INTERVAL_S = 120.0
 # How often the loop wakes to notice an enable/disable flip while idle.
 _IDLE_POLL_S = 0.25
 
-# Decay defaults: a run's first samples come fast (burst), then the interval
-# grows geometrically to a slow floor over the ramp so the same rig stops
-# re-uploading near-identical frames forever. Jitter breaks the periodicity so
-# we still occasionally catch a drift in conditions. Reset re-arms the burst.
+# Decay: a run's first samples come fast (burst), then the interval grows
+# geometrically to a slow floor over the ramp so the same rig stops re-uploading
+# near-identical frames forever. Jitter breaks the periodicity so we still
+# occasionally catch a drift in conditions. Reset re-arms the burst. The burst,
+# floor and ramp come from Hive's limits unless set here, and the burst can
+# never be faster than Hive allows.
 DEFAULT_DECAY_ENABLED = True
-DEFAULT_BURST_INTERVAL_S = DEFAULT_INTERVAL_S  # fast rate right after a reset
-DEFAULT_FLOOR_INTERVAL_S = 3600.0  # ~1 capture/hour steady state
-DEFAULT_RAMP_HOURS = 72.0  # burst -> floor over ~3 days
 DEFAULT_JITTER_FRAC = 0.3  # ±30% random wobble on each interval
+
+# While a training run collects (training_runs), the classification camera's
+# frame, with the colour reference palette in it, is captured as each colour
+# segment starts and then every MIN_INTERVAL_S, whether or not sample capture is
+# on (and never sooner than MIN_INTERVAL_S after that camera's last frame): the
+# palette's readings calibrate the run's labels to the light, which can change
+# during a run.
+_CALIBRATION_ROLES = ("classification_channel", "carousel")
+
+# Values the previous version of this file saved for every machine whether or
+# not anyone set them. Read as "not set", so those machines follow Hive.
+_OLD_SAVED_DEFAULTS = {"burst_interval_s": 10.0, "floor_interval_s": 3600.0, "ramp_hours": 72.0}
+
+# The settings with a default (the primary Hive's `sample_capture.<key>`, else
+# the code's below). Only what the person chose is kept, so a machine that never
+# chose follows the default when it changes.
+CODE_DEFAULTS: dict[str, Any] = {
+    "enabled": False,
+    "interval_s": DEFAULT_INTERVAL_S,
+    "annotate": True,
+    "decay_enabled": DEFAULT_DECAY_ENABLED,
+}
+# The saved state's shape: version 2 keeps only chosen settings. Before it,
+# every setting was saved, chosen or not, so a value equal to its code default
+# is read as not chosen.
+_STATE_FORMAT = 2
+
+
+def _isBool(value: Any) -> bool:
+    return isinstance(value, bool)
+
+
+def _isInterval(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0
+
+
+_VALID = {"enabled": _isBool, "interval_s": _isInterval, "annotate": _isBool, "decay_enabled": _isBool}
+
+
+def captureDefaults() -> dict[str, Any]:
+    defaults = {
+        key: hive_defaults.value(f"sample_capture.{key}", code_default, _VALID[key])
+        for key, code_default in CODE_DEFAULTS.items()
+    }
+    defaults["interval_s"] = max(MIN_INTERVAL_S, float(defaults["interval_s"]))
+    return defaults
 
 
 class SampleCollector:
     """Standalone, mode-agnostic training-image grabber.
 
-    A single background thread. When enabled it snapshots the latest raw
-    frame from every live camera at a target cadence and hands each frame to
-    the existing classification pipeline (save -> archive -> annotate ->
-    enqueue -> Hive upload) via ``sample_ingest``. It is a source into that
-    pipeline that is independent of VisionManager: one toggle, one rate, runs
-    no matter how the machine is otherwise configured.
+    A single background thread. When enabled, and only while the machine is
+    sorting, it takes the latest frame from every camera with a teacher zone at
+    the schedule's cadence, builds a sample (sample_ingest) and hands it to
+    sample_store, which keeps it on disk until the Hive sync worker uploads it.
+    Independent of VisionManager: one toggle, one schedule, no matter how the
+    machine is otherwise configured.
     """
 
     def __init__(self, gc: GlobalConfig, camera_service: Any) -> None:
@@ -46,13 +95,13 @@ class SampleCollector:
         self._wake = threading.Event()
         self._thread: threading.Thread | None = None
 
-        self._enabled = False
-        self._interval_s = DEFAULT_INTERVAL_S
-        self._annotate = True
-        self._decay_enabled = DEFAULT_DECAY_ENABLED
-        self._burst_interval_s = DEFAULT_BURST_INTERVAL_S
-        self._floor_interval_s = DEFAULT_FLOOR_INTERVAL_S
-        self._ramp_hours = DEFAULT_RAMP_HOURS
+        # The settings the person chose; the rest follow captureDefaults().
+        self._chosen: dict[str, Any] = {}
+        # Local settings; None follows Hive's limit.
+        self._burst_interval_s: float | None = None
+        self._floor_interval_s: float | None = None
+        self._ramp_hours: float | None = None
+        self._store_max_mb: float | None = None
         self._jitter_frac = DEFAULT_JITTER_FRAC
         # When the current decay started (persisted so decay spans restarts).
         # None until the first capture arms it; resetDecay() re-anchors to now.
@@ -60,44 +109,122 @@ class SampleCollector:
         self._saved_count = 0
         self._last_saved_at: float | None = None
         self._last_error: str | None = None
+        # The training segment the last calibration frame was for, and when.
+        self._calibrated_segment: str | None = None
+        self._calibrated_at = 0.0
+        # When each camera last gave a frame: none gives two within MIN_INTERVAL_S.
+        self._captured_at: dict[str, float] = {}
         self._loadPersisted()
+        sample_store.configure(gc.logger, self._storeCapBytes())
+
+    def _setting(self, key: str) -> Any:
+        if key in self._chosen:
+            return self._chosen[key]
+        return captureDefaults()[key]
+
+    @property
+    def _enabled(self) -> bool:
+        return bool(self._setting("enabled"))
+
+    @property
+    def _annotate(self) -> bool:
+        return bool(self._setting("annotate"))
+
+    @property
+    def _interval_s(self) -> float:
+        return max(MIN_INTERVAL_S, float(self._setting("interval_s")))
+
+    @property
+    def _decay_enabled(self) -> bool:
+        return bool(self._setting("decay_enabled"))
+
+    def _choose(self, key: str, value: Any) -> None:
+        """The person set `key`: kept, unless it is the default, which it then
+        follows."""
+        if value == captureDefaults()[key]:
+            self._chosen.pop(key, None)
+        else:
+            self._chosen[key] = value
 
     @staticmethod
-    def _posFloat(value: Any, fallback: float) -> float:
+    def _posFloat(value: Any) -> float | None:
         if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
             return float(value)
-        return fallback
+        return None
+
+    @classmethod
+    def _interval(cls, value: Any) -> float | None:
+        # A local interval setting: none, or at least MIN_INTERVAL_S.
+        seconds = cls._posFloat(value)
+        return None if seconds is None else max(MIN_INTERVAL_S, seconds)
+
+    def _storeCapBytes(self) -> int | None:
+        return int(self._store_max_mb * 1024 * 1024) if self._store_max_mb else None
+
+    @staticmethod
+    def _limits() -> dict[str, float]:
+        limits = hive_limits.machineLimits()
+        return {
+            "burst_interval_s": float(limits["sample_burst_interval_s"]),
+            "floor_interval_s": float(limits["sample_floor_interval_s"]),
+            "ramp_hours": float(limits["sample_ramp_hours"]),
+        }
+
+    def _scheduleLocked(self) -> dict[str, float]:
+        """The schedule in force: local settings where set, Hive's limits
+        otherwise, and never a burst faster than Hive's."""
+        limits = self._limits()
+        burst = max(self._burst_interval_s or limits["burst_interval_s"], limits["burst_interval_s"], MIN_INTERVAL_S)
+        floor = max(self._floor_interval_s or limits["floor_interval_s"], burst)
+        ramp = self._ramp_hours if self._ramp_hours is not None else limits["ramp_hours"]
+        interval = max(self._interval_s, limits["burst_interval_s"], MIN_INTERVAL_S)
+        return {"burst_interval_s": burst, "floor_interval_s": floor, "ramp_hours": ramp, "interval_s": interval}
 
     def _loadPersisted(self) -> None:
         saved = get_sample_collection_state()
         if not isinstance(saved, dict):
             return
-        self._enabled = bool(saved.get("enabled", False))
-        self._annotate = bool(saved.get("annotate", True))
-        interval = saved.get("interval_s")
-        if isinstance(interval, (int, float)) and not isinstance(interval, bool) and interval > 0:
-            self._interval_s = max(MIN_INTERVAL_S, float(interval))
-        self._decay_enabled = bool(saved.get("decay_enabled", DEFAULT_DECAY_ENABLED))
-        self._burst_interval_s = max(MIN_INTERVAL_S, self._posFloat(saved.get("burst_interval_s"), DEFAULT_BURST_INTERVAL_S))
-        self._floor_interval_s = max(MIN_INTERVAL_S, self._posFloat(saved.get("floor_interval_s"), DEFAULT_FLOOR_INTERVAL_S))
-        self._ramp_hours = self._posFloat(saved.get("ramp_hours"), DEFAULT_RAMP_HOURS)
+        chosen_only = saved.get("format") == _STATE_FORMAT
+        for key, valid in _VALID.items():
+            value = saved.get(key)
+            if not valid(value):
+                continue
+            if key == "interval_s":
+                value = max(MIN_INTERVAL_S, float(value))
+            if chosen_only or value != CODE_DEFAULTS[key]:
+                self._chosen[key] = value
+        for key in ("burst_interval_s", "floor_interval_s", "ramp_hours"):
+            value = self._posFloat(saved.get(key))
+            if value == _OLD_SAVED_DEFAULTS[key]:
+                value = None
+            elif key != "ramp_hours":
+                value = self._interval(value)
+            setattr(self, f"_{key}", value)
+        self._store_max_mb = self._posFloat(saved.get("store_max_mb"))
         jitter = saved.get("jitter_frac")
         if isinstance(jitter, (int, float)) and not isinstance(jitter, bool) and 0 <= jitter <= 1:
             self._jitter_frac = float(jitter)
         anchor = saved.get("decay_anchor_ts")
         if isinstance(anchor, (int, float)) and not isinstance(anchor, bool) and anchor > 0:
             self._decay_anchor_ts = float(anchor)
+        # A setting saved faster than the minimum is stored at the minimum.
+        raised = any(
+            isinstance(saved.get(key), (int, float)) and saved.get(key) != getattr(self, f"_{key}")
+            for key in ("interval_s", "burst_interval_s", "floor_interval_s")
+            if getattr(self, f"_{key}") is not None
+        )
+        if raised:
+            self._persist()
 
     def _persist(self) -> None:
         set_sample_collection_state(
             {
-                "enabled": self._enabled,
-                "interval_s": self._interval_s,
-                "annotate": self._annotate,
-                "decay_enabled": self._decay_enabled,
+                "format": _STATE_FORMAT,
+                **self._chosen,
                 "burst_interval_s": self._burst_interval_s,
                 "floor_interval_s": self._floor_interval_s,
                 "ramp_hours": self._ramp_hours,
+                "store_max_mb": self._store_max_mb,
                 "jitter_frac": self._jitter_frac,
                 "decay_anchor_ts": self._decay_anchor_ts,
             }
@@ -106,14 +233,14 @@ class SampleCollector:
     def _baseIntervalLocked(self, now: float) -> float:
         # The interval BEFORE jitter, so status() can report a stable curve
         # value. Geometric growth from burst -> floor across the ramp.
+        schedule = self._scheduleLocked()
         if not self._decay_enabled:
-            return max(MIN_INTERVAL_S, self._interval_s)
+            return schedule["interval_s"]
         anchor = self._decay_anchor_ts if self._decay_anchor_ts is not None else now
-        ramp_s = max(1.0, self._ramp_hours * 3600.0)
+        ramp_s = max(1.0, schedule["ramp_hours"] * 3600.0)
         frac = min(1.0, max(0.0, (now - anchor) / ramp_s))
-        burst = max(MIN_INTERVAL_S, self._burst_interval_s)
-        floor = max(burst, self._floor_interval_s)
-        return burst * (floor / burst) ** frac
+        burst = schedule["burst_interval_s"]
+        return burst * (schedule["floor_interval_s"] / burst) ** frac
 
     def _nextWaitLocked(self, now: float) -> float:
         base = self._baseIntervalLocked(now)
@@ -145,7 +272,7 @@ class SampleCollector:
 
     def setEnabled(self, enabled: bool) -> dict[str, Any]:
         with self._lock:
-            self._enabled = bool(enabled)
+            self._choose("enabled", bool(enabled))
             self._last_error = None
             self._persist()
         self._wake.set()
@@ -154,14 +281,14 @@ class SampleCollector:
 
     def setAnnotate(self, annotate: bool) -> dict[str, Any]:
         with self._lock:
-            self._annotate = bool(annotate)
+            self._choose("annotate", bool(annotate))
             self._persist()
         self.gc.logger.info("SampleCollector annotate=%s" % self._annotate)
         return self.status()
 
     def setIntervalSeconds(self, interval_s: float) -> dict[str, Any]:
         with self._lock:
-            self._interval_s = max(MIN_INTERVAL_S, float(interval_s))
+            self._choose("interval_s", max(MIN_INTERVAL_S, float(interval_s)))
             self._persist()
         self._wake.set()
         return self.status()
@@ -171,28 +298,40 @@ class SampleCollector:
             raise ValueError("rate_hz must be > 0")
         return self.setIntervalSeconds(1.0 / float(rate_hz))
 
+    _UNSET: Any = object()
+
     def setDecayConfig(
         self,
         *,
         decay_enabled: bool | None = None,
-        burst_interval_s: float | None = None,
-        floor_interval_s: float | None = None,
-        ramp_hours: float | None = None,
+        burst_interval_s: Any = _UNSET,
+        floor_interval_s: Any = _UNSET,
+        ramp_hours: Any = _UNSET,
         jitter_frac: float | None = None,
     ) -> dict[str, Any]:
+        """Each of burst, floor and ramp: a positive number sets it here; None
+        (or 0) clears it so Hive's limit applies; left out, unchanged."""
         with self._lock:
             if decay_enabled is not None:
-                self._decay_enabled = bool(decay_enabled)
-            if burst_interval_s is not None:
-                self._burst_interval_s = max(MIN_INTERVAL_S, float(burst_interval_s))
-            if floor_interval_s is not None:
-                self._floor_interval_s = max(MIN_INTERVAL_S, float(floor_interval_s))
-            if ramp_hours is not None:
-                self._ramp_hours = max(0.0, float(ramp_hours))
+                self._choose("decay_enabled", bool(decay_enabled))
+            if burst_interval_s is not self._UNSET:
+                self._burst_interval_s = self._interval(burst_interval_s)
+            if floor_interval_s is not self._UNSET:
+                self._floor_interval_s = self._interval(floor_interval_s)
+            if ramp_hours is not self._UNSET:
+                self._ramp_hours = self._posFloat(ramp_hours)
             if jitter_frac is not None:
                 self._jitter_frac = min(1.0, max(0.0, float(jitter_frac)))
             self._persist()
         self._wake.set()
+        return self.status()
+
+    def setStoreMaxMb(self, store_max_mb: float | None) -> dict[str, Any]:
+        """A local cap on the sample store under Hive's; None or 0 clears it."""
+        with self._lock:
+            self._store_max_mb = self._posFloat(store_max_mb)
+            self._persist()
+        sample_store.setLocalCapBytes(self._storeCapBytes())
         return self.status()
 
     def resetDecay(self) -> dict[str, Any]:
@@ -207,7 +346,8 @@ class SampleCollector:
     def status(self) -> dict[str, Any]:
         with self._lock:
             now = time.time()
-            interval = self._interval_s
+            schedule = self._scheduleLocked()
+            interval = schedule["interval_s"]
             last_saved_at = self._last_saved_at
             base_interval = self._baseIntervalLocked(now)
             elapsed = (now - self._decay_anchor_ts) if self._decay_anchor_ts is not None else None
@@ -218,9 +358,19 @@ class SampleCollector:
                 "interval_s": interval,
                 "rate_hz": (1.0 / interval) if interval > 0 else None,
                 "decay_enabled": self._decay_enabled,
-                "burst_interval_s": self._burst_interval_s,
-                "floor_interval_s": self._floor_interval_s,
-                "ramp_hours": self._ramp_hours,
+                # In force (local where set, else Hive), then what is set here
+                # (None = following Hive) and Hive's limits themselves.
+                "burst_interval_s": schedule["burst_interval_s"],
+                "floor_interval_s": schedule["floor_interval_s"],
+                "ramp_hours": schedule["ramp_hours"],
+                "local_settings": {
+                    "burst_interval_s": self._burst_interval_s,
+                    "floor_interval_s": self._floor_interval_s,
+                    "ramp_hours": self._ramp_hours,
+                    "store_max_mb": self._store_max_mb,
+                },
+                "hive_limits": hive_limits.machineLimits(),
+                "store": sample_store.stats(),
                 "jitter_frac": self._jitter_frac,
                 "decay_anchor_ts": self._decay_anchor_ts,
                 "decay_elapsed_s": elapsed,
@@ -232,6 +382,10 @@ class SampleCollector:
                 "last_saved_at": last_saved_at,
                 "last_saved_age_s": (now - last_saved_at) if last_saved_at else None,
                 "last_error": self._last_error,
+                # What each setting goes back to (Hive's default, else the
+                # code's), and which ones the person chose.
+                "defaults": captureDefaults(),
+                "chosen": sorted(self._chosen),
             }
 
     def _isSorting(self) -> bool:
@@ -249,53 +403,98 @@ class SampleCollector:
         except Exception:
             return False
 
+    def _calibrationWaitS(self, now: float) -> float | None:
+        """Seconds until a training run's next calibration frame is due (0 when
+        it is), or None while no run collects."""
+        import training_runs
+
+        segment = training_runs.openSegment()
+        if segment is None:
+            return None
+        earliest = max((self._captured_at.get(role, 0.0) for role in _CALIBRATION_ROLES), default=0.0)
+        earliest += MIN_INTERVAL_S
+        if segment[0] != self._calibrated_segment:
+            return max(0.0, earliest - now)
+        interval = max(MIN_INTERVAL_S, self._limits()["burst_interval_s"])
+        return max(0.0, max(self._calibrated_at + interval, earliest) - now)
+
+    def _captureCalibration(self, now: float) -> None:
+        import training_runs
+
+        segment = training_runs.openSegment()
+        self._calibrated_segment = segment[0] if segment else None
+        self._calibrated_at = now
+        try:
+            self._captureOnce(roles=_CALIBRATION_ROLES)
+        except Exception as exc:
+            with self._lock:
+                self._last_error = str(exc)
+            self.gc.logger.warning("SampleCollector calibration capture failed: %s" % exc)
+
     def _loop(self) -> None:
+        next_capture_at = 0.0
         while not self._stop.is_set():
             with self._lock:
                 enabled = self._enabled
-            if not enabled or not self._isSorting():
-                self._wake.wait(timeout=_IDLE_POLL_S)
+            sorting = self._isSorting()
+            calibration_wait = self._calibrationWaitS(time.time()) if sorting else None
+            if calibration_wait == 0.0:
+                self._captureCalibration(time.time())
+                calibration_wait = self._calibrationWaitS(time.time())
+            if not enabled or not sorting:
+                self._wake.wait(timeout=min(_IDLE_POLL_S, calibration_wait or _IDLE_POLL_S))
                 self._wake.clear()
                 continue
-            with self._lock:
-                # Arm the decay clock on the first capture so the burst starts
-                # when sampling actually begins, not at boot.
-                if self._decay_enabled and self._decay_anchor_ts is None:
-                    self._decay_anchor_ts = time.time()
-                    self._persist()
-            try:
-                self._captureOnce()
-            except Exception as exc:
+            if time.time() >= next_capture_at:
                 with self._lock:
-                    self._last_error = str(exc)
-                self.gc.logger.warning("SampleCollector capture failed: %s" % exc)
-            with self._lock:
-                wait_s = self._nextWaitLocked(time.time())
-            self._wake.wait(timeout=wait_s)
+                    # Arm the decay clock on the first capture so the burst starts
+                    # when sampling actually begins, not at boot.
+                    if self._decay_enabled and self._decay_anchor_ts is None:
+                        self._decay_anchor_ts = time.time()
+                        self._persist()
+                try:
+                    self._captureOnce()
+                except Exception as exc:
+                    with self._lock:
+                        self._last_error = str(exc)
+                    self.gc.logger.warning("SampleCollector capture failed: %s" % exc)
+                with self._lock:
+                    next_capture_at = time.time() + self._nextWaitLocked(time.time())
+            wait_s = max(0.0, next_capture_at - time.time())
+            if calibration_wait is not None:
+                wait_s = min(wait_s, max(_IDLE_POLL_S, calibration_wait))
+            # A setting changed (enabled, schedule, reset): capture again now.
+            if self._wake.wait(timeout=wait_s):
+                next_capture_at = 0.0
             self._wake.clear()
 
-    def _captureOnce(self) -> None:
+    def _captureOnce(self, roles: tuple[str, ...] | None = None) -> None:
         if self._camera_service is None:
             return
-        feeds = self._camera_service.feeds or {}
         with self._lock:
             annotate = self._annotate
         now = time.time()
         saved = 0
         last_error: str | None = None
-        for role in sorted(feeds.keys()):
+        # Once per physical camera: the classification camera is registered
+        # under two roles but is one device and one stream of frames.
+        for role in self._camera_service.physical_camera_roles():
+            if roles is not None and role not in roles:
+                continue
+            if now - self._captured_at.get(role, float("-inf")) < MIN_INTERVAL_S:
+                continue
             capture = self._camera_service.get_capture_thread_for_role(role)
             frame = getattr(capture, "latest_frame", None) if capture is not None else None
-            raw = getattr(frame, "raw", None) if frame is not None else None
-            if raw is None or getattr(raw, "size", 0) == 0:
+            if frame is None:
                 continue
             try:
-                result = ingestSampleFrame(self.gc, role, raw, annotate=annotate)
-                if isinstance(result, dict) and result.get("ok"):
+                sample = buildSample(self.gc, role, capture, frame, annotate=annotate)
+                if sample is not None and sample_store.enqueue(*sample):
                     saved += 1
+                    self._captured_at[role] = now
             except Exception as exc:
                 last_error = str(exc)
-                self.gc.logger.warning("SampleCollector ingest failed for %s: %s" % (role, exc))
+                self.gc.logger.warning("SampleCollector capture failed for %s: %s" % (role, exc))
 
         with self._lock:
             self._saved_count += saved

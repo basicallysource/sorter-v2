@@ -24,8 +24,10 @@ release: --phase zip.
 vendor image: prep copies it, then mount, overlay, portal and finalize run
 (grow and chroot are skipped). A minute or two instead of ~10, for a test image
 when only overlay/, the portal or --ref changed. The overlay is copied over
-what's there, so a file deleted from overlay/ stays; release builds start from
-the vendor image. Each phase is idempotent on its own — re-running a
+what's there, so a file deleted from overlay/ stays. Release builds start from
+the vendor image, except a patch release that changes only overlay/ or the
+portal, which may respin the previous release's image (4.1.2 respun 4.1.1's).
+Each phase is idempotent on its own — re-running a
 single phase won't break the overall state.
 """
 
@@ -529,8 +531,13 @@ def _set_wifi_country(ctx: BuildCtx) -> None:
 
 def _write_config_placeholder(ctx: BuildCtx) -> None:
     padding = CFG_PLACEHOLDER_BYTES - len(CFG_START_MARKER) - len(CFG_END_MARKER)
+    placeholder = CFG_START_MARKER + "\n" * padding + CFG_END_MARKER
     cfg = ctx.mnt / "etc" / "sorteros-config.toml"
-    cfg.write_text(CFG_START_MARKER + "\n" * padding + CFG_END_MARKER)
+    # A respun image has it already. Writing it again can move it to new
+    # blocks and leave the old copy in free space, and the setup site patches
+    # the first copy it finds in the raw image.
+    if not (cfg.exists() and cfg.read_text() == placeholder):
+        cfg.write_text(placeholder)
     os.chmod(cfg, 0o600)  # the setup site puts the Wi-Fi password and Tailscale key here
     log(f"wrote the setup-site placeholder: {cfg.relative_to(ctx.mnt)} ({padding} bytes of room)")
 
@@ -620,7 +627,7 @@ def main() -> None:
     ap.add_argument("--config", default=str(SCRIPT_DIR / "config.toml"))
     ap.add_argument(
         "--from", dest="from_image", type=Path, default=None,
-        help="respin this previous SorterOS image (skips grow and chroot); test images only",
+        help="respin this previous SorterOS image (skips grow and chroot): test images, or a patch release that changes only overlay/ or the portal",
     )
     args = ap.parse_args()
 

@@ -88,20 +88,25 @@ The production stack expects:
 - `https://<domain>/api/*` routed to the backend
 - all other paths routed to the frontend
 
-On startup, the backend automatically runs Alembic migrations and bootstraps an admin user from `ADMIN_EMAIL` / `ADMIN_PASSWORD` if those values are set.
+The backend image runs twice: the `backend` service answers requests
+(`HIVE_ROLE=web`) and the `worker` service runs the background work
+(`HIVE_ROLE=worker`, `python -m app.worker`); see
+[agent-docs/process-roles.md](agent-docs/process-roles.md).
+
+On startup, the backend automatically runs Alembic migrations and bootstraps an admin user from `ADMIN_EMAIL` / `ADMIN_PASSWORD` if those values are set. The worker starts once the backend is healthy and runs no migrations.
 
 ### Persisted data
 
-The backend bind-mounts two host directories under `software/hive/data/` so they
-survive container rebuilds/recreates:
+The backend and the worker bind-mount the same host directories under
+`software/hive/data/` so they survive container rebuilds/recreates, among them:
 
 - `data/uploads` — uploaded sample images
 - `data/profile_builder` — the Rebrickable parts catalog SQLite db
-  (`parts.db`: parts, categories, colors). **Without this mount the catalog
-  lives only in the container layer and is wiped on every recreate, forcing a
-  full multi-hour re-sync from Rebrickable on each deploy.**
-
-`REBRICKABLE_API_KEY` must be set in `.env.prod` for the catalog auto-sync to run.
+  (`parts.db`: parts, categories, colors, and Rebrickable's sets, themes and
+  set inventories), all imported from Rebrickable's CSV downloads by the
+  catalog auto-sync. **Without this mount the catalog lives only in the
+  container layer and is wiped on every recreate, and the BrickLink IDs and
+  prices it holds are lost with it.**
 
 To seed `parts.db` (e.g. from a machine that already has a populated catalog)
 instead of syncing from scratch, copy a clean snapshot into the host dir before
@@ -123,6 +128,8 @@ build is used as-is (no downgrade needed).
 
 ## Architecture
 
-- **Backend**: FastAPI + SQLAlchemy + PostgreSQL (port 8002)
+- **Backend**: FastAPI + SQLAlchemy + PostgreSQL (port 8002). In production
+  the same image also runs as the worker process, which does all background
+  work ([agent-docs/process-roles.md](agent-docs/process-roles.md))
 - **Frontend**: SvelteKit + Tailwind CSS (port 5174)
 - **Storage**: Local filesystem for uploaded images

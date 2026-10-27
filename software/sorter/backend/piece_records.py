@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import json
+import math
+import re
 import sqlite3
 import threading
 import time
 from typing import Any, Iterator, Optional
 
 import db
+import piece_image_store
+import piece_predictions
+import sync_seq
 
 # Durable per-piece sorting history. Lives in the shared local_state SQLite DB
 # (same file as the rest of the machine's persistent state) but owns its own
@@ -14,7 +19,36 @@ import db
 # on a graceful shutdown — the dev soft-restart calls os._exit(0) and skipped
 # the save, so the overwhelming majority of sorted pieces were never recorded.
 # Here each piece is written the instant it commits in distribution, so the
-# history survives any restart. Everything is a typed column — no JSON blobs.
+# history survives any restart. Every field is a typed column, except
+# `problems`: the few notes on what went wrong with the piece, a JSON list
+# that is only ever shown with the piece, never queried by field.
+#
+# A record changes after it is written (the distribution write after an early
+# one, the reaper, the operator's verdict, a feedback flag), so it syncs to
+# Hive by sync_seq (see sync_seq.py): every write takes a new one, and the
+# record carries the operator's whole verdict, rejection reasons included.
+#
+# Retention removes records older than the piece history window once every
+# Hive has them; what the totals (overview, charts, value) count from them is
+# folded into piece_history_rollup first, and every total reads the
+# piece_history view (live records plus the rollup).
+
+
+# Every piece ever recorded, for totals: one row per live record (pieces = 1)
+# and the rollup's groups. seen_at/last_seen bound each row; day is the local
+# day seen; value_day the local day recorded.
+_PIECE_HISTORY_VIEW = (
+    "CREATE VIEW piece_history AS "
+    "SELECT date(seen_at, 'unixepoch', 'localtime') AS day, "
+    "date(COALESCE(recorded_at, seen_at), 'unixepoch', 'localtime') AS value_day, "
+    "seen_at, seen_at AS last_seen, recorded_at, run_id, part_id, part_name, color_id, color_name, "
+    "classification_status, dead, (bin_x IS NOT NULL) AS distributed, 1 AS pieces "
+    "FROM piece_records "
+    "UNION ALL "
+    "SELECT day, day AS value_day, first_seen AS seen_at, last_seen, NULL AS recorded_at, run_id, "
+    "part_id, part_name, color_id, color_name, classification_status, dead, distributed, pieces "
+    "FROM piece_history_rollup"
+)
 
 
 def _createTables(conn: sqlite3.Connection) -> None:
@@ -71,6 +105,18 @@ def _createTables(conn: sqlite3.Connection) -> None:
         # The applied color's own score, kept apart from the mold score
         # in `confidence`. NULL on rows written before the split.
         "color_confidence": "REAL",
+        # The training run that saw the piece and the label it gave it (see
+        # training_runs), and whether the operator excluded it from the run.
+        "training_run_id": "TEXT",
+        "training_segment_id": "TEXT",
+        "training_color_id": "TEXT",
+        "training_label_source": "TEXT",
+        "training_excluded": "INTEGER NOT NULL DEFAULT 0",
+        "training_updated_at": "REAL",
+        # What went wrong with the piece on its way through the machine: a JSON
+        # list of {"kind", "message", "at", "after_s"}, oldest first (see
+        # normalizeProblems). NULL when nothing did.
+        "problems": "TEXT",
     })
     # Operator-flagged capture issues, one row per (piece, reason) so the
     # flags are queryable — "how many pieces were flagged blurry this
@@ -90,34 +136,60 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_piece_rejection_reasons_reason "
         "ON piece_rejection_reasons(reason)"
     )
-    # Append-only log of correction edits, drained to Hive by the sync
-    # worker on its own watermark (id). Each edit appends a fresh row so
-    # the monotonic id advances even when the same piece is corrected
-    # twice (e.g. mark, then submit); Hive upserts the latest per piece.
-    #
-    # rejection_reasons is a JSON list HERE and only here: a journal row
-    # is one atomic snapshot of a piece's state at an instant, and the
-    # drain reads by id in batches (CORRECTIONS_BATCH). Splitting one
-    # edit's reasons across several journal rows would let a batch
-    # boundary land mid-edit and sync a partial set to Hive. Both ends
-    # store the reasons as rows; only the message between them is a list.
+    # Whether an image is ready to sync depends on its piece's record, so the
+    # image tables are part of this schema; a record's training label reads
+    # the piece's predictions, so theirs are too.
+    piece_image_store.createTables(conn)
+    piece_predictions._createTables(conn)
+    if sync_seq.addColumn(conn, "piece_records"):
+        # Verdicts used to travel on their own stream (a correction journal);
+        # a record carries its verdict now. Send every corrected record again
+        # so a verdict that had not reached Hive yet still does.
+        corrected = conn.execute(
+            "SELECT id FROM piece_records WHERE correction_updated_at IS NOT NULL ORDER BY id"
+        ).fetchall()
+        for row in corrected:
+            conn.execute(
+                "UPDATE piece_records SET sync_seq = ? WHERE id = ?",
+                (sync_seq.nextSeq(conn), int(row[0])),
+            )
+    conn.execute("DROP TABLE IF EXISTS piece_corrections")
+    # What retention removed, still counted. One row per (local day seen,
+    # backend run, part, colour, status, dead, distributed); group_key is
+    # those joined, so a fold adds to the row it belongs to.
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS piece_corrections ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "piece_uuid TEXT NOT NULL, "
-        "part_correct INTEGER, "
-        "color_corrected_id TEXT, "
-        "part_feedback_submitted INTEGER NOT NULL DEFAULT 0, "
-        "color_feedback_submitted INTEGER NOT NULL DEFAULT 0, "
-        "updated_at REAL NOT NULL, "
-        "rejection_reasons TEXT"
+        "CREATE TABLE IF NOT EXISTS piece_history_rollup ("
+        "group_key TEXT PRIMARY KEY, "
+        "day TEXT, "
+        "run_id TEXT, "
+        "part_id TEXT, "
+        "color_id TEXT, "
+        "classification_status TEXT, "
+        "dead INTEGER NOT NULL, "
+        "distributed INTEGER NOT NULL, "
+        "pieces INTEGER NOT NULL, "
+        "part_name TEXT, "
+        "color_name TEXT, "
+        "first_seen REAL, "
+        "last_seen REAL"
         ")"
     )
-    db.add_columns(conn, "piece_corrections", {"rejection_reasons": "TEXT"})
+    # Distributed pieces per hour among those retention removed, for the
+    # best-hour rate (lifetime_stats).
     conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_piece_corrections_uuid "
-        "ON piece_corrections(piece_uuid)"
+        "CREATE TABLE IF NOT EXISTS piece_history_hours ("
+        "hour_start INTEGER PRIMARY KEY, "
+        "distributed INTEGER NOT NULL"
+        ")"
     )
+    current = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'view' AND name = 'piece_history'"
+    ).fetchone()
+    # Replaced only when its definition changed (an upgrade), so a reader
+    # never finds it missing while another module prepares this schema.
+    if current is None or current[0] != _PIECE_HISTORY_VIEW:
+        conn.execute("DROP VIEW IF EXISTS piece_history")
+        conn.execute(_PIECE_HISTORY_VIEW)
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_piece_records_seen "
         "ON piece_records(seen_at)"
@@ -130,10 +202,67 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_piece_records_run "
         "ON piece_records(run_id)"
     )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_records_training_run "
+        "ON piece_records(training_run_id) WHERE training_run_id IS NOT NULL"
+    )
+    # The records list filtered by a bin, and by whether the operator has
+    # reviewed the piece: each walks its own index in id order, so a page is
+    # read without scanning the table (see listPieces).
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_records_bin "
+        "ON piece_records(bin_x, bin_y, bin_z)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_piece_records_reviewed "
+        "ON piece_records(id) WHERE correction_updated_at IS NOT NULL"
+    )
+    import training_runs
+
+    training_runs.createRunTables(conn)
 
 
 def _connection():
     return db.connect(_createTables)
+
+
+def _finite(value: Any) -> Optional[float]:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if math.isfinite(number) else None
+
+
+def normalizeProblems(raw: Any) -> list[dict[str, Any]]:
+    """What went wrong with a piece (KnownObject.problems), oldest first, in the
+    shape the record keeps and the API serves: {"kind", "message", "at",
+    "after_s"}. A note without a kind, a message or a time is left out, and so
+    is anything that is not a list of notes (a payload that has none)."""
+    if not isinstance(raw, (list, tuple)):
+        return []
+    notes: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        kind, message = item.get("kind"), item.get("message")
+        at = _finite(item.get("at"))
+        if not (isinstance(kind, str) and kind and isinstance(message, str) and message):
+            continue
+        if at is None:
+            continue
+        notes.append(
+            {"kind": kind, "message": message, "at": at, "after_s": _finite(item.get("after_s"))}
+        )
+    return notes
+
+
+def _parseProblems(raw: Optional[str]) -> list[dict[str, Any]]:
+    if not raw:
+        return []
+    try:
+        return normalizeProblems(json.loads(raw))
+    except ValueError:
+        return []
 
 
 def recordPiece(
@@ -149,25 +278,40 @@ def recordPiece(
     bin_x = bin_y = bin_z = None
     if isinstance(dest, (list, tuple)) and len(dest) == 3:
         bin_x, bin_y, bin_z = (int(dest[0]), int(dest[1]), int(dest[2]))
+    import training_runs
+
     seen_at = piece.get("created_at")
     recorded_at = piece.get("distributed_at") or time.time()
     dead = 1 if piece.get("dead") else 0
+    problems = normalizeProblems(piece.get("problems"))
+    problems_json = json.dumps(problems, separators=(",", ":")) if problems else None
     with _connection() as conn:
+        training = training_runs.labelFor(
+            conn,
+            uuid_val,
+            float(seen_at) if isinstance(seen_at, (int, float)) else None,
+            piece.get("color_id"),
+        )
+        training_run_id, training_segment_id, training_color_id, training_source = training or (None, None, None, None)
+        seq = sync_seq.nextSeq(conn)
         # Upsert (not INSERT OR IGNORE): a piece can be recorded early by the
         # correction API straight from memory (so a just-classified piece is
         # correctable before it distributes), then re-recorded at distribution
         # with its bin. On conflict we refresh the classification/bin columns but
         # NEVER touch the correction columns (part_correct, color_corrected_id,
         # *_feedback_submitted, correction_updated_at) so a recorded correction
-        # survives the distribution write.
+        # survives the distribution write. The same goes for `problems`: the early
+        # record carries none, and a write without any keeps the ones noted so far.
         conn.execute(
             "INSERT INTO piece_records "
             "(uuid, run_id, machine_id, seen_at, recorded_at, classification_status, "
             "part_id, part_name, color_id, color_name, category_id, confidence, "
             "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
             "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
-            "brickognize_color_rank, color_provider, mold_provider, color_confidence) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "brickognize_color_rank, color_provider, mold_provider, color_confidence, sync_seq, "
+            "training_run_id, training_segment_id, training_color_id, training_label_source, training_updated_at, "
+            "problems) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(uuid) DO UPDATE SET "
             "run_id=excluded.run_id, machine_id=excluded.machine_id, "
             "seen_at=excluded.seen_at, recorded_at=excluded.recorded_at, "
@@ -183,7 +327,19 @@ def recordPiece(
             "brickognize_color_rank=excluded.brickognize_color_rank, "
             "color_provider=excluded.color_provider, "
             "mold_provider=excluded.mold_provider, "
-            "color_confidence=excluded.color_confidence",
+            "color_confidence=excluded.color_confidence, "
+            "sync_seq=excluded.sync_seq, "
+            # A label, once given, stays: the operator may have excluded it.
+            "training_run_id=COALESCE(piece_records.training_run_id, excluded.training_run_id), "
+            "training_segment_id=CASE WHEN piece_records.training_run_id IS NULL "
+            "THEN excluded.training_segment_id ELSE piece_records.training_segment_id END, "
+            "training_color_id=CASE WHEN piece_records.training_run_id IS NULL "
+            "THEN excluded.training_color_id ELSE piece_records.training_color_id END, "
+            "training_label_source=CASE WHEN piece_records.training_run_id IS NULL "
+            "THEN excluded.training_label_source ELSE piece_records.training_label_source END, "
+            "training_updated_at=CASE WHEN piece_records.training_run_id IS NULL "
+            "THEN excluded.training_updated_at ELSE piece_records.training_updated_at END, "
+            "problems=COALESCE(excluded.problems, piece_records.problems)",
             (
                 uuid_val,
                 run_id,
@@ -209,24 +365,73 @@ def recordPiece(
                 piece.get("color_provider"),
                 piece.get("mold_provider"),
                 piece.get("color_confidence"),
+                seq,
+                training_run_id,
+                training_segment_id,
+                training_color_id,
+                training_source,
+                time.time() if training_run_id is not None else None,
+                problems_json,
             ),
         )
+        # With its record written, the piece's images are ready for Hive.
+        piece_image_store.sequenceImages(conn, uuid_val)
         conn.commit()
+
+
+# The rollup group a record falls in; quote() keeps NULL apart from a value.
+_ROLLUP_GROUP_KEY = (
+    "printf('%s|%s|%s|%s|%s|%d|%d', quote(day), quote(run_id), quote(part_id), "
+    "quote(color_id), quote(classification_status), dead, distributed)"
+)
+
+
+def foldIntoRollup(conn: sqlite3.Connection, record_ids: list[int]) -> None:
+    """Count the records about to be removed into piece_history_rollup, in the
+    caller's transaction, so every total read from piece_history stays the
+    same after they are gone."""
+    if not record_ids:
+        return
+    placeholders = ", ".join("?" for _ in record_ids)
+    conn.execute(
+        "INSERT INTO piece_history_rollup (group_key, day, run_id, part_id, color_id, "
+        "classification_status, dead, distributed, pieces, part_name, color_name, first_seen, last_seen) "
+        f"SELECT {_ROLLUP_GROUP_KEY}, day, run_id, part_id, color_id, classification_status, dead, "
+        "distributed, COUNT(*), MAX(part_name), MAX(color_name), MIN(seen_at), MAX(seen_at) FROM ("
+        "  SELECT date(seen_at, 'unixepoch', 'localtime') AS day, run_id, part_id, part_name, color_id, "
+        "  color_name, classification_status, dead, (bin_x IS NOT NULL) AS distributed, seen_at "
+        f"  FROM piece_records WHERE id IN ({placeholders})"
+        ") WHERE true GROUP BY day, run_id, part_id, color_id, classification_status, dead, distributed "
+        "ON CONFLICT(group_key) DO UPDATE SET pieces = pieces + excluded.pieces, "
+        "part_name = COALESCE(excluded.part_name, part_name), "
+        "color_name = COALESCE(excluded.color_name, color_name), "
+        "first_seen = MIN(COALESCE(first_seen, excluded.first_seen), COALESCE(excluded.first_seen, first_seen)), "
+        "last_seen = MAX(COALESCE(last_seen, excluded.last_seen), COALESCE(excluded.last_seen, last_seen))",
+        record_ids,
+    )
+    conn.execute(
+        "INSERT INTO piece_history_hours (hour_start, distributed) "
+        "SELECT CAST(seen_at / 3600 AS INTEGER) * 3600, COUNT(*) FROM piece_records "
+        f"WHERE id IN ({placeholders}) AND bin_x IS NOT NULL AND seen_at IS NOT NULL AND seen_at >= 0 "
+        "GROUP BY 1 "
+        "ON CONFLICT(hour_start) DO UPDATE SET distributed = distributed + excluded.distributed",
+        record_ids,
+    )
 
 
 def getOverview() -> dict[str, Any]:
     with _connection() as conn:
         row = conn.execute(
             "SELECT "
-            "COUNT(*) AS total_pieces, "
+            "SUM(pieces) AS total_pieces, "
             "COUNT(DISTINCT run_id) AS total_runs, "
-            "SUM(CASE WHEN classification_status = 'classified' THEN 1 ELSE 0 END) AS classified_pieces, "
-            "SUM(CASE WHEN bin_x IS NOT NULL THEN 1 ELSE 0 END) AS distributed_pieces, "
+            "SUM(CASE WHEN classification_status = 'classified' THEN pieces ELSE 0 END) AS classified_pieces, "
+            "SUM(CASE WHEN distributed THEN pieces ELSE 0 END) AS distributed_pieces, "
             "COUNT(DISTINCT CASE WHEN part_id IS NOT NULL THEN part_id END) AS unique_parts, "
             "COUNT(DISTINCT CASE WHEN color_id IS NOT NULL THEN color_id END) AS unique_colors, "
             "MIN(seen_at) AS first_seen, "
-            "MAX(seen_at) AS last_seen "
-            "FROM piece_records"
+            "MAX(last_seen) AS last_seen "
+            "FROM piece_history"
         ).fetchone()
     return {
         "total_runs": int(row["total_runs"] or 0),
@@ -303,9 +508,9 @@ def getValueStats(gc: Any) -> dict[str, Any]:
             if memo is not None and memo[1] == guard and time.time() < memo[0]:
                 return memo[2]
         rows = conn.execute(
-            "SELECT part_id, color_id, COUNT(*) AS n, "
-            "SUM(CASE WHEN COALESCE(recorded_at, seen_at) >= ? THEN 1 ELSE 0 END) AS n24 "
-            "FROM piece_records "
+            "SELECT part_id, color_id, SUM(pieces) AS n, "
+            "SUM(CASE WHEN COALESCE(recorded_at, seen_at) >= ? THEN pieces ELSE 0 END) AS n24 "
+            "FROM piece_history "
             "WHERE part_id IS NOT NULL AND dead = 0 "
             "GROUP BY part_id, color_id",
             (cutoff,),
@@ -356,66 +561,22 @@ def getValueStats(gc: Any) -> dict[str, Any]:
     return result
 
 
-# piece_images lives in the same DB file but is created lazily by
-# piece_image_store — a fresh install can query pieces before any image was
-# ever written, so the EXISTS subquery must be guarded. Once the table exists
-# it never goes away, so a positive check is cached for the process lifetime.
-_piece_images_table_seen = False
-
-
-def _hasPieceImagesTable(conn: sqlite3.Connection) -> bool:
-    global _piece_images_table_seen
-    if _piece_images_table_seen:
-        return True
-    row = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'piece_images'"
-    ).fetchone()
-    if row is not None:
-        _piece_images_table_seen = True
-        return True
-    return False
-
-
 _SUMMARY_COLUMNS = (
     "id, uuid, run_id, seen_at, recorded_at, classification_status, "
     "part_id, part_name, color_id, color_name, category_id, confidence, "
     "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
     "brickognize_listing_id, part_correct, color_corrected_id, "
     "part_feedback_submitted, color_feedback_submitted, "
-    "color_provider, mold_provider, color_confidence"
+    "color_provider, mold_provider, color_confidence, problems"
 )
 
 
-def _summarySelect(conn: sqlite3.Connection) -> str:
-    has_images_expr = (
-        "EXISTS(SELECT 1 FROM piece_images pi WHERE pi.piece_uuid = piece_records.uuid)"
-        if _hasPieceImagesTable(conn)
-        else "0"
-    )
-    return (
-        f"SELECT {_SUMMARY_COLUMNS}, {has_images_expr} AS has_images, "
-        f"{_REJECTION_REASONS_EXPR} AS rejection_reasons FROM piece_records"
-    )
-
-
-def _parseRejectionReasons(raw: Optional[str]) -> list[str]:
-    # Only for reading the piece_corrections journal, whose payload is a JSON
-    # snapshot. The authoritative store is the piece_rejection_reasons table.
-    if not raw:
-        return []
-    try:
-        parsed = json.loads(raw)
-    except (TypeError, ValueError):
-        return []
-    return sorted(str(r) for r in parsed) if isinstance(parsed, list) else []
-
-
-def _readRejectionReasons(conn: sqlite3.Connection, uuid_val: str) -> list[str]:
-    rows = conn.execute(
-        "SELECT reason FROM piece_rejection_reasons WHERE piece_uuid = ? ORDER BY reason",
-        (uuid_val,),
-    ).fetchall()
-    return [r["reason"] for r in rows]
+_SUMMARY_SELECT = (
+    f"SELECT {_SUMMARY_COLUMNS}, "
+    "EXISTS(SELECT 1 FROM piece_images pi WHERE pi.piece_uuid = piece_records.uuid) AS has_images, "
+    "(SELECT GROUP_CONCAT(r.reason) FROM piece_rejection_reasons r "
+    "WHERE r.piece_uuid = piece_records.uuid) AS rejection_reasons FROM piece_records"
+)
 
 
 def _writeRejectionReasons(
@@ -433,17 +594,11 @@ def _writeRejectionReasons(
         )
 
 
-# Reason codes are lowercase slugs, so a comma-joined GROUP_CONCAT round-trips
-# safely. Correlated rather than a JOIN so it composes with the existing
-# filtered/paginated summary queries without changing their row cardinality.
-_REJECTION_REASONS_EXPR = (
-    "(SELECT GROUP_CONCAT(r.reason) FROM piece_rejection_reasons r "
-    "WHERE r.piece_uuid = piece_records.uuid)"
-)
-
-
 def _splitRejectionReasons(raw: Optional[str]) -> list[str]:
-    # GROUP_CONCAT order is unspecified in sqlite — sort here for a stable shape.
+    # Reason codes are lowercase slugs, so a comma-joined GROUP_CONCAT (a
+    # correlated subquery, so it composes with the filtered/paginated summary
+    # queries without changing their row cardinality) round-trips safely. Its
+    # order is unspecified in sqlite: sort here for a stable shape.
     return sorted(p for p in (raw or "").split(",") if p)
 
 
@@ -477,6 +632,8 @@ def _rowToSummary(gc: Any, row: sqlite3.Row) -> dict[str, Any]:
         "color_confidence": row["color_confidence"],
         "bin": bin_ref,
         "dead": bool(row["dead"]),
+        # What went wrong with the piece, oldest first; empty when nothing did.
+        "problems": _parseProblems(row["problems"]),
         "has_images": bool(row["has_images"]),
         "preview_url": row["brickognize_preview_url"],
         "est_value": _estValue(gc, row["part_id"], row["color_id"]),
@@ -498,6 +655,25 @@ def _rowToSummary(gc: Any, row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+# The most a page of the records list holds (the list shows 250).
+MAX_PAGE = 500
+
+# What a search may name, in one place: a piece is found by its part number
+# (from the start), its part's name or its colour's name (anywhere in it), or
+# its uuid (from the start, the way the piece's page shows it).
+_MAX_SEARCH_TERMS = 5
+_UUID_FRAGMENT = re.compile(r"[0-9a-f-]{4,}")
+
+
+def _searchTerms(query: Optional[str]) -> list[str]:
+    return (query or "").split()[:_MAX_SEARCH_TERMS]
+
+
+def _like(term: str, *, start_only: bool) -> str:
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"{escaped}%" if start_only else f"%{escaped}%"
+
+
 def _buildFilters(
     *,
     status: Optional[list[str]] = None,
@@ -507,6 +683,10 @@ def _buildFilters(
     dead: Optional[bool] = None,
     date_from: Optional[float] = None,
     date_to: Optional[float] = None,
+    query: Optional[str] = None,
+    bin_ref: Optional[tuple[int, int, int]] = None,
+    seen_ranges: Optional[list[tuple[float, Optional[float]]]] = None,
+    reviewed: Optional[bool] = None,
 ) -> tuple[list[str], list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []
@@ -532,6 +712,39 @@ def _buildFilters(
     if date_to is not None:
         clauses.append("seen_at <= ?")
         params.append(float(date_to))
+    for term in _searchTerms(query):
+        # Every term must match something, so "plate lime" finds lime plates.
+        ways = ["part_id LIKE ? ESCAPE '\\'", "part_name LIKE ? ESCAPE '\\'", "color_name LIKE ? ESCAPE '\\'"]
+        values = [_like(term, start_only=True), _like(term, start_only=False), _like(term, start_only=False)]
+        if _UUID_FRAGMENT.fullmatch(term.lower()):
+            ways.append("uuid LIKE ? ESCAPE '\\'")
+            values.append(_like(term, start_only=True))
+        clauses.append("(" + " OR ".join(ways) + ")")
+        params.extend(values)
+    if bin_ref is not None:
+        clauses.append("(bin_x = ? AND bin_y = ? AND bin_z = ?)")
+        params.extend(bin_ref)
+    if seen_ranges is not None:
+        # The stretches of time of a sorting run, or of a lot's runs. None is no
+        # filter; an empty list is a filter that nothing passes.
+        if not seen_ranges:
+            clauses.append("0")
+        else:
+            spans: list[str] = []
+            for start, end in seen_ranges:
+                if end is None:
+                    spans.append("seen_at >= ?")
+                    params.append(float(start))
+                else:
+                    spans.append("(seen_at >= ? AND seen_at < ?)")
+                    params.extend([float(start), float(end)])
+            clauses.append("(" + " OR ".join(spans) + ")")
+    if reviewed is not None:
+        # The operator has answered a question about the piece (the part, the
+        # color or an issue): every answer stamps correction_updated_at.
+        clauses.append(
+            "correction_updated_at IS NOT NULL" if reviewed else "correction_updated_at IS NULL"
+        )
     return clauses, params
 
 
@@ -540,6 +753,8 @@ def listPieces(
     *,
     limit: int = 100,
     cursor: Optional[int] = None,
+    offset: Optional[int] = None,
+    anchor: Optional[int] = None,
     status: Optional[list[str]] = None,
     part_id: Optional[str] = None,
     color_id: Optional[str] = None,
@@ -547,12 +762,27 @@ def listPieces(
     dead: Optional[bool] = None,
     date_from: Optional[float] = None,
     date_to: Optional[float] = None,
+    query: Optional[str] = None,
+    bin_ref: Optional[tuple[int, int, int]] = None,
+    seen_ranges: Optional[list[tuple[float, Optional[float]]]] = None,
+    reviewed: Optional[bool] = None,
     sort: str = "recent",
 ) -> dict[str, Any]:
-    # Keyset pagination on the autoincrement id: non-null, unique, and ≈
-    # recording order — unlike seen_at, which is nullable (NULL rows would
-    # silently vanish from a seen_at-keyed cursor).
-    limit = max(1, min(limit, 200))
+    """One page of the records, newest first (or oldest first), of the pieces that
+    match the filters.
+
+    A listing is cut at an anchor: the newest id when the first page is asked for
+    (the answer names it), and the same one in every later request, so the pieces
+    the machine records meanwhile are never in it. `total` is what the listing
+    holds and `newer` how many matching pieces came after it.
+
+    Pages are keyset pages on the autoincrement id (non-null, unique and in
+    recording order, unlike seen_at, which is nullable): `next_cursor` starts the
+    next page after the last id of this one, so a piece changed while someone
+    pages never makes the next page skip or repeat one. `offset`, from the start
+    of the listing, reads a page that was not walked to (a jump, or an address
+    restored); it is not combined with a cursor. `limit` 0 reads only the counts."""
+    limit = max(0, min(limit, MAX_PAGE))
     clauses, params = _buildFilters(
         status=status,
         part_id=part_id,
@@ -561,35 +791,72 @@ def listPieces(
         dead=dead,
         date_from=date_from,
         date_to=date_to,
+        query=query,
+        bin_ref=bin_ref,
+        seen_ranges=seen_ranges,
+        reviewed=reviewed,
     )
-    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
-    page_clauses = list(clauses)
-    page_params = list(params)
-    if cursor is not None:
-        page_clauses.append("id < ?" if sort == "recent" else "id > ?")
-        page_params.append(int(cursor))
-    page_where = (" WHERE " + " AND ".join(page_clauses)) if page_clauses else ""
-    order = "id DESC" if sort == "recent" else "id ASC"
+    ascending = sort != "recent"
+    order = "id ASC" if ascending else "id DESC"
+
+    def where(extra: list[str], extra_params: list[Any]) -> tuple[str, list[Any]]:
+        every = clauses + extra
+        return ((" WHERE " + " AND ".join(every)) if every else ""), params + extra_params
+
     with _connection() as conn:
-        total_row = conn.execute(
-            f"SELECT COUNT(*) AS c FROM piece_records{where}", params
-        ).fetchone()
-        total = int(total_row["c"] or 0)
-        rows = conn.execute(
-            f"{_summarySelect(conn)}{page_where} ORDER BY {order} LIMIT ?",
-            page_params + [limit + 1],
-        ).fetchall()
-    has_more = len(rows) > limit
-    rows = rows[:limit]
-    items = [_rowToSummary(gc, r) for r in rows]
-    next_cursor = str(rows[-1]["id"]) if has_more and rows else None
-    return {"items": items, "next_cursor": next_cursor, "total": total}
+        newest = int(conn.execute("SELECT COALESCE(MAX(id), 0) FROM piece_records").fetchone()[0])
+        anchor_id = newest if anchor is None else int(anchor)
+
+        within, within_params = where(["id <= ?"], [anchor_id])
+        total = int(
+            conn.execute(f"SELECT COUNT(*) FROM piece_records{within}", within_params).fetchone()[0]
+        )
+        after, after_params = where(["id > ?"], [anchor_id])
+        newer = int(
+            conn.execute(f"SELECT COUNT(*) FROM piece_records{after}", after_params).fetchone()[0]
+        )
+
+        ids: list[int] = []
+        has_more = False
+        if limit > 0:
+            page_extra = ["id <= ?"]
+            page_params: list[Any] = [anchor_id]
+            skip = 0
+            if cursor is not None:
+                page_extra.append("id > ?" if ascending else "id < ?")
+                page_params.append(int(cursor))
+            elif offset:
+                skip = max(0, int(offset))
+            page_where, all_params = where(page_extra, page_params)
+            # The ids first, then the rows of those ids: the summary's
+            # subqueries (images, issues) run for the page, not for every row
+            # the filters pass.
+            found = conn.execute(
+                f"SELECT id FROM piece_records{page_where} ORDER BY {order} LIMIT ? OFFSET ?",
+                all_params + [limit + 1, skip],
+            ).fetchall()
+            ids = [int(r[0]) for r in found]
+            has_more = len(ids) > limit
+            ids = ids[:limit]
+        rows = []
+        if ids:
+            placeholders = ", ".join("?" for _ in ids)
+            rows = conn.execute(
+                f"{_SUMMARY_SELECT} WHERE id IN ({placeholders}) ORDER BY {order}", ids
+            ).fetchall()
+    return {
+        "items": [_rowToSummary(gc, r) for r in rows],
+        "next_cursor": str(ids[-1]) if has_more and ids else None,
+        "total": total,
+        "anchor": anchor_id,
+        "newer": newer,
+    }
 
 
 def getPieceSummaryByUuid(gc: Any, uuid_val: str) -> Optional[dict[str, Any]]:
     with _connection() as conn:
         row = conn.execute(
-            f"{_summarySelect(conn)} WHERE uuid = ?", (uuid_val,)
+            f"{_SUMMARY_SELECT} WHERE uuid = ?", (uuid_val,)
         ).fetchone()
     if row is None:
         return None
@@ -599,6 +866,7 @@ def getPieceSummaryByUuid(gc: Any, uuid_val: str) -> Optional[dict[str, Any]]:
 def iterPieceSummaries(
     gc: Any,
     *,
+    anchor: Optional[int] = None,
     status: Optional[list[str]] = None,
     part_id: Optional[str] = None,
     color_id: Optional[str] = None,
@@ -606,12 +874,16 @@ def iterPieceSummaries(
     dead: Optional[bool] = None,
     date_from: Optional[float] = None,
     date_to: Optional[float] = None,
+    query: Optional[str] = None,
+    bin_ref: Optional[tuple[int, int, int]] = None,
+    seen_ranges: Optional[list[tuple[float, Optional[float]]]] = None,
+    reviewed: Optional[bool] = None,
     sort: str = "recent",
     chunk_size: int = 1000,
 ) -> Iterator[dict[str, Any]]:
     # Full filtered export: keyset chunks on a short-lived connection each, so
     # a multi-minute CSV download never pins one read transaction open against
-    # the live write path.
+    # the live write path. The same filters and anchor as the list it exports.
     clauses, params = _buildFilters(
         status=status,
         part_id=part_id,
@@ -620,7 +892,14 @@ def iterPieceSummaries(
         dead=dead,
         date_from=date_from,
         date_to=date_to,
+        query=query,
+        bin_ref=bin_ref,
+        seen_ranges=seen_ranges,
+        reviewed=reviewed,
     )
+    if anchor is not None:
+        clauses.append("id <= ?")
+        params.append(int(anchor))
     order = "id DESC" if sort == "recent" else "id ASC"
     cursor_id: Optional[int] = None
     while True:
@@ -632,7 +911,7 @@ def iterPieceSummaries(
         page_where = (" WHERE " + " AND ".join(page_clauses)) if page_clauses else ""
         with _connection() as conn:
             rows = conn.execute(
-                f"{_summarySelect(conn)}{page_where} ORDER BY {order} LIMIT ?",
+                f"{_SUMMARY_SELECT}{page_where} ORDER BY {order} LIMIT ?",
                 page_params + [chunk_size],
             ).fetchall()
         for row in rows:
@@ -643,29 +922,43 @@ def iterPieceSummaries(
 
 
 _SYNC_COLUMNS = (
-    "id, uuid, run_id, machine_id, seen_at, recorded_at, classification_status, "
+    "id, sync_seq, uuid, run_id, machine_id, seen_at, recorded_at, classification_status, "
     "part_id, part_name, color_id, color_name, category_id, confidence, "
     "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
     "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
-    "brickognize_color_rank, color_provider, mold_provider, color_confidence"
+    "brickognize_color_rank, color_provider, mold_provider, color_confidence, "
+    "part_correct, color_corrected_id, part_feedback_submitted, color_feedback_submitted, "
+    "correction_updated_at, training_run_id, training_segment_id, training_color_id, training_label_source, "
+    "training_excluded, training_updated_at, "
+    "(SELECT GROUP_CONCAT(r.reason) FROM piece_rejection_reasons r "
+    "WHERE r.piece_uuid = piece_records.uuid) AS rejection_reasons"
 )
 
 
-def listRecordsAfter(id_cursor: int, limit: int) -> list[dict[str, Any]]:
-    # Full-fidelity rows ASC by id for the Hive sync worker's watermark cursor.
-    # id is the monotonic sync cursor; uuid is the natural upsert key on Hive.
+def listRecordsAfter(seq_cursor: int, limit: int) -> list[dict[str, Any]]:
+    # Full rows in sync_seq order for the Hive sync worker (see sync_seq.py):
+    # the piece as it is now, the operator's verdict and rejection reasons
+    # included. uuid is the natural upsert key on Hive.
     with _connection() as conn:
         rows = conn.execute(
-            f"SELECT {_SYNC_COLUMNS} FROM piece_records WHERE id > ? ORDER BY id ASC LIMIT ?",
-            (int(id_cursor), int(limit)),
+            f"SELECT {_SYNC_COLUMNS} FROM piece_records WHERE sync_seq > ? ORDER BY sync_seq ASC LIMIT ?",
+            (int(seq_cursor), int(limit)),
         ).fetchall()
-    return [dict(r) for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["rejection_reasons"] = _splitRejectionReasons(d["rejection_reasons"])
+        out.append(d)
+    return out
 
 
-def getMaxRecordId() -> int:
+def countRecordsAfter(seq_cursor: int) -> int:
+    """Records a target with this watermark has yet to receive."""
     with _connection() as conn:
-        row = conn.execute("SELECT COALESCE(MAX(id), 0) AS m FROM piece_records").fetchone()
-    return int(row["m"] or 0)
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM piece_records WHERE sync_seq > ?", (int(seq_cursor),)
+        ).fetchone()
+    return int(row["n"] or 0)
 
 
 # --- Brickognize corrections -------------------------------------------------
@@ -675,37 +968,9 @@ def getMaxRecordId() -> int:
 _CORRECTION_CONTEXT_COLUMNS = (
     "uuid, part_id, color_id, color_name, "
     "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
-    "brickognize_color_rank, part_correct, color_corrected_id, "
+    "brickognize_color_rank, color_provider, part_correct, color_corrected_id, "
     "part_feedback_submitted, color_feedback_submitted"
 )
-
-
-def _appendCorrectionLog(conn: sqlite3.Connection, uuid_val: str) -> None:
-    # Snapshot the current correction state into the append-only sync log so the
-    # Hive sync worker's watermark advances and picks up this edit. The reasons
-    # are collapsed to a JSON list here on purpose — see the schema comment.
-    row = conn.execute(
-        "SELECT part_correct, color_corrected_id, part_feedback_submitted, "
-        "color_feedback_submitted, correction_updated_at "
-        "FROM piece_records WHERE uuid = ?",
-        (uuid_val,),
-    ).fetchone()
-    if row is None:
-        return
-    conn.execute(
-        "INSERT INTO piece_corrections "
-        "(piece_uuid, part_correct, color_corrected_id, part_feedback_submitted, "
-        "color_feedback_submitted, updated_at, rejection_reasons) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (
-            uuid_val,
-            row["part_correct"],
-            row["color_corrected_id"],
-            row["part_feedback_submitted"],
-            row["color_feedback_submitted"],
-            row["correction_updated_at"] if row["correction_updated_at"] is not None else time.time(),
-            json.dumps(_readRejectionReasons(conn, uuid_val)),
-        ),
-    )
 
 
 def getCorrectionContext(uuid_val: str) -> Optional[dict[str, Any]]:
@@ -736,27 +1001,27 @@ def setPieceCorrection(
     # Update the user's correction verdict on a piece. ``set_part``/``set_color``/
     # ``set_rejection_reasons`` gate which fields change so the part check/x, the
     # color dropdown, and the capture-issue flags can be edited independently.
-    # Appends to the sync log. Returns False if no such piece exists.
+    # The record takes a new sync_seq, so the verdict goes to Hive with it.
+    # Returns False if no such piece exists.
     now = time.time()
-    sets = ["correction_updated_at = ?"]
-    params: list[Any] = [now]
-    if set_part:
-        sets.append("part_correct = ?")
-        params.append(None if part_correct is None else (1 if part_correct else 0))
-    if set_color:
-        sets.append("color_corrected_id = ?")
-        params.append(str(color_corrected_id) if color_corrected_id is not None else None)
-    params.append(uuid_val)
+    sets = ["correction_updated_at = ?", "sync_seq = ?"]
     with _connection() as conn:
+        params: list[Any] = [now, sync_seq.nextSeq(conn)]
+        if set_part:
+            sets.append("part_correct = ?")
+            params.append(None if part_correct is None else (1 if part_correct else 0))
+        if set_color:
+            sets.append("color_corrected_id = ?")
+            params.append(str(color_corrected_id) if color_corrected_id is not None else None)
+        params.append(uuid_val)
         cur = conn.execute(
             f"UPDATE piece_records SET {', '.join(sets)} WHERE uuid = ?", params
         )
         if cur.rowcount == 0:
-            conn.commit()
+            conn.rollback()
             return False
         if set_rejection_reasons:
             _writeRejectionReasons(conn, uuid_val, rejection_reasons)
-        _appendCorrectionLog(conn, uuid_val)
         conn.commit()
     return True
 
@@ -765,53 +1030,26 @@ def markFeedbackSubmitted(
     uuid_val: str, *, part: bool = False, color: bool = False
 ) -> bool:
     # Flag that a part and/or color correction was sent to Brickognize. Only ever
-    # turns the flags on. Appends to the sync log. Returns False if unknown piece.
+    # turns the flags on. The record takes a new sync_seq. Returns False if
+    # unknown piece.
     if not part and not color:
         return False
     now = time.time()
-    sets = ["correction_updated_at = ?"]
-    params: list[Any] = [now]
+    sets = ["correction_updated_at = ?", "sync_seq = ?"]
     if part:
         sets.append("part_feedback_submitted = 1")
     if color:
         sets.append("color_feedback_submitted = 1")
-    params.append(uuid_val)
     with _connection() as conn:
         cur = conn.execute(
-            f"UPDATE piece_records SET {', '.join(sets)} WHERE uuid = ?", params
+            f"UPDATE piece_records SET {', '.join(sets)} WHERE uuid = ?",
+            [now, sync_seq.nextSeq(conn), uuid_val],
         )
         if cur.rowcount == 0:
-            conn.commit()
+            conn.rollback()
             return False
-        _appendCorrectionLog(conn, uuid_val)
         conn.commit()
     return True
-
-
-def listCorrectionsAfter(id_cursor: int, limit: int) -> list[dict[str, Any]]:
-    # Append-only correction log rows ASC by id for the Hive sync watermark.
-    with _connection() as conn:
-        rows = conn.execute(
-            "SELECT id, piece_uuid, part_correct, color_corrected_id, "
-            "part_feedback_submitted, color_feedback_submitted, updated_at, "
-            "rejection_reasons "
-            "FROM piece_corrections WHERE id > ? ORDER BY id ASC LIMIT ?",
-            (int(id_cursor), int(limit)),
-        ).fetchall()
-    out = []
-    for r in rows:
-        d = dict(r)
-        d["rejection_reasons"] = _parseRejectionReasons(d["rejection_reasons"])
-        out.append(d)
-    return out
-
-
-def getMaxCorrectionId() -> int:
-    with _connection() as conn:
-        row = conn.execute(
-            "SELECT COALESCE(MAX(id), 0) AS m FROM piece_corrections"
-        ).fetchone()
-    return int(row["m"] or 0)
 
 
 _AGGREGATES_TTL_S = 60.0
@@ -833,23 +1071,22 @@ def getAggregates(gc: Any, *, days: int = 365) -> dict[str, Any]:
             if memo is not None and memo[1] == guard and now < memo[0]:
                 return memo[2]
 
+        cutoff_day = time.strftime("%Y-%m-%d", time.localtime(cutoff))
         per_day_rows = conn.execute(
-            "SELECT date(seen_at, 'unixepoch', 'localtime') AS day, COUNT(*) AS cnt "
-            "FROM piece_records "
-            "WHERE dead = 0 AND seen_at IS NOT NULL AND seen_at >= ? "
+            "SELECT day, SUM(pieces) AS cnt FROM piece_history "
+            "WHERE dead = 0 AND day IS NOT NULL AND day >= ? "
             "GROUP BY day ORDER BY day",
-            (cutoff,),
+            (cutoff_day,),
         ).fetchall()
         status_rows = conn.execute(
             "SELECT CASE WHEN dead = 1 THEN 'dead' "
             "ELSE COALESCE(classification_status, 'unknown') END AS status, "
-            "COUNT(*) AS cnt FROM piece_records GROUP BY 1 ORDER BY cnt DESC"
+            "SUM(pieces) AS cnt FROM piece_history GROUP BY 1 ORDER BY cnt DESC"
         ).fetchall()
         first_seen_rows = conn.execute(
             "SELECT day, COUNT(*) AS cnt FROM ("
-            "SELECT date(MIN(seen_at), 'unixepoch', 'localtime') AS day "
-            "FROM piece_records "
-            "WHERE part_id IS NOT NULL AND seen_at IS NOT NULL "
+            "SELECT MIN(day) AS day FROM piece_history "
+            "WHERE part_id IS NOT NULL AND day IS NOT NULL "
             "GROUP BY part_id"
             ") WHERE day IS NOT NULL GROUP BY day ORDER BY day"
         ).fetchall()
@@ -872,30 +1109,27 @@ def getAggregates(gc: Any, *, days: int = 365) -> dict[str, Any]:
             else []
         )
         distributed_rows = conn.execute(
-            "SELECT date(seen_at, 'unixepoch', 'localtime') AS day, COUNT(*) AS cnt "
-            "FROM piece_records "
-            "WHERE dead = 0 AND bin_x IS NOT NULL AND seen_at IS NOT NULL AND seen_at >= ? "
+            "SELECT day, SUM(pieces) AS cnt FROM piece_history "
+            "WHERE dead = 0 AND distributed AND day IS NOT NULL AND day >= ? "
             "GROUP BY day",
-            (cutoff,),
+            (cutoff_day,),
         ).fetchall()
         color_rows = conn.execute(
-            "SELECT color_id, MAX(color_name) AS color_name, COUNT(*) AS cnt "
-            "FROM piece_records WHERE color_id IS NOT NULL "
+            "SELECT color_id, MAX(color_name) AS color_name, SUM(pieces) AS cnt "
+            "FROM piece_history WHERE color_id IS NOT NULL "
             "GROUP BY color_id ORDER BY cnt DESC LIMIT 20"
         ).fetchall()
         part_rows = conn.execute(
-            "SELECT part_id, MAX(part_name) AS part_name, COUNT(*) AS cnt "
-            "FROM piece_records WHERE part_id IS NOT NULL "
+            "SELECT part_id, MAX(part_name) AS part_name, SUM(pieces) AS cnt "
+            "FROM piece_history WHERE part_id IS NOT NULL "
             "GROUP BY part_id ORDER BY cnt DESC LIMIT 20"
         ).fetchall()
         value_group_rows = conn.execute(
-            "SELECT date(COALESCE(recorded_at, seen_at), 'unixepoch', 'localtime') AS day, "
-            "part_id, color_id, COUNT(*) AS cnt "
-            "FROM piece_records "
-            "WHERE dead = 0 AND part_id IS NOT NULL "
-            "AND COALESCE(recorded_at, seen_at) >= ? "
-            "GROUP BY day, part_id, color_id",
-            (cutoff,),
+            "SELECT value_day AS day, part_id, color_id, SUM(pieces) AS cnt "
+            "FROM piece_history "
+            "WHERE dead = 0 AND part_id IS NOT NULL AND value_day >= ? "
+            "GROUP BY value_day, part_id, color_id",
+            (cutoff_day,),
         ).fetchall()
 
     unique_cumulative: list[dict[str, Any]] = []

@@ -5,7 +5,8 @@ import logging
 import threading
 from typing import Any
 
-from hive_telemetry import HiveTelemetryClient, telemetryAllows
+import sharing
+from hive_uploads import HiveUploads
 from local_state import get_hive_config, get_sorting_profile_sync_state, set_sorting_profile_sync_state
 from server import shared_state
 
@@ -85,7 +86,7 @@ class SetProgressSyncWorker:
         if report["signature"] == self._last_sent_signature:
             return
 
-        client = HiveTelemetryClient(report["url"], report["api_token"], report["target_id"])
+        client = HiveUploads(report["url"], report["api_token"], report["target_id"])
         client.pushSetProgress(report["payload"])
         self._last_sent_signature = report["signature"]
         self._record_success()
@@ -117,7 +118,7 @@ class SetProgressSyncWorker:
 
         # Report None while blocked so the signature resets and re-enabling
         # resends the current state.
-        if not telemetryAllows(target_id, "piece_metadata"):
+        if not sharing.streamAllowed(target_id, "piece_records"):
             return None
 
         controller = shared_state.controller_ref

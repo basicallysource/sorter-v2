@@ -86,7 +86,13 @@ def test_server_health_admin_only(client, db, test_machine):
     assert "used_bytes" in body["memory"]
 
 
-def test_refresh_stats_endpoint(client, db, test_machine, machine_token):
+def test_refresh_stats_endpoint_asks_the_worker(client, db, test_machine, machine_token, monkeypatch):
+    """The pass is fleet-wide aggregates, so the endpoint asks the worker for
+    one and returns at once rather than running it on the request."""
+    from app.services.machine_stats import get_machine_stats_worker
+
+    woken = []
+    monkeypatch.setattr(get_machine_stats_worker(), "wake", lambda: woken.append(True))
     _sync_pieces(client, machine_token)
     user = db.query(User).filter(User.email == "member@test.com").first()
     user.role = "admin"
@@ -94,5 +100,6 @@ def test_refresh_stats_endpoint(client, db, test_machine, machine_token):
     csrf = client.cookies.get("csrf_token", "")
     r = client.post("/api/admin/machines/stats/refresh", headers={"X-CSRF-Token": csrf})
     assert r.status_code == 200, r.text
-    assert r.json()["ok"] is True
-    assert r.json()["refreshed"] >= 1
+    assert r.json()["ok"] is True and r.json()["requested"] is True
+    assert "interval_s" in r.json()["worker"]  # the machine-stats worker's own status
+    assert woken == [True]

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tip } from '$lib/popover';
-	import { Box, ExternalLink, Hammer, Printer, Zap } from 'lucide-svelte';
+	import { Box, Hammer, Printer, Zap } from 'lucide-svelte';
 	import Seo from '$lib/components/Seo.svelte';
 	import DownloadButton from '$lib/components/DownloadButton.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -112,9 +112,14 @@
 				plate and both cable cage plates have a “by hand” view, and both cable cage plates also
 				have a 3D-printed option.
 			</p>
+			<p class="mt-2 text-sm text-text-muted">
+				Don't have a laser nearby? Send the DXFs to a local maker space or an online cutting service,
+				for example <a href="https://simplycut.de/" target="_blank" rel="noopener" class="text-primary hover:underline">simplycut</a>
+				in Germany.
+			</p>
 		</div>
 		<a href="https://bin-gen.basically.website/" target="_blank" rel="noopener" class="inline-flex shrink-0 items-center justify-center gap-1.5 border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-muted transition-colors hover:border-primary hover:text-primary">
-			Laser Cut Bin Generator <ExternalLink size={13} />
+			Laser Cut Bin Generator
 		</a>
 	</header>
 
@@ -207,7 +212,7 @@
 										class="inline-flex items-center gap-0.5 text-xs text-primary hover:text-primary-hover"
 										use:tip={'Open the exact OnShape version this DXF came from'}
 									>
-										OnShape <ExternalLink size={11} />
+										OnShape
 									</a>
 								</div>
 							{:else if mode[p.id] === 'hand'}

@@ -1,10 +1,11 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.deps import get_current_user, get_db
-from app.models.machine import Machine
-from app.models.sample import Sample
 from app.models.user import User
+from app.services.review_queue import sample_counts
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
@@ -12,34 +13,30 @@ router = APIRouter(prefix="/api/stats", tags=["stats"])
 @router.get("/overview")
 def get_overview(
     scope: str | None = Query(None, pattern="^(mine|all)$"),
+    machine_id: list[UUID] | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Both samples + machine counts exclude archived rigs so the dashboard reflects
-    # the active fleet, not retired hardware. Admins can re-archive/un-archive via
-    # the machine endpoints if a rig comes back.
-    machine_query = db.query(Machine).filter(Machine.archived_at.is_(None))
-    # Members only ever get counts over their OWN machines — otherwise the overview
-    # leaks the whole corpus's size/composition to any registrant. Reviewers and
-    # admins see fleet-wide totals (respecting an explicit scope=mine).
-    if scope == "mine" or current_user.role not in ("admin", "reviewer"):
-        machine_query = machine_query.filter(Machine.owner_id == current_user.id)
-    sample_query = db.query(Sample).filter(Sample.machine_id.in_(machine_query.with_entities(Machine.id)))
+    """Sample counts by review state for the dashboard and the Channel samples
+    header, over the active (not archived) machines the caller may see, or the
+    ones named by machine_id (one or several). Members only ever get their own
+    machines; reviewers and admins the fleet unless scope=mine.
 
-    total = sample_query.count()
-    unreviewed = sample_query.filter(Sample.review_status == "unreviewed").count()
-    in_review = sample_query.filter(Sample.review_status == "in_review").count()
-    accepted = sample_query.filter(Sample.review_status == "accepted").count()
-    rejected = sample_query.filter(Sample.review_status == "rejected").count()
-    conflict = sample_query.filter(Sample.review_status == "conflict").count()
-    total_machines = machine_query.count()
-
+    A sum over the per-machine rows the stats worker keeps (hourly), not a
+    count over the samples table: counting the unreviewed samples meant reading
+    the whole table on every load. ``computed_at`` is when the oldest of those
+    rows was made."""
+    counts = sample_counts(db, current_user, mine_only=scope == "mine", machine_ids=machine_id)
     return {
-        "total_samples": total,
-        "unreviewed_samples": unreviewed,
-        "in_review_samples": in_review,
-        "accepted_samples": accepted,
-        "rejected_samples": rejected,
-        "conflict_samples": conflict,
-        "total_machines": total_machines,
+        key: counts[key]
+        for key in (
+            "total_samples",
+            "unreviewed_samples",
+            "in_review_samples",
+            "accepted_samples",
+            "rejected_samples",
+            "conflict_samples",
+            "total_machines",
+            "computed_at",
+        )
     }

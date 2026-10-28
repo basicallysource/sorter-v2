@@ -38,6 +38,7 @@ class InterfaceCommandCode(BaseCommandCode):
     STEPPER_ENABLE_STALL_DETECTION = 0x1A
     STEPPER_GET_STALL_STATUS = 0x1B  # channel ignored; returns a per-board stall bitmask
     STEPPER_CLEAR_STALL = 0x1C
+    STEPPER_SET_DIAG_PIN = 0x1D  # int8 GPIO, -1 for none; boards keep their own DIAG pins until it is sent
     # Stepper driver commands
     STEPPER_DRV_SET_ENABLED = 0x20
     STEPPER_DRV_SET_MICROSTEPS = 0x21

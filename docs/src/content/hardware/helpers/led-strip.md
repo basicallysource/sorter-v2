@@ -8,7 +8,7 @@ kicker: Helpers — LED strips (LED2a to LED4a, LED2 to LED4)
 lede: One machine needs three LED strips. This page describes how to cut a length of 24 V strip and make the cable that takes it to the control board (LED2a to LED4a, LED2 to LED4), with an optional but recommended barrel plug and socket where the lamp comes off.
 permalink: /hardware/helpers/led-strip/
 author: brickcyclealice
-contributors: [effreek, reveryx, spencer, barthel]
+contributors: [effreek, jensr80, spencer, barthel]
 og_image: https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg
 last_verified: 2026-09-25
 parts_needed:

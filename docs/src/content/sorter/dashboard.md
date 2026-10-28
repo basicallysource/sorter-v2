@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-dashboard
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: Watch the three camera channels, home or recover the machine, follow the pieces going through, and check how a run is going. Includes the Runtime page and the two pages that track how much of a set you have sorted.
 permalink: /sorter/dashboard/
 warning: >-

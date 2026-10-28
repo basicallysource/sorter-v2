@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-stallguard
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: Stop the machine when the chute or the classification channel stalls, and set how sensitive that check is. Record the motor running freely and held back, save the threshold the page works out, then check it.
 permalink: /sorter/stallguard/
 warning: >-

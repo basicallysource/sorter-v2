@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-perception-debug
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: See what the detector sees on each channel, which boxes the machine acts on, and where the zones sit. Use it when pieces are missed, or when a channel behaves as if it cannot see them.
 permalink: /sorter/perception-debug/
 warning: >-

@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-feeder-simple-pulse
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: Every setting on the Feeder simple pulse tuning page, what it does, and its default. Use it when pieces reach the classification channel two at a time, when a channel moves too fast or too slowly, or when you want the machine to find faster settings for itself.
 permalink: /sorter/feeder-simple-pulse/
 warning: >-

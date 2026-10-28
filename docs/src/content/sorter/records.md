@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-records
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: The history of everything this machine has sorted, in four views. See totals and trends, name your sorting runs and lots, search and review every piece, and look back at the incidents the machine raised.
 permalink: /sorter/records/
 warning: >-

@@ -9,7 +9,7 @@ lede: The lowest channel, where the part is imaged. The finned rotor and its cap
 permalink: /hardware/assembly/feeder/c-channels/classification-channel/
 author: spencer
 og_image: https://assets.basically.website/sorter-docs/classification-channel-finished-capped-rotor-w1600-c4033d1a23b0.jpg
-contributors: [barthel, brickcyclealice, danny, reveryx, daddyosbricksbill]
+contributors: [barthel, brickcyclealice, danny, jensr80, daddyosbricksbill]
 last_verified: 2026-09-25
 tools_needed: ["Hex key, 2 mm"]
 parts_needed:

@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-before-first-sort-run
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: The last five things to check in the UI, once the setup wizard, the cameras and the chute are done.
 permalink: /sorter/before-first-sort-run/
 warning: >-

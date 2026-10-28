@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-diagnostics
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: The four diagnostic pages under Settings. Performance and Cycle time show how fast the machine is working and where each piece's time goes. The Jitter test and the Power stress test move motors on purpose.
 permalink: /sorter/diagnostics/
 warning: >-

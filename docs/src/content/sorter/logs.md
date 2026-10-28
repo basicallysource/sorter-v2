@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-logs
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: Read the machine's own log in the browser, narrowed to the errors, warnings or text you are after. Use it when something went wrong and the dashboard does not say why.
 permalink: /sorter/logs/
 warning: >-

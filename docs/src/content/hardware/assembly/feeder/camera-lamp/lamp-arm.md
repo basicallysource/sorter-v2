@@ -7,7 +7,7 @@ slug: assembly-lamp-arm
 kicker: Feeder — Lamp arm
 lede: The arm and the ring it carries, the reflector with its ring of LED strip, and the cover that goes over the top. The half of a camera lamp that is the same on all three. Build three.
 permalink: /hardware/assembly/feeder/camera-lamp/lamp-arm/
-author: reveryx
+author: jensr80
 contributors: [spencer, danny, brickcyclealice, barthel]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png
 last_verified: 2026-09-25

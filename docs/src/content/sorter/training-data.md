@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-training-data
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: Choose what the machine shares with each Hive, watch what has been uploaded, set how it captures training frames, and run labelled color-training runs. All under Settings, Data.
 permalink: /sorter/training-data/
 warning: >-

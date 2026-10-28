@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-tuning
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: The Classification channel, Object tracker and Piece link tuning pages under Settings, with every field, its default, and what it changes. Use it when the classification channel misfeeds or sticks, when piece ids change between frames, or to try the experimental piece-link matcher.
 permalink: /sorter/tuning/
 warning: >-

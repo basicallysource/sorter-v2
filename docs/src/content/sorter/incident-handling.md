@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-incident-handling
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: Choose what the machine does when a piece sticks or a bin runs out mid-sort, for each kind of incident. Ignore it, wait for you, or try to free the piece itself.
 permalink: /sorter/incident-handling/
 warning: >-

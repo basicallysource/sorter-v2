@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-channel-settings
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: What is on the Settings page of each C-channel, and the Picture, Detection and LED panels above its camera view. Use it to change a channel's camera, picture, detection model or lamp, or to turn its rotor by hand.
 permalink: /sorter/channel-settings/
 warning: >-

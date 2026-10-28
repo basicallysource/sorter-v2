@@ -8,7 +8,7 @@ kicker: Feeder — Feeder channels
 lede: The two metering stages between the bulk channel and classification, with a faceted rotor and an output guide each.
 permalink: /hardware/assembly/feeder/c-channels/feeder-channels/
 author: barthel
-contributors: [spencer, brickcyclealice, danny, reveryx, daddyosbricksbill]
+contributors: [spencer, brickcyclealice, danny, jensr80, daddyosbricksbill]
 og_image: https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg
 last_verified: 2026-09-25
 tools_needed: ["Hex key, 2 mm"]

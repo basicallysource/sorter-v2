@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-tracked-piece
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: Everything the machine recorded about one piece, from the photos it took to the bin it chose. Use it to work out why a piece went where it did, and to tell the machine when it got a piece wrong.
 permalink: /sorter/tracked-piece/
 warning: >-

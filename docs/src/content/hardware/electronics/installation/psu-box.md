@@ -8,7 +8,7 @@ kicker: Electronics — PSU box
 lede: The printed housing around the Mean Well LRS-350-24, its mains inlet, and the wiring inside it.
 permalink: /hardware/electronics/installation/psu-box/
 author: barthel
-contributors: [spencer, brickcyclealice, reveryx]
+contributors: [spencer, brickcyclealice, jensr80]
 og_image: https://assets.basically.website/sorter-parts/meanwell-psu-housing-v2-render-full-f4b161896ea6.png
 last_verified: 2026-09-26
 tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws", "Pliers, for the jacks' nuts", "Multimeter, with a continuity buzzer"]

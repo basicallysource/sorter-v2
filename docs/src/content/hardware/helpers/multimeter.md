@@ -8,7 +8,7 @@ kicker: Helpers — Multimeter
 lede: Two settings on the dial cover every check this build asks for, continuity and resistance. What each one tells you, and how to read it.
 permalink: /hardware/helpers/multimeter/
 author: barthel
-contributors: [effreek, reveryx]
+contributors: [effreek, jensr80]
 last_verified: 2026-09-26
 tools_needed: ["Multimeter, with a continuity buzzer"]
 ---

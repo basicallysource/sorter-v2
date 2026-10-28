@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-networking
 kicker: SorterOS — Operate
-author: reveryx
+author: jensr80
 lede: Point the UI at a machine, put the machine on a Wi-Fi network, and join or switch its Tailscale network, all from Settings. Also what to do when the page cannot reach the machine.
 permalink: /sorter/networking/
 warning: >-

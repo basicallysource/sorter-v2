@@ -7,7 +7,7 @@ slug: assembly-camera-lamps
 kicker: Feeder — Camera lamps
 lede: The arm, the shaded lamp and the camera that hang over C2, C3 and the classification channel. One lamp arm, built three times, finished with the camera its channel needs.
 permalink: /hardware/assembly/feeder/camera-lamp/
-author: reveryx
+author: jensr80
 contributors: [spencer, danny, brickcyclealice, barthel]
 last_verified: 2026-09-25
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png

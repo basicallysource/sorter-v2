@@ -85,7 +85,7 @@ Without the washer the nut works loose in the printed plastic, and a loose jack 
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-jack-spring-washer-w1600-2bb508c8cf75.jpg" alt="The inside of the front panel with three barrel jacks through it: the left jack bare, the middle one with its spring washer down on the thread and its nut still loose on the leads below, and the right one with the washer flattened under a tightened nut">
-  <figcaption>The three jacks from inside, left to right in the order they go on: bare, spring washer down against the panel, then the nut tightened onto it. <cite>Photo: ReveryX.</cite></figcaption>
+  <figcaption>The three jacks from inside, left to right in the order they go on: bare, spring washer down against the panel, then the nut tightened onto it. <cite>Photo: JensR80.</cite></figcaption>
 </figure>
 
 Set the panel down beside the supply for now. The leads land on the terminal block in step 4, once the supply is in the tray.

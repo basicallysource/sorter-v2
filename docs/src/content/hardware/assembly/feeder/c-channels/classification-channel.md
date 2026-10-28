@@ -149,7 +149,7 @@ A channel core with the finned rotor capped and dropped in. It goes onto the mac
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/classification-channel-finished-capped-rotor-w1600-c4033d1a23b0.jpg" alt="A finished classification channel on a wooden bench: the white finned rotor sitting down in the black stator ring with a small grey cap at its centre, the stepper motor at the left and the orange output gear showing at the gap in the ring">
-  <figcaption>A finished classification channel, the capped rotor down in the core. <cite>Photo: ReveryX.</cite></figcaption>
+  <figcaption>A finished classification channel, the capped rotor down in the core. <cite>Photo: JensR80.</cite></figcaption>
 </figure>
 
 The photo shows a white rotor and a black stator. Print both ash grey: the camera looks straight at them, white throws its exposure and white balance off, and black pieces disappear against black.

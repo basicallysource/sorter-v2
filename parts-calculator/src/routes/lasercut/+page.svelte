@@ -12,8 +12,7 @@
 	import { LASER_CUT_PARTS, type LaserCutPart } from '$lib/lasercut';
 	import { fmtDate, PARTS, primaryColorId, type Part, type PartVersion } from '$lib/filament';
 	import { colorStore } from '$lib/colors.svelte';
-	import { type Units } from '$lib/handcut';
-	import { page } from '$app/state';
+		import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
@@ -58,11 +57,10 @@
 		partOpen = true;
 	}
 
-	// Deep-link the hand-cut guide: `?guide=top-plate` opens the modal and
-	// `?units=mm` (default is inches) picks the unit, so a specific view is a
-	// shareable link. Query params only exist in the browser — the site is
-	// prerendered — so we read them on mount and mirror state back in an effect.
-	let units = $state<Units>('in');
+	// Deep-link the hand-cut guide: `?guide=top-plate` opens the modal, so a
+	// specific view is a shareable link. Query params only exist in the browser —
+	// the site is prerendered — so we read them on mount and mirror state back in
+	// an effect.
 	let urlReady = $state(false);
 
 	onMount(() => {
@@ -75,8 +73,6 @@
 				guideOpen = true;
 			}
 		}
-		const u = sp.get('units');
-		if (u === 'mm' || u === 'in') units = u;
 		urlReady = true;
 	});
 
@@ -85,11 +81,8 @@
 		const params = new URLSearchParams(page.url.search);
 		if (guideOpen && guidePart) {
 			params.set('guide', guidePart.id);
-			if (units !== 'in') params.set('units', units);
-			else params.delete('units');
 		} else {
 			params.delete('guide');
-			params.delete('units');
 		}
 		const qs = params.toString();
 		const target = qs ? `${location.pathname}?${qs}` : location.pathname;
@@ -272,7 +265,7 @@
 	{#if guidePart?.handcut?.guide === 'top-plate'}
 		<div class="flex justify-end border-b border-border px-4 py-2">
 			<a
-				href={`/lasercut/top-plate-guide${units === 'mm' ? '?units=mm' : ''}`}
+				href="/lasercut/top-plate-guide"
 				target="_blank"
 				rel="noopener"
 				class="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
@@ -280,11 +273,11 @@
 				<Printer size={13} /> Printable version
 			</a>
 		</div>
-		<HandCutTopPlateGuide bind:units />
+		<HandCutTopPlateGuide />
 	{:else if guidePart?.handcut?.guide === 'cage-top'}
-		<HandCutCageGuide variant="top" bind:units />
+		<HandCutCageGuide variant="top" />
 	{:else if guidePart?.handcut?.guide === 'cage-bottom'}
-		<HandCutCageGuide variant="bottom" bind:units />
+		<HandCutCageGuide variant="bottom" />
 	{/if}
 </Modal>
 

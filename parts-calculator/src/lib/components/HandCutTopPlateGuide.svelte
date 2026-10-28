@@ -15,14 +15,11 @@
 		fromEdges,
 		fmtLen,
 		bitLabel,
-		type Units,
 		type HoleGroup
 	} from '$lib/handcut';
 
-	// `units` is bindable so the parent can mirror it into the URL (?units=mm).
-	let { units = $bindable('in') }: { units?: Units } = $props();
-	const L = (mm: number) => fmtLen(mm, units);
-	const bit = (d: number) => bitLabel(d, units);
+	const L = (mm: number) => fmtLen(mm);
+	const bit = (d: number) => bitLabel(d);
 
 	// SVG helpers: plate coords are y-up, SVG is y-down
 	const sy = (y: number) => -y;
@@ -95,7 +92,7 @@
 		</figcaption>
 	</figure>
 
-	<!-- intro + unit toggle -->
+	<!-- intro -->
 	<div class="flex flex-wrap items-start justify-between gap-3">
 		<p class="max-w-xl text-text-muted">
 			No laser big enough? The top plate is a <b class="text-text">regular hexagon</b> — it lays out
@@ -103,27 +100,13 @@
 			distance from the center to each corner equals the side length. The five rounded cable slots
 			are replaced by single {bit(CABLE_HOLE_D)} drill holes.
 		</p>
-		<div class="flex shrink-0 border border-border" role="group" aria-label="Units">
-			{#each [['mm', 'Metric (mm)'], ['in', 'Imperial (inches)']] as [id, label] (id)}
-				<button
-					class="px-3 py-1.5 text-xs font-semibold {units === id
-						? 'bg-[var(--color-primary)] text-[var(--color-primary-contrast)]'
-						: 'text-text-muted hover:text-text'}"
-					onclick={() => (units = id as Units)}
-				>
-					{label}
-				</button>
-			{/each}
-		</div>
 	</div>
 
-	{#if units === 'in'}
-		<p class="border border-border bg-[var(--color-bg)] px-3 py-2 text-xs text-text-muted">
+	<p class="border border-border bg-[var(--color-bg)] px-3 py-2 text-xs text-text-muted">
 			Inch values are rounded to the nearest 1/32″ — at worst 0.4&nbsp;mm off, which is fine here.
 			What matters most is the spacing of the small holes relative to each other; the outline is the
 			least critical cut on the plate.
-		</p>
-	{/if}
+	</p>
 
 	<!-- tools -->
 	<section>
@@ -149,9 +132,7 @@
 			Step 1 · Cut the stock rectangle
 		</h3>
 		<p class="text-text-muted">
-			Cut a rectangle <b class="text-text">{L(RECT.w)} × {L(RECT.h)}</b> from {units === 'mm'
-				? '10 mm'
-				: '3/8″'} plywood. Keep the edges straight and the corners square — check by measuring both
+			Cut a rectangle <b class="text-text">{L(RECT.w)} × {L(RECT.h)}</b> from 10 mm (3/8″) plywood. Keep the edges straight and the corners square — check by measuring both
 			diagonals: each should be <b class="text-text">{L(HEX.diagonal)}</b>, and they must match.
 		</p>
 		<h3 class="mb-1 mt-3 text-xs font-semibold uppercase tracking-wider text-text-muted">

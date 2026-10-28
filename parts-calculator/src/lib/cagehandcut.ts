@@ -16,8 +16,6 @@
 // The twelve Ø3.5 holes are a real cut feature but the documented top-interface
 // build never fastens anything into them, so the guide flags them as optional.
 
-export type Units = 'mm' | 'in'; // (re-exported shape; helpers come from $lib/handcut)
-
 export const CAGE_HEX = {
 	side: 187.64, // also centre → corner (a hexagon's side equals its circumradius)
 	acrossFlats: 325.0, // horizontal, flat to flat

@@ -9,7 +9,7 @@ lede: The interface between the feeder and the bin tower.
 permalink: /hardware/assembly/distribution/top-interface/
 og_image: https://assets.basically.website/sorter-parts/top-interface-finished-full-65eb32ba52dc.png
 author: zed0
-contributors: [barthel, brickcyclealice]
+contributors: [barthel, brickcyclealice, dodgybob]
 parts_needed:
   - part: interface-upper-fixed-section
     qty: 1
@@ -778,8 +778,8 @@ Fold your IDC ribbon cable (`RIB1`) around the Cable clamp (inner), following th
 **The connector goes on pins up.** You should be able to see into the connector from above when the tail is lying where it will sit; if it is facing down at the bench, the cable is on the wrong way round. Getting this wrong is expensive: three steps have to come apart to turn it over.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/top-interface-ribbon-plug-placeholder-full-ae921f08e514.jpg" alt="Placeholder: a faded photo of the folded ribbon cable with its IDC plug, marked PLACEHOLDER, captioned photo wanted, this view with the plug the other way up">
-  <figcaption><strong>Placeholder.</strong> This is the view we want, with the plug the other way up so you can see into it. The faded photo behind the marker has it the wrong way round. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/top-interface-ribbon-plug-pins-up-w1600-098e1b760f29.jpg" alt="The ribbon cable folded around the white cable clamp with its grey IDC plug standing at the end of the tail, the plug's socket openings facing up so you can see into it">
+  <figcaption>The plug pins up, so you can see into it. <cite>Photo: DodgyBob.</cite></figcaption>
 </figure>
 
 Guide the rest of the ribbon cable (`RIB1`) around the side of the Top interface chute mount, in the direction the chute can rotate, back to the Cable cage bracket (cable mount).

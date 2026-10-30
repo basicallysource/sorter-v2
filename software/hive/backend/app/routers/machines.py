@@ -29,7 +29,7 @@ from app.schemas.machine import (
     MachineWithTokenResponse,
 )
 from app import background
-from app.services import machine_stats, training_runs
+from app.services import machine_defaults, machine_stats, training_runs
 from app.services.auth import generate_machine_token, verify_password
 from app.services.machine_set_progress import cached_inventory_index, summarize_machine_set_progress
 from app.services.machine_stats import get_machine_stats_worker
@@ -259,6 +259,10 @@ def _serialize_machine_piece(piece: MachinePiece, images: list[MachinePieceImage
         "color_confidence": piece.color_confidence,
         "bin": {"x": piece.bin_x, "y": piece.bin_y, "z": piece.bin_z},
         "dead": piece.dead,
+        # The operator's verdicts, as the records list carries them.
+        "part_correct": piece.part_correct,
+        "color_corrected_id": piece.color_corrected_id,
+        "correction_updated_at": piece.correction_updated_at.isoformat() if piece.correction_updated_at else None,
         "brickognize_preview_url": piece.brickognize_preview_url,
         "images": [
             {
@@ -284,7 +288,7 @@ def _serialize_machine_piece(piece: MachinePiece, images: list[MachinePieceImage
 @router.get("/machines/{machine_id}/pieces")
 def list_machine_pieces(
     machine_id: UUID,
-    limit: int = Query(60, ge=1, le=200),
+    limit: int = Query(60, ge=1, le=1000),
     cursor: int | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -654,8 +658,15 @@ def heartbeat(
                     machine.network_reported_at = now
     db.commit()
     # The limits ride on the heartbeat so Hive can change them without a
-    # release; a machine that predates them ignores the key.
-    return {"ok": True, "machine_id": str(machine.id), "limits": effective_limits(db, machine)}
+    # release, and the defaults' version so a machine fetches the block when it
+    # changes (services/machine_defaults.py); a machine that predates either
+    # ignores the key.
+    return {
+        "ok": True,
+        "machine_id": str(machine.id),
+        "limits": effective_limits(db, machine),
+        "defaults_version": machine_defaults.current(db)["version"],
+    }
 
 
 @router.post("/machine/register", response_model=MachineWithTokenResponse)

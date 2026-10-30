@@ -158,11 +158,17 @@ def _ensureWorker() -> None:
 
 def _workerLoop() -> None:
     last_sweep = 0.0
+    q = _queue
     while True:
         try:
-            item: Optional[tuple[bytes, dict[str, Any]]] = _queue.get(timeout=_RETENTION_SWEEP_INTERVAL_S)
+            item: Optional[tuple[bytes, dict[str, Any]]] = q.get(timeout=_RETENTION_SWEEP_INTERVAL_S)
         except queue.Empty:
             item = None
+        # Keep the queue this worker started with. A test that reloads the
+        # module gets a new queue and its own worker; this one stops instead
+        # of taking the new queue's items. Nothing reloads it in production.
+        if q is not _queue:
+            return
         wrote = False
         if item is not None:
             try:

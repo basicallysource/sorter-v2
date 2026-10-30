@@ -135,12 +135,18 @@ def _ensureWorker() -> None:
 
 def _workerLoop() -> None:
     last_sweep = 0.0
+    q = _queue
     while True:
         item: tuple[bytes, dict[str, Any]] | None
         try:
-            item = _queue.get(timeout=_RETENTION_SWEEP_INTERVAL_S)
+            item = q.get(timeout=_RETENTION_SWEEP_INTERVAL_S)
         except queue.Empty:
             item = None
+        # Keep the queue this worker started with. A test that reloads the
+        # module gets a new queue and its own worker; this one stops instead
+        # of taking the new queue's items. Nothing reloads it in production.
+        if q is not _queue:
+            return
         if item is not None:
             jpeg, meta = item
             try:
@@ -301,15 +307,24 @@ def listCropsAfter(after_id: int, limit: int) -> list[dict[str, Any]]:
         rows = conn.execute(
             "SELECT id, channel, ts, created_at, track_id, com_forward_to_exit_deg, "
             "com_section, zone_code, sharpness, bbox_x1, bbox_y1, bbox_x2, bbox_y2, "
-            "bytes, deleted_at FROM channel_crops WHERE id > ? ORDER BY id ASC LIMIT ?",
+            "bytes, file_path, deleted_at FROM channel_crops WHERE id > ? ORDER BY id ASC LIMIT ?",
             (int(after_id), int(limit)),
         ).fetchall()
     out = []
     for r in rows:
         d = _rowToDict(r)
         d["evicted_locally"] = r["deleted_at"] is not None
+        d["file_path"] = r["file_path"]
         out.append(d)
     return out
+
+
+def cropFile(row: dict[str, Any]) -> Optional[Path]:
+    """The file of a row from listCropsAfter, or None once it is evicted or gone."""
+    if row.get("evicted_locally") or not row.get("file_path"):
+        return None
+    abs_path = channel_crops_dir() / str(row["file_path"])
+    return abs_path if abs_path.is_file() else None
 
 
 def listCropsByTimeRange(t_start: float, t_end: float) -> list[dict[str, Any]]:
@@ -356,3 +371,20 @@ def markSyncedUpTo(max_id: int, synced_at: float) -> None:
             (float(synced_at), int(max_id)),
         )
         conn.commit()
+
+
+def storageStats() -> dict[str, int]:
+    """What this store keeps on disk: files, their bytes, its cap, and how
+    many are not on every Hive yet."""
+    with _connection() as conn:
+        row = conn.execute(
+            f"SELECT COUNT(*) AS n, COALESCE(SUM({db.on_disk_bytes_sql()}), 0) AS b, "
+            "COALESCE(SUM(CASE WHEN synced_at IS NULL THEN 1 ELSE 0 END), 0) AS waiting "
+            "FROM channel_crops WHERE deleted_at IS NULL"
+        ).fetchone()
+    return {
+        "count": int(row["n"] or 0),
+        "bytes": int(row["b"] or 0),
+        "cap_bytes": _MAX_TOTAL_BYTES,
+        "waiting": int(row["waiting"] or 0),
+    }

@@ -276,12 +276,18 @@ def _ensureWorker() -> None:
 
 def _workerLoop() -> None:
     last_sweep = 0.0
+    q = _queue
     while True:
         entry: tuple[str, str, Any] | None
         try:
-            entry = _queue.get(timeout=_RETENTION_SWEEP_INTERVAL_S)
+            entry = q.get(timeout=_RETENTION_SWEEP_INTERVAL_S)
         except queue.Empty:
             entry = None
+        # Keep the queue this worker started with. A test that reloads the
+        # module gets a new queue and its own worker; this one stops instead
+        # of taking the new queue's items. Nothing reloads it in production.
+        if q is not _queue:
+            return
         if entry is not None:
             kind, piece_uuid, payload = entry
             try:
@@ -295,6 +301,8 @@ def _workerLoop() -> None:
                     _updateImageFlags(piece_uuid, payload)
             except Exception as exc:
                 _log("warning", f"piece_image_store: failed to persist {kind} for {piece_uuid[:8]}: {exc}")
+            finally:
+                q.task_done()
         now = time.monotonic()
         if now - last_sweep >= _RETENTION_SWEEP_INTERVAL_S:
             last_sweep = now
@@ -698,3 +706,20 @@ def markImagesSyncedUpTo(max_seq: int, synced_at: float) -> None:
             (float(synced_at), int(max_seq)),
         )
         conn.commit()
+
+
+def storageStats() -> dict[str, int]:
+    """What this store keeps on disk: files, their bytes, its cap, and how
+    many are not on every Hive yet."""
+    with _connection() as conn:
+        row = conn.execute(
+            f"SELECT COUNT(*) AS n, COALESCE(SUM({db.on_disk_bytes_sql()}), 0) AS b, "
+            "COALESCE(SUM(CASE WHEN synced_at IS NULL THEN 1 ELSE 0 END), 0) AS waiting "
+            "FROM piece_images WHERE deleted_at IS NULL"
+        ).fetchone()
+    return {
+        "count": int(row["n"] or 0),
+        "bytes": int(row["b"] or 0),
+        "cap_bytes": _MAX_TOTAL_BYTES,
+        "waiting": int(row["waiting"] or 0),
+    }

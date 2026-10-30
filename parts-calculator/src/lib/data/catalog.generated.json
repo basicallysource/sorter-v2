@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-5bf0e4989dee.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-ae75416ed93c.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-433bfa8f8058.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-86c69895209f.zip"
 	},
 	"sections": [
 		{
@@ -59,9 +59,7 @@
 		{
 			"id": "electronics",
 			"name": "Electronics",
-			"scales_with_layers": false,
-			"experimental": true,
-			"experimental_note": "The electronics are early and changing a lot. Only build these if you have the experience to adapt as the design moves."
+			"scales_with_layers": false
 		}
 	],
 	"changes": [
@@ -217,6 +215,17 @@
 			}
 		},
 		{
+			"id": "top-plate-for-layout-guides",
+			"name": "Top plate: add holes for the layout guides and re-place the cable holes",
+			"priority": "P2",
+			"description": "The Top plate was cut before the C-channels stood on layout guides. It has no holes for the layout guides, so nothing on the plate locates or fixes them, and its five cable holes were placed before that arrangement and have not been re-planned for it. The fix is a revised plate that adds the layout guide holes and moves the cable holes to suit the channels, camera lamps and cameras whose leads come down through it. Tracked as sorter-v2 issue #1072.",
+			"targets": {
+				"lasercut": [
+					"top-plate"
+				]
+			}
+		},
+		{
 			"id": "split-top-plate-puzzle",
 			"name": "Split the top plate into a supported puzzle",
 			"priority": "P3",
@@ -347,6 +356,28 @@
 					"layer",
 					"bottom-layer",
 					"chute"
+				]
+			}
+		},
+		{
+			"id": "orange-pi-base-corner-insert-access",
+			"name": "One of the Orange Pi housing base's board inserts cannot be pressed in square",
+			"priority": "P1",
+			"condition": "broken",
+			"description": "The board post under the Orange Pi's north-east corner stands in the inside corner of the roof corner post, and its \u00d84.0 insert bore is 3.4 mm from both faces of that corner. Both faces rise 31 mm above the top of the post, so a soldering iron cannot sit square over the insert: it rides against the corner post, melts it, and the insert does not go in cleanly. The other three board posts have at least 30 mm clear around them, and the four roof inserts are open from above. The Orange Pi 5 Pro, Max and Ultra base is not affected. The proposed CAD fix is to make that one hole a \u00d82.8 self-tapping hole like the roof's, so the base takes seven inserts instead of eight. Reported from builds by JensR80 and BrickCycleAlice; measured off the pinned STL. Tracked as sorter-v2 issue #1162.",
+			"images": [
+				{
+					"url": "https://assets.basically.website/sorter-parts/orange-pi-housing-base-ne-post-insert-full-0eb27e206746.png",
+					"alt": "Left: plan section of the base's north-east corner, the corner post in grey with its two wall grooves, the board post boss in blue and its 4.0 mm bore in red, 3.4 mm from each of the post's two inner faces. Right: the same corner rendered from inside the housing, with the bore and the two post faces it sits against in red.",
+					"caption": "The north-east board post sits in the corner post's inside corner, 3.4 mm from both faces, which run 31 mm up."
+				}
+			],
+			"targets": {
+				"parts": [
+					"orange-pi-housing-base"
+				],
+				"assemblies": [
+					"orange-pi-mount"
 				]
 			}
 		}
@@ -771,8 +802,8 @@
 		},
 		{
 			"id": "classification-chamber",
-			"uid": "qzw4",
-			"version": "4",
+			"uid": "fmsi",
+			"version": "5",
 			"name": "C-channel 4 - Classification",
 			"description": "The lowest channel, where classification happens: a C-channel drive with the finned rotor and a Camera lamp carrying the IMX415 4K camera. No output guide: the rotor's fins sweep through where one would sit.",
 			"docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
@@ -852,7 +883,35 @@
 					"date": "2026-09-08",
 					"message": "The Short and Angled Output Guide comes off C4. The finned rotor's five fins reach r 85.4 mm and sweep up to 21.2 mm past the guide's inner face at r 67.82, so the two cannot both be fitted; the faceted rotor on C1 to C3 clears the same guide by 1.5 to 1.8 mm. This restores the state before e22fce30 (#534), which gave C4 a guide when all four channels were consolidated onto one shape. Reported from a build by Extremetaz. sorter-v2 issue #543.",
 					"breaking": false,
-					"commit": "c467c375"
+					"commit": "c467c375",
+					"lines": [
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "npx0"
+						},
+						{
+							"assembly": "rotor-unit-finned",
+							"qty": 1,
+							"uid": "ufmf"
+						},
+						{
+							"assembly": "camera-lamp",
+							"qty": 1,
+							"args": {
+								"camera": "cam-imx415"
+							},
+							"uid": "rjhy"
+						}
+					]
+				},
+				{
+					"version": "5",
+					"uid": "fmsi",
+					"date": "2026-10-24",
+					"message": "Adds the Colour calibration strip, marked optional: a clip over the stator wall and a stud bar carrying eight LEGO tiles of known colours in the camera's view. Counted like the other optional parts. Requested by barthel in Discord, from Spencer's c4-70deg STLs of 2026-10-11.",
+					"breaking": false,
+					"commit": null
 				}
 			],
 			"lines": [
@@ -870,9 +929,61 @@
 					"args": {
 						"camera": "cam-imx415"
 					}
+				},
+				{
+					"assembly": "colour-calibration-strip",
+					"qty": 1
 				}
 			],
 			"connections": []
+		},
+		{
+			"id": "colour-calibration-strip",
+			"uid": "5ruo",
+			"version": "1",
+			"name": "Colour calibration strip",
+			"description": "Eight LEGO tiles of known colours in the classification camera's view, for colour calibration. A clip over the stator wall carries a stud bar with the tiles. Optional.",
+			"docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
+			"optional": true,
+			"images": [
+				{
+					"url": "https://assets.basically.website/sorter-docs/colour-strip-on-stator-wall-from-inside-png-full-40333c4f233c.png",
+					"alt": "Render of the colour strip on the classification channel's stator wall seen from inside the channel: the clip over the top of the wall and the stud bar hooked onto it, eight tiles from Red on the left to Black on the right standing just above the rim and facing into the channel",
+					"caption": "Rendered from the part geometry, not from a build."
+				}
+			],
+			"lines": [
+				{
+					"part": "colour-strip-clip",
+					"qty": 1
+				},
+				{
+					"part": "colour-strip-studs",
+					"qty": 1
+				},
+				{
+					"part": "lego-tile-1x1",
+					"qty": 8
+				}
+			],
+			"connections": [
+				{
+					"from": "lego-tile-1x1",
+					"to": "colour-strip-studs",
+					"qty": 8,
+					"method": "press",
+					"note": "One tile on each stud, in a fixed order from Black to Red.",
+					"draft": true
+				},
+				{
+					"from": "colour-strip-studs",
+					"to": "colour-strip-clip",
+					"qty": 1,
+					"method": "clip",
+					"note": "The bar's thin lip lies along the top of the clip and its hooked edge wraps the clip's outer face.",
+					"draft": true
+				}
+			]
 		},
 		{
 			"id": "chute-bearing",
@@ -1335,7 +1446,7 @@
 					"date": "2026-09-07",
 					"message": "Both cage brackets moved to v2 (sorter-v2 #403, the 25mm 'temp catcher wall' to 23mm 'main' Onshape reset), and the cable-mount bracket + ribbon clamp + their M3 now nest as the new cage-bracket-cable-clamp sub-assembly instead of three flat lines. No change to what the six brackets are or how they stack; the regular brackets and their M5s stay flat lines here.",
 					"breaking": false,
-					"commit": "47a5e5a5",
+					"commit": "6bcb3c0e",
 					"lines": [
 						{
 							"part": "interface-cage-bracket",
@@ -2068,7 +2179,7 @@
 					"date": "2026-09-05",
 					"breaking": false,
 					"message": "The stack is n bin layers plus one top interface, not n - 2 layers between two interfaces. The layer node now runs non-bottom-layers (n - 1) and the new bottom-layer node runs once, because the lowest layer carries foot covers instead of bracket covers and bottom verticals. Brings the tree onto the same counts the 3D-parts and framing models already used: n + 1 hexagons, 12n bin retainers, 6 foot covers. No physical change.",
-					"commit": "36826f49",
+					"commit": "de693213",
 					"lines": [
 						{
 							"part": "top-plate",
@@ -4604,7 +4715,7 @@
 					"date": "2026-09-05",
 					"breaking": false,
 					"message": "The 24 bin-retainer screws are M5 x 16, not M5 x 12: the retainer's bore is 12.8 mm, so an M5 x 12 reaches the extrusion face with nothing left for the T-nut. Reported by BrickCycleAlice, who tried them on a build; confirmed by measuring the STL. Merged into the existing scr-m5-16-shcs line, 12 + 24 = 36, and the joint recorded in connections with its measured through_mm.",
-					"commit": "1ce549ec"
+					"commit": "dc1f661e"
 				},
 				{
 					"version": "4",
@@ -4850,7 +4961,7 @@
 					"date": "2026-09-05",
 					"breaking": false,
 					"message": "Dropped the layer-frame: the bottom interface hangs under the lowest bin layer's frame and does not get a hexagon of its own (bottom two layers, step 6). Dropped the layer connector too: the spare one belongs to the top interface, which slides onto the external bracket on that hex ring. No physical change.",
-					"commit": "36826f49",
+					"commit": "de693213",
 					"lines": [
 						{
 							"assembly": "lazy-susan",
@@ -7113,9 +7224,120 @@
 			]
 		},
 		{
+			"id": "orange-pi-pro-housing",
+			"uid": "q9gw",
+			"version": "1",
+			"name": "Orange Pi 5 Pro housing",
+			"description": "The Orange Pi 5 Pro, Max or Ultra closed into a printed housing that bolts to the 2020 extrusion, built in place of the Orange Pi housing for these boards. A base with posts for the board, four walls that drop into it, and a roof that carries the powered USB hub and the buck converter that powers the board, each under its own clamp. One WiFi antenna stands in a cap on one wall, and a plunger reaches the board's power button from outside.",
+			"docs": "/hardware/electronics/installation/orange-pi-mount/",
+			"images": [
+				{
+					"url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-with-hub-render-full-669b3d199c7e.png",
+					"alt": "Render of the Orange Pi 5 Pro housing with the USB hub and the buck converter clamped to its roof, their cables and the board's USB leads running off the box, and the WiFi antenna standing in its cap on the long wall",
+					"caption": "The housing with the hub and the buck converter on its roof. Rendered from the CAD, not from a build."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-render-ne-full-d762cdbaba34.png",
+					"alt": "Render of the closed Orange Pi 5 Pro housing seen from the north east, with the hub clamp and the buck clamp on its roof, the port openings in the east wall and the single antenna block on the north wall",
+					"caption": "The housing with its two roof clamps. Rendered from the part files, not from a build."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-render-sw-full-849e92e85437.png",
+					"alt": "Render of the closed Orange Pi 5 Pro housing seen from the south west, showing the hex vent in the south wall, the two frame ears and the two roof clamps",
+					"caption": "The other side. Rendered from the part files, not from a build."
+				}
+			],
+			"lines": [
+				{
+					"part": "orange-pi-pro-housing-base",
+					"qty": 1
+				},
+				{
+					"part": "microsd-32gb",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-6-bhcs",
+					"qty": 4
+				},
+				{
+					"part": "orange-pi-pro-housing-plunger",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-plunger-cap",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-8-cs",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-wall-west",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-wall-east",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-wall-north",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-wall-south",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-roof",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-12-cs",
+					"qty": 14
+				},
+				{
+					"part": "orange-pi-pro-housing-antenna-clamp-cap",
+					"qty": 1
+				},
+				{
+					"part": "usb-hub-powered-24v",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-hub-clamp",
+					"qty": 1
+				},
+				{
+					"part": "buck-24v-5v-usbc",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-pro-housing-buck-clamp",
+					"qty": 1
+				},
+				{
+					"assembly": "harness-buck-24v",
+					"qty": 1
+				},
+				{
+					"part": "scr-m5-16-shcs",
+					"qty": 2
+				},
+				{
+					"part": "washer-m5",
+					"qty": 2
+				},
+				{
+					"part": "tnut-m5-2020",
+					"qty": 2
+				}
+			]
+		},
+		{
 			"id": "electronics",
-			"uid": "nno4",
-			"version": "7",
+			"uid": "me96",
+			"version": "8",
 			"name": "Electronics",
 			"description": "The PSU, the control board and the Orange Pi, each in its own printed box bolted to the frame, plus the 24 V lead to the powered USB hub (PWR2), which rides on the Orange Pi housing's roof with the converter that powers the Pi.",
 			"docs": "/hardware/electronics/installation/",
@@ -7131,6 +7353,11 @@
 				{
 					"assembly": "orange-pi-mount",
 					"qty": 1
+				},
+				{
+					"assembly": "orange-pi-pro-housing",
+					"qty": 1,
+					"optional": true
 				},
 				{
 					"assembly": "harness-hub-24v",
@@ -7343,6 +7570,46 @@
 					"uid": "nno4",
 					"date": "2026-10-02",
 					"message": "The spare crimp parts the lead pages list join the machine as one group, Spare crimp parts, so the parts list matches the pages. They are not on any cable and nothing is built from them. Nothing else changes.",
+					"breaking": false,
+					"commit": null,
+					"lines": [
+						{
+							"assembly": "meanwell-psu-box",
+							"qty": 1,
+							"uid": "dxsv"
+						},
+						{
+							"assembly": "ctrl-board-mount",
+							"qty": 1,
+							"uid": "y2yu"
+						},
+						{
+							"assembly": "orange-pi-mount",
+							"qty": 1,
+							"uid": "hxqn"
+						},
+						{
+							"assembly": "harness-hub-24v",
+							"qty": 1,
+							"uid": "ks7s"
+						},
+						{
+							"assembly": "harness-wire-stock",
+							"qty": 1,
+							"uid": "xo4j"
+						},
+						{
+							"assembly": "harness-spares",
+							"qty": 1,
+							"uid": "e5g1"
+						}
+					]
+				},
+				{
+					"version": "8",
+					"uid": "me96",
+					"date": "2026-10-16",
+					"message": "The Orange Pi 5 Pro, Max and Ultra housing joins as an optional alternative to the Orange Pi housing, for builders whose board has the Pro's hole pattern. It is on the line with optional set, so nothing in it reaches a total and the Orange Pi housing stays the counted default; swap one for the other if you build the Pro one. Nothing else changes.",
 					"breaking": false,
 					"commit": null
 				}
@@ -9005,7 +9272,8 @@
 			"support_intentional": true,
 			"print_seconds": 16022,
 			"color": {
-				"fixed": "ash-gray"
+				"fixed": "ash-gray",
+				"why": "The camera looks straight at it. Gray keeps the camera's exposure and white balance steady: white throws them off, and black pieces disappear against black."
 			},
 			"optional": false,
 			"onshape": null,
@@ -9162,7 +9430,8 @@
 			"support_intentional": false,
 			"print_seconds": 10668,
 			"color": {
-				"fixed": "ash-gray"
+				"fixed": "ash-gray",
+				"why": "The camera looks straight at it. Gray keeps the camera's exposure and white balance steady: white throws them off, and black pieces disappear against black."
 			},
 			"optional": false,
 			"onshape": null,
@@ -10443,7 +10712,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "The chute core. 1 per machine.",
+			"description": "The chute core. 1 per layer.",
 			"version": "2",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-10-11",
@@ -10858,7 +11127,7 @@
 			"description": "Distribution frame crossbeam. One between each of the 6 frame sections.",
 			"version": "1",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-17",
 			"versions": [
 				{
 					"version": "1",
@@ -10867,17 +11136,17 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
-					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-45a69ae68476.stl",
-					"render": "https://assets.basically.website/sorter-parts/frame-crossbeam-full-d790a21330fa.png",
-					"grams": 86.17
+					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-d5225dc668c5.stl",
+					"render": "https://assets.basically.website/sorter-parts/frame-crossbeam-full-f83b1f49d4f9.png",
+					"grams": 84.09
 				}
 			],
 			"attributes": [],
-			"grams": 86.17,
+			"grams": 84.09,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 9567,
+			"print_seconds": 9085,
 			"color": {
 				"role": "frame"
 			},
@@ -10891,21 +11160,21 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-45a69ae68476.stl",
-			"render": "https://assets.basically.website/sorter-parts/frame-crossbeam-full-d790a21330fa.png",
+			"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-d5225dc668c5.stl",
+			"render": "https://assets.basically.website/sorter-parts/frame-crossbeam-full-f83b1f49d4f9.png",
 			"stamped": [
 				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-angled-face-e93a29e5caa2.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-bottom-2b471a60a0dd.stl",
 					"normal": [
-						0.25,
-						-0.433,
-						0.866
+						-0.0,
+						0.0,
+						-1.0
 					],
 					"center": [
-						62.16,
-						-220.92,
-						104.44
+						129.05,
+						11.29,
+						0.0
 					],
 					"size": [
 						12.31,
@@ -10915,17 +11184,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-angled-face-2-37c3e87a0cf9.stl",
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-plus-y-side-3662529f9f65.stl",
 					"normal": [
 						-0.25,
-						-0.433,
-						0.866
+						0.9586,
+						0.136
 					],
 					"center": [
-						-62.74,
-						-220.59,
-						104.44
+						185.49,
+						33.23,
+						47.05
 					],
 					"size": [
 						12.31,
@@ -10935,17 +11204,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "angled face 3",
-					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-angled-face-3-31a8c4a9ce95.stl",
+					"face": "+y side 2",
+					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-plus-y-side-2-f0200e7c70ff.stl",
 					"normal": [
-						-0.866,
-						0.5,
-						0.0
+						0.25,
+						0.9586,
+						0.136
 					],
 					"center": [
-						-85.75,
-						-168.52,
-						108.9
+						65.94,
+						33.23,
+						47.05
 					],
 					"size": [
 						12.31,
@@ -10955,17 +11224,17 @@
 					"depth": 0.6
 				},
 				{
-					"face": "angled face 4",
-					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-angled-face-4-90aea645a87e.stl",
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/frame-crossbeam-cdeg-stamped-minus-y-side-03554cf9c90e.stl",
 					"normal": [
-						0.866,
-						0.5,
-						0.0
+						0.25,
+						-0.9586,
+						-0.136
 					],
 					"center": [
-						85.84,
-						-168.68,
-						108.9
+						199.86,
+						16.31,
+						45.69
 					],
 					"size": [
 						12.31,
@@ -10991,7 +11260,7 @@
 			"description": "Distribution frame 90\u00b0 bracket. Two per frame section.",
 			"version": "1",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-17",
 			"versions": [
 				{
 					"version": "1",
@@ -11005,7 +11274,13 @@
 					"grams": 13.62
 				}
 			],
-			"attributes": [],
+			"attributes": [
+				{
+					"label": "Print orientation",
+					"value": "Corner down, legs rising at 45\u00b0 like a V, no supports. The file rests on no face; as exported it needs supports under the T-shaped key",
+					"image_url": "https://assets.basically.website/sorter-parts/frame-90deg-bracket-print-orientation-full-004d30d57e54.png"
+				}
+			],
 			"grams": 13.62,
 			"support_grams": 0.0,
 			"support_used": false,
@@ -11779,7 +12054,7 @@
 			"description": "Part of the external distribution-frame bracket (3-part assembly).",
 			"version": "1",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-10-17",
 			"versions": [
 				{
 					"version": "1",
@@ -11788,17 +12063,17 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
-					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-da4b3abd3db7.stl",
-					"render": "https://assets.basically.website/sorter-parts/ext-bracket-left-full-a105b452a4e1.png",
-					"grams": 48.52
+					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-f914cfcfd99e.stl",
+					"render": "https://assets.basically.website/sorter-parts/ext-bracket-left-full-2086002b11f5.png",
+					"grams": 49.14
 				}
 			],
 			"attributes": [],
-			"grams": 48.52,
+			"grams": 49.14,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6009,
+			"print_seconds": 6687,
 			"color": {
 				"role": "frame"
 			},
@@ -11812,21 +12087,41 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-da4b3abd3db7.stl",
-			"render": "https://assets.basically.website/sorter-parts/ext-bracket-left-full-a105b452a4e1.png",
+			"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-f914cfcfd99e.stl",
+			"render": "https://assets.basically.website/sorter-parts/ext-bracket-left-full-2086002b11f5.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-0b4g-stamped-bottom-a8f28570bdc5.stl",
+					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-0b4g-stamped-bottom-da6d13a4c6d6.stl",
 					"normal": [
-						-0.0,
+						0.0,
 						-0.0,
 						-1.0
 					],
 					"center": [
-						20.3,
-						-362.15,
-						0.36
+						89.85,
+						39.67,
+						0.0
+					],
+					"size": [
+						12.3,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "bottom 2",
+					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-0b4g-stamped-bottom-2-8039ad7603ba.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						50.62,
+						39.67,
+						0.0
 					],
 					"size": [
 						12.3,
@@ -11837,16 +12132,16 @@
 				},
 				{
 					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-0b4g-stamped-angled-face-c24f5c345ba8.stl",
+					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-0b4g-stamped-angled-face-6327beac68ea.stl",
 					"normal": [
-						0.0,
-						0.8321,
-						0.5547
+						-0.0,
+						-0.5547,
+						0.8321
 					],
 					"center": [
-						0.0,
-						-332.31,
-						43.55
+						70.24,
+						17.86,
+						40.03
 					],
 					"size": [
 						12.3,
@@ -11857,36 +12152,16 @@
 				},
 				{
 					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-0b4g-stamped-angled-face-2-d7dd923fa8e0.stl",
-					"normal": [
-						0.433,
-						0.75,
-						0.5
-					],
-					"center": [
-						-37.74,
-						-319.94,
-						42.05
-					],
-					"size": [
-						12.3,
-						3.63
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "angled face 3",
-					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-0b4g-stamped-angled-face-3-2344f16f8034.stl",
+					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-0b4g-stamped-angled-face-2-fc40e6f1c957.stl",
 					"normal": [
 						-0.433,
-						0.75,
-						0.5
+						-0.5,
+						0.75
 					],
 					"center": [
-						37.74,
-						-319.94,
-						42.05
+						107.12,
+						15.48,
+						49.33
 					],
 					"size": [
 						12.3,
@@ -13556,7 +13831,7 @@
 					"date": "2026-09-07",
 					"message": "Full v2 reset of the cable-cage bracket set (sorter-v2 #403): the underside raises ~2mm (foot 212.5 -> 214.5, boss underside 210.0 -> 212.0), same change as interface-cage-bracket-cable's v2, moving the cage from the 25mm-tall 'temp catcher wall' Onshape branch to the 23mm-tall main branch. Bolt pattern and cage-plate rebate unchanged, so an old print still bolts in the same place.",
 					"breaking": false,
-					"commit": "47a5e5a5",
+					"commit": "6bcb3c0e",
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/ea31e1c51b28dfab1e6024f5/e/1850f7f376b0cfba64f9e367",
 					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-543ea9815e26.stl",
 					"render": "https://assets.basically.website/sorter-parts/interface-cage-bracket-full-df98c26092df.png",
@@ -14224,7 +14499,7 @@
 			"description": "The chute drive gear, screwed onto the Top interface chute mount with five M3x12 countersunk screws (see the Interface chute gear + mount assembly). Turned by the Interface spur gear/idler gear train off the NEMA 23 stepper.",
 			"version": "1",
 			"created_at": "2026-07-03",
-			"updated_at": "2026-07-03",
+			"updated_at": "2026-10-23",
 			"versions": [
 				{
 					"version": "1",
@@ -14232,17 +14507,17 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6a600fb6a6b3.stl",
-					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-fe39441babb2.png",
-					"grams": 59.95
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6d1965579cbb.stl",
+					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-a500d0910dfa.png",
+					"grams": 61.6
 				}
 			],
 			"attributes": [],
-			"grams": 59.95,
+			"grams": 61.6,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7668,
+			"print_seconds": 7801,
 			"color": {
 				"role": "chute-core"
 			},
@@ -14256,21 +14531,61 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6a600fb6a6b3.stl",
-			"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-fe39441babb2.png",
+			"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6d1965579cbb.stl",
+			"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-a500d0910dfa.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-bottom-0a6e4ff24d79.stl",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-bottom-5edcbbce6fc2.stl",
 					"normal": [
-						0.0,
 						-0.0,
+						0.0,
 						-1.0
 					],
 					"center": [
-						3.44,
-						-115.01,
+						1.49,
+						-114.28,
 						352.68
+					],
+					"size": [
+						12.16,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-top-a0b321d98e4a.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						4.06,
+						-108.82,
+						362.18
+					],
+					"size": [
+						12.16,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-top-2-409ea7f072af.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-3.44,
+						-115.01,
+						362.68
 					],
 					"size": [
 						8.68,
@@ -14279,46 +14594,6 @@
 					"cap": 2.5,
 					"depth": 0.6,
 					"note": "smaller text"
-				},
-				{
-					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-top-d3a507702f2c.stl",
-					"normal": [
-						0.0,
-						0.0,
-						1.0
-					],
-					"center": [
-						-1.49,
-						-114.28,
-						362.68
-					],
-					"size": [
-						12.16,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "bottom 2",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-1a0l-stamped-bottom-2-e8cead646411.stl",
-					"normal": [
-						-0.0,
-						0.0,
-						-1.0
-					],
-					"center": [
-						4.03,
-						-108.82,
-						353.18
-					],
-					"size": [
-						12.16,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
 				}
 			]
 		},
@@ -14432,7 +14707,7 @@
 			"description": "The mount that carries the chute's drive gear and the Lazy Susan bearing (top-interface.md steps 6-7); the chute itself bolts to its free ring.",
 			"version": "1",
 			"created_at": "2026-07-03",
-			"updated_at": "2026-07-03",
+			"updated_at": "2026-10-20",
 			"versions": [
 				{
 					"version": "1",
@@ -14440,17 +14715,17 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-11f50ca23d80.stl",
-					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-full-4cc66f4b00eb.png",
-					"grams": 588.15
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-acdad77936ee.stl",
+					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-full-2168f05dc67e.png",
+					"grams": 212.76
 				}
 			],
 			"attributes": [],
-			"grams": 588.15,
-			"support_grams": 400.62,
-			"support_used": true,
+			"grams": 212.76,
+			"support_grams": 0.0,
+			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 46282,
+			"print_seconds": 18213,
 			"color": {
 				"role": "chute-core"
 			},
@@ -14473,21 +14748,41 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-11f50ca23d80.stl",
-			"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-full-4cc66f4b00eb.png",
+			"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-acdad77936ee.stl",
+			"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-full-2168f05dc67e.png",
 			"stamped": [
 				{
-					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-top-7006f78cea97.stl",
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-bottom-06e8bcfe4467.stl",
 					"normal": [
-						-0.0,
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						8.37,
+						-108.32,
+						-0.0
+					],
+					"size": [
+						12.48,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-top-5aaf4d3a6184.stl",
+					"normal": [
+						0.0,
 						0.0,
 						1.0
 					],
 					"center": [
 						-3.78,
 						-108.82,
-						253.18
+						10.5
 					],
 					"size": [
 						12.48,
@@ -14498,16 +14793,16 @@
 				},
 				{
 					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-plus-x-side-f7cbc5105a79.stl",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-plus-x-side-6a1f69d0e1b3.stl",
 					"normal": [
 						1.0,
-						0.0,
-						-0.0
+						-0.0,
+						0.0
 					],
 					"center": [
 						60.0,
 						-52.38,
-						162.1
+						91.08
 					],
 					"size": [
 						12.48,
@@ -14518,36 +14813,16 @@
 				},
 				{
 					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-minus-x-side-edb5e255e56e.stl",
+					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-minus-x-side-38fec14031e3.stl",
 					"normal": [
 						-1.0,
 						0.0,
-						0.0
+						-0.0
 					],
 					"center": [
 						55.0,
 						0.0,
-						194.42
-					],
-					"size": [
-						12.48,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-vrz8-stamped-minus-y-side-9a7e9d74a2d7.stl",
-					"normal": [
-						0.0,
-						-1.0,
-						0.0
-					],
-					"center": [
-						42.28,
-						55.0,
-						176.14
+						58.76
 					],
 					"size": [
 						12.48,
@@ -14895,7 +15170,8 @@
 			"support_intentional": false,
 			"print_seconds": 12910,
 			"color": {
-				"fixed": "ash-gray"
+				"fixed": "ash-gray",
+				"why": "The camera looks straight at it. Gray keeps the camera's exposure and white balance steady: white throws them off, and black pieces disappear against black."
 			},
 			"optional": false,
 			"onshape": null,
@@ -15026,7 +15302,8 @@
 			"support_intentional": false,
 			"print_seconds": 1326,
 			"color": {
-				"fixed": "ash-gray"
+				"fixed": "ash-gray",
+				"why": "It sits in the middle of the rotor, in the camera's view. Gray keeps the camera's exposure and white balance steady: white throws them off, and black pieces disappear against black."
 			},
 			"optional": false,
 			"onshape": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/w/95f28d157e2e06c115b488fe/e/5bf04274a6c68015096bd757",
@@ -15117,6 +15394,108 @@
 					"depth": 0.6
 				}
 			]
+		},
+		{
+			"id": "colour-strip-clip",
+			"uid": "8e9x",
+			"name": "Colour strip clip",
+			"quantities": {
+				"classification-channel": 1
+			},
+			"assembly": "colour-calibration-strip",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Hooks over the top of the classification channel's stator wall and carries the colour strip's stud bar. Optional: only for the colour calibration strip.",
+			"version": "1",
+			"created_at": "2026-10-24",
+			"updated_at": "2026-10-24",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "8e9x",
+					"date": "2026-10-24",
+					"message": "Initial version.",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/colour-strip-clip-373459b6c8b5.stl",
+					"render": "https://assets.basically.website/sorter-parts/colour-strip-clip-full-d50b0ae942bd.png",
+					"grams": 5.15
+				}
+			],
+			"attributes": [],
+			"grams": 5.15,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1188,
+			"color": {
+				"fixed": "ash-gray",
+				"why": "It stands at the edge of the camera's view, next to the tiles. Gray keeps the camera's exposure and white balance steady: white throws them off."
+			},
+			"optional": true,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/colour-strip-clip-373459b6c8b5.stl",
+			"render": "https://assets.basically.website/sorter-parts/colour-strip-clip-full-d50b0ae942bd.png",
+			"stamped": []
+		},
+		{
+			"id": "colour-strip-studs",
+			"uid": "19i6",
+			"name": "Colour strip stud bar",
+			"quantities": {
+				"classification-channel": 1
+			},
+			"assembly": "colour-calibration-strip",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "A curved bar with eight studs for the colour strip's 1 x 1 tiles. It hooks onto the Colour strip clip so the tiles stand just above the rim, facing into the channel. Optional: only for the colour calibration strip.",
+			"version": "1",
+			"created_at": "2026-10-24",
+			"updated_at": "2026-10-24",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "19i6",
+					"date": "2026-10-24",
+					"message": "Initial version.",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/colour-strip-studs-37ee6a4f1b37.stl",
+					"render": "https://assets.basically.website/sorter-parts/colour-strip-studs-full-3fdd3e3413fd.png",
+					"grams": 4.69
+				}
+			],
+			"attributes": [],
+			"grams": 4.69,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1219,
+			"color": {
+				"fixed": "ash-gray",
+				"why": "It stands at the edge of the camera's view, next to the tiles. Gray keeps the camera's exposure and white balance steady: white throws them off."
+			},
+			"optional": true,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/colour-strip-studs-37ee6a4f1b37.stl",
+			"render": "https://assets.basically.website/sorter-parts/colour-strip-studs-full-3fdd3e3413fd.png",
+			"stamped": []
 		},
 		{
 			"id": "idler-gear",
@@ -17367,7 +17746,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "The chute door / flap. 1 per machine.",
+			"description": "The chute door / flap. 1 per layer.",
 			"version": "2",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-10-11",
@@ -19844,7 +20223,7 @@
 			"folder": "bearing-covers",
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Chute bearing cover. 1 per machine.",
+			"description": "Chute bearing cover. 1 per layer.",
 			"version": "2",
 			"created_at": "2026-06-29",
 			"updated_at": "2026-10-11",
@@ -19966,7 +20345,7 @@
 			"folder": "bearing-covers",
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Chute bearing cover. 1 per machine.",
+			"description": "Chute bearing cover. 1 per layer.",
 			"version": "2",
 			"created_at": "2026-06-29",
 			"updated_at": "2026-10-11",
@@ -21520,7 +21899,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Upside down, top face on the bed"
+					"value": "Upside down, top face on the bed",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-print-orientation-full-36dd3a93ac7a.png"
 				}
 			],
 			"grams": 52.44,
@@ -21657,7 +22037,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-print-orientation-full-cb8c4c2f6449.png"
 				}
 			],
 			"grams": 8.48,
@@ -21754,7 +22135,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-east-print-orientation-full-4a5d7818cef6.png"
 				}
 			],
 			"grams": 8.2,
@@ -21851,7 +22233,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-print-orientation-full-e9977fd35c2a.png"
 				}
 			],
 			"grams": 13.76,
@@ -21990,7 +22373,8 @@
 			"attributes": [
 				{
 					"label": "Print orientation",
-					"value": "Lay flat on the bed; the file has it standing up"
+					"value": "Lay flat on the bed; the file has it standing up",
+					"image_url": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-print-orientation-full-01ea46b73c1c.png"
 				}
 			],
 			"grams": 12.05,
@@ -22811,6 +23195,1269 @@
 					],
 					"size": [
 						12.32,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-base",
+			"uid": "kkwj",
+			"name": "Orange Pi 5 Pro Housing \u2014 Base",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Base of the Orange Pi 5 Pro housing. The board screws down to four posts on heat inserts, four corner posts carry heat inserts for the roof screws, the four walls drop into grooves along its edges, and two ears bolt it to the 2020 extrusion. An opening in the floor under the microSD slot leaves room for a finger, and the retainer for the power button plunger is part of the base.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "kkwj",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-cb90eb6a3e5d.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-full-8058c4e3cd7a.png",
+					"grams": 80.63
+				}
+			],
+			"attributes": [],
+			"grams": 80.63,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 9290,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [
+				{
+					"part": "hsi-m3",
+					"qty": 8
+				}
+			],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-cb90eb6a3e5d.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-full-8058c4e3cd7a.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-kkwj-stamped-bottom-0bc2fdb42b77.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						203.52,
+						246.53,
+						14.5
+					],
+					"size": [
+						12.07,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-kkwj-stamped-top-0f4cf5aa7bf8.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						203.67,
+						235.69,
+						17.7
+					],
+					"size": [
+						12.07,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-kkwj-stamped-minus-y-side-0febeb6b88ed.stl",
+					"normal": [
+						0.0,
+						-1.0,
+						0.0
+					],
+					"center": [
+						137.73,
+						179.09,
+						17.66
+					],
+					"size": [
+						12.07,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-base-kkwj-stamped-minus-x-side-9de83ca4adae.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						125.32,
+						279.88,
+						17.66
+					],
+					"size": [
+						12.07,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-roof",
+			"uid": "f9sg",
+			"name": "Orange Pi 5 Pro Housing \u2014 Roof",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Roof of the Orange Pi 5 Pro housing. Four M3 \u00d7 12 mm countersunk screws hold it down into the base's corner inserts, and it carries the USB hub and the buck converter on top, each under its own clamp on four self-tapping M3 \u00d7 12 mm countersunk screws into the roof's pilots. Its grooved side faces down in the box.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "f9sg",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-6e11ffcc09fd.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-full-6fc6a17b0d9e.png",
+					"grams": 53.39
+				}
+			],
+			"attributes": [],
+			"grams": 53.39,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 5279,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-6e11ffcc09fd.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-full-6fc6a17b0d9e.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-f9sg-stamped-bottom-e79660c599cf.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						223.87,
+						53.49,
+						42.0
+					],
+					"size": [
+						12.03,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-f9sg-stamped-top-680242b6161f.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						153.66,
+						61.34,
+						46.0
+					],
+					"size": [
+						12.03,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-f9sg-stamped-top-2-7dc42a4b0bfb.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						148.52,
+						52.69,
+						50.0
+					],
+					"size": [
+						12.03,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-roof-f9sg-stamped-minus-y-side-1fd66be76649.stl",
+					"normal": [
+						0.0052,
+						-1.0,
+						0.0
+					],
+					"center": [
+						141.08,
+						49.04,
+						45.99
+					],
+					"size": [
+						12.03,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-wall-west",
+			"uid": "lvhs",
+			"name": "Orange Pi 5 Pro Housing \u2014 West Wall",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Short wall on the board's power button side. A small window lets the power button plunger through, and a larger one opens onto the microSD card. Drops into its groove in the base; the roof holds it down.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "lvhs",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-23d88b381430.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-full-685a48b96676.png",
+					"grams": 8.54
+				}
+			],
+			"attributes": [],
+			"grams": 8.54,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1125,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-23d88b381430.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-full-685a48b96676.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-lvhs-stamped-bottom-a2985be577fb.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						11.25,
+						52.14,
+						17.2
+					],
+					"size": [
+						12.04,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-lvhs-stamped-top-d61413ff4271.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						11.25,
+						52.14,
+						20.4
+					],
+					"size": [
+						12.04,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-wall-east",
+			"uid": "7liu",
+			"name": "Orange Pi 5 Pro Housing \u2014 East Wall",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Short wall on the board's USB-A and Ethernet side, with an opening for each of its three port groups. Drops into its groove in the base; the roof holds it down.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "7liu",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-east-c50c9d2e54db.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-east-full-af4975edf3b7.png",
+					"grams": 7.54
+				}
+			],
+			"attributes": [],
+			"grams": 7.54,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1112,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-east-c50c9d2e54db.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-east-full-af4975edf3b7.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-east-7liu-stamped-bottom-b001751278e2.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						198.18,
+						136.31,
+						17.2
+					],
+					"size": [
+						12.21,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-east-7liu-stamped-top-971b723b68fe.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						172.14,
+						136.31,
+						20.4
+					],
+					"size": [
+						12.21,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-wall-north",
+			"uid": "iiun",
+			"name": "Orange Pi 5 Pro Housing \u2014 North Wall",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Long wall on the board's HDMI, audio and USB-C side, with one opening for those ports. A block on its outside carries the WiFi antenna in a channel under the antenna cap, with an opening below for its lead. Drops into its groove in the base; the roof holds it down.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "iiun",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-718ebc53c26f.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-full-8f00a5ddcd20.png",
+					"grams": 12.05
+				}
+			],
+			"attributes": [],
+			"grams": 12.05,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1722,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-718ebc53c26f.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-full-8f00a5ddcd20.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-iiun-stamped-bottom-a518d990a221.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						70.39,
+						106.6,
+						17.2
+					],
+					"size": [
+						12.13,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-iiun-stamped-top-4fbda1dfb9c4.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						44.27,
+						106.6,
+						20.4
+					],
+					"size": [
+						12.13,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-iiun-stamped-plus-x-side-fd9d0a7406b9.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						63.13,
+						211.8,
+						22.8
+					],
+					"size": [
+						8.67,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-north-iiun-stamped-minus-x-side-9671541dc933.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						49.13,
+						220.88,
+						22.8
+					],
+					"size": [
+						8.67,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-wall-south",
+			"uid": "cr4b",
+			"name": "Orange Pi 5 Pro Housing \u2014 South Wall",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Long wall on the board's GPIO side: a hex vent, and an opening at the bottom for a cable off the GPIO header. Drops into its groove in the base; the roof holds it down.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "cr4b",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-d94f982ba6d3.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-full-a7db14042066.png",
+					"grams": 10.65
+				}
+			],
+			"attributes": [],
+			"grams": 10.65,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1521,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-d94f982ba6d3.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-full-a7db14042066.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-cr4b-stamped-bottom-130a9b303ec3.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						116.6,
+						226.47,
+						17.2
+					],
+					"size": [
+						12.39,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-cr4b-stamped-top-6135d6fb8937.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						90.74,
+						226.47,
+						20.4
+					],
+					"size": [
+						12.39,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-hub-clamp",
+			"uid": "tvoa",
+			"name": "Orange Pi 5 Pro Housing \u2014 Hub Clamp",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Frame that holds the powered USB hub down on the housing's roof, on four self-tapping M3 \u00d7 12 mm countersunk screws into the roof's pilots. Drawn around the Waveshare USB3.2-Gen1-HUB-4U.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "tvoa",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-9060c8b740a9.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-full-2fa82e18b714.png",
+					"grams": 5.64
+				}
+			],
+			"attributes": [],
+			"grams": 5.64,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1120,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-9060c8b740a9.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-full-2fa82e18b714.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-tvoa-stamped-bottom-dae9a0067fef.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						483.01,
+						185.23,
+						49.5
+					],
+					"size": [
+						12.67,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-tvoa-stamped-plus-x-side-bce915bb9fcb.stl",
+					"normal": [
+						1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						504.21,
+						193.74,
+						52.69
+					],
+					"size": [
+						12.67,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-tvoa-stamped-minus-x-side-b8cbeb27f5f0.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						452.0,
+						260.33,
+						52.69
+					],
+					"size": [
+						12.67,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side 2",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-hub-clamp-tvoa-stamped-plus-x-side-2-23d86e3ebf68.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						453.6,
+						227.04,
+						53.0
+					],
+					"size": [
+						12.67,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-buck-clamp",
+			"uid": "ei5v",
+			"name": "Orange Pi 5 Pro Housing \u2014 Buck Clamp",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Frame that holds the 24 V to 5 V buck converter down on the housing's roof, on four self-tapping M3 \u00d7 12 mm countersunk screws into the roof's pilots.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "ei5v",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-051cec8efd15.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-full-ed897412705a.png",
+					"grams": 6.25
+				}
+			],
+			"attributes": [],
+			"grams": 6.25,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1256,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-051cec8efd15.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-full-ed897412705a.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-ei5v-stamped-bottom-c6e4132fb0d5.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						324.19,
+						200.77,
+						49.5
+					],
+					"size": [
+						12.31,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-ei5v-stamped-top-bd471142769f.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						323.67,
+						195.27,
+						56.5
+					],
+					"size": [
+						12.31,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-ei5v-stamped-plus-x-side-a5bd0caf7c46.stl",
+					"normal": [
+						1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						345.22,
+						203.64,
+						52.66
+					],
+					"size": [
+						12.31,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-buck-clamp-ei5v-stamped-minus-x-side-bfba03860a58.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						340.22,
+						247.49,
+						52.66
+					],
+					"size": [
+						12.31,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-antenna-clamp-cap",
+			"uid": "2caw",
+			"name": "Orange Pi 5 Pro Housing \u2014 Antenna Cap",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Cap that holds the WiFi antenna in its channel on the north wall, on two self-tapping M3 \u00d7 12 mm countersunk screws into the wall's pilots.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "2caw",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-07718672f1fe.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-full-35bfbc3ccc1a.png",
+					"grams": 1.37
+				}
+			],
+			"attributes": [],
+			"grams": 1.37,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 757,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-07718672f1fe.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-full-35bfbc3ccc1a.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-2caw-stamped-bottom-7e2a26ad9220.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						70.11,
+						88.62,
+						16.0
+					],
+					"size": [
+						12.59,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-2caw-stamped-plus-y-side-d6167ce6bd89.stl",
+					"normal": [
+						-0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						70.66,
+						92.43,
+						18.42
+					],
+					"size": [
+						8.99,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-antenna-clamp-cap-2caw-stamped-minus-y-sid-2c6a1a73f10f.stl",
+					"normal": [
+						-0.0,
+						-1.0,
+						0.0
+					],
+					"center": [
+						65.9,
+						78.43,
+						18.42
+					],
+					"size": [
+						8.99,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.4,
+					"note": "smaller text, shallow pocket"
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-plunger",
+			"uid": "yk82",
+			"name": "Orange Pi 5 Pro Housing \u2014 Plunger",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Reaches the board's power key through the west wall, so the board can be switched on with the housing closed. Held by the base's retainer and the plunger cap.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "yk82",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-15e1c7dc0aae.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-full-52f66ef88c6a.png",
+					"grams": 1.69
+				}
+			],
+			"attributes": [],
+			"grams": 1.69,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 836,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-15e1c7dc0aae.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-full-52f66ef88c6a.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-yk82-stamped-bottom-5938a68413e9.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						51.5,
+						147.25,
+						12.8
+					],
+					"size": [
+						2.55,
+						8.89
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-yk82-stamped-minus-x-side-abfe99561310.stl",
+					"normal": [
+						-1.0,
+						-0.0,
+						-0.0
+					],
+					"center": [
+						48.7,
+						169.33,
+						15.2
+					],
+					"size": [
+						8.89,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-yk82-stamped-plus-x-side-2c0bb44397f0.stl",
+					"normal": [
+						1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						54.3,
+						149.87,
+						15.2
+					],
+					"size": [
+						8.89,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-yk82-stamped-top-abb0d16708d5.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						51.1,
+						149.87,
+						18.4
+					],
+					"size": [
+						2.55,
+						8.89
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "orange-pi-pro-housing-plunger-cap",
+			"uid": "ob7g",
+			"name": "Orange Pi 5 Pro Housing \u2014 Plunger Cap",
+			"quantities": {},
+			"assembly": "orange-pi-pro-housing",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Closes over the plunger in the base's retainer on one M3 \u00d7 8 mm countersunk screw, keeping the plunger in.",
+			"version": "1",
+			"created_at": "2026-10-16",
+			"updated_at": "2026-10-16",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "ob7g",
+					"date": "2026-10-16",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/w/abcfb71b893de053f48971d9/e/fc9281c225802dfd3c097d80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-cap-55bfa3004429.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-cap-full-8d22d067cf4b.png",
+					"grams": 0.67
+				}
+			],
+			"attributes": [],
+			"grams": 0.67,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 530,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-cap-55bfa3004429.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-cap-full-8d22d067cf4b.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-cap-ob7g-stamped-bottom-fc2be6f75d49.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						24.29,
+						152.81,
+						15.2
+					],
+					"size": [
+						12.39,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-pro-housing-plunger-cap-ob7g-stamped-top-5becbb10a2b7.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						23.93,
+						152.81,
+						18.2
+					],
+					"size": [
+						12.39,
 						3.63
 					],
 					"cap": 3.5,
@@ -24542,7 +26189,8 @@
 			"support_intentional": false,
 			"print_seconds": 6802,
 			"color": {
-				"fixed": "ivory-white"
+				"fixed": "ivory-white",
+				"why": "It is the reflector: the LED light bounces off it onto the channel, so a colored one tints every picture the camera takes."
 			},
 			"optional": false,
 			"onshape": null,
@@ -24708,7 +26356,8 @@
 			"support_intentional": false,
 			"print_seconds": 1017,
 			"color": {
-				"fixed": "ivory-white"
+				"fixed": "ivory-white",
+				"why": "The hooks sit inside the reflector and the light bounces off them too, so a colored hook tints the pictures."
 			},
 			"optional": false,
 			"onshape": null,
@@ -24760,7 +26409,7 @@
 			"support_intentional": false,
 			"print_seconds": 4192,
 			"color": {
-				"fixed": "ash-gray"
+				"role": "channel"
 			},
 			"optional": false,
 			"onshape": null,
@@ -25462,6 +27111,21 @@
 			]
 		},
 		{
+			"id": "chute-core",
+			"name": "chute-core",
+			"download": "https://assets.basically.website/sorter-parts/chute-core-febe8ff5cc4a.3mf",
+			"thumbs": [
+				"https://assets.basically.website/sorter-parts/chute-core-1-full-8c1f6ab75f8a.png"
+			],
+			"parts": [
+				{
+					"name": "chute-core",
+					"count": 1,
+					"part_id": "chute-core"
+				}
+			]
+		},
+		{
 			"id": "chute-without-core",
 			"name": "chute-without-core",
 			"download": "https://assets.basically.website/sorter-parts/chute-without-core-4baaada4d5ef.3mf",
@@ -25598,6 +27262,36 @@
 					"name": "external bracket cover",
 					"count": 4,
 					"part_id": "ext-bracket-cover"
+				}
+			]
+		},
+		{
+			"id": "funnel-half",
+			"name": "funnel-half",
+			"download": "https://assets.basically.website/sorter-parts/funnel-half-03e30f2bd38b.3mf",
+			"thumbs": [
+				"https://assets.basically.website/sorter-parts/funnel-half-1-full-0f529cac116d.png"
+			],
+			"parts": [
+				{
+					"name": "funnel-half",
+					"count": 1,
+					"part_id": "funnel-half"
+				}
+			]
+		},
+		{
+			"id": "funnel-third",
+			"name": "funnel-third",
+			"download": "https://assets.basically.website/sorter-parts/funnel-third-a1e0437f3d40.3mf",
+			"thumbs": [
+				"https://assets.basically.website/sorter-parts/funnel-third-1-full-def081f93e46.png"
+			],
+			"parts": [
+				{
+					"name": "funnel-third",
+					"count": 1,
+					"part_id": "funnel-third"
 				}
 			]
 		}
@@ -27866,7 +29560,7 @@
 			"description": "ruthex RX-M4x8.1 brass heat-set threaded insert, 8.1 mm long. Melt it into a printed part with a soldering iron to make an M4 thread. It is the only M4 insert in the machine. Do not swap in the short M4S (RX-M4Sx4.0), which is a different part.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-10-02",
+			"updated_at": "2026-10-22",
 			"attributes": [
 				{
 					"label": "Type",
@@ -27896,12 +29590,12 @@
 				"vendors": [
 					{
 						"region": "US",
-						"vendor": "Amazon",
-						"url": "https://www.amazon.com/dp/B07YSV66Y5",
-						"affiliate_url": "https://www.amazon.com/dp/B07YSV66Y5?tag=sorterv2-20",
-						"price": 9.99,
+						"vendor": "CNC Kitchen",
+						"url": "https://www.cnckitchenus.store/products/heat-set-insert-m4-x-8-1-50-pieces",
+						"price": 11.5,
 						"pack_qty": 50,
-						"as_of": "2026-07-18"
+						"as_of": "2026-10-22",
+						"note": "CNC Kitchen's own M4 x 8.1 insert, the same size as the ruthex one."
 					},
 					{
 						"region": "EU",
@@ -29088,10 +30782,10 @@
 			},
 			"name": "Orange Pi 5",
 			"category": "Computer",
-			"description": "The computer that runs the machine's software. Buy the Orange Pi 5, 8 GB: SorterOS, the ready-made image, is built for it. A Raspberry Pi 5 also works, but it needs the manual Linux install instead of the ready-made image.",
-			"note": "Buy the plain Orange Pi 5, 8 GB. The 5 Plus, 5 Pro, 5 Max and 5 Ultra are separate boards rather than options on this one: none of them share its mounting-hole pattern, so the printed housing's posts do not line up, and the WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported either: it does fit the housing's posts, but SorterOS is built from the plain 5's image and there is no 5B build.",
+			"description": "The computer that runs the machine's software. Buy the Orange Pi 5, 8 GB: SorterOS, the ready-made image, is built for it. The Orange Pi 5 Pro, Max or Ultra also fits, in its own printed housing, but SorterOS has no released image for those boards yet. A Raspberry Pi 5 also works, but it needs the manual Linux install instead of the ready-made image.",
+			"note": "Buy the plain Orange Pi 5, 8 GB, unless you are building the Orange Pi 5 Pro housing. The 5 Pro, 5 Max and 5 Ultra have a different mounting-hole pattern from this board and take that housing instead; the 5 Plus is a separate board that neither housing fits. The WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported: it does fit the housing's posts, but SorterOS is built from the plain 5's image and there is no 5B build.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-10-02",
+			"updated_at": "2026-10-16",
 			"attributes": [
 				{
 					"label": "Memory",
@@ -29127,11 +30821,11 @@
 				},
 				{
 					"label": "Board",
-					"value": "100 \u00d7 62 mm, 46 g. Its four mounting holes sit on a roughly 95 \u00d7 56 mm rectangle, which is what the printed extrusion mount is drilled for."
+					"value": "100 \u00d7 62 mm, 46 g. Its four mounting holes sit on a roughly 95 \u00d7 56 mm rectangle, which is what the Orange Pi housing's base is drilled for."
 				},
 				{
 					"label": "Variants",
-					"value": "The 5 Pro, 5 Max and 5 Ultra are 89 mm wide boards with their mounting holes on a 58 \u00d7 49 mm rectangle; the 5 Plus is a 100 \u00d7 75 mm RK3588 board. The 5 Pro has Wi-Fi 5 on board and the 5 Plus takes a 2230 E-key module, while this catalog's WiFi module is M-key and fits the plain 5 only. The 5B is the same board as the plain 5 with Wi-Fi 6 and eMMC added and the M.2 slot removed, so it does fit the mount, but SorterOS has no build for it."
+					"value": "The 5 Pro, 5 Max and 5 Ultra are 89 mm wide boards with their mounting holes on a 58 \u00d7 49 mm rectangle, which the Orange Pi 5 Pro housing is drilled for. The 5 Plus is a 100 \u00d7 75 mm RK3588 board that neither housing fits. The 5 Pro has Wi-Fi 5 on board and the 5 Plus takes a 2230 E-key module, while this catalog's WiFi module is M-key and fits the plain 5 only. The 5B is the same board as the plain 5 with Wi-Fi 6 and eMMC added and the M.2 slot removed, so it does fit the Orange Pi housing, but SorterOS has no build for it."
 				},
 				{
 					"label": "OS",
@@ -29166,7 +30860,7 @@
 					}
 				]
 			},
-			"alternative": null,
+			"alternative": "The Orange Pi 5 Pro, Max or Ultra, built into the [[docs:/hardware/electronics/installation/orange-pi-mount/|Orange Pi 5 Pro housing]]. SorterOS has no released image for them yet.",
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
@@ -32802,6 +34496,40 @@
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png"
+		},
+		{
+			"id": "lego-tile-1x1",
+			"uid": "t0h2",
+			"kind": "cots",
+			"cots": {
+				"type": "lego",
+				"optional": true
+			},
+			"name": "LEGO tile 1 x 1 (3070b), colour strip set",
+			"category": "LEGO",
+			"description": "Eight 1 x 1 tiles, one of each colour, for the colour calibration strip: Black, Dark Bluish Gray, Light Bluish Gray, White, Blue, Green, Yellow and Red. Optional.",
+			"note": "Green is BrickLink Green (6), not Bright Green. Real LEGO tiles, not printed ones.",
+			"created_at": "2026-10-24",
+			"updated_at": "2026-10-24",
+			"attributes": [
+				{
+					"label": "Part",
+					"value": "3070b (Tile 1 x 1 with groove)"
+				},
+				{
+					"label": "Colours (BrickLink id)",
+					"value": "Black 11, Dark Bluish Gray 85, Light Bluish Gray 86, White 1, Blue 7, Green 6, Yellow 3, Red 5"
+				}
+			],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": null,
+			"caption": null,
+			"docs_page": "/hardware/assembly/feeder/c-channels/classification-channel/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/lego-tile-1x1-colour-strip-set-full-edec2cc2429e.png"
 		}
 	],
 	"lasercut": [

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 import time
 import uuid
@@ -270,6 +272,28 @@ def listRuns() -> list[dict[str, Any]]:
         return _runs(conn)
 
 
+def syncSet() -> dict[str, Any]:
+    """Every lot and run as Hive keeps them (its sorting-runs sync takes the
+    whole set), with the set's version: a number from its content, so any
+    change to a lot or a run makes a new one."""
+    with _connection() as conn:
+        lots = [
+            dict(row)
+            for row in conn.execute("SELECT id, name, description, created_at FROM lots ORDER BY id")
+        ]
+        runs = [
+            {**dict(row), "adds_to_lot": bool(row["adds_to_lot"])}
+            for row in conn.execute(
+                "SELECT id, name, note, lot_id, adds_to_lot, started_at, created_at FROM sorting_runs ORDER BY id"
+            )
+        ]
+    content = json.dumps({"lots": lots, "runs": runs}, sort_keys=True, separators=(",", ":"))
+    # 60 bits, as Hive keeps it in a signed 64-bit column; 0 for no lots and
+    # no runs, which is what Hive starts from, so there is nothing to send.
+    version = int(hashlib.sha256(content.encode()).hexdigest()[:15], 16) if lots or runs else 0
+    return {"version": version, "lots": lots, "runs": runs}
+
+
 def getRun(run_id: str) -> dict[str, Any]:
     with _connection() as conn:
         runs = _runs(conn, "WHERE id = ?", (run_id,))
@@ -283,6 +307,34 @@ def currentRun() -> Optional[dict[str, Any]]:
         if run["is_current"]:
             return run
     return None
+
+
+def seenRanges(
+    *, run_id: Optional[str] = None, lot_id: Optional[str] = None
+) -> list[tuple[float, Optional[float]]]:
+    """The stretches of time (from, until; until is None for the current run) in
+    which a run, or the runs that add to a lot, saw their pieces: what the
+    records list filters by (a piece belongs to the run whose stretch holds its
+    seen_at). A lot's passes are left out, as the lot's own count leaves them
+    out, so its pieces are the ones it counts. Raises RunError for an unknown
+    run or lot."""
+    if (run_id is None) == (lot_id is None):
+        raise RunError("Name a run or a lot.")
+    with _connection() as conn:
+        if run_id is not None:
+            rows = conn.execute(
+                f"SELECT started_at, ended_at FROM ({_SPANS_SQL}) WHERE id = ?", (run_id,)
+            ).fetchall()
+            if not rows:
+                raise RunError(f"No run {run_id}.")
+        else:
+            _check_lot(conn, lot_id)
+            rows = conn.execute(
+                f"SELECT started_at, ended_at FROM ({_SPANS_SQL}) "
+                "WHERE lot_id = ? AND adds_to_lot = 1 ORDER BY started_at",
+                (lot_id,),
+            ).fetchall()
+    return [(float(r["started_at"]), None if r["ended_at"] is None else float(r["ended_at"])) for r in rows]
 
 
 def _lotTotals(conn: sqlite3.Connection) -> dict[str, dict[str, int]]:

@@ -63,7 +63,7 @@ The pin map is the file [`hwcfg_basically_v1_2.h`](https://github.com/basicallys
 
 <ul class="bulleted-list">
   <li>Fitting the Pico's headers: <a href="{{ '/hardware/helpers/pico-headers/' | relative_url }}">Pico headers</a></li>
-  <li>Flashing the firmware: <a href="{{ '/hardware/software-setup/' | relative_url }}">Software setup</a></li>
+  <li>Flashing the firmware: <a href="{{ '/sorter/' | relative_url }}#flash-the-control-board-before-the-wizard">Flashing the control board</a></li>
 </ul>
 
 ## Why one board
@@ -78,7 +78,9 @@ The pin map is the file [`hwcfg_basically_v1_2.h`](https://github.com/basicallys
 
 The two lamp outputs are PWM pins. PWM switches a pin on and off very fast, and the share of time it is on sets the brightness. The Orange Pi turns a brightness percentage into a duty value, which says how much of the time the pin is on (a number from 0 to 65535), and sends it as a `WRITE_PWM` command for that output. The Pico sets it and keeps it until told otherwise.
 
-What the lamp ports do with that signal, and what is plugged into them, is on [Power distribution]({{ '/lab/power/' | relative_url }}) under the lamps and the fan.
+The board has four LED ports, `J8` to `J11`, and each Pico output drives two of them: `J8` with `J9`, and `J10` with `J11`. The three camera lamps and the housing fan use all four ports, so one lamp always comes on with the fan. Which lamp is on which output is picked in the software, on the LED button for each channel.
+
+What the lamp ports do with that signal is on [Power distribution]({{ '/lab/power/' | relative_url }}) under the lamps and the fan, and which cable goes on which port is on [Connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
 
 <ul class="bulleted-list">
   <li>Percentage to duty on the Orange Pi: <a href="https://github.com/basicallysource/sorter-v2/blob/main/software/sorter/backend/irl/leds.py"><code>irl/leds.py</code></a></li>
@@ -88,6 +90,6 @@ What the lamp ports do with that signal, and what is plugged into them, is on [P
 
 ## The switches
 
-The two switch inputs are plain digital inputs, on or off, that the Orange Pi reads with a `READ` command. The chute limit switch plugs into the one the board prints `HALL_SW_0`. The chute is turned back to this switch to find its home position, which is described on [The motors]({{ '/lab/motors/' | relative_url }}).
+The two switch inputs are plain digital inputs, on or off, that the Orange Pi reads with a `READ` command. The chute limit switch plugs into the one the board prints `HALL_SW_0`, on socket `J5`. The other, `HALL_SW_1` on `J6`, is a spare: nothing is plugged into it. The chute is turned back to this switch to find its home position, which is described on [The motors]({{ '/lab/motors/' | relative_url }}).
 
 The DIAG inputs that report a blocked motor are not switches. They are covered on [The motors]({{ '/lab/motors/' | relative_url }}) too.

@@ -222,12 +222,12 @@ def check_boot(args: argparse.Namespace) -> None:
             break
         time.sleep(15)
     check(code == 200, "backend API answers", f"HTTP {code}")
-    if code == 200:
-        current = json.loads(body).get("current", {})
-        ref = current.get("ref") or current.get("describe") or ""
-        want = args.expect_ref
-        check(ref == want if want else ref.startswith("sorter/stable/v"),
-              f"checked out {want or 'the newest sorter/stable/v* tag'}", ref)
+    # What first boot checked out, as it recorded it: git describe names
+    # either tag when stable and canary share the commit.
+    _, ref = ssh(args.ssh_port, "cat /var/lib/sorteros/checked-out-ref")
+    want = args.expect_ref
+    check(ref == want if want else ref.startswith("sorter/stable/v"),
+          f"checked out {want or 'the newest sorter/stable/v* tag'}", ref)
 
     if args.expect_default_model:
         print("default model")

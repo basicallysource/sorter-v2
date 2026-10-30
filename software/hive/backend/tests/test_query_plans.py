@@ -305,6 +305,7 @@ CASES: list[Case] = [
     Case("public: stats", "/api/public/stats", budget=25_000, max_sorted=25_000, why=DAY_OF_PIECES),
     Case("public: fleet", "/api/public/fleet", budget=25_000, max_sorted=25_000, why=DAY_OF_PIECES),
     Case("public: fleet, anonymous", "/api/public/fleet/anon", budget=25_000, max_sorted=25_000, why=DAY_OF_PIECES),
+    Case("public: fleet, operator detail", "/api/public/fleet/detail", budget=25_000, max_sorted=25_000, why=DAY_OF_PIECES),
     Case("public: contributors", "/api/public/contributors"),
     Case("public: fleet records", "/api/public/fleet/records"),
     # --- Admin -------------------------------------------------------------------
@@ -333,6 +334,22 @@ CASES: list[Case] = [
         why=PARTS_WINDOW,
     ),
     Case("records: a machine's pieces", "/api/records/machines/{busy}/pieces?limit=200", pages=2),
+    Case("records: a machine's pieces, 500 a page", "/api/records/machines/{busy}/pieces?limit=500", pages=2),
+    Case("records: a machine's lots and runs", "/api/records/machines/{busy}/sorting-runs"),
+    Case(
+        "records: an admin adds a run's predictions",
+        "/api/records/machines/{busy}/predictions",
+        method="POST",
+        body={
+            "source": "query plan check", "provider": "test", "model_name": "check", "kind": "color",
+            "pieces": [{"piece_uuid": f"no-such-piece-{i}", "answers": [{"value_id": "11"}]} for i in range(1000)],
+        },
+        budget=20_000,
+        why=(
+            "an import names at most 1,000 pieces, looked up through the (machine, piece) index; for a machine with "
+            "a few thousand pieces the planner reads its whole range of the index instead of 1,000 probes"
+        ),
+    ),
     Case(
         "records: a machine's pieces, last day",
         "/api/records/machines/{busy}/pieces?limit=200&since_days=1",
@@ -556,6 +573,7 @@ def run_case(plan_engine, fleet, monkeypatch):
             public_stats.require_stats_key,
             public_stats.require_fleet_key,
             public_stats.require_fleet_anon_key,
+            public_stats.require_fleet_detail_key,
             public_stats.require_contributors_key,
         ):
             app.dependency_overrides[dependency] = lambda: None

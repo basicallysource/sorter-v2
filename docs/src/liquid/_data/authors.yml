@@ -37,8 +37,9 @@ jgadling:
 alex:
   name: alex
 
-reveryx:
-  name: ReveryX
+jensr80:
+  name: JensR80
+  url: https://github.com/JensR80
 
 dov2000:
   name: Dov2000
@@ -51,3 +52,6 @@ extremetaz:
 
 soran82:
   name: Jan-Henning Grell (Soran82)
+
+dodgybob:
+  name: DodgyBob

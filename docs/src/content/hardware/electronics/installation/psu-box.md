@@ -8,8 +8,8 @@ kicker: Electronics — PSU box
 lede: The printed housing around the Mean Well LRS-350-24, its mains inlet, and the wiring inside it.
 permalink: /hardware/electronics/installation/psu-box/
 author: barthel
-contributors: [spencer, brickcyclealice, reveryx]
-og_image: https://assets.basically.website/sorter-parts/meanwell-psu-housing-v2-render-full-f4b161896ea6.png
+contributors: [spencer, brickcyclealice, jensr80, dodgybob]
+og_image: https://assets.basically.website/sorter-docs/psu-box-finished-closed-w1600-f8bd8bb5814a.jpg
 last_verified: 2026-09-26
 tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws", "Pliers, for the jacks' nuts", "Multimeter, with a continuity buzzer"]
 parts_needed:
@@ -85,7 +85,7 @@ Without the washer the nut works loose in the printed plastic, and a loose jack 
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-jack-spring-washer-w1600-2bb508c8cf75.jpg" alt="The inside of the front panel with three barrel jacks through it: the left jack bare, the middle one with its spring washer down on the thread and its nut still loose on the leads below, and the right one with the washer flattened under a tightened nut">
-  <figcaption>The three jacks from inside, left to right in the order they go on: bare, spring washer down against the panel, then the nut tightened onto it. <cite>Photo: ReveryX.</cite></figcaption>
+  <figcaption>The three jacks from inside, left to right in the order they go on: bare, spring washer down against the panel, then the nut tightened onto it. <cite>Photo: JensR80.</cite></figcaption>
 </figure>
 
 Set the panel down beside the supply for now. The leads land on the terminal block in step 4, once the supply is in the tray.
@@ -185,8 +185,8 @@ The box is closed before the machine sees mains.
 The supply inside the closed housing, both lids down, the mains inlet and the three jacks in the front panel, and the two clamp bosses ready for the frame.
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-parts/meanwell-psu-housing-v2-render-full-f4b161896ea6.png" alt="Render of the closed PSU box bolted onto a 2020 extrusion by the clamp bosses at each end, its vented rear lid on top and its front panel carrying the mains inlet and the three output jacks">
-  <figcaption>The box closed and on its extrusion. <cite>Render from the models, not from a build.</cite></figcaption>
+  <img src="https://assets.basically.website/sorter-docs/psu-box-finished-closed-w1600-f8bd8bb5814a.jpg" alt="The closed PSU box on a white table, seen from the front corner: the front panel with three barrel jacks, the mains inlet and its red rocker switch, the black lids screwed down over the shells with the vented rear lid at the far end, and a clamp boss with a screw hole at each end of the base">
+  <figcaption>The box closed, with its two clamp bosses ready for the frame. <cite>Photo: DodgyBob.</cite></figcaption>
 </figure>
 
 <div class="callout callout-warning">

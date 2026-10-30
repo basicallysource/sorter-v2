@@ -1,17 +1,15 @@
-import Activity from '@lucide/svelte/icons/activity';
 import Camera from '@lucide/svelte/icons/camera';
 import CircuitBoard from '@lucide/svelte/icons/circuit-board';
 import Cloud from '@lucide/svelte/icons/cloud';
 import Cpu from '@lucide/svelte/icons/cpu';
+import Database from '@lucide/svelte/icons/database';
 import Gauge from '@lucide/svelte/icons/gauge';
-import GraduationCap from '@lucide/svelte/icons/graduation-cap';
 import Timer from '@lucide/svelte/icons/timer';
 import GitBranch from '@lucide/svelte/icons/git-branch';
 import Layers3 from '@lucide/svelte/icons/layers';
 import Network from '@lucide/svelte/icons/network';
 import Palette from '@lucide/svelte/icons/palette';
 import Settings from '@lucide/svelte/icons/settings';
-import Shapes from '@lucide/svelte/icons/shapes';
 import ShieldAlert from '@lucide/svelte/icons/shield-alert';
 import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 import Wifi from '@lucide/svelte/icons/wifi';
@@ -28,11 +26,8 @@ export type CameraRole =
 	| 'carousel'
 	| 'classification_channel';
 
-export type ZoneChannel =
-	| 'second'
-	| 'third'
-	| 'carousel'
-	| 'classification_channel';
+// The channels with zones: C2, C3 and the classification channel (C4).
+export type ZoneChannelId = 2 | 3 | 4;
 
 export type StepperKey =
 	| 'c_channel_1'
@@ -47,7 +42,6 @@ export type EndstopConfig = {
 	liveEndpoint: string;
 	homeEndpoint: string;
 	homeCancelEndpoint: string;
-	calibrateEndpoint?: string;
 };
 
 export type StationSlug =
@@ -56,17 +50,26 @@ export type StationSlug =
 	| 'c-channel-3'
 	| 'classification-channel';
 
+// A page that belongs to a side nav item, listed indented under it.
+export type SettingsNavChild = {
+	href: string;
+	label: string;
+};
+
 export type SettingsNavItem = {
 	href: string;
 	label: string;
 	icon: typeof Settings;
+	// Pages of its own (the chute's aiming, its StallGuard). The item itself is
+	// the first of them and is not repeated here.
+	children?: SettingsNavChild[];
 };
 
 export type StationPageConfig = SettingsNavItem & {
 	slug: StationSlug;
 	description: string;
 	cameraRoles: CameraRole[];
-	zoneChannels: ZoneChannel[];
+	zoneChannel?: ZoneChannelId;
 	stepperKeys: StepperKey[];
 	stepperEndstops?: Partial<Record<StepperKey, EndstopConfig>>;
 	stepperDisplay?: Partial<Record<StepperKey, { label?: string; gearRatio?: number }>>;
@@ -114,16 +117,14 @@ export const appearanceNavItem: SettingsNavItem = {
 	icon: Palette
 };
 
-export const sampleCaptureNavItem: SettingsNavItem = {
-	href: '/settings/sample-capture',
-	label: 'Sample capture',
-	icon: Camera
-};
-
-export const trainingDataNavItem: SettingsNavItem = {
-	href: '/settings/training-data',
-	label: 'Training data',
-	icon: GraduationCap
+export const dataNavItem: SettingsNavItem = {
+	href: '/settings/data',
+	label: 'Data',
+	icon: Database,
+	children: [
+		{ href: '/settings/data/uploads', label: 'Uploads' },
+		{ href: '/settings/data/training', label: 'Training runs' }
+	]
 };
 
 export const versionsNavItem: SettingsNavItem = {
@@ -135,25 +136,17 @@ export const versionsNavItem: SettingsNavItem = {
 export const chuteNavItem: SettingsNavItem = {
 	href: '/settings/chute',
 	label: 'Chute',
-	icon: Wrench
+	icon: Wrench,
+	children: [
+		{ href: '/settings/chute-aiming', label: 'Chute aiming' },
+		{ href: '/settings/chute/stallguard', label: 'StallGuard' }
+	]
 };
 
 export const controlBoardNavItem: SettingsNavItem = {
 	href: '/settings/control-board',
 	label: 'Control board',
 	icon: CircuitBoard
-};
-
-export const chuteAimingNavItem: SettingsNavItem = {
-	href: '/settings/chute-aiming',
-	label: 'Chute aiming',
-	icon: Shapes
-};
-
-export const stallguardNavItem: SettingsNavItem = {
-	href: '/settings/stepper-stallguard',
-	label: 'StallGuard',
-	icon: Activity
 };
 
 export const jitterTestNavItem: SettingsNavItem = {
@@ -217,7 +210,6 @@ export const stationPageConfigs: StationPageConfig[] = [
 		icon: Wrench,
 		description: 'Bulk feed channel. This station only exposes manual stepper control.',
 		cameraRoles: [],
-		zoneChannels: [],
 		stepperKeys: ['c_channel_1']
 	},
 	{
@@ -227,7 +219,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 		icon: Camera,
 		description: 'Configure the second feeder camera, zone geometry, and rotor stepper controls.',
 		cameraRoles: ['c_channel_2'],
-		zoneChannels: ['second'],
+		zoneChannel: 2,
 		stepperKeys: ['c_channel_2']
 	},
 	{
@@ -237,7 +229,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 		icon: Camera,
 		description: 'Configure the third feeder camera, zone geometry, and rotor stepper controls.',
 		cameraRoles: ['c_channel_3'],
-		zoneChannels: ['third'],
+		zoneChannel: 3,
 		stepperKeys: ['c_channel_3']
 	},
 	{
@@ -245,10 +237,11 @@ export const stationPageConfigs: StationPageConfig[] = [
 		href: '/settings/classification-channel',
 		label: 'Classification channel',
 		icon: Camera,
+		children: [{ href: '/settings/classification-channel/stallguard', label: 'StallGuard' }],
 		description:
 			'Configure the fourth C-channel camera, arc zones, and classification-channel stepper.',
 		cameraRoles: ['classification_channel'],
-		zoneChannels: ['classification_channel'],
+		zoneChannel: 4,
 		stepperKeys: ['c_channel_4'],
 		stepperDisplay: {
 			c_channel_4: {
@@ -271,6 +264,7 @@ export const settingsNavItems: SettingsNavEntry[] = [
 	networkingNavItem,
 	appearanceNavItem,
 	hiveNavItem,
+	dataNavItem,
 	hiveModelsNavItem,
 	classificationProvidersNavItem,
 	versionsNavItem,
@@ -279,15 +273,10 @@ export const settingsNavItems: SettingsNavEntry[] = [
 	chuteNavItem,
 	storageLayersNavItem,
 	controlBoardNavItem,
-	{ type: 'heading', label: 'Data' },
-	sampleCaptureNavItem,
-	trainingDataNavItem,
 	{ type: 'heading', label: 'Helpers' },
 	incidentsNavItem,
 	cycleTimeNavItem,
 	powerStressNavItem,
-	chuteAimingNavItem,
-	stallguardNavItem,
 	jitterTestNavItem,
 	performanceNavItem,
 	{ type: 'heading', label: 'Tuning' },

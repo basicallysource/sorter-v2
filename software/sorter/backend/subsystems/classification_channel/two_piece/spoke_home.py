@@ -5,7 +5,6 @@ from typing import Any
 import cv2
 import numpy as np
 
-from local_state import get_channel_polygons
 from subsystems.classification_channel.five_sector_platter import C4FiveSectorPlatter
 
 SPOKE_COUNT = 5
@@ -51,25 +50,6 @@ class DetectorResult:
 DETECTOR_PARAMS = DetectorParams()
 
 
-def _number(value: object) -> float | None:
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return float(value)
-    return None
-
-
-def _scalePoint(
-    point: tuple[float, float],
-    src_w: float,
-    src_h: float,
-    frame_w: int,
-    frame_h: int,
-) -> tuple[float, float]:
-    return (
-        float(point[0]) * float(frame_w) / float(src_w),
-        float(point[1]) * float(frame_h) / float(src_h),
-    )
-
-
 def _pointForAngle(
     center_x: float,
     center_y: float,
@@ -102,79 +82,24 @@ def computeForwardAlignmentDeltaDeg(
 def loadSpokeHomeGeometry(
     frame_shape: tuple[int, int],
 ) -> tuple[Annulus, tuple[float, float]] | None:
-    saved = get_channel_polygons()
-    if not isinstance(saved, dict):
-        return None
-    arc_params = saved.get("arc_params")
-    if not isinstance(arc_params, dict):
-        return None
-    raw_arc = arc_params.get("classification_channel")
-    if not isinstance(raw_arc, dict):
-        return None
+    """The classification channel's ring at this frame's size, and the point on
+    its outer edge at the zones' reference angle, where a spoke rests at home."""
+    from zones.store import loadChannel
 
-    center = raw_arc.get("center")
-    if not isinstance(center, (list, tuple)) or len(center) < 2:
+    zones = loadChannel(4)
+    if zones is None:
         return None
-    center_x = _number(center[0])
-    center_y = _number(center[1])
-    inner_radius = _number(raw_arc.get("inner_radius"))
-    outer_radius = _number(raw_arc.get("outer_radius"))
-    if (
-        center_x is None
-        or center_y is None
-        or inner_radius is None
-        or outer_radius is None
-        or outer_radius <= inner_radius
-    ):
-        return None
-
-    resolution = raw_arc.get("resolution")
-    if not isinstance(resolution, (list, tuple)) or len(resolution) < 2:
-        resolution = saved.get("resolution")
-    if not isinstance(resolution, (list, tuple)) or len(resolution) < 2:
-        return None
-    src_w = _number(resolution[0])
-    src_h = _number(resolution[1])
-    if src_w is None or src_h is None or src_w <= 0 or src_h <= 0:
-        return None
-
     frame_h, frame_w = int(frame_shape[0]), int(frame_shape[1])
-    scaled_center_x, scaled_center_y = _scalePoint(
-        (center_x, center_y),
-        src_w,
-        src_h,
-        frame_w,
-        frame_h,
-    )
-    radius_scale = (float(frame_w) / float(src_w) + float(frame_h) / float(src_h)) * 0.5
+    ring = zones.scaledTo((frame_w, frame_h)).ring
     annulus = Annulus(
-        center_x=scaled_center_x,
-        center_y=scaled_center_y,
-        inner_radius=float(inner_radius) * radius_scale,
-        outer_radius=float(outer_radius) * radius_scale,
+        center_x=ring.center[0],
+        center_y=ring.center[1],
+        inner_radius=ring.inner_radius,
+        outer_radius=ring.outer_radius,
     )
-
-    section_zero_pts = saved.get("section_zero_pts")
-    if isinstance(section_zero_pts, dict):
-        raw_zero = section_zero_pts.get("classification_channel")
-        if isinstance(raw_zero, (list, tuple)) and len(raw_zero) >= 2:
-            zero_x = _number(raw_zero[0])
-            zero_y = _number(raw_zero[1])
-            if zero_x is not None and zero_y is not None:
-                return annulus, _scalePoint((zero_x, zero_y), src_w, src_h, frame_w, frame_h)
-
-    channel_angles = saved.get("channel_angles")
-    if isinstance(channel_angles, dict):
-        zero_angle_deg = _number(channel_angles.get("classification_channel"))
-        if zero_angle_deg is not None:
-            return annulus, _pointForAngle(
-                annulus.center_x,
-                annulus.center_y,
-                annulus.outer_radius,
-                zero_angle_deg,
-            )
-
-    return None
+    return annulus, _pointForAngle(
+        annulus.center_x, annulus.center_y, annulus.outer_radius, zones.reference_angle
+    )
 
 
 def _clampAnnulusToImage(

@@ -8,16 +8,18 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
+import stallguard_tuner
 import stepper_telemetry
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from hardware_settings.steppers import TMC_REG_GCONF, TMC_REG_TCOOLTHRS, applyStepperSettings, readStepperSettings
 from server import shared_state
 from server.routers.steppers import (
-    TMC_REG_DRV_STATUS, TMC_REG_GCONF, TMC_REG_SG_RESULT, TMC_REG_SGTHRS, TMC_REG_TCOOLTHRS, TMC_REG_TSTEP,
-    _STEPPER_API_TO_TOML_NAME, _ensure_manual_motion_allowed, _ensure_not_homing, _halt_stepper,
-    _resolve_stepper, _safe_read_register, _stepper_mapping, _write_stepper_settings,
+    TMC_REG_DRV_STATUS, TMC_REG_SG_RESULT, TMC_REG_TSTEP,
+    _ensure_manual_motion_allowed, _ensure_not_homing, _halt_stepper, _motor,
+    _resolve_stepper, _safe_read_register, _stepper_mapping, save_stepper_settings,
 )
 from stepper_stall_monitor import CHUTE_NEEDS_HOMING_INCIDENT_KIND, STEPPER_STALL_INCIDENT_KIND
 
@@ -169,11 +171,12 @@ class _ChuteRandomMotion(_SweepMotion):
     def _go(self, now: float) -> None:
         current = float(self._chute.current_angle)
         target_deg = self._pick(current)
-        self._chute.moveToAngle(target_deg)  # absolute, clamps to [0,360]
+        # Absolute, clamped to [0,360], at the sweep's speed; the chute's next
+        # move of its own goes back to its operating speed.
+        self._chute.moveToAngle(target_deg, max_speed=self._speed)
         self._next_check_at = now + 0.05
 
     def start(self, now: float) -> None:
-        self._chute.stepper.set_speed_limits(0, self._speed)
         self._home_if_needed()
         self._go(now)
 
@@ -281,6 +284,7 @@ def stallguard_sweep(
         raise HTTPException(status_code=400, detail="sample_interval_s must be > 0")
 
     target = _resolve_stepper(stepper)
+    motor = _motor(stepper)
 
     lock = shared_state.pulse_locks.setdefault(stepper, threading.Lock())
     if not lock.acquire(blocking=False):
@@ -291,7 +295,6 @@ def stallguard_sweep(
     samples: List[StallGuardSample] = []
     telemetry_rows: List[Dict[str, Any]] = []
 
-    chute_restore_speed: Optional[int] = None
     if profile == "chute_random":
         # The chute has hard endstops, so its motion must run on the homed Chute
         # object (absolute, clamped angles) — never a raw open-loop spin.
@@ -303,7 +306,6 @@ def stallguard_sweep(
                 status_code=409,
                 detail="chute_random needs the initialized chute; initialize hardware first.",
             )
-        chute_restore_speed = int(getattr(chute, "operating_speed_microsteps_per_second", speed))
         motion: _SweepMotion = _ChuteRandomMotion(
             chute, speed, min_delta_deg, chute_min_deg, chute_max_deg
         )
@@ -435,26 +437,14 @@ def stallguard_sweep(
             _halt_stepper(target, force=True)
         except Exception:
             pass
-        # Restore the motor's resting state. If it has live stall detection
-        # configured, put its enforcement velocity floor back and re-enable
-        # detection (we turned it off above); otherwise just zero the floor so the
-        # sweep leaves nothing half-configured.
+        # Put back the motor's saved StallGuard and CoolStep state: its speed
+        # floor, and detection re-armed if it is on (it was turned off above).
         try:
-            if getattr(target, "stallguard_enabled", False) and target.stallguard_sgthrs is not None:
-                target.write_driver_register(TMC_REG_TCOOLTHRS, target.stallguard_tcoolthrs)
-                target.clear_stall()
-                target.enable_stall_detection(True)
-            else:
-                target.write_driver_register(TMC_REG_TCOOLTHRS, 0)
+            applyStepperSettings(
+                target, readStepperSettings(motor), {"stallguard", "sgthrs", "tcoolthrs"}
+            )
         except Exception:
             pass
-        # chute_random retunes the chute stepper's speed limits; restore them to
-        # the chute's operating speed so normal aiming isn't left at sweep speed.
-        if chute_restore_speed is not None:
-            try:
-                target.set_speed_limits(16, chute_restore_speed)
-            except Exception:
-                pass
         try:
             lock.release()
         except RuntimeError:
@@ -505,9 +495,10 @@ def stallguard_sweep(
 
 
 class StallGuardConfigBody(BaseModel):
-    sgthrs: int = Field(..., ge=0, le=255)
-    tcoolthrs: int = Field(DEFAULT_STALLGUARD_TCOOLTHRS, ge=0)
-    enabled: bool = True
+    # Each left out stays as saved.
+    sgthrs: Optional[int] = Field(None, ge=0, le=255)
+    tcoolthrs: Optional[int] = Field(None, ge=0)
+    enabled: Optional[bool] = None
 
 
 class StallGuardConfigResponse(BaseModel):
@@ -517,38 +508,63 @@ class StallGuardConfigResponse(BaseModel):
     sgthrs: int
     tcoolthrs: int
     enabled: bool
+    auto: bool
+    applied_live: bool
 
 
 @router.post("/stepper/{stepper}/stallguard-config", response_model=StallGuardConfigResponse)
 def set_stallguard_config(stepper: str, body: StallGuardConfigBody) -> StallGuardConfigResponse:
-    target = _resolve_stepper(stepper)
-    toml_name = _STEPPER_API_TO_TOML_NAME.get(stepper, stepper)
-    _write_stepper_settings("stepper_stallguard", stepper, sgthrs=body.sgthrs, tcoolthrs=body.tcoolthrs, enabled=body.enabled)
-
-    # Apply live so the change takes effect on the very next move — no reinit
-    # needed. Stamp the attrs the stall monitor reads, write the driver registers,
-    # and turn detection on/off. When disabled, drop the velocity floor to 0 so
-    # DIAG can never fire. Best-effort: a UART hiccup here still leaves the config
-    # persisted, and hardware init will re-apply it.
-    try:
-        target.stallguard_sgthrs = body.sgthrs
-        target.stallguard_tcoolthrs = body.tcoolthrs
-        target.stallguard_enabled = body.enabled
-        target.write_driver_register(TMC_REG_SGTHRS, body.sgthrs)
-        target.write_driver_register(TMC_REG_TCOOLTHRS, body.tcoolthrs if body.enabled else 0)
-        target.clear_stall()
-        target.enable_stall_detection(bool(body.enabled))
-    except Exception:
-        pass
+    """Save the motor's stall detection and apply it to the running driver, so
+    it holds from the next move; with the hardware down it applies at the next
+    start."""
+    motor = _motor(stepper)
+    changes = {
+        name: value
+        for name, value in (("sgthrs", body.sgthrs), ("tcoolthrs", body.tcoolthrs), ("stallguard", body.enabled))
+        if value is not None
+    }
+    saved = readStepperSettings(motor)
+    if any(name in changes and changes[name] != getattr(saved, name) for name in ("sgthrs", "tcoolthrs")):
+        # A threshold or speed floor set by hand takes them over from automatic tuning.
+        changes["stallguard_auto"] = False
+    settings, applied_live = save_stepper_settings(motor, changes)
 
     return StallGuardConfigResponse(
         success=True,
         stepper=stepper,
-        toml_name=toml_name,
-        sgthrs=body.sgthrs,
-        tcoolthrs=body.tcoolthrs,
-        enabled=body.enabled,
+        toml_name=motor.key,
+        sgthrs=settings.sgthrs,
+        tcoolthrs=settings.tcoolthrs,
+        enabled=settings.stallguard,
+        auto=settings.stallguard_auto,
+        applied_live=applied_live,
     )
+
+
+class StallGuardAutoBody(BaseModel):
+    enabled: Optional[bool] = None
+    # Forget what it learned and learn the motor again as it is now.
+    learn_again: bool = False
+
+
+@router.get("/stepper/{stepper}/stallguard-auto")
+def get_stallguard_auto(stepper: str) -> Dict[str, Any]:
+    """The motor's automatic tuning: whether it is on, what it has learned and
+    set, and why (see stallguard_tuner)."""
+    return stallguard_tuner.status(_motor(stepper))
+
+
+@router.post("/stepper/{stepper}/stallguard-auto")
+def set_stallguard_auto(stepper: str, body: StallGuardAutoBody) -> Dict[str, Any]:
+    """Turn the motor's automatic tuning on or off, or have it learn again."""
+    motor = _motor(stepper)
+    if not stallguard_tuner.supports(motor):
+        raise HTTPException(status_code=400, detail=f"The {motor.label} has no automatic tuning.")
+    if body.enabled is not None:
+        save_stepper_settings(motor, {"stallguard_auto": body.enabled})
+    if body.learn_again:
+        stallguard_tuner.learnAgain(motor)
+    return stallguard_tuner.status(motor)
 
 
 # ---------------------------------------------------------------------------
@@ -692,12 +708,33 @@ def _realistic_in_gate_floor(
     return worst
 
 
+def _run_matches_driver(
+    params: Any,
+    irun: Optional[int],
+    microsteps: Optional[int],
+    stealthchop: Optional[bool],
+) -> bool:
+    """A recording describes the motor only under the driver settings it was made
+    with: SG_RESULT shifts with the run current, the microstepping and the chopper
+    mode. Every setting given must equal the run's; a run that did not record one
+    does not match it."""
+    wanted = (("irun", irun), ("microsteps", microsteps), ("stealthchop", stealthchop))
+    if not isinstance(params, dict):
+        return all(want is None for _, want in wanted)
+    return all(want is None or params.get(key) == want for key, want in wanted)
+
+
 @router.get(
     "/stepper/{stepper}/stallguard-suggestion",
     response_model=StallGuardSuggestionResponse,
 )
 def stallguard_suggestion(
-    stepper: str, cruise_tstep: Optional[int] = None, speed: Optional[int] = None
+    stepper: str,
+    cruise_tstep: Optional[int] = None,
+    speed: Optional[int] = None,
+    irun: Optional[int] = None,
+    microsteps: Optional[int] = None,
+    stealthchop: Optional[bool] = None,
 ) -> StallGuardSuggestionResponse:
     """Pure DB analysis — no hardware. Takes cruise SG from the latest unloaded
     (sweep) and latest loaded (stall_test) run for this motor and returns the
@@ -706,9 +743,11 @@ def stallguard_suggestion(
     SG floor/dip/baseline all shift with speed, so when `speed` is given every input
     (unloaded, loaded, stress) is filtered to that speed — otherwise a 2000 sweep
     could get paired with an old 3000 stall test and a clean run wrongly flagged.
-    The UI passes the selected run's speed so the suggestion matches what you see."""
-    if stepper not in _STEPPER_API_TO_TOML_NAME:
-        raise HTTPException(status_code=400, detail=f"Unknown stepper '{stepper}'")
+    The UI passes the selected run's speed so the suggestion matches what you see.
+    `irun`, `microsteps` and `stealthchop` filter the unloaded and loaded runs the
+    same way (see _run_matches_driver): tuning passes the driver's current settings,
+    so a recording made at another current never stands in for one made now."""
+    motor = _motor(stepper)
 
     def _run_speed(r: Dict[str, Any]) -> Optional[int]:
         p = r.get("params")
@@ -723,6 +762,8 @@ def stallguard_suggestion(
             if r.get("status") != stepper_telemetry.RUN_STATUS_COMPLETED:
                 continue
             if speed is not None and _run_speed(r) != speed:
+                continue
+            if not _run_matches_driver(r.get("params"), irun, microsteps, stealthchop):
                 continue
             return r
         return None
@@ -751,8 +792,7 @@ def stallguard_suggestion(
     eff_speed = speed if speed is not None else (_run_speed(unloaded_run) if unloaded_run else None)
     speed_txt = f"{eff_speed} µs/s" if eff_speed else "this speed"
 
-    toml_name = _STEPPER_API_TO_TOML_NAME.get(stepper, stepper)
-    realistic_floor = _realistic_in_gate_floor(toml_name, ct, eff_speed)
+    realistic_floor = _realistic_in_gate_floor(motor.key, ct, eff_speed)
 
     trigger: Optional[int] = None
     sgthrs: Optional[int] = None

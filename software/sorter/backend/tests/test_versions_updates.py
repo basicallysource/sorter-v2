@@ -48,6 +48,8 @@ def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     _git(checkout, "checkout", "-q", "--detach", "refs/tags/sorter/stable/v0.1.0")
 
     restarts: list[bool] = []
+    # The channel the person picks is kept in machine.toml: a file of the test's own.
+    monkeypatch.setenv("MACHINE_SPECIFIC_PARAMS_PATH", str(tmp_path / "machine.toml"))
     monkeypatch.setattr(versions, "_repo_root_cache", checkout)
     monkeypatch.setattr(versions, "_deferredRestart", lambda: restarts.append(True))
     monkeypatch.setattr(versions, "_buildUi", lambda: None)
@@ -193,3 +195,66 @@ def test_a_failed_ui_build_restarts_nothing(machine: Path, monkeypatch: pytest.M
     assert result["ok"] is False
     assert "out of memory" in result["message"]
     assert restarts == []
+
+
+def _promote_stable_to_canary(machine: Path) -> None:
+    """Stable is promoted to the very commit of canary v0.2.0."""
+    work = machine.parent / "work"
+    _git(work, "tag", "sorter/stable/v0.2.0", "sorter/canary/v0.2.0")
+    _git(work, "push", "-q", "origin", "refs/tags/sorter/stable/v0.2.0")
+
+
+def test_a_canary_machine_stays_on_canary_when_stable_reaches_its_commit(machine: Path):
+    assert _switch("sorter/canary/v0.2.0")["ok"]
+    _promote_stable_to_canary(machine)
+
+    payload = versions.get_versions(refresh=True)
+    assert payload["current"]["channel"] == "canary"
+    stable, canary = payload["available"]
+    assert (canary["is_current"], canary["up_to_date"]) == (True, True)
+    assert stable["is_current"] is False
+
+    # Canary moves on: the machine is offered it, not told it is on stable.
+    work = machine.parent / "work"
+    _commit(work, "canary moves on")
+    _git(work, "tag", "sorter/canary/v0.2.1")
+    _git(work, "push", "-q", "origin", "main", "refs/tags/sorter/canary/v0.2.1")
+    stable, canary = versions.get_versions(refresh=True)["available"]
+    assert (canary["name"], canary["is_current"], canary["up_to_date"], canary["behind"]) == (
+        "sorter/canary/v0.2.1",
+        True,
+        False,
+        False,
+    )
+    assert stable["is_current"] is False
+
+
+def test_choosing_the_channel_it_already_runs_only_records_it(machine: Path, monkeypatch: pytest.MonkeyPatch):
+    assert _switch("sorter/canary/v0.2.0")["ok"]
+    _promote_stable_to_canary(machine)
+    versions.get_versions(refresh=True)
+    builds: list[bool] = []
+    monkeypatch.setattr(versions, "_buildUi", lambda: builds.append(True))
+
+    result = _switch("sorter/stable/v0.2.0")
+    assert result["ok"] and result["changed"] is False and result["restarting"] is False
+    assert builds == []
+    assert versions.get_versions()["current"]["channel"] == "stable"
+
+
+def test_a_machine_on_a_branch_gets_back_on_the_newest_release(machine: Path):
+    # A development branch past the newest canary release, with a commit of its own.
+    _git(machine, "checkout", "-q", "-b", "dev", "refs/tags/sorter/canary/v0.2.0")
+    _commit(machine, "work in progress")
+
+    payload = versions.get_versions(refresh=True)
+    assert payload["current"]["channel"] is None
+    stable, canary = payload["available"]
+    assert (canary["is_current"], canary["behind"]) == (False, False)
+    # Stable is older than the release the branch is built on: still refused.
+    assert stable["behind"] is True
+
+    result = _switch("sorter/canary/v0.2.0")
+    assert result["ok"] and result["changed"]
+    assert _head(machine) == _tagged(machine, "sorter/canary/v0.2.0")
+    assert versions.get_versions()["current"]["channel"] == "canary"

@@ -8,7 +8,7 @@ kicker: Helpers — Multimeter
 lede: Two settings on the dial cover every check this build asks for, continuity and resistance. What each one tells you, and how to read it.
 permalink: /hardware/helpers/multimeter/
 author: barthel
-contributors: [effreek, reveryx]
+contributors: [effreek, jensr80]
 last_verified: 2026-09-26
 tools_needed: ["Multimeter, with a continuity buzzer"]
 ---
@@ -159,7 +159,7 @@ Work through the combinations until you have both pairs, and write down which co
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/stepper-coil-short-test-w1600-0aa26f798074.jpg" alt="A NEMA 17 stepper motor lying face up with its own lead coiled beside it. The lead ends in a 4-pin Dupont plug, and a short red and black jumper wire loops between two of the plug's contacts, joining those two wires.">
-  <figcaption>A jumper across two contacts of the motor's own Dupont plug. The shaft is hard to turn, so those two wires are one coil. <cite>Photo: ReveryX.</cite></figcaption>
+  <figcaption>A jumper across two contacts of the motor's own Dupont plug. The shaft is hard to turn, so those two wires are one coil. <cite>Photo: JensR80.</cite></figcaption>
 </figure>
 
 <ol class="numbered-steps">

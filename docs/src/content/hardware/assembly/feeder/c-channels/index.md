@@ -45,6 +45,6 @@ Each page ends in one of these.
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/classification-channel-finished-capped-rotor-w1600-c4033d1a23b0.jpg" alt="A finished classification channel on a wooden bench: the white finned rotor sitting down in the black stator ring with a small grey cap at its centre, the stepper motor at the left and the orange output gear showing at the gap in the ring">
-    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>, the capped rotor in. <cite>Photo: ReveryX.</cite></figcaption>
+    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>, the capped rotor in. <cite>Photo: JensR80.</cite></figcaption>
   </figure>
 </div>

@@ -16,8 +16,7 @@ import db
 
 STATE_KEY_MACHINE_ID = "machine_id"
 STATE_KEY_SORTING_PROFILE_SYNC = "sorting_profile_sync"
-_STATE_KEY_CHANNEL_POLYGONS = "channel_polygons"
-_STATE_KEY_CLASSIFICATION_POLYGONS = "classification_polygons"
+_STATE_KEY_CHANNEL_ZONES = "channel_polygons"
 _STATE_KEY_HIVE = "hive"
 _STATE_KEY_API_KEYS = "api_keys"
 _STATE_KEY_SERVO_STATES = "servo_states"
@@ -27,6 +26,8 @@ _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
 _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
 _STATE_KEY_TRAINING_MODE = "training_mode"
 _STATE_KEY_HIVE_LIMITS = "hive_limits"
+_STATE_KEY_SHARING = "sharing"
+_STATE_KEY_HIVE_DEFAULTS = "hive_defaults"
 _STATE_KEY_TELEMETRY_INSTALL = "telemetry_install"
 _STATE_KEY_LEDS = "leds"
 _STATE_KEY_BASICALLY_SERVICES = "basically_services"
@@ -125,17 +126,6 @@ def _normalize_hive_target(raw: Any, index: int) -> dict[str, Any] | None:
     }
     if isinstance(machine_id, str) and machine_id.strip():
         target["machine_id"] = machine_id.strip()
-    telemetry = raw.get("telemetry")
-    if isinstance(telemetry, dict):
-        # Per-target upload permissions; hive_telemetry owns the field set and
-        # defaults, so pass through any bool entries untouched.
-        normalized_telemetry = {
-            key: value
-            for key, value in telemetry.items()
-            if isinstance(key, str) and isinstance(value, bool)
-        }
-        if normalized_telemetry:
-            target["telemetry"] = normalized_telemetry
     return target
 
 
@@ -220,31 +210,23 @@ def set_basically_services_state(record: dict[str, Any]) -> None:
     _write_state(_STATE_KEY_BASICALLY_SERVICES, record)
 
 
-def get_channel_polygons() -> dict[str, Any] | None:
-    return _read_dict(_STATE_KEY_CHANNEL_POLYGONS)
+def get_channel_zones_blob() -> dict[str, Any] | None:
+    return _read_dict(_STATE_KEY_CHANNEL_ZONES)
 
 
 # Counts the saves of the channel zones in this process, so whatever is built
 # from them can tell cheaply that it is out of date.
-_channel_polygons_revision = 0
+_channel_zones_revision = 0
 
 
-def channel_polygons_revision() -> int:
-    return _channel_polygons_revision
+def channel_zones_revision() -> int:
+    return _channel_zones_revision
 
 
-def set_channel_polygons(polygons: dict[str, Any]) -> None:
-    global _channel_polygons_revision
-    _write_state(_STATE_KEY_CHANNEL_POLYGONS, dict(polygons))
-    _channel_polygons_revision += 1
-
-
-def get_classification_polygons() -> dict[str, Any] | None:
-    return _read_dict(_STATE_KEY_CLASSIFICATION_POLYGONS)
-
-
-def set_classification_polygons(polygons: dict[str, Any]) -> None:
-    _write_state(_STATE_KEY_CLASSIFICATION_POLYGONS, dict(polygons))
+def set_channel_zones_blob(blob: dict[str, Any]) -> None:
+    global _channel_zones_revision
+    _write_state(_STATE_KEY_CHANNEL_ZONES, dict(blob))
+    _channel_zones_revision += 1
 
 
 def get_sample_collection_state() -> dict[str, Any] | None:
@@ -275,6 +257,36 @@ def get_hive_limits_state() -> dict[str, Any] | None:
 
 def set_hive_limits_state(state: dict[str, Any] | None) -> None:
     _write_state(_STATE_KEY_HIVE_LIMITS, state or None)
+
+
+def get_hive_defaults_state() -> dict[str, Any] | None:
+    # The primary Hive's block of defaults; hive_defaults.py owns it.
+    return _read_dict(_STATE_KEY_HIVE_DEFAULTS)
+
+
+def set_hive_defaults_state(state: dict[str, Any]) -> None:
+    _write_state(_STATE_KEY_HIVE_DEFAULTS, state)
+
+
+def get_sharing_state() -> dict[str, Any] | None:
+    # What is shared with which Hive, and the consent; sharing.py owns it.
+    return _read_dict(_STATE_KEY_SHARING)
+
+
+def set_sharing_state(state: dict[str, Any]) -> None:
+    _write_state(_STATE_KEY_SHARING, state)
+
+
+def get_legacy_hive_telemetry() -> dict[str, dict[str, Any]]:
+    """Each target's upload choices as stored before sharing.py, by target id,
+    for sharing.py to move into its own state once."""
+    value = _read_state(_STATE_KEY_HIVE)
+    raw_targets = value.get("targets") if isinstance(value, dict) else None
+    out: dict[str, dict[str, Any]] = {}
+    for raw in raw_targets if isinstance(raw_targets, list) else []:
+        if isinstance(raw, dict) and isinstance(raw.get("id"), str) and isinstance(raw.get("telemetry"), dict):
+            out[raw["id"]] = dict(raw["telemetry"])
+    return out
 
 
 def get_hive_config() -> dict[str, Any] | None:

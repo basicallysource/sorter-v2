@@ -330,19 +330,20 @@ def channelIdForLayer(config: "BinLayoutConfig", layer_index: int, servo_channel
 
 def calibratedAnglesForLayer(config: "BinLayoutConfig", layer_index: int, servo_channel_config=None):
     """Resolve a layer's (open, closed) angles from the per-channel calibration
-    store, falling back to the layer's legacy angles if the channel isn't
-    calibrated yet (ultra-safe during the migration window)."""
+    store, falling back to the layer's legacy angles only when the store has no
+    entry for the channel. An entry with both angles None is a cleared
+    calibration, not a missing one: falling back there brought cleared angles
+    back on the next read."""
     from bin_layout_store import get_servo_channel_calibration
 
     channel_id = channelIdForLayer(config, layer_index, servo_channel_config)
-    cal = get_servo_channel_calibration().get(str(channel_id)) or {}
-    open_angle = cal.get("open")
-    closed_angle = cal.get("closed")
-    if open_angle is None and closed_angle is None and layer_index < len(config.layers):
-        layer = config.layers[layer_index]
-        open_angle = layer.servo_open_angle
-        closed_angle = layer.servo_closed_angle
-    return open_angle, closed_angle
+    cal = get_servo_channel_calibration().get(str(channel_id))
+    if cal is None:
+        if layer_index < len(config.layers):
+            layer = config.layers[layer_index]
+            return layer.servo_open_angle, layer.servo_closed_angle
+        return None, None
+    return cal.get("open"), cal.get("closed")
 
 
 def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:

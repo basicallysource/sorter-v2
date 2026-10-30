@@ -6,6 +6,9 @@
 	own line rather than outside it, so a focused field never shows two lines.
 	`element` binds the <input> itself, to focus it from code; every other
 	attribute (id, name, autocomplete, required, onkeydown) goes on it too.
+	`type="date"` is a day (YYYY-MM-DD), picked with the browser's own calendar;
+	empty, it is drawn faint like a placeholder, because some browsers show
+	today's date in an empty one, which must not read as a chosen day.
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
@@ -25,7 +28,7 @@
 	}: {
 		value?: string | number | null;
 		element?: HTMLInputElement;
-		type?: 'text' | 'number' | 'password' | 'email' | 'search' | 'url' | 'tel';
+		type?: 'text' | 'number' | 'password' | 'email' | 'search' | 'url' | 'tel' | 'date';
 		unit?: string;
 		// A small control inside the field's edge, after the value.
 		end?: Snippet;
@@ -41,6 +44,7 @@
 		{ sm: 'h-(--size-control-sm)', md: 'h-(--size-control)', lg: 'h-(--size-control-lg)' }[size]
 	);
 	const pad = $derived(size === 'sm' ? 'px-(--pad-control-sm)' : 'px-(--pad-control)');
+	const unset = $derived(type === 'date' && !value);
 </script>
 
 <div
@@ -58,7 +62,8 @@
 		{disabled}
 		bind:value
 		aria-invalid={invalid || undefined}
-		class="h-full min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-ink-faint
+		class="h-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-ink-faint
+			{unset ? 'text-ink-faint' : 'text-ink'}
 			{size === 'lg' ? 'text-base' : 'text-sm'} {pad} {type === 'number' ? 'num text-right' : ''}"
 	/>
 	{#if unit}

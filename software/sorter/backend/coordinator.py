@@ -127,6 +127,11 @@ class Coordinator:
         active_incident = self._active_incident()
         if active_incident is not None:
             self._hold_process_for_incident(active_incident)
+            # A recovery procedure frees a stuck piece while the incident holds
+            # everything else (recovery/).
+            import recovery
+
+            recovery.step(self.gc)
             if self._classification_should_step_during_incident(active_incident):
                 classification_started = time.perf_counter()
                 self.classification.step()
@@ -175,4 +180,12 @@ class Coordinator:
     def cleanup(self) -> None:
         self.feeder.cleanup()
         self.classification.cleanup()
+        self.distribution.cleanup()
+
+    def pause(self) -> None:
+        # Like cleanup, except the pieces on the classification channel keep
+        # their classifications: after a pause, or a jam elsewhere, they go
+        # where they were going instead of to misc.
+        self.feeder.cleanup()
+        self.classification.pause()
         self.distribution.cleanup()

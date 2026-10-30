@@ -177,6 +177,7 @@
 		{ scope: 'profiles:read', label: 'Read your sorting profiles and kits', everyone: true },
 		{ scope: 'profiles:write', label: 'Change your sorting profiles and kits', everyone: true },
 		{ scope: 'records:read', label: 'Read what your machines sorted', everyone: true },
+		{ scope: 'predictions:write', label: "Add model runs' predictions for your machines' pieces" },
 		{ scope: 'models:read', label: 'Read models' },
 		{ scope: 'models:write', label: 'Write models' },
 		{ scope: 'samples:read', label: 'Read samples' },
@@ -185,6 +186,7 @@
 		{ scope: 'stats:read', label: 'Read aggregate stats' },
 		{ scope: 'fleet:read', label: 'Read the fleet roster (machines + linked owners)' },
 		{ scope: 'fleet:anon', label: 'Read the de-identified fleet roster (no owners, no names)' },
+		{ scope: 'fleet:detail', label: 'Read the operator fleet view (the roster plus each machine\'s software, hardware and health)' },
 		{ scope: 'contributors:read', label: 'Read the contributor leaderboard' },
 		{ scope: 'parts:read', label: 'Read the parts catalog' },
 		{ scope: 'parts:prices', label: 'Read parts market prices' },
@@ -789,6 +791,24 @@
 						>
 					</div>
 				</Field>
+				<div class="text-sm text-ink-muted">
+					<p>
+						Hive sells no AI credits: the assistant runs on your own OpenRouter account, and your card stays with
+						OpenRouter. It is optional. Profiles can be written by hand, and sorting never uses it.
+					</p>
+					<ol class="mt-2 list-decimal space-y-1 pl-5">
+						<li>
+							Sign up at <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer" class="text-primary-ink hover:underline">openrouter.ai</a>.
+						</li>
+						<li>
+							Add credits at <a href="https://openrouter.ai/credits" target="_blank" rel="noopener noreferrer" class="text-primary-ink hover:underline">openrouter.ai/credits</a> (prepaid, not a subscription).
+						</li>
+						<li>
+							Create a key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" class="text-primary-ink hover:underline">openrouter.ai/keys</a> and copy its <code>sk-or-v1-...</code> value. It is shown only once.
+						</li>
+						<li>Paste it above and save.</li>
+					</ol>
+				</div>
 				<Field
 					label="Model"
 					for="preferred-model"

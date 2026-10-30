@@ -18,10 +18,11 @@
 	import DropdownMenu from '$lib/components/DropdownMenu.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
+	import SupportBadge from '$lib/components/SupportBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
-	import LayerControl from '$lib/components/LayerControl.svelte';
+	import BuildOptions from '$lib/components/BuildOptions.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
 	import AssemblyDetailModal from '$lib/components/AssemblyDetailModal.svelte';
 	import HardwareDetailModal from '$lib/components/HardwareDetailModal.svelte';
@@ -911,7 +912,7 @@
 		{#if !lineShown(line)}
 			<!-- filtered out -->
 		{:else if line.assembly}
-			{@render node(`${path}/${segs[i]}`, line.qty, lineQty(line, layers) * mult, depth + 1, endpoints?.has(line.assembly) ?? false, line.args)}
+			{@render node(`${path}/${segs[i]}`, line.qty, lineQty(line, layers) * mult, depth + 1, endpoints?.has(line.assembly) ?? false, line.args, !!line.optional)}
 		{:else if line.part && getLasercut(line.part)}
 			{@const lc = getLasercut(line.part)!}
 			<div data-member={line.part} class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
@@ -949,6 +950,8 @@
 								<span class="text-sm font-semibold text-text">{part.name}</span>
 								<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
 									>3D printed</span>
+								<SupportBadge {part} />
+								<OptionalBadge value={part.optional} />
 								{#if line.part}{@render tagChips(line.part)}{/if}
 							</div>
 							<div class="text-xs text-text-muted">{part.slice_failed ? 'not sliced' : `${(part.grams ?? 0).toFixed(0)} g each`}</div>
@@ -1390,7 +1393,7 @@
 	</div>
 {/snippet}
 
-{#snippet node(path: string, qty: AssemblyLine['qty'], mult: number, depth: number, boxed: boolean = false, instArgs: Record<string, string> | undefined = undefined)}
+{#snippet node(path: string, qty: AssemblyLine['qty'], mult: number, depth: number, boxed: boolean = false, instArgs: Record<string, string> | undefined = undefined, optional: boolean = false)}
 	{@const asm = getAssembly(idOf(path))}
 	{#if asm && (!filtering || keep.assemblies.has(asm.id))}
 		{@const hasContent =
@@ -1452,8 +1455,10 @@
 					{:else if qty === 'middle-layers'}×{Math.max(0, layers - 2)} (layers between the interfaces)
 					{:else if qty === 'per-half-layer'}×{layerStore.sizes.slice(0, layers).filter((s) => s === 'half').length} (1 per half-size layer)
 					{:else if qty === 'per-third-layer'}×{layers - layerStore.sizes.slice(0, layers).filter((s) => s === 'half').length} (1 per third-size layer)
+					{:else if optional}×0 (not selected)
 					{:else if qty !== 1}×{qty}{/if}
 				</span>
+				<OptionalBadge value={asm.optional} />
 				{@render tagChips(asm.id)}
 				<span class="relative ml-auto flex items-center gap-3" data-asm-menu>
 					<!-- The docs site is where the step-by-step build lives; this node is only
@@ -1630,7 +1635,7 @@
 		<h1 class="text-2xl font-bold text-text">Machine assembly</h1>
 	</header>
 
-	<div class="mb-6"><LayerControl /></div>
+	<div class="mb-6"><BuildOptions /></div>
 
 	<section class="min-w-0">
 			<div class="mb-4 flex items-center gap-3">

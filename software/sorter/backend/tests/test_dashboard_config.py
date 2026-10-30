@@ -39,6 +39,8 @@ class DashboardConfigTests(unittest.TestCase):
         self.assertEqual(
             [
                 "exit_stuck",
+                "piece_circling",
+                "piece_held",
                 "distribution_servo_bus_offline",
                 "distribution_no_bin_available",
             ],
@@ -46,6 +48,8 @@ class DashboardConfigTests(unittest.TestCase):
         )
         defaults = {item["kind"]: item["default"] for item in config["incident_definitions"]}
         self.assertEqual("automatic", defaults["exit_stuck"])
+        self.assertEqual("automatic", defaults["piece_circling"])
+        self.assertEqual("automatic", defaults["piece_held"])
         self.assertEqual("off", defaults["distribution_no_bin_available"])
 
     def test_dashboard_config_only_lists_default_codepath_kinds(self) -> None:

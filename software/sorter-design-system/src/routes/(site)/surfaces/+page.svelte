@@ -1,5 +1,4 @@
 <script lang="ts">
-	import RotateCw from '@lucide/svelte/icons/rotate-cw';
 	import Cpu from '@lucide/svelte/icons/cpu';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import PageHeader from '$lib/site/PageHeader.svelte';
@@ -8,6 +7,7 @@
 	import DoDont from '$lib/site/DoDont.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import NudgeControl from '$lib/components/NudgeControl.svelte';
 	import Input from '$lib/components/Input.svelte';
 	import Tabs from '$lib/components/Tabs.svelte';
 	import Popover from '$lib/components/Popover.svelte';
@@ -55,6 +55,7 @@
 	let tab = $state<'live' | 'recent' | 'errors'>('live');
 	let unit = $state<'duration' | 'degrees'>('degrees');
 	let chosen = $state(2);
+	let step = $state(10);
 
 	const machines = [
 		{ id: 'bench', name: 'Bench sorter', where: 'Garage, second shelf', online: true, today: 1284 },
@@ -353,7 +354,7 @@
 	<Specimen
 		on="canvas"
 		code={`<MediaTile title="C-Channel 2" expandable>
-	{#snippet actions()}<Button size="sm" variant="ghost">-1°</Button>...{/snippet}
+	{#snippet actions()}<NudgeControl bind:value={step} ... />{/snippet}
 	{#snippet overlay()}<Badge tone="success" dot>Live</Badge>{/snippet}
 	<img src={feed} alt="" class="size-full object-contain" />
 </MediaTile>
@@ -365,9 +366,14 @@
 		<div class="grid items-start gap-(--gap-panels) md:grid-cols-2">
 			<MediaTile title="C-Channel 2" expandable>
 				{#snippet actions()}
-					<Button size="sm" variant="ghost">-1°</Button>
-					<Button size="sm" variant="ghost">+1°</Button>
-					<Button size="sm" variant="ghost" icon={RotateCw}>180°</Button>
+					<NudgeControl
+						bind:value={step}
+						label="Turn the channel"
+						leftLabel="Turn the channel {step}° counterclockwise"
+						rightLabel="Turn the channel {step}° clockwise"
+						amountLabel="Each press turns"
+						onnudge={() => {}}
+					/>
 				{/snippet}
 				{#snippet overlay()}<Badge tone="success" dot>Live</Badge>{/snippet}
 				<img src={sampleFeed(1280, 720)} alt="" class="size-full object-contain" />

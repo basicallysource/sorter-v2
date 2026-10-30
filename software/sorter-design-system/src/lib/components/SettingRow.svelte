@@ -7,6 +7,12 @@
 	`tags` holds a Badge or two that sit beside the name (where the setting
 	acts, that it is active now).
 
+	`info` is the explanation of a setting in a dense list, where a sentence
+	under every row would crowd it: a small info icon button right after the
+	name, whose Tooltip shows the text on hover and on keyboard focus. The row
+	stays one line. Use it for what a setting is for, in a sentence or two,
+	instead of `help`; a warning someone must see stays in the row as `help`.
+
 	`below` holds what belongs to the setting but is wider than a control (a
 	chart, a set of sub-settings): it renders under the row, in a well.
 
@@ -24,12 +30,14 @@
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import Info from '@lucide/svelte/icons/info';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import Tooltip from './Tooltip.svelte';
 
 	let {
 		label,
 		help,
+		info,
 		for: forId,
 		changed = false,
 		defaultText,
@@ -41,6 +49,8 @@
 	}: {
 		label: string;
 		help?: string;
+		// The explanation behind an info icon after the name, for a dense list.
+		info?: string;
 		for?: string;
 		// Not at its default: needs `onreset` to put the default back.
 		changed?: boolean;
@@ -62,11 +72,30 @@
 	<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
 		<div class="min-w-0">
 			<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-				{#if forId}
-					<label for={forId} class="text-sm font-medium text-ink">{label}</label>
-				{:else}
-					<div class="text-sm font-medium text-ink">{label}</div>
-				{/if}
+				<div class="flex min-w-0 items-center gap-1">
+					{#if forId}
+						<label for={forId} class="text-sm font-medium text-ink">{label}</label>
+					{:else}
+						<div class="text-sm font-medium text-ink">{label}</div>
+					{/if}
+					{#if info}
+						<Tooltip text={info}>
+							{#snippet children(props)}
+								<!-- Focus on a click too: a touch screen has no hover, and some
+								     browsers do not focus a button that is pressed. -->
+								<button
+									{...props}
+									type="button"
+									aria-label="About {label}"
+									onclick={(event) => event.currentTarget.focus()}
+									class="flex size-5 shrink-0 items-center justify-center rounded-button text-ink-muted transition-colors hover:bg-hover hover:text-ink"
+								>
+									<Info size={14} />
+								</button>
+							{/snippet}
+						</Tooltip>
+					{/if}
+				</div>
 				{#if tags}{@render tags()}{/if}
 				{#if changed && onreset}
 					<Tooltip text={resetTip}>

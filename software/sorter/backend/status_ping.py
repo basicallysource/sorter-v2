@@ -133,14 +133,9 @@ def _softwareInfo() -> dict[str, Any]:
         from server.routers.versions import _currentInfo
 
         current = _currentInfo()
-        describe = current.get("describe")
-        info["version"] = describe
+        info["version"] = current.get("describe")
         info["commit"] = current.get("sha")
-        if isinstance(describe, str):
-            if describe.startswith("sorter/stable/"):
-                info["channel"] = "stable"
-            elif describe.startswith("sorter/canary/"):
-                info["channel"] = "canary"
+        info["channel"] = current.get("channel")
     except Exception:
         pass
     return info

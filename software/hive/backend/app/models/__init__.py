@@ -30,6 +30,8 @@ from app.models.machine_set_progress import MachineSetProgress  # noqa: E402, F4
 from app.models.kit import Kit  # noqa: E402, F401
 from app.models.machine_config_backup import MachineConfigBackup  # noqa: E402, F401
 from app.models.machine_hardware_report import MachineHardwareReport  # noqa: E402, F401
+from app.models.machine_telemetry import MachineTelemetryRecord  # noqa: E402, F401
+from app.models.machine_default_override import MachineDefaultOverride  # noqa: E402, F401
 from app.models.detection_model import DetectionModel, DetectionModelVariant  # noqa: E402, F401
 from app.models.model_dataset_sample import ModelDatasetMachineCount, ModelDatasetSample  # noqa: E402, F401
 from app.models.model_default import ModelDefault  # noqa: E402, F401
@@ -45,6 +47,7 @@ from app.models.machine_channel_crop import MachineChannelCrop  # noqa: E402, F4
 from app.models.machine_control_data_segment import MachineControlDataSegment  # noqa: E402, F401
 from app.models.machine_sync_state import MachineSyncState  # noqa: E402, F401
 from app.models.machine_training_run import MachineTrainingRun  # noqa: E402, F401
+from app.models.machine_sorting_run import MachineLot, MachineSortingRun  # noqa: E402, F401
 from app.models.machine_stats_cache import MachineStatsCache  # noqa: E402, F401
 from app.models.machine_daily_stats import MachineDailyStats  # noqa: E402, F401
 from app.models.sample_diversity import SampleDiversityWeek  # noqa: E402, F401

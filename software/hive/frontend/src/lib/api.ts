@@ -2958,12 +2958,17 @@ export const api = {
 		data: { message: string; version_id?: string | null; selected_rule_id?: string | null },
 		onEvent: (event: { type: string; [key: string]: unknown }) => void
 	): Promise<SortingProfileAiMessage> {
-		const res = await fetch(resolveApiPath(`/api/profiles/${profileId}/ai/messages/stream`), {
-			method: 'POST',
-			headers: buildHeaders('POST', data),
-			credentials: 'include',
-			body: JSON.stringify(data)
-		});
+		const path = `/api/profiles/${profileId}/ai/messages/stream`;
+		let res = await doFetch('POST', path, data);
+		// The same refresh-and-retry as request(): the session cookie lasts 15
+		// minutes. A 401 means the model was never called, so a retry is safe.
+		if (res.status === 401) {
+			if (await refreshSession()) {
+				res = await doFetch('POST', path, data);
+			} else {
+				unauthorizedHandler?.();
+			}
+		}
 		if (!res.ok) {
 			let errorData;
 			try { errorData = await res.json(); } catch { errorData = { error: `HTTP ${res.status}` }; }

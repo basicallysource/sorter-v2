@@ -108,6 +108,10 @@ class GlobalConfig:
         # main.py after startup. See server/hive_heartbeat.py.
         self.hive_heartbeat: "Any" = None
 
+        # How the machine is set up and runs, as telemetry records. Set in
+        # main.py after startup. See fleet_telemetry.py.
+        self.fleet_telemetry: "Any" = None
+
 
 def mkTimeouts() -> Timeouts:
     timeouts = Timeouts()

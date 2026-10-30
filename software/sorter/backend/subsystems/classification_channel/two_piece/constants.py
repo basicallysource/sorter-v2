@@ -8,6 +8,8 @@ LOG_TAG = "[C4-REV01]"
 # classify_timeout_s (30 s default) so the color join can never be what times a
 # piece out.
 HOSTED_COLOR_JOIN_BUDGET_S = 10.0
+# Long side of a crop sent to the hosted colour provider (see base._forHostedColor).
+HOSTED_COLOR_MAX_SIDE_PX = 256
 
 # Which way the carousel physically turns to advance a piece toward the fall-off.
 # Perception returns the converge gap as a positive "advance toward target"

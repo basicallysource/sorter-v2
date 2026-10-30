@@ -59,13 +59,16 @@ def main() -> None:
 
     do_quant = args.quantization == "i8"
     rknn = RKNN(verbose=False)
-    rknn.config(
-        mean_values=[[0, 0, 0]],
-        std_values=[[255, 255, 255]],
-        target_platform=args.target_platform,
-        quantized_dtype="asymmetric_quantized-8" if do_quant else "float16",
-        optimization_level=3,
-    )
+    config = {
+        "mean_values": [[0, 0, 0]],
+        "std_values": [[255, 255, 255]],
+        "target_platform": args.target_platform,
+        "optimization_level": 3,
+    }
+    if do_quant:
+        # rknn-toolkit2 2.x calls int8 "w8a8"; an fp16 build takes no quantized_dtype.
+        config["quantized_dtype"] = "w8a8"
+    rknn.config(**config)
 
     if rknn.load_onnx(model=str(onnx_path)) != 0:
         sys.exit("load_onnx failed")

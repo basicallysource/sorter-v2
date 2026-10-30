@@ -421,3 +421,20 @@ def getStats() -> dict[str, Any]:
         stats["live_segments"] = int(row["n"]) if row is not None else 0
         stats["live_bytes"] = int(row["total"]) if row is not None else 0
     return stats
+
+
+def storageStats() -> dict[str, int]:
+    """What this store keeps on disk: files, their bytes, its cap, and how
+    many are not on every Hive yet."""
+    with _connection() as conn:
+        row = conn.execute(
+            f"SELECT COUNT(*) AS n, COALESCE(SUM({db.on_disk_bytes_sql()}), 0) AS b, "
+            "COALESCE(SUM(CASE WHEN synced_at IS NULL THEN 1 ELSE 0 END), 0) AS waiting "
+            "FROM control_data_segments WHERE deleted_at IS NULL"
+        ).fetchone()
+    return {
+        "count": int(row["n"] or 0),
+        "bytes": int(row["b"] or 0),
+        "cap_bytes": _RETENTION_MAX_TOTAL_BYTES,
+        "waiting": int(row["waiting"] or 0),
+    }

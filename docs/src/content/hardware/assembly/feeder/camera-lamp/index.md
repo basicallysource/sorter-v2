@@ -7,13 +7,13 @@ slug: assembly-camera-lamps
 kicker: Feeder — Camera lamps
 lede: The arm, the shaded lamp and the camera that hang over C2, C3 and the classification channel. One lamp arm, built three times, finished with the camera its channel needs.
 permalink: /hardware/assembly/feeder/camera-lamp/
-author: reveryx
+author: jensr80
 contributors: [spencer, danny, brickcyclealice, barthel]
 last_verified: 2026-09-25
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png
 ---
 
-A camera lamp is one arm carrying one light and one camera over a channel. The light is a ring of LED strip inside a white reflector, under a grey cover, so the light reaches a part bounced off the white rather than aimed straight at it. The camera looks down through the hole in the middle of the reflector.
+A camera lamp is one arm carrying one light and one camera over a channel. The light is a ring of LED strip inside a white reflector, under a cover, so the light reaches a part bounced off the white rather than aimed straight at it. The camera looks down through the hole in the middle of the reflector.
 
 **All three lamps are built on the same arm.** Build the [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}) three times, then finish each one with the camera module its channel needs. The camera and its clasp are the only difference between the three.
 

@@ -5,6 +5,7 @@ import threading
 import time
 from typing import Any
 
+import hive_defaults
 import hive_limits
 import sample_store
 from global_config import GlobalConfig
@@ -40,6 +41,40 @@ _CALIBRATION_ROLES = ("classification_channel", "carousel")
 # not anyone set them. Read as "not set", so those machines follow Hive.
 _OLD_SAVED_DEFAULTS = {"burst_interval_s": 10.0, "floor_interval_s": 3600.0, "ramp_hours": 72.0}
 
+# The settings with a default (the primary Hive's `sample_capture.<key>`, else
+# the code's below). Only what the person chose is kept, so a machine that never
+# chose follows the default when it changes.
+CODE_DEFAULTS: dict[str, Any] = {
+    "enabled": False,
+    "interval_s": DEFAULT_INTERVAL_S,
+    "annotate": True,
+    "decay_enabled": DEFAULT_DECAY_ENABLED,
+}
+# The saved state's shape: version 2 keeps only chosen settings. Before it,
+# every setting was saved, chosen or not, so a value equal to its code default
+# is read as not chosen.
+_STATE_FORMAT = 2
+
+
+def _isBool(value: Any) -> bool:
+    return isinstance(value, bool)
+
+
+def _isInterval(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0
+
+
+_VALID = {"enabled": _isBool, "interval_s": _isInterval, "annotate": _isBool, "decay_enabled": _isBool}
+
+
+def captureDefaults() -> dict[str, Any]:
+    defaults = {
+        key: hive_defaults.value(f"sample_capture.{key}", code_default, _VALID[key])
+        for key, code_default in CODE_DEFAULTS.items()
+    }
+    defaults["interval_s"] = max(MIN_INTERVAL_S, float(defaults["interval_s"]))
+    return defaults
+
 
 class SampleCollector:
     """Standalone, mode-agnostic training-image grabber.
@@ -60,10 +95,8 @@ class SampleCollector:
         self._wake = threading.Event()
         self._thread: threading.Thread | None = None
 
-        self._enabled = False
-        self._interval_s = DEFAULT_INTERVAL_S
-        self._annotate = True
-        self._decay_enabled = DEFAULT_DECAY_ENABLED
+        # The settings the person chose; the rest follow captureDefaults().
+        self._chosen: dict[str, Any] = {}
         # Local settings; None follows Hive's limit.
         self._burst_interval_s: float | None = None
         self._floor_interval_s: float | None = None
@@ -83,6 +116,35 @@ class SampleCollector:
         self._captured_at: dict[str, float] = {}
         self._loadPersisted()
         sample_store.configure(gc.logger, self._storeCapBytes())
+
+    def _setting(self, key: str) -> Any:
+        if key in self._chosen:
+            return self._chosen[key]
+        return captureDefaults()[key]
+
+    @property
+    def _enabled(self) -> bool:
+        return bool(self._setting("enabled"))
+
+    @property
+    def _annotate(self) -> bool:
+        return bool(self._setting("annotate"))
+
+    @property
+    def _interval_s(self) -> float:
+        return max(MIN_INTERVAL_S, float(self._setting("interval_s")))
+
+    @property
+    def _decay_enabled(self) -> bool:
+        return bool(self._setting("decay_enabled"))
+
+    def _choose(self, key: str, value: Any) -> None:
+        """The person set `key`: kept, unless it is the default, which it then
+        follows."""
+        if value == captureDefaults()[key]:
+            self._chosen.pop(key, None)
+        else:
+            self._chosen[key] = value
 
     @staticmethod
     def _posFloat(value: Any) -> float | None:
@@ -122,12 +184,15 @@ class SampleCollector:
         saved = get_sample_collection_state()
         if not isinstance(saved, dict):
             return
-        self._enabled = bool(saved.get("enabled", False))
-        self._annotate = bool(saved.get("annotate", True))
-        interval = saved.get("interval_s")
-        if isinstance(interval, (int, float)) and not isinstance(interval, bool) and interval > 0:
-            self._interval_s = max(MIN_INTERVAL_S, float(interval))
-        self._decay_enabled = bool(saved.get("decay_enabled", DEFAULT_DECAY_ENABLED))
+        chosen_only = saved.get("format") == _STATE_FORMAT
+        for key, valid in _VALID.items():
+            value = saved.get(key)
+            if not valid(value):
+                continue
+            if key == "interval_s":
+                value = max(MIN_INTERVAL_S, float(value))
+            if chosen_only or value != CODE_DEFAULTS[key]:
+                self._chosen[key] = value
         for key in ("burst_interval_s", "floor_interval_s", "ramp_hours"):
             value = self._posFloat(saved.get(key))
             if value == _OLD_SAVED_DEFAULTS[key]:
@@ -154,10 +219,8 @@ class SampleCollector:
     def _persist(self) -> None:
         set_sample_collection_state(
             {
-                "enabled": self._enabled,
-                "interval_s": self._interval_s,
-                "annotate": self._annotate,
-                "decay_enabled": self._decay_enabled,
+                "format": _STATE_FORMAT,
+                **self._chosen,
                 "burst_interval_s": self._burst_interval_s,
                 "floor_interval_s": self._floor_interval_s,
                 "ramp_hours": self._ramp_hours,
@@ -209,7 +272,7 @@ class SampleCollector:
 
     def setEnabled(self, enabled: bool) -> dict[str, Any]:
         with self._lock:
-            self._enabled = bool(enabled)
+            self._choose("enabled", bool(enabled))
             self._last_error = None
             self._persist()
         self._wake.set()
@@ -218,14 +281,14 @@ class SampleCollector:
 
     def setAnnotate(self, annotate: bool) -> dict[str, Any]:
         with self._lock:
-            self._annotate = bool(annotate)
+            self._choose("annotate", bool(annotate))
             self._persist()
         self.gc.logger.info("SampleCollector annotate=%s" % self._annotate)
         return self.status()
 
     def setIntervalSeconds(self, interval_s: float) -> dict[str, Any]:
         with self._lock:
-            self._interval_s = max(MIN_INTERVAL_S, float(interval_s))
+            self._choose("interval_s", max(MIN_INTERVAL_S, float(interval_s)))
             self._persist()
         self._wake.set()
         return self.status()
@@ -250,7 +313,7 @@ class SampleCollector:
         (or 0) clears it so Hive's limit applies; left out, unchanged."""
         with self._lock:
             if decay_enabled is not None:
-                self._decay_enabled = bool(decay_enabled)
+                self._choose("decay_enabled", bool(decay_enabled))
             if burst_interval_s is not self._UNSET:
                 self._burst_interval_s = self._interval(burst_interval_s)
             if floor_interval_s is not self._UNSET:
@@ -319,6 +382,10 @@ class SampleCollector:
                 "last_saved_at": last_saved_at,
                 "last_saved_age_s": (now - last_saved_at) if last_saved_at else None,
                 "last_error": self._last_error,
+                # What each setting goes back to (Hive's default, else the
+                # code's), and which ones the person chose.
+                "defaults": captureDefaults(),
+                "chosen": sorted(self._chosen),
             }
 
     def _isSorting(self) -> bool:

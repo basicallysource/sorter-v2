@@ -3,12 +3,12 @@ import json
 import logging
 import math
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from PIL import Image
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from sqlalchemy import bindparam, case, or_, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -25,6 +25,8 @@ from app.models.machine_piece_rejection_reason import MachinePieceRejectionReaso
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_control_data_segment import MachineControlDataSegment
 from app.models.machine_sync_state import MachineSyncState
+from app.models.machine_telemetry import MachineTelemetryRecord
+from app.models.machine_sorting_run import MachineLot, MachineSortingRun
 from app.models.machine_training_run import MachineTrainingRun
 from app.models.sample import Sample
 from app.rate_limiting import machine_limiter
@@ -42,8 +44,13 @@ from app.schemas.upload import UploadMetadata
 from app.services.image_hashing import compute_phash_bytes
 from app.services.image_stats import compute_exposure_stats_bytes
 from app.services.machine_presence import mark_machine_seen
+from app.services.storage_backend import ranged_key
 from app.services import swatch_jobs, training_runs
 from app.services.storage import (
+    JPEG_MAGIC,
+    MAX_CROP_BATCH_BYTES,
+    MAX_CROP_BATCH_ITEMS,
+    save_channel_crop_batch_file,
     save_channel_crop_file,
     save_piece_image_file,
     save_control_data_file,
@@ -66,6 +73,10 @@ DATA_TYPE_PIECE_PREDICTIONS = "piece_predictions"
 DATA_TYPE_CONTROL_DATA = "control_data_segments"
 DATA_TYPE_SAMPLES = "samples"
 DATA_TYPE_TRAINING_RUNS = "training_runs"
+# Lots and sorting runs, sent whole when they change; its state is the
+# version of the last set kept, not a cursor.
+DATA_TYPE_SORTING_RUNS = "sorting_runs"
+DATA_TYPE_TELEMETRY = "telemetry"
 DATA_TYPES = (
     DATA_TYPE_PIECE_RECORDS,
     DATA_TYPE_PIECE_IMAGES,
@@ -75,6 +86,8 @@ DATA_TYPES = (
     DATA_TYPE_CONTROL_DATA,
     DATA_TYPE_SAMPLES,
     DATA_TYPE_TRAINING_RUNS,
+    DATA_TYPE_SORTING_RUNS,
+    DATA_TYPE_TELEMETRY,
 )
 
 # The watermark rule (the sorter's sync_seq.py): a row that changes on the
@@ -118,6 +131,9 @@ _CHANNEL_CROP_UPDATE_COLS = (
 _TRAINING_RUN_UPDATE_COLS = (
     "mode", "color_ids", "segments", "started_at", "ended_at", "excluded", "updated_at", "received_at",
 )
+_TELEMETRY_UPDATE_COLS = ("kind", "form", "schema", "started_at", "ended_at", "data", "received_at")
+# A telemetry record's data is at most this large (the sorter keeps none larger).
+MAX_TELEMETRY_DATA_BYTES = 64 * 1024
 _CONTROL_DATA_UPDATE_COLS = (
     "started_at", "ended_at", "records", "bytes", "machine_setup",
     "feeder_mode", "classification_mode", "autotune_mode", "data_key",
@@ -469,6 +485,33 @@ class PiecePredictionIn(BaseModel):
     created_at: float | None = None
 
 
+class LotIn(BaseModel):
+    id: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    created_at: float | None = None
+
+
+class SortingRunIn(BaseModel):
+    id: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=200)
+    note: str | None = Field(default=None, max_length=2000)
+    lot_id: str | None = Field(default=None, max_length=64)
+    adds_to_lot: bool = False
+    started_at: float
+    created_at: float | None = None
+
+
+class SortingRunsIn(BaseModel):
+    """Every lot and sorting run the machine keeps, as one set. ``version``
+    names the set (a number the machine derives from its content), so the
+    machine can tell from /state whether Hive has it."""
+
+    version: int
+    lots: list[LotIn] = Field(default_factory=list, max_length=1000)
+    runs: list[SortingRunIn] = Field(default_factory=list, max_length=10000)
+
+
 class PieceImageMeta(BaseModel):
     piece_uuid: str
     seq: int
@@ -512,6 +555,12 @@ class ChannelCropMeta(BaseModel):
     sharpness: float | None = None
     bbox: list[int] | None = None
     bytes: int | None = None
+
+
+class ChannelCropBatchItem(ChannelCropMeta):
+    # The crop's JPEG in the batch file; absent for a crop sent metadata-only.
+    offset: int | None = None
+    length: int | None = None
 
 
 class SampleMeta(BaseModel):
@@ -747,6 +796,75 @@ def sync_training_runs(
     return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}
 
 
+@router.post("/sorting-runs")
+@limiter.limit("60/minute")
+def sync_sorting_runs(
+    request: Request,
+    payload: SortingRunsIn,
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, int]:
+    """Replace the machine's lots and sorting runs with the set it sends (it
+    can rename a run or move it to another lot, and delete one), and keep the
+    set's version as this data type's state."""
+    now = _now()
+    machine_id = machine.id
+    lots = {lot.id: lot for lot in payload.lots}
+    runs = {run.id: run for run in payload.runs}
+    db.query(MachineSortingRun).filter(
+        MachineSortingRun.machine_id == machine_id, MachineSortingRun.run_id.notin_(list(runs) or [""])
+    ).delete(synchronize_session=False)
+    db.query(MachineLot).filter(
+        MachineLot.machine_id == machine_id, MachineLot.lot_id.notin_(list(lots) or [""])
+    ).delete(synchronize_session=False)
+    if lots:
+        _upsert(
+            db, MachineLot,
+            [
+                {
+                    "machine_id": machine_id,
+                    "lot_id": lot.id,
+                    "name": lot.name,
+                    "description": lot.description,
+                    "created_at": _ts(lot.created_at),
+                }
+                for lot in lots.values()
+            ],
+            ["machine_id", "lot_id"], ("name", "description", "created_at"),
+        )
+    if runs:
+        _upsert(
+            db, MachineSortingRun,
+            [
+                {
+                    "machine_id": machine_id,
+                    "run_id": run.id,
+                    "name": run.name,
+                    "note": run.note,
+                    "lot_id": run.lot_id,
+                    "adds_to_lot": run.adds_to_lot,
+                    "started_at": _ts(run.started_at),
+                    "created_at": _ts(run.created_at),
+                }
+                for run in runs.values()
+            ],
+            ["machine_id", "run_id"], ("name", "note", "lot_id", "adds_to_lot", "started_at", "created_at"),
+        )
+    state = (
+        db.query(MachineSyncState)
+        .filter(MachineSyncState.machine_id == machine_id, MachineSyncState.data_type == DATA_TYPE_SORTING_RUNS)
+        .first()
+    )
+    if state is None:
+        db.add(MachineSyncState(machine_id=machine_id, data_type=DATA_TYPE_SORTING_RUNS, max_local_id=payload.version, updated_at=now))
+    else:
+        state.max_local_id = payload.version
+        state.updated_at = now
+    mark_machine_seen(machine, now)
+    db.commit()
+    return {"max_local_id": payload.version, "lots": len(lots), "runs": len(runs)}
+
+
 @router.post("/piece-corrections")
 @limiter.limit("300/minute")
 def sync_piece_corrections(
@@ -861,6 +979,82 @@ def sync_piece_predictions(
 
     skipped += _write_rows(db, write, predictions, machine, DATA_TYPE_PIECE_PREDICTIONS)
     new_max = _advance_watermark(db, machine_id, DATA_TYPE_PIECE_PREDICTIONS, key_max)
+    mark_machine_seen(machine, now)
+    db.commit()
+    return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}
+
+
+class TelemetryRecordIn(BaseModel):
+    local_id: int = Field(ge=1)
+    kind: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
+    form: Literal["snapshot", "window", "event"]
+    # Named for the wire; BaseModel has a `schema` of its own.
+    data_schema: int = Field(default=1, ge=1, alias="schema")
+    started_at: float = Field(allow_inf_nan=False)
+    ended_at: float = Field(allow_inf_nan=False)
+    data: dict[str, Any]
+
+    @model_validator(mode="after")
+    def _sane(self) -> "TelemetryRecordIn":
+        if self.ended_at < self.started_at:
+            raise ValueError("ended_at is before started_at")
+        if len(json.dumps(self.data, separators=(",", ":"))) > MAX_TELEMETRY_DATA_BYTES:
+            raise ValueError(f"data is over {MAX_TELEMETRY_DATA_BYTES} bytes")
+        return self
+
+
+@router.post("/telemetry")
+@limiter.limit("60/minute")
+def sync_telemetry(
+    request: Request,
+    payload: SyncBatch,
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, int]:
+    """How the machine is set up and how it runs (MachineTelemetryRecord),
+    upserted by (machine, local_id). The newest machine_specs snapshot in the
+    batch also becomes the machine's hardware summary and history, as specs
+    on a heartbeat do."""
+    records, skipped, key_max = _validate_rows(TelemetryRecordIn, payload.records, machine, DATA_TYPE_TELEMETRY)
+    if not payload.records:
+        return {"max_local_id": _watermark(db, machine.id, DATA_TYPE_TELEMETRY), "upserted": 0, "skipped": 0}
+
+    now = _now()
+    machine_id = machine.id
+    records = _latest_per_key(records, key=lambda r: r.local_id, order=lambda r: r.local_id)
+
+    def write(batch: list[TelemetryRecordIn]) -> None:
+        _upsert(
+            db, MachineTelemetryRecord,
+            [
+                {
+                    "id": uuid4(),
+                    "machine_id": machine_id,
+                    "local_id": r.local_id,
+                    "kind": r.kind,
+                    "form": r.form,
+                    "schema": r.data_schema,
+                    "started_at": _ts(r.started_at),
+                    "ended_at": _ts(r.ended_at),
+                    "data": r.data,
+                    "received_at": now,
+                }
+                for r in batch
+            ],
+            ["machine_id", "local_id"], _TELEMETRY_UPDATE_COLS,
+        )
+
+    skipped += _write_rows(db, write, records, machine, DATA_TYPE_TELEMETRY)
+    specs = [r for r in records if r.kind == "machine_specs" and r.form == "snapshot"]
+    if specs:
+        from app.machine_hardware import record_hardware_report
+
+        try:
+            with db.begin_nested():
+                record_hardware_report(db, machine, max(specs, key=lambda r: r.local_id).data)
+        except SQLAlchemyError as exc:
+            log.warning("machine %s: its specs did not become its hardware report: %s", machine_id, exc)
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_TELEMETRY, key_max)
     mark_machine_seen(machine, now)
     db.commit()
     return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}
@@ -981,6 +1175,96 @@ def sync_channel_crop(
     mark_machine_seen(machine, now)
     db.commit()
     return {"max_local_id": new_max, "image_stored": image is not None}
+
+
+@router.post("/channel-crop-batch")
+@limiter.limit("120/minute")
+def sync_channel_crop_batch(
+    request: Request,
+    metadata: str = Form(...),
+    crops: UploadFile | None = File(default=None),
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, Any]:
+    """Many channel crops in one upload: their JPEGs back to back in one file
+    (stored once), each crop's metadata naming its range in it. A crop whose
+    range or metadata is bad is skipped or kept without its picture, never the
+    whole batch, and the watermark still moves past it."""
+    try:
+        raw = json.loads(metadata)["crops"]
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise APIError(400, f"Invalid metadata: {exc}", "INVALID_METADATA") from exc
+    if not isinstance(raw, list) or len(raw) > MAX_CROP_BATCH_ITEMS:
+        raise APIError(400, f"A batch is a list of at most {MAX_CROP_BATCH_ITEMS} crops", "INVALID_METADATA")
+    data = b""
+    if crops is not None:
+        data = crops.file.read(MAX_CROP_BATCH_BYTES + 1)
+        if len(data) > MAX_CROP_BATCH_BYTES:
+            raise APIError(413, f"A batch file is at most {MAX_CROP_BATCH_BYTES} bytes", "BATCH_TOO_LARGE")
+
+    machine_id = machine.id
+    max_key = 0
+    items: dict[int, tuple[ChannelCropBatchItem, bool]] = {}
+    for entry in raw:
+        key = _row_key(entry)
+        if key is not None:
+            max_key = max(max_key, key)
+        try:
+            item = ChannelCropBatchItem.model_validate(entry)
+        except ValidationError as exc:
+            log.warning("channel crop batch from %s: skipped crop %s: %s", machine_id, key, exc)
+            continue
+        offset, length = item.offset, item.length
+        has_image = (
+            offset is not None
+            and length is not None
+            and offset >= 0
+            and length > 0
+            and offset + length <= len(data)
+            and data[offset : offset + len(JPEG_MAGIC)] == JPEG_MAGIC
+        )
+        items[item.local_id] = (item, has_image)
+
+    file_key: str | None = None
+    if any(has_image for _, has_image in items.values()):
+        _end_read_before_storage(db)
+        file_key = save_channel_crop_batch_file(str(machine_id), min(items), max(items), data)
+
+    now = _now()
+    with_image: list[dict[str, Any]] = []
+    without_image: list[dict[str, Any]] = []
+    for item, has_image in items.values():
+        bbox = item.bbox if (item.bbox and len(item.bbox) == 4) else [None, None, None, None]
+        row = {
+            "id": uuid4(),
+            "machine_id": machine_id,
+            "local_id": item.local_id,
+            "channel": item.channel,
+            "ts": _ts(item.ts),
+            "captured_at": _ts(item.captured_at),
+            "track_id": item.track_id,
+            "com_forward_to_exit_deg": item.com_forward_to_exit_deg,
+            "com_section": item.com_section,
+            "zone_code": item.zone_code,
+            "sharpness": item.sharpness,
+            "bbox_x1": bbox[0],
+            "bbox_y1": bbox[1],
+            "bbox_x2": bbox[2],
+            "bbox_y2": bbox[3],
+            "bytes": item.bytes,
+            "image_key": ranged_key(file_key, item.offset, item.length) if has_image and file_key else None,
+            "evicted_locally": not has_image,
+            "created_at": now,
+        }
+        (with_image if has_image else without_image).append(row)
+    index = ["machine_id", "local_id"]
+    _upsert(db, MachineChannelCrop, with_image, index, _CHANNEL_CROP_UPDATE_COLS)
+    # A crop sent without its picture must not wipe one stored before.
+    _upsert(db, MachineChannelCrop, without_image, index, tuple(c for c in _CHANNEL_CROP_UPDATE_COLS if c != "image_key"))
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_CHANNEL_CROPS, max_key)
+    mark_machine_seen(machine, now)
+    db.commit()
+    return {"max_local_id": new_max, "stored": len(with_image), "without_image": len(without_image)}
 
 
 @router.post("/control-data-segment")

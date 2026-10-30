@@ -28,16 +28,9 @@
 	} as const;
 	const CHANNEL_OUTLINE = 'rgb(0 255 255)';
 	const EXIT_MARGIN = 'rgb(160 160 160)';
-	const SECONDARY_ZONE: Record<string, string> = {
-		drop: 'rgb(120 160 200)',
-		exit: 'rgb(220 140 120)',
-		precise: 'rgb(200 120 200)'
-	};
-	const SECONDARY_ZONE_DEFAULT = 'rgb(180 180 180)';
 	const BOX: Record<FeedBox['kind'], string> = {
 		piece: 'rgb(0 255 0)',
 		merged: 'rgb(128 0 255)',
-		seen: 'rgb(0 255 255)',
 		margin: 'rgb(160 160 160)'
 	};
 	const LABEL_PX = 11;
@@ -186,11 +179,7 @@
 		g.lineWidth = px;
 		const outlines: [Ring[], string][] = [
 			[shapes.outline, CHANNEL_OUTLINE],
-			[shapes.margin, EXIT_MARGIN],
-			...shapes.secondary.map((zone): [Ring[], string] => [
-				zone.rings,
-				SECONDARY_ZONE[zone.type] ?? SECONDARY_ZONE_DEFAULT
-			])
+			[shapes.margin, EXIT_MARGIN]
 		];
 		for (const [rings, color] of outlines) {
 			trace(g, rings, width, height);

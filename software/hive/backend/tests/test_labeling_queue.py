@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.models.job import Job
 from app.models.labeling_queue import LabelingQueueEntry, LabelingQueueState
 from app.models.machine import Machine
 from app.models.machine_channel_crop import MachineChannelCrop
@@ -29,7 +30,14 @@ from app.models.sample import Sample
 from app.models.upload_session import UploadSession
 from app.models.user import User
 from app.routers import piece_color_labels as labeling_router
-from app.services import labeling_queue, link_predictor, piece_color_guess, piece_link_scores, training_runs
+from app.services import (
+    color_model_runs,
+    labeling_queue,
+    link_predictor,
+    piece_color_guess,
+    piece_link_scores,
+    training_runs,
+)
 from tests.conftest import refresh_stats
 
 NOW = datetime.now(timezone.utc).replace(microsecond=0)
@@ -377,6 +385,21 @@ def test_incremental_pass_picks_up_new_pieces_late_images_and_late_crops(db, fle
     labeling_queue.run_pass(db)
     db.refresh(p00)
     assert p00.has_candidates is False
+
+
+def test_a_piece_entering_the_queue_gets_the_active_colour_models_answer_queued(db, fleet):
+    m1 = fleet["m1"]
+    db.add(ColorModel(filename="colorpred-v6.onnx", name="colorpred-v6", sha256="f" * 64, is_active=True, created_at=NOW))
+    db.commit()
+    _piece(db, m1, "fresh", NOW - timedelta(hours=1), created_at=_now())
+    labeling_queue.run_pass(db)
+    jobs = db.query(Job).filter(Job.kind == color_model_runs.KIND).all()
+    assert [(j.payload["model_sha256"], j.payload["pieces"]) for j in jobs] == [("f" * 64, ["fresh"])]
+    # Evaluated again, a queued piece is not queued for the model again.
+    db.query(MachinePiece).filter(MachinePiece.piece_uuid == "fresh").update({"color_confidence": 0.5})
+    db.commit()
+    labeling_queue.reconcile(db, None)
+    assert db.query(Job).filter(Job.kind == color_model_runs.KIND).count() == 1
 
 
 def test_a_piece_that_dies_leaves_the_grid_at_once_and_the_queue_at_reconcile(client, db, fleet):

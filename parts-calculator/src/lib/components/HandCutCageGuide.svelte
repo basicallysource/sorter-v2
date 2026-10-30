@@ -4,7 +4,7 @@
 	// (derived from the DXF); the length/bit formatting helpers are shared with
 	// the top-plate guide in $lib/handcut. SVG diagrams are drawn in plate mm
 	// with y flipped for SVG so they stay honest.
-	import { fmtLen, bitLabel, type Units } from '$lib/handcut';
+	import { fmtLen, bitLabel } from '$lib/handcut';
 	import {
 		CAGE_HEX,
 		CAGE_RECT,
@@ -18,14 +18,11 @@
 		KEY
 	} from '$lib/cagehandcut';
 
-	let {
-		variant,
-		units = $bindable('in')
-	}: { variant: 'top' | 'bottom'; units?: Units } = $props();
+	let { variant }: { variant: 'top' | 'bottom' } = $props();
 
 	const isTop = $derived(variant === 'top');
-	const L = (mm: number) => fmtLen(mm, units);
-	const bit = (d: number) => bitLabel(d, units);
+	const L = (mm: number) => fmtLen(mm);
+	const bit = (d: number) => bitLabel(d);
 
 	const overview = $derived(
 		isTop
@@ -78,7 +75,7 @@
 		</figcaption>
 	</figure>
 
-	<!-- intro + unit toggle -->
+	<!-- intro -->
 	<div class="flex flex-wrap items-start justify-between gap-3">
 		<p class="max-w-xl text-text-muted">
 			No laser? Both cage plates are a <b class="text-text">regular hexagon</b>, the same outline top
@@ -86,18 +83,6 @@
 			accuracy: the distance from the centre to each corner equals the side length. The centre is one
 			big drilled-and-jigsawed hole; everything else is drill holes.
 		</p>
-		<div class="flex shrink-0 border border-border" role="group" aria-label="Units">
-			{#each [['mm', 'Metric (mm)'], ['in', 'Imperial (inches)']] as [id, label] (id)}
-				<button
-					class="px-3 py-1.5 text-xs font-semibold {units === id
-						? 'bg-[var(--color-primary)] text-[var(--color-primary-contrast)]'
-						: 'text-text-muted hover:text-text'}"
-					onclick={() => (units = id as Units)}
-				>
-					{label}
-				</button>
-			{/each}
-		</div>
 	</div>
 
 	<!-- main diagram -->
@@ -188,7 +173,7 @@
 	<section>
 		<h3 class="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">Step 1 · Cut the stock rectangle</h3>
 		<p class="text-text-muted">
-			Cut a rectangle <b class="text-text">{L(CAGE_RECT.w)} × {L(CAGE_RECT.h)}</b> from {units === 'mm' ? '3 mm' : '1/8″'} plywood. Keep the corners square — check both diagonals: each should be <b class="text-text">{L(CAGE_HEX.diagonal)}</b>, and they must match.
+			Cut a rectangle <b class="text-text">{L(CAGE_RECT.w)} × {L(CAGE_RECT.h)}</b> from 3 mm (1/8″) plywood. Keep the corners square — check both diagonals: each should be <b class="text-text">{L(CAGE_HEX.diagonal)}</b>, and they must match.
 		</p>
 	</section>
 

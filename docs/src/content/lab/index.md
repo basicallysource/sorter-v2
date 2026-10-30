@@ -28,8 +28,8 @@ The design pages give the overall picture in a few lines, then link to the files
     <p>What the printed parts are designed to do, the thinking behind how they fit together and are printed, and which screws and other hardware they use.</p>
   </div>
   <div class="callout">
-    <strong><a href="{{ '/lab/contribute/' | relative_url }}">How to contribute</a></strong>
-    <p>Where the project lives, how to help, when the team meets each week, and what Balloon, the assistant in the Discord, can do for you.</p>
+    <strong><a href="{{ '/lab/lighting/' | relative_url }}">How the cameras are lit</a></strong>
+    <p>The LED strip, the white reflector and the cover of the camera lamp, and why the light is arranged to be soft and even.</p>
   </div>
   <div class="callout">
     <strong><a href="{{ '/lab/electronics/' | relative_url }}">How the electronics talk to each other</a></strong>
@@ -66,6 +66,10 @@ The design pages give the overall picture in a few lines, then link to the files
   <div class="callout">
     <strong><a href="{{ '/lab/concepts/floating-chute-stack/' | relative_url }}">Floating chute stack</a></strong>
     <p>A proposal, not built yet, to take every electrical part off the rotating chute stack and build each bin layer as its own module.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/concepts/power-manager/' | relative_url }}">Push-button power manager</a></strong>
+    <p>A proposal, not built yet, to start the machine with one button and shut it down cleanly through a remote-control power supply.</p>
   </div>
   <div class="callout">
     <strong><a href="{{ '/lab/variants/abandoned/' | relative_url }}">Abandoned ideas</a></strong>

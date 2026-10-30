@@ -13,12 +13,13 @@ from server.security import (
 )
 
 
-def _set_device(monkeypatch, *, hostname="orangepi5", ips=(), tailscale=None) -> None:
+def _set_device(monkeypatch, *, hostname="orangepi5", ips=(), tailscale=None, tailnet=None) -> None:
     # Pin what "this device" looks like and bypass the refresh cache so each test
     # sees exactly the addresses it sets.
     monkeypatch.setattr(security.socket, "gethostname", lambda: hostname)
     monkeypatch.setattr(security, "_local_ip_addresses", lambda: [ip.lower() for ip in ips])
     monkeypatch.setattr(security, "_tailscale_hostname", lambda: tailscale)
+    monkeypatch.setattr(security, "_tailnet", tailnet)
     monkeypatch.setattr(security, "_hosts_snapshot", (0.0, frozenset()))
 
 
@@ -81,6 +82,7 @@ def test_ui_origin_allows_this_devices_own_addresses(monkeypatch) -> None:
         hostname="orangepi5",
         ips=["192.168.89.96"],
         tailscale="sorter-red-brick-0ffbef",
+        tailnet="tail1234ab.ts.net",
     )
     assert is_ui_origin_allowed("http://localhost:5173") is True
     assert is_ui_origin_allowed("http://127.0.0.1:5173") is True
@@ -88,6 +90,8 @@ def test_ui_origin_allows_this_devices_own_addresses(monkeypatch) -> None:
     assert is_ui_origin_allowed("http://orangepi5:5173") is True  # OS hostname
     assert is_ui_origin_allowed("http://orangepi5.local:5173") is True
     assert is_ui_origin_allowed("http://sorter-red-brick-0ffbef:5173") is True  # Tailscale name
+    assert is_ui_origin_allowed("http://sorter-red-brick-0ffbef.tail1234ab.ts.net") is True  # MagicDNS name
+    assert is_ui_origin_allowed("http://sorter-red-brick-0ffbef.tail9999zz.ts.net") is False  # another tailnet
     assert is_ui_origin_allowed("http://sorter.local:5173") is True  # any mDNS .local
 
 

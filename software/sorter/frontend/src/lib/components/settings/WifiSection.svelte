@@ -21,6 +21,7 @@
 		connected: boolean;
 		active_ssid: string | null;
 		ip: string | null;
+		mac: string | null;
 	};
 	type Network = {
 		ssid: string;
@@ -171,6 +172,9 @@
 							<span class="text-ink-muted">
 								{a.connected ? `Connected to ${a.active_ssid}` : a.state}
 							</span>
+							{#if a.mac}
+								<span class="font-mono text-ink-muted">{a.mac}</span>
+							{/if}
 							{#if a.ip}
 								<span class="ml-auto font-mono text-ink-muted">{a.ip}</span>
 							{/if}

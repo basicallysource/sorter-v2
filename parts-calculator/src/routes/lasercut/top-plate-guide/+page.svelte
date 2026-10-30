@@ -2,41 +2,11 @@
 	import { ArrowLeft, Printer } from 'lucide-svelte';
 	import Seo from '$lib/components/Seo.svelte';
 	import HandCutTopPlateGuide from '$lib/components/HandCutTopPlateGuide.svelte';
-	import { type Units } from '$lib/handcut';
-	import { page } from '$app/state';
-	import { replaceState } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import { onMount } from 'svelte';
 
 	// A standalone, print-friendly rendering of the same hand-cut guide the
 	// lasercut page opens in a modal. No site chrome, no dialog scroll box: on
-	// paper it is just the guide, so it can go to the workshop. `?units=mm`
-	// picks the unit exactly as the modal deep-link does, so a shared link keeps
-	// whichever units the sender was reading.
-	let units = $state<Units>('in');
-	let urlReady = $state(false);
-
-	onMount(() => {
-		const u = page.url.searchParams.get('units');
-		if (u === 'mm' || u === 'in') units = u;
-		urlReady = true;
-	});
-
-	// Mirror the unit choice back into the URL so this page stays shareable.
-	// Only write when the URL would actually change: calling replaceState on the
-	// first run (before the router has finished initialising after hydration)
-	// throws and kills hydration — a dead page where the toggle does nothing and
-	// `?units=mm` never applies. The /lasercut modal deep-link guards it the same
-	// way, which is why that one works and this one didn't.
-	$effect(() => {
-		if (!browser || !urlReady) return;
-		const params = new URLSearchParams(page.url.search);
-		if (units !== 'in') params.set('units', units);
-		else params.delete('units');
-		const qs = params.toString();
-		const target = qs ? `${location.pathname}?${qs}` : location.pathname;
-		if (target !== location.pathname + location.search) replaceState(target, {});
-	});
+	// paper it is just the guide, so it can go to the workshop.
 </script>
 
 <Seo
@@ -68,5 +38,5 @@
 		</p>
 	</header>
 
-	<HandCutTopPlateGuide bind:units />
+	<HandCutTopPlateGuide />
 </main>

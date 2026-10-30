@@ -10,14 +10,16 @@ permalink: /lab/variants/
 audience: curious builder or contributor
 applies_to: hardware-v2
 owner: docs
-last_verified: 2026-10-11
+last_verified: 2026-10-17
 ---
 
-Everything on this page is a variant: a change to the standard Sorter V2 that somebody has made on their own machine. None of them is part of the build instructions in [Hardware]({{ '/hardware/' | relative_url }}), and none is in the parts calculator. The results are what the people who built them reported, and the project has not measured them. Where a file exists it is in the Discord, and the link goes to the message that has it.
+Everything on this page is a variant: a change to the standard Sorter V2 that somebody has made on their own machine. None of them is part of the build instructions in [Hardware]({{ '/hardware/' | relative_url }}), and none is in the parts calculator. The results are what the people who built them reported, and the project has not measured them. Where a file exists, the variant links to it, or to the Discord message that has it.
 
-Designs that were tried and dropped are on <a href="{{ '/lab/variants/abandoned/' | relative_url }}">Abandoned ideas</a>. The status of each variant is as of 11 October 2026.
+Designs that were tried and dropped are on <a href="{{ '/lab/variants/abandoned/' | relative_url }}">Abandoned ideas</a>. Under each heading is the date of the latest report on that variant.
 
 ## Belt feeder
+
+**Latest report: 6 September 2026.**
 
 **What is different.** A printed belt with raised catches on it carries LEGO up out of a large hopper and drops it into the feeder. It replaces the bulk channel (C1) and the second channel (C2), so the machine runs the belt, then C3 and C4.
 
@@ -43,6 +45,8 @@ A second builder runs a belt that feeds C3, and reports about 4 parts a minute w
 
 ## Printed C1 legs instead of 2020 extrusion
 
+**Latest report: 14 September 2026.**
+
 **What is different.** The stand under the bulk channel (C1) normally stands on three legs cut from 2020 aluminium extrusion. The variant uses printed legs instead. A printed leg is the same part as the C2 and C3 legs, made longer: 228 mm tall, with the same 20 mm square ends that stand in the layout guide and take the dovetail adapter. The seat for the adapter ends up at the right height, so the drop to C2 is the same 80 mm as in the standard stand.
 
 <figure class="single-figure">
@@ -63,6 +67,8 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
 
 ## Orange Pi housing base without heat-set inserts
 
+**Latest report: 6 October 2026.**
+
 **What is different.** The standard base has eight holes that take heat-set inserts (small brass threaded sleeves pressed in with a hot tip): four under the Orange Pi, and four in the corner posts the roof screws into. In the variant all eight are smaller, 2.8 mm across instead of 4.0 mm, so the M3 screws cut their own thread straight into the plastic. That is the same size as the holes the roof already has for its own self-tapping screws. Nothing else changes, so it replaces the standard base.
 
 <figure class="single-figure">
@@ -82,7 +88,60 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
   <li>Fitting inserts: <a href="{{ '/hardware/helpers/heat-inserts/' | relative_url }}">Heat inserts</a></li>
 </ul>
 
+## One 24 V lead for the hub and the Orange Pi's converter
+
+**Latest report: 16 October 2026.**
+
+**What is different.** The standard build gives each of the two loads its own lead from the PSU box: <code>PWR2</code> to the USB hub and <code>PWR3</code> to the 24 V to 5 V converter that powers the Orange Pi, each into its own jack. In the variant the two share one lead, which splits into two like a Y cable: one plug goes into one PSU box jack, and the hub and the converter are both fed from it. That leaves one PSU box jack unused.
+
+**What was tested.** One builder runs their machine this way. The combined load has not been measured. The hub should draw about 1 A at 24 V and the converter about 1.2 A at the full 5 A it can give the Pi, so about 2 A through the one lead (both figures are estimates, not measurements). The PSU box jack and its plug are rated at 5 A or better. How the wires are joined at the plug has not been reported.
+
+**Where it stands.** It is in use on that machine and nothing else has been reported. The build instructions keep a separate lead for each, and this variant is not part of them.
+
+<ul class="bulleted-list">
+  <li>The report: <a href="https://discord.com/channels/1430279849171222682/1560615989924864163/1560626034594939051">the message in the Discord</a></li>
+  <li>The standard leads: <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a></li>
+</ul>
+
+## 24 V to 5 V converter inside the Orange Pi housing
+
+**Latest report: 18 October 2026.**
+
+**What is different.** In the standard build the 24 V to 5 V converter sits on the roof of the Orange Pi housing, under its own clamp, and the lead from the PSU box ends in the converter's input wires. In this variant the converter is inside the housing, held against the inside of the south wall. The lead from the PSU box ends in a DC barrel jack in the west wall, the wall with the power key. A ready-made lead with a 5.5 x 2.1 mm plug at each end then runs from a PSU box jack to the housing. The jack's two leads are joined to the converter's input wires, and the converter's USB-C lead goes round the end of the board to the Orange Pi's power socket.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/variant-orange-pi-converter-layout-full-b9f30d4010ef.png" alt="Two views of the open Orange Pi housing without its roof: from above and from the board side. An orange block, the converter, stands against the south wall in a blue clamp, a barrel jack is fitted in the west wall, and the vent grille is a group of hexagonal holes at the east end of the south wall">
+  <figcaption>The Orange Pi 5 housing with the converter in the south wall clamp and the jack in the west wall. The converter is drawn as a plain block, because its size is not published. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
+
+**How it is built.** Two walls change, the south wall and the west wall. The other parts, including the roof, are the standard ones, and the same two changes work on the Orange Pi 5 housing and on the Orange Pi 5 Pro, Max and Ultra housing.
+
+<ul class="bulleted-list">
+  <li><b>South wall.</b> The buck clamp from the standard set is used as it is, turned to lie on the wall with its open side up. Two webs, 4 mm thick, on the inside face carry its four M3 x 12 countersunk screws, in the same hole pattern as on the roof. The pilot holes are 2.8 mm across and 6 mm deep, so the screws cut their own thread. The vent grille moves to the east end of the wall and is trimmed to 7 hexagons of the same size and spacing, so the clamp does not cover it, and the cutout in the bottom edge sits directly under it, 36.5 mm wide.</li>
+  <li><b>West wall.</b> A hole 11 mm across takes the jack, with a pocket 13.5 mm across and 2 mm deep in the outside face for the jack's flange. A boss 16 mm across and 3 mm thick on the inside makes the wall thick enough for the nut.</li>
+</ul>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/variant-orange-pi-converter-mounting-full-97416262c0dc.png" alt="Two views of the converter clamp on the south wall: assembled, with the orange converter held by the blue clamp against two webs, and exploded, with the converter, the clamp and four screws pulled away from the wall">
+  <figcaption>The clamp on the south wall, assembled and pulled apart. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
+
+**Sizes.** The jack holes are sized for the jack on the Amazon DE listing the parts calculator links, a DC-099 with a 10.5 mm thread and a 12.4 to 12.5 mm flange. If your jack has a different thread, size the hole to it. The converter's own size is not published. The clamp has the buck clamp's 63.5 mm slot, and the webs hold it 4 mm off the wall, so measure your converter against that first.
+
+**What was tested.** A first print of the two walls did not go back into the base: the clamp's web overlapped the column at the end of the wall's slot in the base. The files linked here are corrected, and were checked in software by lowering each wall into the base and the roof, with no overlap at any height. The screws also did not hold in the 2.8 mm pilots in that print, and that builder's roof has heat inserts where the standard roof has plain pilots. The version linked here has not been reported as printed. If the screws strip, the pilot holes can be opened to 4.0 mm and 6 mm deep for heat inserts, as in the base.
+
+**Where it stands.** One builder is test printing it, and nothing has been reported from a running machine. The build instructions still keep the converter on the roof, and the walls are not in the parts calculator.
+
+<ul class="bulleted-list">
+  <li>The south wall: <a href="https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-converter-variant-07abfa382a25.stl">Orange Pi 5</a> and <a href="https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-south-converter-variant-677970a0225b.stl">Orange Pi 5 Pro</a>. The first is in the assembly orientation of the standard files, the second in the layout of the Pro set, with the wall flat.</li>
+  <li>The west wall: <a href="https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-converter-variant-3fde5f74d2fd.stl">Orange Pi 5</a> and <a href="https://assets.basically.website/sorter-parts/orange-pi-pro-housing-wall-west-converter-variant-bf07ca003721.stl">Orange Pi 5 Pro</a>.</li>
+  <li>The idea and the discussion: <a href="https://discord.com/channels/1430279849171222682/1535802933768364052/1561266014560460832">the first message</a> and <a href="https://discord.com/channels/1430279849171222682/1561266014560460832/1561323328407474217">the request for the self-tapping version</a>, in the Discord</li>
+  <li>The standard housing: <a href="{{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}">Orange Pi housing</a>, and the standard lead: <a href="{{ '/hardware/helpers/pi-24v-lead/' | relative_url }}">the Orange Pi's 24 V lead</a></li>
+</ul>
+
 ## Single step feeder
+
+**Latest report: 20 September 2026.**
 
 **What is different.** It is meant to replace the feeder channels with a single step, a small platform that moves up and down on a linear rail and catches pieces out of a bulk pile. Its output wall is angled, so a single piece can be dropped more easily. It combines the hopper and the singulator (the part that separates pieces one by one) in one unit. The step is moved by a stepper motor with a toothed belt. The rail is used the other way round, with the platform held still and the rail moving, so the rail's stiffness steadies the platform. A V-shaped tray beside it can flip a piece onto a different side for more camera images before tipping it out, and a second servo can tilt the tray back above the hopper to return a double feed.
 
@@ -102,6 +161,8 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
 
 ## A position encoder on the chute motor
 
+**Latest report: 10 October 2026.**
+
 **What is different.** A small magnetic position sensor (an AS5600 encoder) is fitted to the back of the chute's NEMA 23 motor. The control board reads it over I²C and so knows whether the chute is really turning. The standard machine instead relies on the driver's stall detection (see [The motors]({{ '/lab/motors/' | relative_url }})), which was not catching jams on that machine and needs tuning. The encoder needs no calibration. It fits under the sticker on the motor's rear shaft hole, with no drilling. A small converter board steps the 5 V down to the 3.3 V it needs.
 
 <figure class="single-figure">
@@ -117,6 +178,8 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
 </ul>
 
 ## Printed layer frame pieces
+
+**Latest report: 4 August 2026.**
 
 **What is different.** Printed segments replace the three extrusion parts of each layer's frame: the crossbeam, the 90° bracket and the spoke. A full ring was put together on 4 August 2026. The builder found two small problems: a small gap between the segments, and a support that reaches slightly past the end of the bins, without touching the chute.
 
@@ -134,6 +197,8 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
 
 ## One long extrusion per leg
 
+**Latest report: 5 October 2026.**
+
 **What is different.** The standard machine cuts each layer's legs as separate lengths of extrusion. In this variant the layers are built first, from the printed parts alone, and one full-length extrusion is then slid through them for each leg.
 
 **What was found.** It works well, but it gives up the modularity of the standard way, where you can add layers one at a time later.
@@ -141,4 +206,49 @@ The legs are not in the parts calculator. The file is an STL in the Discord thre
 <ul class="bulleted-list">
   <li>The comparison: <a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1556720170037412026">the message in the Discord</a> and <a href="https://discord.com/channels/1430279849171222682/1437144782819426537/1556722443178082498">the answer</a></li>
   <li>The standard stacking: <a href="{{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}">Stacking the layers</a></li>
+</ul>
+
+## Casters screwed straight into the extrusion
+
+**Latest report: 17 October 2026.**
+
+**What is different.** The standard bottom layer ends each foot extension (piece D) in a 2020 M6 foot connector, and the caster screws into the connector. In this variant the supplier cuts an M6 thread into the end of each piece D, and the caster screws straight into the extrusion. The 2020 M6 foot connector is left out, which is 6 fewer parts to buy.
+
+**How it is done.** Order the extrusion from a supplier that offers an M6 thread as a service, and ask for the thread in the end of each of the 6 foot extensions when you order the cut lengths. The casters stay the same swivel stem casters with an M6 thread. barthel named two suppliers that cut extrusion to length and thread it: easy-systemprofile.de and motedis. You can also thread the ends yourself.
+
+**Where it stands.** Two builders say it can be done, and the posts do not say whether a machine is standing on casters fitted this way. The depth of the thread was not given, and the stem of the caster in the parts calculator is 15 mm long. How the thread holds up under the weight of a loaded machine has not been reported.
+
+<ul class="bulleted-list">
+  <li>The suggestion, and the suppliers: <a href="https://discord.com/channels/1430279849171222682/1477417230235861104/1525040293055828008">the message in the Discord</a> and <a href="https://discord.com/channels/1430279849171222682/1430279852015091804/1560927423715999755">a later one</a></li>
+  <li>Threading the ends of the foot extensions instead of using the connector: <a href="https://discord.com/channels/1430279849171222682/1437511568194666596/1559441181124075631">the message</a> and <a href="https://discord.com/channels/1430279849171222682/1437511568194666596/1559450239046258750">the answer</a></li>
+  <li>The standard feet, with the connector: <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}#step-3">Bottom layer</a></li>
+</ul>
+
+## Bin retainers with one joint screw and a hook
+
+**Latest report: 17 October 2026.**
+
+**What is different.** The standard retainers are held by two M5 x 16 screws each, four for a left and right pair. In this variant the pair is joined at the middle by one shared screw, and the far end of each retainer hangs in the T-slot on a hook instead of a second screw. That leaves one screw and one T-nut for a pair, so 6 instead of 24 for a layer.
+
+**How it works.** The two retainers lock into each other at the joint: the left one has two prongs, the right one a tongue between them, and both end in a V that holds them in line along the rail and up and down. The screw goes through all three at the joint. At the other end of each retainer a J-shaped hook goes through the opening of the T-slot and sits behind the lip. To fit one, lift it about 2.4 mm, push the hook in and let it drop, so its top ledge rests on the top of the extrusion. The hook is wide and sits far from the screw, because the screw in the middle then holds the outer ends down. The hook ends are cut at 45°, so the retainer prints standing upright without supports. The small locating rib of the standard part is cut away along the whole length, because it would hit the extrusion while the retainer is lifted.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/variant-bin-retainer-joint-w1600-6e3f86408368.jpg" alt="Three printed bins side by side on a hexagonal frame, with the joint of two bin retainers in the middle of the front rail held by a single screw">
+  <figcaption>The joint in the middle of the front rail, with its one screw. <cite>Photo: Soran82.</cite></figcaption>
+</figure>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/variant-bin-retainer-hook-section-full-8e41f81a8e47.png" alt="Three side views of a bin retainer and the extrusion: the retainer lifted and pushed in, then dropped so the hook hangs behind the lip of the T-slot, and a plan cut through the hook">
+  <figcaption>How the hook goes into the T-slot. <cite>Drawn from the design, not from a build. Drawing: Balloon.</cite></figcaption>
+</figure>
+
+**What was tested.** A builder has printed and fitted the pair and reports that it works well. The earlier version, without the hook, was also printed and held moderate pressure with two screws. The hook has not been tested with a loaded bin. The slot of the extrusion in the drawing is not measured: it uses a 6.0 mm opening, a 1.8 mm lip and a 5.9 mm deep slot, so check the hook against your own extrusion with calipers before printing a whole layer.
+
+**Files.** The left retainer carries the prongs and the right retainer the tongue, so the two files are not mirror images and cannot be swapped.
+
+<ul class="bulleted-list">
+  <li>The left retainer: <a href="https://assets.basically.website/sorter-parts/bin-retainer-left-finger-v-wide-hook-c5d29085841c.stl">bin-retainer-left-finger-v-wide-hook.stl</a></li>
+  <li>The right retainer: <a href="https://assets.basically.website/sorter-parts/bin-retainer-right-finger-v-wide-hook-69050d764903.stl">bin-retainer-right-finger-v-wide-hook.stl</a></li>
+  <li>The report: <a href="https://discord.com/channels/1430279849171222682/1430279852015091804/1561017115371114526">the message in the Discord</a>, and the message the files were posted in: <a href="https://discord.com/channels/1430279849171222682/1560753632129978389/1560778347384930444">the message in the Discord</a></li>
+  <li>The standard retainers: <a href="{{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}">Bin retainers</a></li>
 </ul>

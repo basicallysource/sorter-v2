@@ -120,11 +120,6 @@ class VisionManager:
         if self._video_recorder:
             self._video_recorder.close()
 
-    def reloadPolygons(self) -> None:
-        perception = self.gc.perception_service
-        if perception is not None:
-            perception.request_reconcile()
-
     def recordFrames(self) -> None:
         if self._video_recorder is None:
             return

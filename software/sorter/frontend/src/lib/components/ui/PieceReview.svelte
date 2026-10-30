@@ -11,6 +11,17 @@
 	Cancel closes it. Once a different color is saved, the No button names
 	it. With no predicted color there is no Yes, only "Pick the color".
 
+	`layout="compact"` is the same three questions for a list of pieces, where
+	a block under every piece would stand taller than the piece: three short
+	rows (the name, then the answer), about 100px tall and a width of
+	24rem. The colors open in a popover instead of under the row, and the
+	capture issues are a row of icon switches (`IssueToggle`, one click
+	each, the icon in the warning tint while it is flagged, its name in a
+	tooltip), so a piece is reviewed without opening anything and nothing on
+	the row changes its height when it is used. They stay live while a save is
+	on its way (a spinner says so): flagging two issues in a row is two clicks.
+	An issue with no `glyph` is a small button with its name.
+
 	Every answer is a callback; the app saves it and passes the state back
 	(`partVerdict`, `correctedId`, `activeIssues`, the busy and sent flags).
 	`oncolor` resolves true when the color was saved, which closes the
@@ -28,11 +39,15 @@
 	import Badge from './Badge.svelte';
 	import Button from './Button.svelte';
 	import ColorChoice, { type LikelyColor, type PaletteColor } from './ColorChoice.svelte';
+	import { type IssueGlyph } from './IssueIcon.svelte';
+	import IssueToggle from './IssueToggle.svelte';
+	import Popover from './Popover.svelte';
 	import SegmentedControl from './SegmentedControl.svelte';
 	import Spinner from './Spinner.svelte';
 	import { swatchColor } from './ColorChip.svelte';
 
 	let {
+		layout = 'full',
 		partVerdict = null,
 		partSent = false,
 		partBusy = false,
@@ -53,6 +68,9 @@
 		onissue,
 		onpicking
 	}: {
+		// full: the three questions as rows of a block of their own. compact:
+		// for a list of pieces (see above).
+		layout?: 'full' | 'compact';
 		partVerdict?: boolean | null;
 		partSent?: boolean;
 		partBusy?: boolean;
@@ -67,7 +85,8 @@
 		palette: PaletteColor[];
 		likely?: LikelyColor[] | null;
 		likelyNote?: string | null;
-		issues: { code: string; label: string }[];
+		// What can be wrong with the photos; `glyph` is the compact layout's icon.
+		issues: { code: string; label: string; glyph?: IssueGlyph }[];
 		activeIssues?: string[];
 		issuesBusy?: boolean;
 		notice?: { tone: 'warning' | 'danger'; text: string } | null;
@@ -104,6 +123,13 @@
 		onpicking?.(false);
 	}
 
+	// The compact layout's popover opens and closes itself (a click outside, Escape).
+	function setPicking(open: boolean) {
+		if (open === picking) return;
+		if (open) openColors();
+		else closeColors();
+	}
+
 	async function confirmColor() {
 		if (staged == null) return;
 		if (await oncolor(staged)) closeColors();
@@ -111,135 +137,283 @@
 
 	const row = 'grid gap-x-6 gap-y-2 py-5 first:pt-0 last:pb-0 @xl:grid-cols-[9rem_minmax(0,1fr)]';
 	const name = 'text-sm font-medium text-ink @xl:flex @xl:h-(--size-control-sm) @xl:items-center';
+	// The compact rows: the question, then the answer, each one control tall.
+	const crow = 'grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-x-2';
+	const cname = 'truncate text-sm font-medium text-ink';
 </script>
 
-<div class="@container flex flex-col">
-	<div class="flex flex-col divide-y divide-line">
+{#if layout === 'compact'}
+	<div class="flex flex-col gap-1.5">
 		<!-- The part: only its type, never its color -->
-		<div class={row}>
-			<div class={name}>Part correct?</div>
-			<div class="flex min-w-0 flex-col gap-2">
-				<div class="flex flex-wrap items-center gap-3">
-					<SegmentedControl
-						label="Is the predicted part right?"
-						size="sm"
-						value={partVerdict === true ? 'yes' : partVerdict === false ? 'no' : ''}
-						options={[
-							{ value: 'yes', label: 'Yes' },
-							{ value: 'no', label: 'No' }
-						]}
-						onchange={(verdict) => onpart(verdict === 'yes')}
-					/>
-					{#if partBusy}<Spinner size={14} />{:else if partSent}<Badge tone="success">Sent</Badge
-						>{/if}
-				</div>
-				<p class="text-sm text-ink-muted">The part type only; the color is the next question.</p>
+		<div class={crow}>
+			<div class={cname}>Part correct?</div>
+			<div class="flex min-w-0 items-center gap-2">
+				<SegmentedControl
+					label="Is the predicted part right?"
+					size="sm"
+					value={partVerdict === true ? 'yes' : partVerdict === false ? 'no' : ''}
+					options={[
+						{ value: 'yes', label: 'Yes' },
+						{ value: 'no', label: 'No' }
+					]}
+					onchange={(verdict) => onpart(verdict === 'yes')}
+				/>
+				{#if partBusy}<Spinner size={14} />{:else if partSent}<Badge tone="success">Sent</Badge
+					>{/if}
 			</div>
 		</div>
 
-		<!-- The color: yes, or pick it from the likely colors -->
-		<div class={row}>
-			<div class={name}>Color correct?</div>
-			<div class="flex min-w-0 flex-col gap-4">
-				<div class="flex flex-wrap items-center gap-2">
-					{#if predicted}
-						<span class="mr-1 inline-flex min-w-0 items-center gap-2 text-sm text-ink">
-							<span
-								aria-hidden="true"
-								class="size-5 shrink-0 rounded-check border border-line-strong"
-								style:background-color={swatchColor(predicted.rgb)}
-							></span>
-							<span class="truncate">{predicted.name}</span>
-						</span>
-						<Button
-							size="sm"
-							variant={acceptedPrediction ? 'primary' : 'secondary'}
-							icon={Check}
-							disabled={colorBusy}
-							onclick={() => {
-								closeColors();
-								void oncolor(predicted.id);
-							}}
-						>
-							Yes
-						</Button>
-					{:else}
-						<span class="mr-1 text-sm text-ink-muted">No color was predicted.</span>
-					{/if}
+		<!-- The color: yes, or pick it in a popover -->
+		<div class={crow}>
+			<div class={cname}>Color correct?</div>
+			<div class="flex min-w-0 items-center gap-2">
+				{#if predicted}
+					<span
+						class="inline-flex min-w-0 items-center gap-1.5 text-sm text-ink"
+						title={predicted.name}
+					>
+						<span
+							aria-hidden="true"
+							class="size-4 shrink-0 rounded-check border border-line-strong"
+							style:background-color={swatchColor(predicted.rgb)}
+						></span>
+						<span class="truncate">{predicted.name}</span>
+					</span>
 					<Button
 						size="sm"
-						variant={picking || correctedToOther ? 'primary' : 'secondary'}
-						icon={correctedToOther ? undefined : Pipette}
-						aria-expanded={picking}
-						onclick={picking ? closeColors : openColors}
-					>
-						{#if correctedToOther && corrected}
-							<span
-								aria-hidden="true"
-								class="size-4 shrink-0 rounded-check border border-line-strong"
-								style:background-color={swatchColor(corrected.rgb)}
-							></span>
-							No, it is {corrected.name}
-						{:else}
-							{predicted ? 'No, pick the color' : 'Pick the color'}
-						{/if}
-					</Button>
-					{#if colorBusy}<Spinner size={14} />{:else if colorSent}<Badge tone="success">Sent</Badge
-						>{/if}
-				</div>
-
-				{#if picking}
-					<ColorChoice
-						{palette}
-						{likely}
-						value={staged}
-						{marks}
-						note={likelyNote}
+						variant={acceptedPrediction ? 'primary' : 'secondary'}
+						icon={Check}
 						disabled={colorBusy}
-						onpick={(id) => (staged = id)}
-					/>
-					<div class="flex flex-wrap items-center justify-end gap-2">
-						<Button variant="ghost" size="sm" onclick={closeColors}>Cancel</Button>
-						<Button
-							variant="primary"
-							size="sm"
-							loading={colorBusy}
-							disabled={staged == null}
-							onclick={confirmColor}
-						>
-							{stagedColor ? `Confirm ${stagedColor.name}` : 'Confirm the color'}
-						</Button>
-					</div>
+						onclick={() => {
+							closeColors();
+							void oncolor(predicted.id);
+						}}
+					>
+						Yes
+					</Button>
+				{:else}
+					<span class="text-sm text-ink-muted">None predicted</span>
 				{/if}
+				<Popover
+					label="Pick the color"
+					width="38rem"
+					placement="bottom-end"
+					bind:open={() => picking, setPicking}
+				>
+					{#snippet trigger(props)}
+						<Button
+							{...props}
+							size="sm"
+							variant={picking || correctedToOther ? 'primary' : 'secondary'}
+							icon={correctedToOther ? undefined : Pipette}
+						>
+							{#if correctedToOther && corrected}
+								<span
+									aria-hidden="true"
+									class="size-4 shrink-0 rounded-check border border-line-strong"
+									style:background-color={swatchColor(corrected.rgb)}
+								></span>
+								<span class="max-w-28 truncate">{corrected.name}</span>
+							{:else}
+								{predicted ? 'No' : 'Pick'}
+							{/if}
+						</Button>
+					{/snippet}
+					<!-- Only while open: a list of pieces has one of these on every row. -->
+					{#if picking}
+						<div class="flex flex-col gap-3">
+							<ColorChoice
+								{palette}
+								{likely}
+								value={staged}
+								{marks}
+								note={likelyNote}
+								disabled={colorBusy}
+								onpick={(id) => (staged = id)}
+							/>
+							<div class="flex flex-wrap items-center justify-end gap-2">
+								<Button variant="ghost" size="sm" onclick={closeColors}>Cancel</Button>
+								<Button
+									variant="primary"
+									size="sm"
+									loading={colorBusy}
+									disabled={staged == null}
+									onclick={confirmColor}
+								>
+									{stagedColor ? `Confirm ${stagedColor.name}` : 'Confirm the color'}
+								</Button>
+							</div>
+						</div>
+					{/if}
+				</Popover>
+				{#if colorBusy}<Spinner size={14} />{:else if colorSent}<Badge tone="success">Sent</Badge
+					>{/if}
 			</div>
 		</div>
 
-		<!-- The capture: any number of these can apply -->
-		<div class={row}>
-			<div class={name}>Report an issue</div>
-			<div class="flex min-w-0 flex-col gap-2">
-				<div class="flex flex-wrap items-center gap-2">
-					{#each issues as issue (issue.code)}
-						{@const on = active.has(issue.code)}
+		<!-- The capture: any number of these can apply, each one click -->
+		<div class={crow}>
+			<div class={cname}>Report an issue</div>
+			<div role="group" aria-label="Report an issue" class="flex min-w-0 items-center gap-1">
+				{#each issues as issue (issue.code)}
+					{@const on = active.has(issue.code)}
+					{#if issue.glyph}
+						<IssueToggle
+							glyph={issue.glyph}
+							label={issue.label}
+							{on}
+							onchange={() => onissue(issue.code)}
+						/>
+					{:else}
 						<Button
 							size="sm"
 							variant={on ? 'primary' : 'secondary'}
-							icon={on ? Check : undefined}
 							aria-pressed={on}
 							disabled={issuesBusy}
 							onclick={() => onissue(issue.code)}
 						>
 							{issue.label}
 						</Button>
-					{/each}
-					{#if issuesBusy}<Spinner size={14} />{/if}
-				</div>
-				<p class="text-sm text-ink-muted">Any that apply to the photos.</p>
+					{/if}
+				{/each}
+				{#if issuesBusy}<Spinner size={14} class="ml-1" />{/if}
 			</div>
 		</div>
-	</div>
 
-	{#if notice}
-		<Alert tone={notice.tone} class="mt-5">{notice.text}</Alert>
-	{/if}
-</div>
+		{#if notice}
+			<Alert tone={notice.tone}>{notice.text}</Alert>
+		{/if}
+	</div>
+{:else}
+	<div class="@container flex flex-col">
+		<div class="flex flex-col divide-y divide-line">
+			<!-- The part: only its type, never its color -->
+			<div class={row}>
+				<div class={name}>Part correct?</div>
+				<div class="flex min-w-0 flex-col gap-2">
+					<div class="flex flex-wrap items-center gap-3">
+						<SegmentedControl
+							label="Is the predicted part right?"
+							size="sm"
+							value={partVerdict === true ? 'yes' : partVerdict === false ? 'no' : ''}
+							options={[
+								{ value: 'yes', label: 'Yes' },
+								{ value: 'no', label: 'No' }
+							]}
+							onchange={(verdict) => onpart(verdict === 'yes')}
+						/>
+						{#if partBusy}<Spinner size={14} />{:else if partSent}<Badge tone="success">Sent</Badge
+							>{/if}
+					</div>
+					<p class="text-sm text-ink-muted">The part type only; the color is the next question.</p>
+				</div>
+			</div>
+
+			<!-- The color: yes, or pick it from the likely colors -->
+			<div class={row}>
+				<div class={name}>Color correct?</div>
+				<div class="flex min-w-0 flex-col gap-4">
+					<div class="flex flex-wrap items-center gap-2">
+						{#if predicted}
+							<span class="mr-1 inline-flex min-w-0 items-center gap-2 text-sm text-ink">
+								<span
+									aria-hidden="true"
+									class="size-5 shrink-0 rounded-check border border-line-strong"
+									style:background-color={swatchColor(predicted.rgb)}
+								></span>
+								<span class="truncate">{predicted.name}</span>
+							</span>
+							<Button
+								size="sm"
+								variant={acceptedPrediction ? 'primary' : 'secondary'}
+								icon={Check}
+								disabled={colorBusy}
+								onclick={() => {
+									closeColors();
+									void oncolor(predicted.id);
+								}}
+							>
+								Yes
+							</Button>
+						{:else}
+							<span class="mr-1 text-sm text-ink-muted">No color was predicted.</span>
+						{/if}
+						<Button
+							size="sm"
+							variant={picking || correctedToOther ? 'primary' : 'secondary'}
+							icon={correctedToOther ? undefined : Pipette}
+							aria-expanded={picking}
+							onclick={picking ? closeColors : openColors}
+						>
+							{#if correctedToOther && corrected}
+								<span
+									aria-hidden="true"
+									class="size-4 shrink-0 rounded-check border border-line-strong"
+									style:background-color={swatchColor(corrected.rgb)}
+								></span>
+								No, it is {corrected.name}
+							{:else}
+								{predicted ? 'No, pick the color' : 'Pick the color'}
+							{/if}
+						</Button>
+						{#if colorBusy}<Spinner size={14} />{:else if colorSent}<Badge tone="success"
+								>Sent</Badge
+							>{/if}
+					</div>
+
+					{#if picking}
+						<ColorChoice
+							{palette}
+							{likely}
+							value={staged}
+							{marks}
+							note={likelyNote}
+							disabled={colorBusy}
+							onpick={(id) => (staged = id)}
+						/>
+						<div class="flex flex-wrap items-center justify-end gap-2">
+							<Button variant="ghost" size="sm" onclick={closeColors}>Cancel</Button>
+							<Button
+								variant="primary"
+								size="sm"
+								loading={colorBusy}
+								disabled={staged == null}
+								onclick={confirmColor}
+							>
+								{stagedColor ? `Confirm ${stagedColor.name}` : 'Confirm the color'}
+							</Button>
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<!-- The capture: any number of these can apply -->
+			<div class={row}>
+				<div class={name}>Report an issue</div>
+				<div class="flex min-w-0 flex-col gap-2">
+					<div class="flex flex-wrap items-center gap-2">
+						{#each issues as issue (issue.code)}
+							{@const on = active.has(issue.code)}
+							<Button
+								size="sm"
+								variant={on ? 'primary' : 'secondary'}
+								icon={on ? Check : undefined}
+								aria-pressed={on}
+								disabled={issuesBusy}
+								onclick={() => onissue(issue.code)}
+							>
+								{issue.label}
+							</Button>
+						{/each}
+						{#if issuesBusy}<Spinner size={14} />{/if}
+					</div>
+					<p class="text-sm text-ink-muted">Any that apply to the photos.</p>
+				</div>
+			</div>
+		</div>
+
+		{#if notice}
+			<Alert tone={notice.tone} class="mt-5">{notice.text}</Alert>
+		{/if}
+	</div>
+{/if}

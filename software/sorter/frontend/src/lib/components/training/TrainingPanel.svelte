@@ -115,7 +115,7 @@
 		</span>
 		<span class="flex items-start gap-2">
 			<RunButton {base} {training} {onchange} />
-			<Button size="sm" variant="ghost" href="/settings/training-data">All runs</Button>
+			<Button size="sm" variant="ghost" href="/settings/data/training">All runs</Button>
 		</span>
 	</div>
 
@@ -139,7 +139,7 @@
 		{:else if lastRun}
 			<p class="px-3 py-2.5 text-sm text-ink-muted">
 				Last run:
-				<a href="/settings/training-data/{lastRun.id}" class="text-primary-ink hover:underline">
+				<a href="/settings/data/training/{lastRun.id}" class="text-primary-ink hover:underline">
 					<span class="num">{lastRun.pieces.toLocaleString()}</span>
 					{lastRun.pieces === 1 ? 'piece' : 'pieces'},
 					<span class="num">{lastRun.excluded_pieces.toLocaleString()}</span> excluded, from

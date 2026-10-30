@@ -91,10 +91,20 @@
 	// to 1800px; a page of forms stays at 1152px (design system docs/layout.md).
 	const wide = $derived(page.route.id === '/settings/[station]');
 
-	const navItems = settingsNavGroups.flatMap((g) => g.items);
-	// The phone's select lists every page, so a page is named with its group.
+	// Every page the side nav lists, a section's sub-tabs after the section.
+	const navItems = settingsNavGroups.flatMap((g) =>
+		g.items.flatMap((i) => [i, ...(i.children ?? [])])
+	);
+	// The phone's select lists every page, so a page is named with its group, and
+	// a sub-tab with its section.
 	const navOptions = settingsNavGroups.flatMap((g) =>
-		g.items.map((i) => ({ value: i.href, label: g.label ? `${g.label}: ${i.label}` : i.label }))
+		g.items.flatMap((i) => {
+			const section = g.label ? `${g.label}: ${i.label}` : i.label;
+			return [
+				{ value: i.href, label: section },
+				...(i.children ?? []).map((c) => ({ value: c.href, label: `${section} / ${c.label}` }))
+			];
+		})
 	);
 	const here = $derived(
 		navItems

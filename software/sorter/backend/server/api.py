@@ -6,7 +6,9 @@ from typing import List, Optional, Dict, Any
 import asyncio
 import json
 import os
+import subprocess
 import time
+from pathlib import Path
 
 import db
 import machine_toml
@@ -18,12 +20,8 @@ from defs.events import (
 )
 from local_state import (
     get_api_keys,
-    get_channel_polygons,
-    get_classification_polygons,
     get_or_create_machine_id,
     get_sorting_profile_sync_state,
-    set_channel_polygons,
-    set_classification_polygons,
 )
 from toml_config import getMachineNickname, setMachineNickname
 from server.set_progress_sync import getSetProgressSyncWorker
@@ -120,6 +118,7 @@ def _load_saved_api_keys_into_environment() -> None:
 
 from server.routers.hardware import router as hardware_router
 from server.routers.steppers import router as steppers_router
+from server.routers.recovery import router as recovery_router
 from server.routers.stallguard import router as stallguard_router
 from server.routers.servos import router as servos_router
 from server.routers.chute import router as chute_router
@@ -152,10 +151,13 @@ from server.routers.wifi import router as wifi_router
 from server.routers.firmware import router as firmware_router
 from server.routers.versions import router as versions_router
 from server.routers.status_ping import router as status_ping_router
+from server.routers.sharing import router as sharing_router
 from server.routers.leds import router as leds_router
+from server.routers.zones import router as zones_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
+app.include_router(recovery_router)
 app.include_router(stallguard_router)
 app.include_router(servos_router)
 app.include_router(chute_router)
@@ -166,6 +168,7 @@ app.include_router(camera_picture_settings_router)
 app.include_router(camera_device_settings_router)
 app.include_router(camera_capture_modes_router)
 app.include_router(detection_router)
+app.include_router(sharing_router)
 app.include_router(sorting_profiles_router)
 app.include_router(bsx_router)
 app.include_router(bin_layouts_router)
@@ -188,6 +191,7 @@ app.include_router(wifi_router)
 app.include_router(firmware_router)
 app.include_router(versions_router)
 app.include_router(status_ping_router)
+app.include_router(zones_router)
 app.include_router(leds_router)
 
 # ---------------------------------------------------------------------------
@@ -271,12 +275,31 @@ class MachineIdentityUpdateRequest(BaseModel):
     nickname: Optional[str] = None
 
 
+def _readCodeVersion() -> Optional[str]:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).resolve().parent,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return result.stdout.strip() or None if result.returncode == 0 else None
+
+
+# Read once: an update restarts the process, so this never goes stale.
+_CODE_VERSION = _readCodeVersion()
+
+
 def _getMachineIdentityData() -> MachineIdentityData:
     gc = shared_state.gc_ref
     return MachineIdentityData(
         machine_id=gc.machine_id if gc is not None else get_or_create_machine_id(),
         nickname=getMachineNickname(),
         run_id=gc.run_id if gc is not None else None,
+        code_version=_CODE_VERSION,
     )
 
 
@@ -879,40 +902,3 @@ def getSetProgress() -> SetProgressResponse:
     return SetProgressResponse(is_set_based=True, progress=tracker.get_progress())
 
 
-# ---------------------------------------------------------------------------
-# Polygon editor
-# ---------------------------------------------------------------------------
-
-
-@app.get("/api/polygons")
-def get_polygons() -> Dict[str, Any]:
-    """Load saved channel and classification polygons."""
-    result: Dict[str, Any] = {}
-    channel = get_channel_polygons()
-    if channel:
-        result["channel"] = channel
-    classification = get_classification_polygons()
-    if classification:
-        result["classification"] = classification
-    return result
-
-
-@app.post("/api/polygons")
-def save_polygons(body: Dict[str, Any]) -> Dict[str, Any]:
-    """Save channel and classification polygons."""
-    if "channel" in body:
-        set_channel_polygons(body["channel"])
-    if "classification" in body:
-        set_classification_polygons(body["classification"])
-    if "channel" in body and shared_state.vision_manager is not None:
-        shared_state.vision_manager.reloadPolygons()
-    # Perception (rev04 mode pair) is driven by these same zones but owns its
-    # own immutable per-channel stacks; poke its reconciler so a zone edit is
-    # picked up within a fraction of a second instead of waiting a restart.
-    _ps = getattr(shared_state.gc_ref, "perception_service", None)
-    if _ps is not None:
-        try:
-            _ps.request_reconcile()
-        except Exception:
-            pass
-    return {"ok": True}

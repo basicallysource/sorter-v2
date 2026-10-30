@@ -31,7 +31,11 @@ def _heartbeat(client, token: str):
 def test_heartbeat_carries_the_default_limits(client, test_machine, machine_token):
     resp = _heartbeat(client, machine_token)
     assert resp.status_code == 200, resp.text
-    assert resp.json() == {"ok": True, "machine_id": test_machine["id"], "limits": DEFAULTS}
+    body = resp.json()
+    assert body["defaults_version"]  # the defaults block's (test_machine_defaults.py)
+    assert {**body, "defaults_version": None} == {
+        "ok": True, "machine_id": test_machine["id"], "limits": DEFAULTS, "defaults_version": None,
+    }
 
 
 def test_admin_reads_defaults_then_updates_some_limits(client, db, machine_token, auth_headers):

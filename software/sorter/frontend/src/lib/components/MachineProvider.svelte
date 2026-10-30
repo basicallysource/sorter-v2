@@ -36,4 +36,8 @@
 	});
 </script>
 
-{@render children()}
+<!-- The backend coming back (a restart, an update, an outage) remounts the
+     page, so every view fetches again instead of keeping a stale or failed load. -->
+{#key manager.selectedMachine?.returns ?? 0}
+	{@render children()}
+{/key}

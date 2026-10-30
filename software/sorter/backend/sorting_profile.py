@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import json
 import os
+import re
 import threading
 from typing import Any, Callable, Optional
 
@@ -26,6 +27,40 @@ def _summarize(data: dict[str, Any]) -> dict[str, Any]:
 
 
 ANY_COLOR = "any_color"
+
+# A classified part number the profile does not list is usually a printed,
+# stickered or assembled variant of one it does (3010pb176R, 3464c02,
+# 122c01assy2). Such a piece belongs in its base part's bin, not in misc: misc is
+# for pieces that are too big, came as a multi-drop, or could not be classified.
+# Each step drops one suffix; base_part_ids lists the results, nearest first.
+_BASE_PART_STEPS = (
+    re.compile(r"assy\d*$"),
+    re.compile(r"(pb|pr|pat|ps)\d+[a-z]?[LR]?$"),
+    re.compile(r"c\d\d$"),
+    re.compile(r"(?<=\d)[a-z]$"),
+)
+
+
+def base_part_ids(part_id: str) -> list[str]:
+    bases: list[str] = []
+    current = str(part_id)
+    while True:
+        for step in _BASE_PART_STEPS:
+            stripped = step.sub("", current)
+            if stripped and stripped != current:
+                current = stripped
+                bases.append(current)
+                break
+        else:
+            return bases
+
+
+def _flat_lookup(part_to_category: dict[str, Any], part_id: str, color_id: str) -> Optional[str]:
+    for part in (str(part_id), *base_part_ids(part_id)):
+        for key in (f"{color_id}-{part}", f"{ANY_COLOR}-{part}"):
+            if key in part_to_category:
+                return str(part_to_category[key])
+    return None
 
 
 class ProfileRouter:
@@ -69,24 +104,45 @@ class ProfileRouter:
     ) -> str:
         part = str(part_id)
         color = None if color_id in (None, "", ANY_COLOR) else str(color_id)
+        # A variant never fills a kit: kits take only the exact parts they list.
+        for candidate, kits in ((part, True), *((base, False) for base in base_part_ids(part))):
+            category = self._match(candidate, color, kit_is_full, kits)
+            if category is not None:
+                return category
+        if self.fallback_by == "color" and color is not None:
+            return f"color_{color}"
+        return self.default
+
+    def _match(
+        self,
+        part: str,
+        color: Optional[str],
+        kit_is_full: Optional[Callable[[str, str, str], bool]],
+        kits: bool,
+    ) -> Optional[str]:
         for kind, category, parts, colors in self.rules:
             if kind == "kit":
+                if not kits:
+                    continue
                 wanted = parts.get(part)
                 if wanted is None or not (color in wanted or None in wanted):
                     continue
                 if kit_is_full is not None and kit_is_full(category, part, color or ANY_COLOR):
                     continue
                 return category
-            if parts is not None and part not in parts:
+            if parts is None:
+                # A rule for every part (by colour only) is no evidence about a
+                # variant; the exact part number alone may take it.
+                if not kits:
+                    continue
+            elif part not in parts:
                 continue
             if colors is not None and color not in colors:
                 continue
             return category
         if self.fallback_by == "category" and part in self.fallback_map:
             return self.fallback_map[part]
-        if self.fallback_by == "color" and color is not None:
-            return f"color_{color}"
-        return self.default
+        return None
 
 
 def categoryResolver(data: dict[str, Any]) -> Callable[[str, str], str]:
@@ -100,10 +156,8 @@ def categoryResolver(data: dict[str, Any]) -> Callable[[str, str], str]:
     default = str(data.get("default_category_id", MISC_CATEGORY))
 
     def legacy(part_id: str, color_id: str) -> str:
-        key = f"{color_id}-{part_id}"
-        if key in part_to_category:
-            return str(part_to_category[key])
-        return str(part_to_category.get(f"{ANY_COLOR}-{part_id}", default))
+        category = _flat_lookup(part_to_category, part_id, color_id)
+        return default if category is None else category
 
     return legacy
 
@@ -234,11 +288,8 @@ class JsonSortingProfile(SortingProfile):
     def getCategoryIdForPart(self, part_id: str, color_id: str = "any_color") -> str:
         if self._router is not None:
             return self._router.route(part_id, color_id, self._kit_is_full)
-        color_key = f"{color_id}-{part_id}"
-        if color_key in self.part_to_category:
-            return self.part_to_category[color_key]
-        any_key = f"any_color-{part_id}"
-        return self.part_to_category.get(any_key, self.default_category_id)
+        category = _flat_lookup(self.part_to_category, part_id, color_id)
+        return self.default_category_id if category is None else category
 
     def highValueCategoryId(self, price: Optional[float]) -> Optional[str]:
         cfg = self.high_value_routing

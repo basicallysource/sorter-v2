@@ -3,7 +3,6 @@
 		PARTS,
 		SECTIONS,
 		OPEN_CHANGES,
-		COLOR_ROLES,
 		SETTINGS,
 		STORE_URL,
 		categoryMultiplier,
@@ -28,12 +27,12 @@
 		platesForPart,
 		type Part,
 		type PartVersion,
-		partDownload
+		partDownload,
+		pillAttributes
 	} from '$lib/filament';
 	import { getBambuColor } from '$lib/bambu-colors';
 	import { partsCsv } from '$lib/parts-csv';
 	import { download, exportSpec, filename } from '$lib/csv';
-	import ColorPicker from '$lib/components/ColorPicker.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
 	import AssemblyDetailModal from '$lib/components/AssemblyDetailModal.svelte';
@@ -45,7 +44,10 @@
 	import { printManifest, manifestFilename, type ManifestRow } from '$lib/manifest';
 	import { onMount } from 'svelte';
 	import { loadConfig, saveConfig, clearConfig } from '$lib/config';
-	import { layerStore, addLayer as addLayerStore, removeLayerAt, setSize, setSizes } from '$lib/layers.svelte';
+	import BuildOptions from '$lib/components/BuildOptions.svelte';
+	import AlternativeSwitch from '$lib/components/AlternativeSwitch.svelte';
+	import { alternativeOf } from '$lib/alternatives.svelte';
+	import { layerStore, setSizes } from '$lib/layers.svelte';
 	import { colorStore, defaultRoleColors, resetRoleColors } from '$lib/colors.svelte';
 	import SearchField from '$lib/components/search/SearchField.svelte';
 	import { search, type Searchable } from '$lib/search';
@@ -53,9 +55,12 @@
 	import Disclosure from '$lib/components/Disclosure.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
+	import RequiredColorBadge from '$lib/components/RequiredColorBadge.svelte';
+	import SupportBadge from '$lib/components/SupportBadge.svelte';
+	import PrintOrientationBadge from '$lib/components/PrintOrientationBadge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import MissingImage from '$lib/components/MissingImage.svelte';
-	import { Download, Package, ZoomIn, Loader, Info, Plus, X, RotateCcw, Clock, Layers3, AlertTriangle, History, ChevronRight, ChevronDown, ArrowUpRight, FlaskConical } from 'lucide-svelte';
+	import { Download, Package, ZoomIn, Loader, Info, RotateCcw, Clock, Layers3, AlertTriangle, History, ChevronRight, ChevronDown, ArrowUpRight, FlaskConical } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { afterNavigate, replaceState } from '$app/navigation';
 	import { browser } from '$app/environment';
@@ -71,12 +76,6 @@
 	// per-layer size list is the shared source of truth (also used by the framing tab)
 	const funnelSizes = $derived(layerStore.sizes);
 	const layers = $derived(funnelSizes.length);
-	function addLayer() {
-		addLayerStore();
-	}
-	function removeLayer(i: number) {
-		removeLayerAt(i);
-	}
 	// colours live in the shared store so the assembly tab sees the same choices
 	const roleColors = $derived(colorStore.roles);
 	// What to print, as a count. Only parts whose quantity has been EDITED away
@@ -298,15 +297,6 @@
 		return search(partFilter, list, partSearchable).map((r) => r.item);
 	}
 
-	// per-layer size 'half' = 12 bins, 'third' = 18 bins
-	const sizePreview = {
-		half: { count: 12, bins: ['bin-half-left', 'bin-half-right'], funnel: 'funnel-half' },
-		third: { count: 18, bins: ['bin-third-left', 'bin-third-center', 'bin-third-rightback'], funnel: 'funnel-third' }
-	} as const;
-	function render(id: string): string {
-		return partsById.get(id)?.render ?? '';
-	}
-
 	const buy = $derived(
 		buyList(layers, roleColors, qtyOf, supportOn, variantCount, surplus)
 	);
@@ -383,6 +373,7 @@
 		);
 	}
 	const allSelected = $derived(PARTS.every((p) => machineNeeds(p.id) === 0 || qtyOf(p.id) > 0));
+	const noneSelected = $derived(PARTS.every((p) => 'bins' in p.quantities || qtyOf(p.id) === 0));
 
 	const prettyPattern = SETTINGS.infill_pattern.replace('adaptivecubic', 'adaptive cubic');
 	// both boxes at the top of the page start closed, so their one-line summary is
@@ -390,14 +381,6 @@
 	let showSettings = $state(false);
 	let showBuild = $state(false);
 	const settingsSummary = `Bambu Lab A1 · 0.20 mm layers · ${SETTINGS.infill_density} ${prettyPattern} · ${SETTINGS.filament}`;
-	const buildSummary = $derived(
-		[
-			`${layers} layer${layers === 1 ? '' : 's'}`,
-			`${funnelSizes.map((sz) => (sz === 'half' ? '12' : '18')).join('/')} bins`,
-			printBins ? 'bins included' : 'bins not printed',
-			COLOR_ROLES.map((r) => getBambuColor(roleColors[r.id])?.name ?? roleColors[r.id]).join(', ')
-		].join('  ·  ')
-	);
 	const settingsRows: [string, string][] = [
 		['Printer', 'Bambu Lab A1 · 0.4 mm'],
 		['Layer height', '0.20 mm'],
@@ -576,89 +559,7 @@
 		</table>
 	</Disclosure>
 
-	<!-- BUILD OPTIONS = colors + layer configuration -->
-	<Disclosure title="Build options" summary={buildSummary} bind:open={showBuild} flush>
-		{#snippet actions()}
-			<button
-				class="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text"
-				onclick={resetToDefaults}
-				use:tip={'Reset all build options to defaults'}
-			>
-				<RotateCcw size={14} /> Reset to default
-			</button>
-		{/snippet}
-
-		<!-- colors -->
-		<div class="p-4">
-			<div class="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
-				Colors
-				<Popover width="18rem" label="About the color options">
-					Each color picker sets every part in that group. Parts that must be a specific color —
-					stators, rotors, light post caps, the classification dome, the lazy-Susan chute mount — keep
-					their required color and aren't affected.
-					<span class="mt-2 block border-t border-border pt-2">
-						Names are Bambu Lab PLA Matte. The grey line under a color is the LEGO color it matches,
-						in BrickLink naming, so Ash Gray is light bluish gray. Only colors with a genuinely close
-						LEGO counterpart show one.
-					</span>
-				</Popover>
-			</div>
-			<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-				{#each COLOR_ROLES as role (role.id)}
-					<ColorPicker bind:value={colorStore.roles[role.id]} label={role.name} />
-				{/each}
-			</div>
-		</div>
-
-		<!-- layer configuration -->
-		<div class="border-t border-border p-4">
-			<div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-					Layers <span class="font-normal normal-case text-text-muted">· {layers} layer{layers === 1 ? '' : 's'}, bins per layer</span>
-				</span>
-				<label class="flex cursor-pointer items-center gap-2 text-sm">
-					<input class="setup-toggle h-4 w-4" type="checkbox" bind:checked={printBins} />
-					<span class="font-medium text-text">Print bins</span>
-					<span class="text-xs text-text-muted">— include bins (size/qty per layer below)</span>
-				</label>
-			</div>
-			<div class="flex flex-col gap-2">
-				{#each funnelSizes as size, i (i)}
-					{@const pv = sizePreview[size]}
-					<div class="group setup-card-shell flex flex-wrap items-center gap-3 border px-3 py-2">
-						<span class="w-16 shrink-0 text-sm font-medium text-text">Layer {i + 1}</span>
-						<div class="flex">
-							<button class="setup-button-secondary h-9 px-3 text-sm {size === 'half' ? 'setup-button-primary' : ''}" onclick={() => setSize(i, 'half')}>12 bins</button>
-							<button class="setup-button-secondary h-9 border-l-0 px-3 text-sm {size === 'third' ? 'setup-button-primary' : ''}" onclick={() => setSize(i, 'third')}>18 bins</button>
-						</div>
-						<div class="ml-auto flex items-center gap-1.5">
-							{#each pv.bins as b (b)}
-								<img src={render(b)} alt={b} class="h-9 w-9 border border-border bg-[var(--color-bg)] object-contain {printBins ? '' : 'opacity-30'}" use:tip={partsById.get(b)?.name} />
-							{/each}
-							<span class="px-1 text-text-muted">+</span>
-							<img src={render(pv.funnel)} alt="funnel" class="h-9 w-9 border border-primary/40 bg-[var(--color-bg)] object-contain" use:tip={`${size} funnel`} />
-						</div>
-						{#if layers > 1}
-							<button
-								class="flex h-7 w-7 shrink-0 items-center justify-center text-text-muted opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
-								onclick={() => removeLayer(i)}
-								aria-label="Remove layer {i + 1}"
-								use:tip={'Remove layer'}
-							>
-								<X size={16} />
-							</button>
-						{/if}
-					</div>
-				{/each}
-				<button
-					class="setup-button-secondary flex h-10 w-full items-center justify-center gap-1.5 text-sm font-medium"
-					onclick={addLayer}
-				>
-					<Plus size={16} /> Add layer
-				</button>
-			</div>
-		</div>
-	</Disclosure>
+	<BuildOptions bind:printBins bind:open={showBuild} onreset={resetToDefaults} />
 	</div>
 
 	{#snippet partRow(p: Part, sectionId: string, indent: boolean)}
@@ -702,8 +603,10 @@
 					{#if shared.has(p.id)}<span class="cursor-help border border-border px-1 text-xs text-text-muted" use:tip={`Also used in ${usedIn(p.id).slice(1).join(', ')}`}>used in {usedIn(p.id).length} places</span>{/if}
 					{#if isEdited(p.id)}<span class="border border-primary/60 px-1 text-xs text-primary" use:tip={`Printing ${qtyOf(p.id)}, the machine needs ${machineNeeds(p.id)}`}>qty {qtyOf(p.id)}</span>{/if}
 					<OptionalBadge value={p.optional} />
-					{#if p.support_intentional}<Badge variant="info" tipText="Printed with support material — included in this part's grams">Supports</Badge>{/if}
-						{#if platesForPart(p.id).length}<button type="button" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" onclick={() => openPlatesModal(p.id)} use:tip={'Show plates with this part'}><Layers3 size={11} /> {platesForPart(p.id).length} plate{platesForPart(p.id).length === 1 ? '' : 's'}</button>{/if}{#if os.version}<a href={os.version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Open the exact OnShape version this STL came from'}>OnShape</a>{/if}{#if p.info}<Popover width="16rem" label="About {p.name}" text={p.info} />{/if}<ChangeStatus kind="parts" id={p.id} name={p.name} />{#if p.low_tolerance}<Popover width="18rem" label="Fit notes for {p.name}">{#snippet trigger({ toggle, props })}<Badge as="button" variant="warning" onclick={toggle} {...props}><AlertTriangle size={11} /> Tight fit</Badge>{/snippet}<b class="text-text">Low tolerance.</b> This part has little room for dimensional error, so a test print is worth doing before you commit to the full set.{#if p.low_tolerance_note}<span class="mt-2 block border-t border-border pt-2 text-text">{p.low_tolerance_note}</span>{/if}</Popover>{/if}{#if p.attributes?.length}{#each p.attributes as a}<span class="border border-border bg-[var(--color-bg)] px-1 text-xs text-text-muted" use:tip={a.label}>{a.label}: <span class="text-text">{a.value}</span></span>{/each}{/if}{#if p.versions && p.versions.length > 1}<Popover width="20rem" label="Version history for {p.name}">{#snippet trigger({ toggle, props })}<button type="button" onclick={toggle} {...props} class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Version history'}><History size={11} /> v{p.version} · {p.versions?.length ?? 0} versions</button>{/snippet}<b class="text-text">Version history</b><ul class="mt-1 space-y-2">{#each [...(p.versions ?? [])].reverse() as v}<li class="border-t border-border pt-2 first:border-t-0 first:pt-0"><div class="flex items-center gap-1.5 text-text"><b>v{v.version}</b><span class="text-text-muted">· {fmtDate(v.date)}</span>{#if commitUrl(v.commit)}<a href={commitUrl(v.commit)} target="_blank" rel="noopener" class="ml-auto inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">{v.commit}</a>{:else}<span class="ml-auto italic text-text-muted/70">uncommitted</span>{/if}</div><div class="mt-0.5">{v.message}</div>{#if v.onshape_version}<div class="mt-1"><a href={v.onshape_version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">OnShape</a></div>{/if}</li>{/each}</ul></Popover>{/if}
+					<RequiredColorBadge part={p} {sectionId} />
+					<PrintOrientationBadge part={p} />
+					<SupportBadge part={p} />
+						{#if platesForPart(p.id).length}<button type="button" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" onclick={() => openPlatesModal(p.id)} use:tip={'Show plates with this part'}><Layers3 size={11} /> {platesForPart(p.id).length} plate{platesForPart(p.id).length === 1 ? '' : 's'}</button>{/if}{#if os.version}<a href={os.version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Open the exact OnShape version this STL came from'}>OnShape</a>{/if}{#if p.info}<Popover width="16rem" label="About {p.name}" text={p.info} />{/if}<ChangeStatus kind="parts" id={p.id} name={p.name} />{#if p.low_tolerance}<Popover width="18rem" label="Fit notes for {p.name}">{#snippet trigger({ toggle, props })}<Badge as="button" variant="warning" onclick={toggle} {...props}><AlertTriangle size={11} /> Tight fit</Badge>{/snippet}<b class="text-text">Low tolerance.</b> This part has little room for dimensional error, so a test print is worth doing before you commit to the full set.{#if p.low_tolerance_note}<span class="mt-2 block border-t border-border pt-2 text-text">{p.low_tolerance_note}</span>{/if}</Popover>{/if}{#each pillAttributes(p) as a}<span class="border border-border bg-[var(--color-bg)] px-1 text-xs text-text-muted" use:tip={a.label}>{a.label}: <span class="text-text">{a.value}</span></span>{/each}{#if p.versions && p.versions.length > 1}<Popover width="20rem" label="Version history for {p.name}">{#snippet trigger({ toggle, props })}<button type="button" onclick={toggle} {...props} class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Version history'}><History size={11} /> v{p.version} · {p.versions?.length ?? 0} versions</button>{/snippet}<b class="text-text">Version history</b><ul class="mt-1 space-y-2">{#each [...(p.versions ?? [])].reverse() as v}<li class="border-t border-border pt-2 first:border-t-0 first:pt-0"><div class="flex items-center gap-1.5 text-text"><b>v{v.version}</b><span class="text-text-muted">· {fmtDate(v.date)}</span>{#if commitUrl(v.commit)}<a href={commitUrl(v.commit)} target="_blank" rel="noopener" class="ml-auto inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">{v.commit}</a>{:else}<span class="ml-auto italic text-text-muted/70">uncommitted</span>{/if}</div><div class="mt-0.5">{v.message}</div>{#if v.onshape_version}<div class="mt-1"><a href={v.onshape_version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">OnShape</a></div>{/if}</li>{/each}</ul></Popover>{/if}
 				</span>
 				<span class="pl-meta">
 					{#each sw as s}
@@ -747,9 +650,15 @@
 				{#if activeTab === 'parts'}
 					<span class="text-sm text-text-muted">
 						{selectedParts.length}/{PARTS.length} selected ·
-						<button class="text-primary hover:text-primary-hover" onclick={() => setAll(!allSelected)}>
-							{allSelected ? 'deselect all' : 'select all'}
-						</button>
+						<button
+							class="text-primary hover:text-primary-hover disabled:text-text-muted disabled:hover:text-text-muted"
+							disabled={allSelected}
+							onclick={() => setAll(true)}>select all</button>
+						·
+						<button
+							class="text-primary hover:text-primary-hover disabled:text-text-muted disabled:hover:text-text-muted"
+							disabled={noneSelected}
+							onclick={() => setAll(false)}>select none</button>
 						<button
 							class="ml-3 inline-flex items-center gap-1 text-primary hover:text-primary-hover"
 							onclick={downloadCsv}
@@ -833,6 +742,9 @@
 												{p.name}
 												{#if shared.has(p.id)}<span class="cursor-help border border-border px-1 text-xs text-text-muted" use:tip={`Used in ${usedIn(p.id).join(', ')}`}>used in {usedIn(p.id).length} places</span>{/if}
 												<OptionalBadge value={p.optional} />
+												<RequiredColorBadge part={p} />
+												<PrintOrientationBadge part={p} />
+												<SupportBadge part={p} />
 												<ChangeStatus kind="parts" id={p.id} name={p.name} />
 											</span>
 											<span class="pl-meta">{usedIn(p.id).join(' · ') || 'not placed yet'}</span>
@@ -917,7 +829,7 @@
 									{@const a = getAssembly(block.id)}
 									{@const folder = getFolder(block.id)}
 									{@const group = block.groupKind === 'folder' ? folder : a}
-									{@const k = asmKey(section.id, `${block.groupKind}:${block.id}`)}
+									{@const k = asmKey(section.id, `${block.groupKind}:${(block.groupKind === 'assembly' && alternativeOf(block.id)) || block.id}`)}
 									{@const open = expandedAsm[k] || filtering}
 									{@const allOn = asmAllOn(block.parts)}
 									<!-- svelte-ignore a11y_no_noninteractive_element_interactions a11y_click_events_have_key_events -->
@@ -968,6 +880,7 @@
 												<span class="pl-name">
 													{group?.name}
 													<Badge variant={block.groupKind === 'folder' ? 'neutral' : 'info'}>{block.groupKind === 'folder' ? 'Folder' : 'Assembly'}</Badge>
+													<OptionalBadge value={a?.optional} />
 													{#if a?.candidates?.some((c) => !c.superseded_by && !c.rejected_at)}<Badge variant="info"><FlaskConical size={11} /> Candidate</Badge>{/if}
 													{#if block.groupKind === 'assembly' && a}<ChangeStatus kind="assemblies" id={a.id} name={a.name} />{/if}
 												</span>
@@ -975,6 +888,7 @@
 													{block.parts.length ? `${block.parts.length} printed parts` : 'Parts and print details coming soon'}
 													{#if a}<span class="pl-hint">View assembly <ArrowUpRight size={12} /></span>{:else if block.parts.length && !filtering}· click to {open ? 'collapse' : 'expand'}{/if}
 												</span>
+												{#if a}<span class="mt-1.5 block"><AlternativeSwitch assembly={a.id} /></span>{/if}
 											</span>
 										</td>
 										<td class="pl-c-each">{block.parts.length ? `${block.parts.length} parts` : '—'}</td>

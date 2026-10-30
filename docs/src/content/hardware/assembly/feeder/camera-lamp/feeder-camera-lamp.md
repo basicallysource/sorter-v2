@@ -7,7 +7,7 @@ slug: assembly-feeder-camera-lamp
 kicker: Feeder — Feeder camera lamp
 lede: The OV9732 720p module clasped between its two halves, pushed into the ring on the arm, and the arm pushed up into a finished lamp. Build two.
 permalink: /hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/
-author: reveryx
+author: jensr80
 contributors: [spencer, danny, brickcyclealice, barthel, daddyosbricksbill]
 og_image: https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-lead-routing-w1600-e5c818271b94.jpg
 last_verified: 2026-09-25

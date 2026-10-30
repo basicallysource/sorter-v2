@@ -102,8 +102,9 @@ def test_a_batch_keeps_each_models_answer_from_the_pieces_chosen_crops(db, test_
     # The machine used one crop, an empty frame (white); every C4 crop is read,
     # so the three red ones decide. The C3 crop is not the colour camera's.
     _piece(db, machine_id, "a", [("1", True), ("5", False), ("5", False), ("5", False), ("7", False, 3)])
-    # Eight at most, used or not.
-    _piece(db, machine_id, "b", [("7", False)] * 9 + [("5", True)])
+    # Eight at most, the burst's last, used or not: its first frames, taken
+    # while the piece still slid in, read white.
+    _piece(db, machine_id, "b", [("1", False)] * 5 + [("7", False)] * 4 + [("7", True)])
     db.add(MachinePiece(machine_id=machine_id, piece_uuid="no-crops", local_id=2))
     db.commit()
 
@@ -115,7 +116,7 @@ def test_a_batch_keeps_each_models_answer_from_the_pieces_chosen_crops(db, test_
     assert a.confidence == pytest.approx(3.01 / 4.04)
     assert [t["color_id"] for t in a.top][:1] == [5] and len(a.top) == 3
     b = answers[("b", NEW)]
-    assert (b.color_id, b.seqs) == (7, [0, 1, 2, 3, 4, 5, 6, 7])
+    assert (b.color_id, b.seqs) == (7, [2, 3, 4, 5, 6, 7, 8, 9])
 
     # Another model's answer sits beside it; running a model again replaces its own.
     color_model_runs.run_batch(db, OLD, machine_id, ["a"])

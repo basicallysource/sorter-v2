@@ -5,6 +5,7 @@
 	import IdStamp from '$lib/components/IdStamp.svelte';
 	import ColorPicker from '$lib/components/ColorPicker.svelte';
 	import DownloadButton from '$lib/components/DownloadButton.svelte';
+	import BambuStudioButton from '$lib/components/BambuStudioButton.svelte';
 	import Callout from '$lib/components/Callout.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import BuildPlates from '$lib/components/BuildPlates.svelte';
@@ -12,10 +13,13 @@
 	import DetailPanes from '$lib/components/DetailPanes.svelte';
 	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
+	import RequiredColorBadge from '$lib/components/RequiredColorBadge.svelte';
+	import SupportBadge from '$lib/components/SupportBadge.svelte';
+	import PrintOrientationBadge from '$lib/components/PrintOrientationBadge.svelte';
 	import { getBambuColor } from '$lib/bambu-colors';
 	import { SITE_URL } from '$lib/seo';
 	import { copyText } from '$lib/clipboard';
-	import { duration, fmtDate, noteUrl, partOnshape, platesForPart, type Part, type PartCandidate, type PartVersion } from '$lib/filament';
+	import { duration, fmtDate, noteUrl, partOnshape, pillAttributes, platesForPart, type Part, type PartCandidate, type PartVersion } from '$lib/filament';
 	import { FileText, FlaskConical, History, Image, Layers3, Share2, Check } from 'lucide-svelte';
 
 	// The 3D-printed part detail view: the preview with the id-stamp controls laid
@@ -134,9 +138,12 @@
 					{:else}
 						{#if part.description}<CatalogText text={part.description} class="text-text" />{/if}
 					{/if}
-					{#if part.attributes?.length}
+					<RequiredColorBadge {part} />
+					<PrintOrientationBadge {part} />
+					<SupportBadge {part} />
+					{#if pillAttributes(part).length}
 						<div class="flex flex-wrap gap-1.5">
-							{#each part.attributes as a}<span class="border border-border bg-[var(--color-bg)] px-1.5 py-0.5 text-xs text-text-muted">{a.label}: <span class="text-text">{a.value}</span></span>{/each}
+							{#each pillAttributes(part) as a}<span class="border border-border bg-[var(--color-bg)] px-1.5 py-0.5 text-xs text-text-muted">{a.label}: <span class="text-text">{a.value}</span></span>{/each}
 						</div>
 					{/if}
 					{#if noteId}
@@ -207,6 +214,7 @@
 									<span class="min-w-0 flex-1 truncate text-xs font-medium text-text" use:tip={pl.name}>{pl.name}</span>
 									<button type="button" class="shrink-0 text-xs text-primary hover:text-primary-hover" onclick={() => (platesOpen = true)}>view</button>
 									<DownloadButton href={pl.download} size="sm" label="3mf" title="Download {pl.name}.3mf" />
+									<BambuStudioButton href={pl.download} size="sm" />
 								</div>
 							</div>
 						{/each}

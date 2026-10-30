@@ -7,18 +7,24 @@ slug: sorter-safe-shutdown
 kicker: SorterOS — Operations
 lede: Two proper ways to power the machine down, and why pulling the plug is a last resort.
 permalink: /sorter/safe-shutdown/
+warning: >-
+  **SorterOS changes quickly.** This page describes what each step does, but a
+  button's name, or where it is, may have changed since this page was written,
+  so it keeps screenshots to a minimum.
 ---
 
 The machine's computer writes files continuously while it runs. Cutting power mid-write can corrupt those files and leave the machine unable to start. Use one of the two shutdowns below, then cut power.
 
 ## Option 1: from the UI
 
-Click the dropdown at the top right of the UI and select **Full Machine Power Down**.
+Click the **⋯** menu at the top right of the UI and select **Power down the machine**. Press **Power down the machine** again to confirm.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/sorter-safe-shutdown-full-machine-power-down-menu-full-fb7d3867ed81.jpg" alt="The top-right UI dropdown open, showing the Full Machine Power Down action">
-  <figcaption><cite>UI screenshot. Who took it isn't recorded.</cite></figcaption>
+  <figcaption>An older version of the menu, where it was called <strong>Full Machine Power Down</strong>. <cite>UI screenshot. Who took it isn't recorded.</cite></figcaption>
 </figure>
+
+The UI then shows **Powering down** and stays on that screen, even after the machine is off and even if you unplug it. It never tells you the shutdown has finished, so watch the board instead (below).
 
 ## Option 2: the button on the Orange Pi
 
@@ -29,9 +35,9 @@ Press the small black button on the side of the Orange Pi once (circled below). 
   <figcaption><cite>Photographer not recorded.</cite></figcaption>
 </figure>
 
-You'll know it's shut down when the red and green light on the board have stopped blinking.
+## Knowing it has finished
 
-With either option, the full shutdown takes about a minute and a half. Wait for it to finish before flipping the switch or unplugging the machine.
+With either option, the full shutdown takes about a minute and a half. It has finished when the red and green lights on the Orange Pi have stopped blinking. Wait for that before flipping the switch or unplugging the machine.
 
 ## Cutting power directly
 

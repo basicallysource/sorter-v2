@@ -7,12 +7,12 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 import piece_predictions
-from defs.events import KnownObjectData
+from defs.events import KnownObjectData, PieceProblem
 import server.shared_state as shared_state
 
 router = APIRouter()
@@ -72,6 +72,10 @@ class PieceSummary(BaseModel):
     color_confidence: Optional[float] = None
     bin: Optional[BinRef] = None
     dead: bool = False
+    # What went wrong with the piece on its way through the machine, oldest
+    # first (why it timed out, why it went to misc, ...): each a sentence for
+    # the operator with its specifics. Empty when nothing did.
+    problems: List[PieceProblem] = []
     has_images: bool = False
     preview_url: Optional[str] = None
     est_value: Optional[float] = None
@@ -94,7 +98,13 @@ class PieceSummary(BaseModel):
 class PiecesListResponse(BaseModel):
     items: List[PieceSummary]
     next_cursor: Optional[str]
+    # What the listing holds: the matching pieces up to its anchor.
     total: int
+    # The newest piece id the listing is cut at (the first answer names it; send
+    # it back with every later request for the same listing), and how many
+    # matching pieces came after it.
+    anchor: Optional[int] = None
+    newer: int = 0
 
 
 class PredictionImage(BaseModel):
@@ -194,6 +204,79 @@ def _validateSort(sort: str) -> str:
     if sort not in _VALID_SORTS:
         raise HTTPException(status_code=400, detail=f"sort must be one of {_VALID_SORTS}")
     return sort
+
+
+class PieceFilters:
+    """Which pieces a listing or an export is of: one set of query parameters for
+    both, so the export is the list.
+
+    q is a search: terms separated by spaces, each of which must match a part
+    number (from its start), a part name or colour name (anywhere in it) or a
+    piece uuid (from its start). status is one status or several, comma
+    separated. sorting_run_id and lot_id are the operator's runs and lots (not
+    run_id, which is the backend process that saw the piece); a lot is the pieces
+    of the runs that add to it. reviewed is whether the operator has answered
+    any question about the piece. bin_x, bin_y and bin_z, all three, are a bin."""
+
+    def __init__(
+        self,
+        status: Optional[str] = None,
+        part_id: Optional[str] = None,
+        color_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        dead: Optional[bool] = None,
+        date_from: Optional[float] = None,
+        date_to: Optional[float] = None,
+        q: Optional[str] = None,
+        bin_x: Optional[int] = None,
+        bin_y: Optional[int] = None,
+        bin_z: Optional[int] = None,
+        sorting_run_id: Optional[str] = None,
+        lot_id: Optional[str] = None,
+        reviewed: Optional[bool] = None,
+        sort: str = "recent",
+    ) -> None:
+        self.status = status
+        self.part_id = part_id
+        self.color_id = color_id
+        self.run_id = run_id
+        self.dead = dead
+        self.date_from = date_from
+        self.date_to = date_to
+        self.q = q
+        self.bin_ref = None if None in (bin_x, bin_y, bin_z) else (bin_x, bin_y, bin_z)
+        self.sorting_run_id = sorting_run_id
+        self.lot_id = lot_id
+        self.reviewed = reviewed
+        self.sort = _validateSort(sort)
+
+    def kwargs(self) -> Dict[str, Any]:
+        """The filters as piece_records takes them."""
+        import sorting_runs
+
+        seen_ranges = None
+        if self.sorting_run_id is not None or self.lot_id is not None:
+            try:
+                seen_ranges = sorting_runs.seenRanges(
+                    run_id=self.sorting_run_id,
+                    lot_id=self.lot_id if self.sorting_run_id is None else None,
+                )
+            except sorting_runs.RunError as exc:
+                raise HTTPException(status_code=404, detail=str(exc))
+        return {
+            "status": _parseStatusFilter(self.status),
+            "part_id": self.part_id,
+            "color_id": self.color_id,
+            "run_id": self.run_id,
+            "dead": self.dead,
+            "date_from": self.date_from,
+            "date_to": self.date_to,
+            "query": self.q,
+            "bin_ref": self.bin_ref,
+            "seen_ranges": seen_ranges,
+            "reviewed": self.reviewed,
+            "sort": self.sort,
+        }
 
 
 def _csvHeaders(filename: str) -> Dict[str, str]:
@@ -327,19 +410,12 @@ def _isoTimestamp(ts: Any) -> str:
 
 @router.get("/api/pieces/export.csv")
 def exportPiecesCsv(
-    status: Optional[str] = None,
-    part_id: Optional[str] = None,
-    color_id: Optional[str] = None,
-    run_id: Optional[str] = None,
-    dead: Optional[bool] = None,
-    date_from: Optional[float] = None,
-    date_to: Optional[float] = None,
-    sort: str = "recent",
+    anchor: Optional[int] = None,
+    filters: PieceFilters = Depends(),
 ) -> StreamingResponse:
     import piece_records
 
-    _validateSort(sort)
-    status_values = _parseStatusFilter(status)
+    kwargs = filters.kwargs()
     gc = shared_state.gc_ref
 
     def generate() -> Iterator[str]:
@@ -354,17 +430,7 @@ def exportPiecesCsv(
 
         writer.writerow(_CSV_COLUMNS)
         yield drain()
-        for s in piece_records.iterPieceSummaries(
-            gc,
-            status=status_values,
-            part_id=part_id,
-            color_id=color_id,
-            run_id=run_id,
-            dead=dead,
-            date_from=date_from,
-            date_to=date_to,
-            sort=sort,
-        ):
+        for s in piece_records.iterPieceSummaries(gc, anchor=anchor, **kwargs):
             bin_ref = s.get("bin") or {}
             writer.writerow(
                 [
@@ -404,35 +470,26 @@ def exportPiecesCsv(
 def listPieces(
     limit: int = 100,
     cursor: Optional[str] = None,
-    status: Optional[str] = None,
-    part_id: Optional[str] = None,
-    color_id: Optional[str] = None,
-    run_id: Optional[str] = None,
-    dead: Optional[bool] = None,
-    date_from: Optional[float] = None,
-    date_to: Optional[float] = None,
-    sort: str = "recent",
+    offset: Optional[int] = None,
+    anchor: Optional[int] = None,
+    filters: PieceFilters = Depends(),
 ) -> PiecesListResponse:
     import piece_records
 
-    _validateSort(sort)
     result = piece_records.listPieces(
         shared_state.gc_ref,
         limit=limit,
         cursor=_parseCursor(cursor),
-        status=_parseStatusFilter(status),
-        part_id=part_id,
-        color_id=color_id,
-        run_id=run_id,
-        dead=dead,
-        date_from=date_from,
-        date_to=date_to,
-        sort=sort,
+        offset=offset,
+        anchor=anchor,
+        **filters.kwargs(),
     )
     return PiecesListResponse(
         items=[PieceSummary(**item) for item in result["items"]],
         next_cursor=result["next_cursor"],
         total=result["total"],
+        anchor=result["anchor"],
+        newer=result["newer"],
     )
 
 
@@ -571,6 +628,7 @@ def submitPieceCorrection(uuid: str, body: CorrectionRequest) -> CorrectionRespo
         submitColorFeedback,
         submitPartFeedback,
     )
+    from classification.providers import COLOR_PROVIDER_BRICKOGNIZE
 
     gc = shared_state.gc_ref
     ctx = piece_records.getCorrectionContext(uuid)
@@ -628,22 +686,26 @@ def submitPieceCorrection(uuid: str, body: CorrectionRequest) -> CorrectionRespo
                 submit_error = f"part: {e}"
                 if gc is not None:
                     gc.logger.warning(f"Brickognize part feedback failed for {uuid}: {e}")
-        # Color feedback: a corrected color equal to the prediction confirms it; a
-        # different one rejects the prediction (Brickognize only accepts/rejects
-        # its own ranked color, so it can't be told the actual true color).
+        # Color feedback is about Brickognize's own colour answer for the request
+        # the piece took its part from: the colour the operator settled on
+        # (confirmed or picked) says whether that answer was right. Brickognize
+        # only accepts or rejects its own ranked colour, so it can't be told the
+        # actual true colour. When the hosted colour model gave the piece its
+        # colour, Brickognize's answer is read from the stored predictions.
+        brickognize_color = _brickognizeColor(uuid, ctx, COLOR_PROVIDER_BRICKOGNIZE)
         if (
             listing_id
+            and brickognize_color is not None
             and ctx.get("color_corrected_id") is not None
             and not ctx.get("color_feedback_submitted")
-            and ctx.get("brickognize_color_rank") is not None
-            and _isColorId(ctx.get("color_id"))
         ):
             try:
-                is_correct = str(ctx["color_corrected_id"]) == str(ctx["color_id"])
+                brickognize_color_id, brickognize_color_rank = brickognize_color
+                is_correct = str(ctx["color_corrected_id"]) == brickognize_color_id
                 submitColorFeedback(
                     listing_id=str(listing_id),
-                    color_id=str(ctx["color_id"]),
-                    color_rank=int(ctx["brickognize_color_rank"]),
+                    color_id=brickognize_color_id,
+                    color_rank=brickognize_color_rank,
                     is_correct=is_correct,
                 )
                 piece_records.markFeedbackSubmitted(uuid, color=True)
@@ -665,12 +727,33 @@ def submitPieceCorrection(uuid: str, body: CorrectionRequest) -> CorrectionRespo
     )
 
 
+def _brickognizeColor(uuid: str, ctx: Dict[str, Any], brickognize: str) -> Optional[tuple[str, int]]:
+    """Brickognize's colour answer (id, rank) for the piece's listing."""
+    if (ctx.get("color_provider") or brickognize) == brickognize:
+        if ctx.get("brickognize_color_rank") is None or not _isColorId(ctx.get("color_id")):
+            return None
+        return str(ctx["color_id"]), int(ctx["brickognize_color_rank"])
+    import piece_predictions
+
+    return piece_predictions.brickognizeColor(uuid)
+
+
+# What the operator has answered about a piece: kept only in the database.
+_REVIEW_STATE = (
+    "part_correct",
+    "color_corrected_id",
+    "part_feedback_submitted",
+    "color_feedback_submitted",
+    "rejection_reasons",
+)
+
+
 def _summaryFromMemory(gc: Any, payload: Dict[str, Any]) -> PieceSummary:
     # HOT PATH: RecentObjects polls this per active piece every 600ms during
     # sorting. Everything here must come from the in-memory payload / process
     # state — zero sqlite. est_value uses the dict-hit-only price peek; a cache
     # miss stays null rather than hitting Hive.
-    from piece_records import peekCachedPrice
+    from piece_records import normalizeProblems, peekCachedPrice
 
     part_id = payload.get("part_id")
     color_id = payload.get("color_id")
@@ -698,6 +781,7 @@ def _summaryFromMemory(gc: Any, payload: Dict[str, Any]) -> PieceSummary:
         color_confidence=payload.get("color_confidence"),
         bin=bin_ref,
         dead=bool(payload.get("dead")),
+        problems=[PieceProblem(**note) for note in normalizeProblems(payload.get("problems"))],
         has_images=bool(payload.get("recognition_image_set")),
         preview_url=payload.get("brickognize_preview_url"),
         est_value=est_value,
@@ -724,9 +808,17 @@ def getPiece(uuid: str) -> PieceDetailResponse:
             except Exception:
                 detail = None
             if detail is not None:
+                summary = _summaryFromMemory(gc, payload)
+                # A piece still in memory has been recorded, and may have been
+                # reviewed: the page's review shows what was answered.
+                recorded = piece_records.getPieceSummaryByUuid(gc, uuid)
+                if recorded is not None:
+                    summary = summary.model_copy(
+                        update={key: recorded[key] for key in _REVIEW_STATE}
+                    )
                 return PieceDetailResponse(
                     origin="memory",
-                    summary=_summaryFromMemory(gc, payload),
+                    summary=summary,
                     detail=detail,
                     detail_available=True,
                     predictions=[PiecePrediction(**p) for p in piece_predictions.recent(uuid)],

@@ -119,6 +119,8 @@ sections:
             url: /hardware/helpers/pulley-gear-mod/
           - title: Soldering Pico headers
             url: /hardware/helpers/pico-headers/
+          - title: Coupling a chute door to its servo
+            url: /hardware/helpers/door-servo-coupling/
           - title: Preparing the 3D printed cable cage plates
             url: /hardware/helpers/cable-cage-plates/
           - title: Preparing the LED strips (LED2a to LED4a, LED2 to LED4)
@@ -183,18 +185,57 @@ sections:
             url: /sorter/preparing-lego/
           - title: Your first sort run
             url: /sorter/tutorials/first-sort-run/
+          - title: Bins and profiles
+            url: /sorter/bins-and-profiles/
           - title: Exporting what the machine sorted
             url: /sorter/export-counts/
           - title: Shutting down the machine
             url: /sorter/safe-shutdown/
           - title: Troubleshooting
             url: /sorter/troubleshooting/
+          - title: Repair git and get on stable
+            url: /sorter/repair-git-get-on-stable/
+      - title: Using the UI
+        pages:
+          - title: The dashboard
+            url: /sorter/dashboard/
+          - title: Records
+            url: /sorter/records/
+            children:
+              - title: The piece page
+                url: /sorter/tracked-piece/
+          - title: Logs
+            url: /sorter/logs/
+          - title: Channel settings
+            url: /sorter/channel-settings/
+          - title: Zones
+            url: /sorter/zones/
+          - title: Perception debug
+            url: /sorter/perception-debug/
+          - title: Feeder simple pulse
+            url: /sorter/feeder-simple-pulse/
+          - title: Tuning
+            url: /sorter/tuning/
+          - title: StallGuard
+            url: /sorter/stallguard/
+          - title: Diagnostics
+            url: /sorter/diagnostics/
+          - title: Incident handling
+            url: /sorter/incident-handling/
+          - title: Networking
+            url: /sorter/networking/
+          - title: Training data
+            url: /sorter/training-data/
       - title: Under the hood
         pages:
+          - title: The Linux system
+            url: /sorter/linux-system/
           - title: Dev flow
             url: /sorter/dev-flow/
           - title: Sorting profile reference
             url: /sorter/profile-reference/
+          - title: machine.toml reference
+            url: /sorter/machine-toml-reference/
           - title: What leaves the machine
             url: /sorter/what-leaves-the-machine/
 
@@ -236,8 +277,8 @@ sections:
         url: /lab/sorter/
       - title: Design intentions for the printed parts
         url: /lab/printed-parts/
-      - title: How to contribute
-        url: /lab/contribute/
+      - title: How the cameras are lit
+        url: /lab/lighting/
     groups:
       - title: Electronics
         pages:
@@ -274,6 +315,8 @@ sections:
             children:
               - title: Floating chute stack
                 url: /lab/concepts/floating-chute-stack/
+              - title: Push-button power manager
+                url: /lab/concepts/power-manager/
           - title: Abandoned ideas
             url: /lab/variants/abandoned/
             children:

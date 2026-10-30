@@ -7,7 +7,7 @@ slug: assembly-classification-camera-lamp
 kicker: Feeder — Classification camera lamp
 lede: The IMX415 4K module clasped between its two halves, pushed into the ring on the arm, and the arm pushed up into a finished lamp. Build one.
 permalink: /hardware/assembly/feeder/camera-lamp/classification-camera-lamp/
-author: reveryx
+author: jensr80
 contributors: [spencer, danny, brickcyclealice, barthel, daddyosbricksbill]
 og_image: https://assets.basically.website/sorter-docs/assembly-camera-lamp-imx415-lead-routing-w1600-ff6852248c3f.jpg
 last_verified: 2026-09-25

@@ -24,4 +24,8 @@ None of these is part of the build instructions in [Hardware]({{ '/hardware/' | 
     <strong><a href="{{ '/lab/concepts/floating-chute-stack/' | relative_url }}">Floating chute stack</a></strong>
     <p>Take every electrical part off the rotating chute stack, build each bin layer as its own module, and hold a column of chutes at two points.</p>
   </div>
+  <div class="callout">
+    <strong><a href="{{ '/lab/concepts/power-manager/' | relative_url }}">Push-button power manager</a></strong>
+    <p>Start the machine with one button and shut it down cleanly through a remote-control power supply, with the Orange Pi shutting itself down first.</p>
+  </div>
 </div>

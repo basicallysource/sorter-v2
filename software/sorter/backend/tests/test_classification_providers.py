@@ -165,12 +165,25 @@ def test_known_object_keeps_brickognize_color_without_hosted_answer() -> None:
 
 def test_hosted_color_reads_every_burst_frame_not_only_the_used_ones() -> None:
     # Ten burst frames, only one of them used for the part (an empty frame,
-    # say): the colour provider gets the burst's first eight in order, used or not.
+    # say): the colour provider gets the burst's last eight in order, used or
+    # not (the first ones are taken while the piece still slides in).
     captures = [np.full((4, 4, 3), i, dtype=np.uint8) for i in range(10)]
     entries = [RecognitionImage(image=f"{i}.jpg", source="c4_burst", used=i == 5, channel=4) for i in range(10)]
 
     images = _hostedColorImages(captures, entries)
 
     assert len(images) == MAX_HOSTED_COLOR_IMAGES == 8
-    assert [s.rec.image for s in images] == [f"{i}.jpg" for i in range(8)]
-    assert [int(s.bgr[0, 0, 0]) for s in images] == list(range(8))
+    assert [s.rec.image for s in images] == [f"{i}.jpg" for i in range(2, 10)]
+    assert [int(s.bgr[0, 0, 0]) for s in images] == list(range(2, 10))
+
+
+def test_hosted_color_crops_are_sent_small() -> None:
+    big = np.full((400, 1000, 3), 7, dtype=np.uint8)
+    small = np.full((50, 100, 3), 9, dtype=np.uint8)
+    entries = [RecognitionImage(image=f"{i}.jpg", source="c4_burst", used=True, channel=4) for i in range(2)]
+
+    images = _hostedColorImages([big, small], entries)
+
+    assert images[0].bgr.shape[:2] == (102, 256)
+    assert int(images[0].bgr[50, 128, 0]) == 7
+    assert images[1].bgr.shape[:2] == (50, 100)

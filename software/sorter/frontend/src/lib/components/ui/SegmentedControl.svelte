@@ -32,6 +32,10 @@
 		onchange?: (value: T) => void;
 	} = $props();
 
+	// With no choice made (a typed amount that matches none of the presets),
+	// the first segment is the one Tab reaches.
+	const chosen = $derived(options.some((o) => o.value === value));
+
 	function choose(next: T) {
 		value = next;
 		onchange?.(next);
@@ -59,13 +63,13 @@
 		: 'inline-flex'} divide-x divide-line-strong overflow-hidden rounded-button border border-line-strong bg-field
 		{size === 'sm' ? 'h-(--size-control-sm)' : 'h-(--size-control)'}"
 >
-	{#each options as option (option.value)}
+	{#each options as option, i (option.value)}
 		{@const on = option.value === value}
 		<button
 			type="button"
 			role="radio"
 			aria-checked={on}
-			tabindex={on ? 0 : -1}
+			tabindex={on || (!chosen && i === 0) ? 0 : -1}
 			data-value={option.value}
 			onclick={() => choose(option.value)}
 			class="inline-flex h-full items-center justify-center gap-1.5 text-sm whitespace-nowrap transition-colors focus-visible:-outline-offset-2

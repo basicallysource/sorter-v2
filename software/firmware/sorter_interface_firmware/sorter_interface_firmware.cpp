@@ -73,6 +73,7 @@ void CMDH_stepper_drv_write_register(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_enable_stall_detection(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_get_stall_status(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_clear_stall(const BusMessage *msg, BusMessage *resp);
+void CMDH_stepper_set_diag_pin(const BusMessage *msg, BusMessage *resp);
 bool VAL_stepper_channel(uint8_t channel);
 
 const struct CommandTable stepperCmdTable = {
@@ -94,6 +95,10 @@ const struct CommandTable stepperCmdTable = {
         {"ENABLE_STALL_DETECTION", "?", "", 1, VAL_stepper_channel, CMDH_stepper_enable_stall_detection},
         {"GET_STALL_STATUS", "", "B", 0, VAL_stepper_channel, CMDH_stepper_get_stall_status},
         {"CLEAR_STALL", "", "", 0, VAL_stepper_channel, CMDH_stepper_clear_stall},
+        // Which GPIO a channel's DIAG reaches, -1 for none, for a DIAG wired by
+        // hand. Until a host sends it, a channel uses its board's STEPPER_DIAG_PINS,
+        // and INIT puts those back.
+        {"SET_DIAG_PIN", "b", "", 1, VAL_stepper_channel, CMDH_stepper_set_diag_pin},
     }}};
 
 const struct CommandTable stepperDrvCmdTable = {
@@ -260,6 +265,18 @@ static bool stepper_drv_current_on[STEPPER_COUNT];
 // make later duty writes land on a pad the PWM block no longer drives.
 static bool digital_output_pwm_active[DIGITAL_OUTPUT_COUNT];
 
+// Each channel's DIAG GPIO as the firmware uses it: the board's STEPPER_DIAG_PINS,
+// or what SET_DIAG_PIN set since the last INIT.
+static int stepper_diag_pins[STEPPER_COUNT];
+
+// TMC2209 drives DIAG high on stall, so pull down for a defined idle level.
+static void init_diag_pin(int pin) {
+    if (pin < 0) return;
+    gpio_init(pin);
+    gpio_set_dir(pin, GPIO_IN);
+    gpio_pull_down(pin);
+}
+
 static void ensure_stepper_hw_enabled(int i) {
     if (!stepper_hw_enabled[i]) {
         gpio_put(STEPPER_nEN_PINS[i], 0);
@@ -307,7 +324,7 @@ static int append_stepper_diag_pins_json(char *buf, size_t buf_size) {
     int written = snprintf(buf, buf_size, "[");
     if (written < 0 || (size_t)written >= buf_size) return -1;
     for (int i = 0; i < STEPPER_COUNT; i++) {
-        int n = snprintf(buf + written, buf_size - written, "%s%d", i == 0 ? "" : ",", STEPPER_DIAG_PINS[i]);
+        int n = snprintf(buf + written, buf_size - written, "%s%d", i == 0 ? "" : ",", stepper_diag_pins[i]);
         if (n < 0 || (size_t)(written + n) >= buf_size) return -1;
         written += n;
     }
@@ -494,12 +511,9 @@ void initialize_hardware() {
     // pull down for a defined idle level. Channels with no DIAG wire (pin < 0)
     // get _stall_pin = -1 and are simply never checked.
     for (int i = 0; i < STEPPER_COUNT; i++) {
-        if (STEPPER_DIAG_PINS[i] >= 0) {
-            gpio_init(STEPPER_DIAG_PINS[i]);
-            gpio_set_dir(STEPPER_DIAG_PINS[i], GPIO_IN);
-            gpio_pull_down(STEPPER_DIAG_PINS[i]);
-        }
-        steppers[i].setStallPin(STEPPER_DIAG_PINS[i]);
+        stepper_diag_pins[i] = STEPPER_DIAG_PINS[i];
+        init_diag_pin(stepper_diag_pins[i]);
+        steppers[i].setStallPin(stepper_diag_pins[i]);
         steppers[i].enableStallDetection(false);
     }
     // Initialize digital inputs
@@ -806,7 +820,7 @@ void CMDH_stepper_drv_write_register(const BusMessage *msg, BusMessage *resp) {
 
 void CMDH_stepper_enable_stall_detection(const BusMessage *msg, BusMessage *resp) {
     bool enable = msg->payload[0] != 0;
-    if (enable && STEPPER_DIAG_PINS[msg->channel] < 0) {
+    if (enable && stepper_diag_pins[msg->channel] < 0) {
         resp->command = msg->command | 0x80; // Set error bit
         resp->payload_length =
             snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "No DIAG pin for channel %u", msg->channel);
@@ -828,6 +842,39 @@ void CMDH_stepper_get_stall_status(const BusMessage *msg, BusMessage *resp) {
 
 void CMDH_stepper_clear_stall(const BusMessage *msg, BusMessage *resp) {
     steppers[msg->channel].clearStall();
+    resp->payload_length = 0;
+}
+
+// A DIAG wire may not land on a pin the board drives or reads for anything else.
+static bool gpio_in_use(int pin) {
+    for (int i = 0; i < STEPPER_COUNT; i++) {
+        if (pin == STEPPER_STEP_PINS[i] || pin == STEPPER_DIR_PINS[i] || pin == STEPPER_nEN_PINS[i]) return true;
+    }
+    for (int i = 0; i < TMC_UART_BUS_COUNT; i++) {
+        if (pin == TMC_UART_BUS_TX_PINS[i] || pin == TMC_UART_BUS_RX_PINS[i]) return true;
+    }
+    for (int i = 0; i < DIGITAL_INPUT_COUNT; i++) {
+        if (pin == digital_input_pins[i]) return true;
+    }
+    for (int i = 0; i < DIGITAL_OUTPUT_COUNT; i++) {
+        if (pin == digital_output_pins[i]) return true;
+    }
+    return pin == I2C_SDA_PIN || pin == I2C_SCL_PIN;
+}
+
+void CMDH_stepper_set_diag_pin(const BusMessage *msg, BusMessage *resp) {
+    int pin = (int8_t)msg->payload[0];
+    if (pin < -1 || pin > 29 || (pin >= 0 && gpio_in_use(pin))) {
+        resp->command = msg->command | 0x80; // Set error bit
+        resp->payload_length =
+            snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "GPIO %d is not free for a DIAG wire", pin);
+        return;
+    }
+    // Stall detection stays off across the change; the host turns it back on.
+    steppers[msg->channel].enableStallDetection(false);
+    init_diag_pin(pin);
+    stepper_diag_pins[msg->channel] = pin;
+    steppers[msg->channel].setStallPin(pin);
     resp->payload_length = 0;
 }
 

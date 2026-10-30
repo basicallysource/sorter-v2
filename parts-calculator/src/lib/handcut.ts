@@ -74,8 +74,6 @@ export function fromEdges(h: { x: number; y: number }): { left: number; bottom: 
 	return { left: h.x + RECT.w / 2, bottom: h.y + RECT.h / 2 };
 }
 
-export type Units = 'mm' | 'in';
-
 /** mm as a tape-measure-friendly inch fraction, nearest 1/32″ (≤ 0.4 mm off). */
 export function inchStr(mm: number, denom = 32): string {
 	const total = Math.round((mm / 25.4) * denom);
@@ -90,16 +88,16 @@ export function inchStr(mm: number, denom = 32): string {
 	return whole ? `${whole} ${num}/${d}″` : `${num}/${d}″`;
 }
 
-export function fmtLen(mm: number, units: Units): string {
-	return units === 'mm' ? `${mm.toFixed(1)} mm` : inchStr(mm);
+/** Both systems on every length, metric first: `254.0 mm (10″)`. */
+export function fmtLen(mm: number): string {
+	return `${mm.toFixed(1)} mm (${inchStr(mm)})`;
 }
 
 /** Drill bits aren't unit conversions — each system has its own stock size. */
-export function bitLabel(d: number, units: Units): string {
-	if (units === 'mm') return `${d} mm`;
+export function bitLabel(d: number): string {
 	const imperial: Record<number, string> = {
 		[SMALL_HOLE_D]: '7/32″',
 		[CABLE_HOLE_D]: '7/8″'
 	};
-	return imperial[d] ?? inchStr(d);
+	return `${d} mm (${imperial[d] ?? inchStr(d)})`;
 }

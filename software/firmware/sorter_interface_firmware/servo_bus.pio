@@ -1,0 +1,34 @@
+; Half-duplex 8N1 UART for a serial servo bus: TX and RX on one pin, 8 PIO cycles per bit.
+
+.program servo_bus_tx
+.side_set 1 opt pindirs
+
+; Open drain. The pin's output value is 0 and only its direction ever changes:
+; pindir 1 pulls the line low, pindir 0 releases it to the pull-up. The line is
+; never driven high. Bytes are pushed inverted, so a 0 bit shifts out as pindir 1.
+; OUT pin 0 and side-set pin 0 are both the bus.
+
+    pull       side 0 [7]  ; Stop bit: release the line, or wait here with it released
+    set x, 7   side 1 [7]  ; Start bit: pull the line low
+bitloop:
+    out pindirs, 1         ; One data bit, LSB first
+    jmp x-- bitloop   [6]
+
+.program servo_bus_rx
+
+; The shape of pico-examples' uart_rx. IN pin 0 and the JMP pin are both the bus.
+; It runs all the time, so it also hears everything servo_bus_tx sends.
+
+start:
+    wait 0 pin 0           ; Wait for a start bit
+    set x, 7        [10]   ; Delay until halfway through the first data bit
+bitloop:
+    in pins, 1
+    jmp x-- bitloop [6]
+    jmp pin good_stop      ; The stop bit should be high
+
+    wait 1 pin 0           ; Framing error or break: drop the byte, wait for idle
+    jmp start
+
+good_stop:
+    push noblock           ; Never stall on a full FIFO, or the next start bit is missed

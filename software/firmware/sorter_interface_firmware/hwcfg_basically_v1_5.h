@@ -54,3 +54,10 @@ const uint8_t DIGITAL_OUTPUT_COUNT = 2;
 const int digital_output_pins[] = {27, 28};
 const int FAN0_OUTPUT_CHANNEL = -1;
 const uint8_t LED_OUTPUT_COUNT = 2;
+
+// Serial bus servos, half duplex on one pin through a level shifter to the servo
+// plug. Nothing limits the current between this pin and a servo answering, so
+// ServoBus only ever pulls it low or releases it. A macro, for the same reason as
+// TMC_UART_BUS_COUNT: it gates this bus's commands.
+#define SERVO_BUS_PIN 2
+const int SERVO_BUS_BAUDRATE = 1000000;

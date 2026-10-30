@@ -32,6 +32,7 @@
 
 #include "PCA9685.h"
 #include "Servo.h"
+#include "ServoBus.h"
 #include "Stepper.h"
 #include "TMC2209.h"
 #include "TMC_UART.h"
@@ -158,9 +159,6 @@ const struct CommandTable servoCmdTable = {
         {"MOVE_TO_AND_RELEASE", "HH", "?", 255, VAL_servo_channel, CMDH_servo_move_to_and_release},
     }}};
 
-const MasterCommandTable command_tables = {
-    {&baseCmdTable, &stepperCmdTable, &stepperDrvCmdTable, &digitalIoCmdTable, &servoCmdTable}};
-
 // #define MAIN_TRACE_ENABLED
 
 #ifdef MAIN_TRACE_ENABLED
@@ -221,6 +219,29 @@ uint8_t DEVICE_ADDRESS = INIT_DEVICE_ADDRESS;
 #endif
 
 // End board configuration
+
+#ifdef SERVO_BUS_PIN
+void CMDH_servo_bus_ping(const BusMessage *msg, BusMessage *resp);
+void CMDH_servo_bus_read(const BusMessage *msg, BusMessage *resp);
+void CMDH_servo_bus_write(const BusMessage *msg, BusMessage *resp);
+bool VAL_servo_bus_id(uint8_t channel);
+
+// The channel is the servo's ID, 254 being broadcast.
+const struct CommandTable servoBusCmdTable = {
+    .prefix = "SERVO_BUS",
+    .commands = {{
+        {"PING", "", "B", 0, VAL_servo_bus_id, CMDH_servo_bus_ping},
+        {"READ", "BB", "Bs", 2, VAL_servo_bus_id, CMDH_servo_bus_read},
+        {"WRITE", "Bs", "B", 255, VAL_servo_bus_id, CMDH_servo_bus_write},
+    }}};
+#endif
+
+const MasterCommandTable command_tables = {
+    {&baseCmdTable, &stepperCmdTable, &stepperDrvCmdTable, &digitalIoCmdTable, &servoCmdTable,
+#ifdef SERVO_BUS_PIN
+     &servoBusCmdTable,
+#endif
+    }};
 
 TMC_UART_Bus tmc_bus_0(TMC_UART_BUSES[0]);
 #if TMC_UART_BUS_COUNT > 1
@@ -299,6 +320,10 @@ PCA9685 servo_controller(SERVO_I2C_ADDRESS, I2C_PORT);
 #endif
 std::array<Servo, 16> servos{}; // Create 16 servo objects, but only the first SERVO_COUNT will be used
 
+#ifdef SERVO_BUS_PIN
+ServoBus servo_bus(pio0, SERVO_BUS_PIN);
+#endif
+
 // clang-format on
 
 /**
@@ -353,10 +378,15 @@ int dump_observability(char *buf, size_t buf_size) {
     }
     snprintf(led_gpios_buf + led_len, sizeof(led_gpios_buf) - led_len, "]");
 
+#ifdef SERVO_BUS_PIN
+#define OBSERVABILITY_SERVO_BUS ",\"servo_bus\":true"
+#else
+#define OBSERVABILITY_SERVO_BUS ""
+#endif
     int n_bytes = snprintf(
         buf,
         buf_size,
-        "{\"hw\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s}",
+        "{\"hw\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s" OBSERVABILITY_SERVO_BUS "}",
         HW_ID,
         diag_pins_len > 0 ? diag_pins_buf : "[]",
         led_gpios_buf);
@@ -574,6 +604,9 @@ void initialize_hardware() {
     } else {
         SERVO_COUNT = 0;
     }
+#endif
+#ifdef SERVO_BUS_PIN
+    servo_bus.setupComm(SERVO_BUS_BAUDRATE);
 #endif
 }
 
@@ -876,6 +909,9 @@ static bool gpio_in_use(int pin) {
 #ifdef HW_HAS_PCA9685
     if (pin == I2C_SDA_PIN || pin == I2C_SCL_PIN) return true;
 #endif
+#ifdef SERVO_BUS_PIN
+    if (pin == SERVO_BUS_PIN) return true;
+#endif
     return false;
 }
 
@@ -966,6 +1002,62 @@ void CMDH_servo_set_duty_limits(const BusMessage *msg, BusMessage *resp) {
 }
 
 bool VAL_servo_channel(uint8_t channel) { return channel < SERVO_COUNT; }
+
+#ifdef SERVO_BUS_PIN
+bool VAL_servo_bus_id(uint8_t channel) { return channel <= SERVO_BUS_BROADCAST_ID; }
+
+static void servo_bus_no_reply(const BusMessage *msg, BusMessage *resp) {
+    resp->command = msg->command | 0x80; // Set error bit
+    resp->payload_length = snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "No reply from servo %u", msg->channel);
+}
+
+void CMDH_servo_bus_ping(const BusMessage *msg, BusMessage *resp) {
+    int status = servo_bus.transact(msg->channel, SERVO_BUS_INST_PING, msg->payload, 0, NULL, 0);
+    if (status < 0) {
+        servo_bus_no_reply(msg, resp);
+        return;
+    }
+    resp->payload[0] = (uint8_t)status;
+    resp->payload_length = 1;
+}
+
+void CMDH_servo_bus_read(const BusMessage *msg, BusMessage *resp) {
+    uint8_t count = msg->payload[1];
+    if (count < 1 || count > SERVO_BUS_MAX_DATA) {
+        resp->command = msg->command | 0x80; // Set error bit
+        resp->payload_length =
+            snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "READ: Invalid count %u, expected 1 to %u", count,
+                     (unsigned)SERVO_BUS_MAX_DATA);
+        return;
+    }
+    int status = servo_bus.transact(msg->channel, SERVO_BUS_INST_READ, msg->payload, 2, resp->payload + 1, count);
+    if (status < 0) {
+        servo_bus_no_reply(msg, resp);
+        return;
+    }
+    resp->payload[0] = (uint8_t)status;
+    resp->payload_length = count + 1;
+}
+
+void CMDH_servo_bus_write(const BusMessage *msg, BusMessage *resp) {
+    // Payload: the address, then 1 to SERVO_BUS_MAX_DATA data bytes.
+    if (msg->payload_length < 2 || msg->payload_length > 1 + SERVO_BUS_MAX_DATA) {
+        resp->command = msg->command | 0x80; // Set error bit
+        resp->payload_length =
+            snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "WRITE: Invalid payload length %u, expected 2 to %u",
+                     msg->payload_length, (unsigned)(1 + SERVO_BUS_MAX_DATA));
+        return;
+    }
+    int status =
+        servo_bus.transact(msg->channel, SERVO_BUS_INST_WRITE, msg->payload, msg->payload_length, NULL, 0);
+    if (status < 0) {
+        servo_bus_no_reply(msg, resp);
+        return;
+    }
+    resp->payload[0] = (uint8_t)status;
+    resp->payload_length = 1;
+}
+#endif
 
 const uint32_t STEP_TICK_PERIOD_US = 1000000 / STEP_TICK_RATE_HZ;
 const uint32_t MOTION_UPDATE_PERIOD_US = 1000000 / STEP_MOTION_UPDATE_RATE_HZ;

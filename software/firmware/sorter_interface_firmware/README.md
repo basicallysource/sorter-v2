@@ -8,6 +8,7 @@ The firmware is designed to run on a Raspberry Pi Pico (RP2040) microcontroller 
 - `Stepper.*` — Stepper motor control logic
 - `TMC2209.*` — TMC2209 stepper driver abstraction
 - `TMC_UART.*` — UART communication with TMC drivers
+- `ServoBus.*`, `servo_bus.pio` — Serial bus servos on one open-drain pin
 - `message.*` — Message and command processing
 - `cobs.*`, `crc.*` — Communication utilities
 - `build/` — Build output directory
@@ -66,6 +67,20 @@ ninja
 ```
 
 Both variants keep the same physical channel wiring but advertise different `stepper_names` in detect JSON, letting the client bind actuators by role-specific names.
+
+## Serial Servo Bus (`SERVO_BUS` commands)
+
+The v1.5 board (`make build-distribution-v1-5`) drives Feetech SC serial bus servos on one half-duplex line instead of PWM servos through a PCA9685. It runs at 1 Mbps, 8N1. The firmware only ever pulls the line low or releases it, and never drives it high. `GET_OBSERVABILITY` reports `"servo_bus":true` on a board with a bus. Other boards answer these commands with "Invalid command", and `SERVO_COUNT` is 0 on v1.5, so the PWM servo commands answer "Invalid channel" there.
+
+The channel byte is the servo's ID, 0 to 254, and 254 is broadcast. A wait for a servo that does not answer costs about 2 ms.
+
+| Command | Payload | Reply |
+|---|---|---|
+| `0x50 PING` | none | `[status u8]` |
+| `0x51 READ` | `[address u8, count u8]`, count 1 to 64 | `[status u8, data...]`, count data bytes |
+| `0x52 WRITE` | `[address u8, data...]`, 1 to 64 data bytes | `[status u8]` |
+
+`status` is the servo's status (error) byte. A write to ID 254 waits for no answer and its status is 0. If a servo does not answer, or its packet is bad, the reply is an error (the `0x80` bit set on the command) with the text `No reply from servo N`. Bad lengths get an error reply saying so.
 
 ## Code Style
 - Follows LLVM style (see `.clang-format`).

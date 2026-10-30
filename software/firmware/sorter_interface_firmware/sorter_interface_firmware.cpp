@@ -214,8 +214,10 @@ uint8_t DEVICE_ADDRESS = INIT_DEVICE_ADDRESS;
 #include "hwcfg_basically_v1_1.h"
 #elif defined(HW_BASICALLY_V1_2)
 #include "hwcfg_basically_v1_2.h"
+#elif defined(HW_BASICALLY_V1_5)
+#include "hwcfg_basically_v1_5.h"
 #else
-#error "No hardware config selected. Define HARDWARE_SKR_PICO, HW_BASICALLY_V1_1, or HW_BASICALLY_V1_2."
+#error "No hardware config selected. Define HARDWARE_SKR_PICO, HW_BASICALLY_V1_1, HW_BASICALLY_V1_2, or HW_BASICALLY_V1_5."
 #endif
 
 // End board configuration
@@ -292,7 +294,9 @@ static void ensure_stepper_hw_enabled(int i) {
 }
 
 std::atomic<uint8_t> SERVO_COUNT = 0; // Number of servos controlled by the PCA9685, should be <= 16
+#ifdef HW_HAS_PCA9685
 PCA9685 servo_controller(SERVO_I2C_ADDRESS, I2C_PORT);
+#endif
 std::array<Servo, 16> servos{}; // Create 16 servo objects, but only the first SERVO_COUNT will be used
 
 // clang-format on
@@ -488,6 +492,14 @@ void initialize_hardware() {
 #if TMC_UART_BUS_COUNT > 1
     tmc_bus_1.setupComm(TMC_UART_BAUDRATE, TMC_UART_BUS_TX_PINS[1], TMC_UART_BUS_RX_PINS[1]);
 #endif
+#ifdef TMC_UART0_SENDDELAY
+    // Several drivers on one line: each must wait before it answers a read.
+    for (int i = 0; i < STEPPER_COUNT; i++) {
+        if (TMC_UART_BUS_INDEX[i] == 0) {
+            tmc_drivers[i].writeRegister(TMC2209_Register::SLAVECONF, (uint32_t)TMC_UART0_SENDDELAY << 8);
+        }
+    }
+#endif
     // Initialize TMC2209 drivers and steppers
     for (int i = 0; i < STEPPER_COUNT; i++) {
         steppers[i].initialize();
@@ -537,6 +549,7 @@ void initialize_hardware() {
     if (FAN0_OUTPUT_CHANNEL >= 0 && FAN0_OUTPUT_CHANNEL < DIGITAL_OUTPUT_COUNT) {
         gpio_put(digital_output_pins[FAN0_OUTPUT_CHANNEL], 1);
     }
+#ifdef HW_HAS_PCA9685
     // Initialize i2c
     i2c_init(I2C_PORT, 400000);
     gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
@@ -561,6 +574,7 @@ void initialize_hardware() {
     } else {
         SERVO_COUNT = 0;
     }
+#endif
 }
 
 void CMDH_init(const BusMessage *msg, BusMessage *resp) {
@@ -859,7 +873,10 @@ static bool gpio_in_use(int pin) {
     for (int i = 0; i < DIGITAL_OUTPUT_COUNT; i++) {
         if (pin == digital_output_pins[i]) return true;
     }
-    return pin == I2C_SDA_PIN || pin == I2C_SCL_PIN;
+#ifdef HW_HAS_PCA9685
+    if (pin == I2C_SDA_PIN || pin == I2C_SCL_PIN) return true;
+#endif
+    return false;
 }
 
 void CMDH_stepper_set_diag_pin(const BusMessage *msg, BusMessage *resp) {
@@ -997,7 +1014,9 @@ void core1_entry() {
         if (now - last_servo_update_time >= SERVO_UPDATE_PERIOD_US) {
             for (int i = 0; i < SERVO_COUNT; i++) {
                 servos[i].update();
+#ifdef HW_HAS_PCA9685
                 servo_controller.setPWM(i, servos[i].getCurrentDuty());
+#endif
             }
             last_servo_update_time = now;
         }

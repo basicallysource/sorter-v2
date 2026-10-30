@@ -15,6 +15,7 @@ endif
 .PHONY: setup build \
         build-feeder-v1-1 build-distribution-v1-1 flash-feeder-v1-1 flash-distribution-v1-1 \
         build-feeder-v1-2 build-distribution-v1-2 flash-feeder-v1-2 flash-distribution-v1-2 \
+        build-feeder-v1-5 build-distribution-v1-5 flash-feeder-v1-5 flash-distribution-v1-5 \
         build-feeder-skr build-distribution-skr
 
 setup: $(PICO_SDK_PATH)/pico_sdk_init.cmake
@@ -57,6 +58,22 @@ flash-feeder-v1-2: build-feeder-v1-2
 
 flash-distribution-v1-2: build-distribution-v1-2
 	python3 flash.py --board distribution --uf2 build-distribution-v1-2/sorter_interface_firmware.uf2
+
+build-feeder-v1-5: setup
+	@mkdir -p build-feeder-v1-5
+	@cd build-feeder-v1-5 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=feeder -DHW_BASICALLY_V1_5=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
+	@echo "Feeder v1-5 firmware built: build-feeder-v1-5/sorter_interface_firmware.uf2"
+
+build-distribution-v1-5: setup
+	@mkdir -p build-distribution-v1-5
+	@cd build-distribution-v1-5 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=distribution -DHW_BASICALLY_V1_5=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
+	@echo "Distribution v1-5 firmware built: build-distribution-v1-5/sorter_interface_firmware.uf2"
+
+flash-feeder-v1-5: build-feeder-v1-5
+	python3 flash.py --board feeder --uf2 build-feeder-v1-5/sorter_interface_firmware.uf2
+
+flash-distribution-v1-5: build-distribution-v1-5
+	python3 flash.py --board distribution --uf2 build-distribution-v1-5/sorter_interface_firmware.uf2
 
 build-feeder-skr: setup
 	@mkdir -p build-feeder-skr

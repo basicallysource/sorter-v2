@@ -61,6 +61,7 @@ const int FAN0_OUTPUT_CHANNEL = -1;
 // outputs keeps its LED channels first in digital_output_pins.
 const uint8_t LED_OUTPUT_COUNT = 2;
 
+#define HW_HAS_PCA9685
 i2c_inst_t* const I2C_PORT = i2c1;
 const int I2C_SDA_PIN = 10;
 const int I2C_SCL_PIN = 11;

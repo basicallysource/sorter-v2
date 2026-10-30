@@ -57,6 +57,7 @@ const int digital_output_pins[] = {21, 23, 17, 18, 20}; // [0]=neopixel, [1]=HE0
 const int FAN0_OUTPUT_CHANNEL = 2;
 const uint8_t LED_OUTPUT_COUNT = 0;
 
+#define HW_HAS_PCA9685
 i2c_inst_t* const I2C_PORT = i2c0;
 const int I2C_SDA_PIN = 0;
 const int I2C_SCL_PIN = 1;

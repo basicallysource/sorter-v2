@@ -8,8 +8,8 @@ kicker: Feeder — Classification channel
 lede: The lowest channel, where the part is imaged. The finned rotor and its cap.
 permalink: /hardware/assembly/feeder/c-channels/classification-channel/
 author: spencer
-og_image: https://assets.basically.website/sorter-docs/classification-channel-finished-capped-rotor-w1600-c4033d1a23b0.jpg
-contributors: [barthel, brickcyclealice, danny, jensr80, daddyosbricksbill]
+og_image: https://assets.basically.website/sorter-docs/classification-channel-finished-grey-rotor-w1600-a68a1155786f.jpg
+contributors: [barthel, brickcyclealice, danny, jensr80, daddyosbricksbill, dodgybob]
 last_verified: 2026-09-25
 tools_needed: ["Hex key, 2 mm"]
 parts_needed:
@@ -148,10 +148,10 @@ The colour strip puts eight tiles of known colours in the camera's view, for col
 A channel core with the finned rotor capped and dropped in. It goes onto the machine first of the four, before the three above it, and its camera lamp hangs on there too: see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}).
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/classification-channel-finished-capped-rotor-w1600-c4033d1a23b0.jpg" alt="A finished classification channel on a wooden bench: the white finned rotor sitting down in the black stator ring with a small grey cap at its centre, the stepper motor at the left and the orange output gear showing at the gap in the ring">
-  <figcaption>A finished classification channel, the capped rotor down in the core. <cite>Photo: JensR80.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/classification-channel-finished-grey-rotor-w1600-a68a1155786f.jpg" alt="A finished classification channel on a white table: the grey finned rotor sitting down in the grey stator ring with a small round cap at its centre, and the stepper motor on its black bracket at the left, outside the wall">
+  <figcaption>A finished classification channel, the capped rotor down in the core. <cite>Photo: DodgyBob.</cite></figcaption>
 </figure>
 
-The photo shows a white rotor and a black stator. Print both ash grey: the camera looks straight at them, white throws its exposure and white balance off, and black pieces disappear against black.
+Print the rotor and stator ash grey: the camera looks straight at them, white throws its exposure and white balance off, and black pieces disappear against black.
 
 Back to [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}).

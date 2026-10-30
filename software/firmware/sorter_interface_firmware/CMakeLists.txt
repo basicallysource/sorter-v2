@@ -102,7 +102,10 @@ add_executable(sorter_interface_firmware
     message.cpp 
     PCA9685.cpp
     Servo.cpp
+    ServoBus.cpp
 )
+
+pico_generate_pio_header(sorter_interface_firmware ${CMAKE_CURRENT_LIST_DIR}/servo_bus.pio)
 
 pico_set_program_name(sorter_interface_firmware "sorter_interface_firmware")
 pico_set_program_version(sorter_interface_firmware "${FIRMWARE_GIT_VERSION}")
@@ -156,6 +159,7 @@ target_link_libraries(sorter_interface_firmware
         pico_bootrom
         pico_time
         hardware_i2c
+        hardware_pio
         hardware_timer
         hardware_pwm
         )

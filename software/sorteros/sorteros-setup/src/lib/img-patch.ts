@@ -19,6 +19,8 @@ const MIN_CAPACITY = 1024;
 const SEARCH_CHUNK_BYTES = 8 * 1024 * 1024;
 
 export interface SorterosConfig {
+    // Orange Pi model the image is for (boards.ts), e.g. "orangepi5pro".
+    board?: string;
     hostname?: string;
     // IANA time zone: the sorter's clock and its Wi-Fi country (which channels it may use).
     timezone?: string;
@@ -217,6 +219,7 @@ function buildPaddedToml(
 
 function buildToml(cfg: SorterosConfig): string {
     const lines: string[] = ['# written by sorteros-setup'];
+    if (cfg.board) lines.push(`board = ${JSON.stringify(cfg.board)}`);
     if (cfg.hostname) lines.push(`hostname = ${JSON.stringify(cfg.hostname)}`);
     if (cfg.timezone) lines.push(`timezone = ${JSON.stringify(cfg.timezone)}`);
     if (cfg.wifi) {

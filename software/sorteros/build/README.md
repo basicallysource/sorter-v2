@@ -37,12 +37,38 @@ for a GitHub release.
 | --- | --- |
 | `prep` | verify the base image, copy it to `out/work.img` |
 | `grow` | add 4 GiB, grow p1 and the ext4 into it, switch ext4 to `data=ordered` |
-| `mount` | loop-mount p1 at `/mnt/sorteros-build` |
-| `overlay` | copy `overlay/`, bake `/etc/sorteros/{ref,version}`, hostname `sorter`, `errors=panic` in fstab, `fsck.repair=yes panic=10` on the kernel command line |
+| `mount` | loop-mount the root ext4 (p1; p2 with `root_part = 2`) at `/mnt/sorteros-build`, and the vfat `/boot` (`boot_part`) under it |
+| `overlay` | copy `overlay/`, bake `/etc/sorteros/{ref,version}`, hostname `sorter`, `errors=panic` in fstab, `fsck.repair=yes panic=10` on the kernel command line, optional `[display]` settings (`video=`, `fbcon=font:`, kernel log level) in `orangepiEnv.txt` |
 | `portal` | build the captive portal (`../portal/`) into the rootfs |
 | `chroot` | run `chroot_apt.sh` inside the rootfs (apt delta, Node, uv, avahi) |
 | `finalize` | unmount, detach, rename to the versioned name |
 | `zip` | compress the newest image for distribution |
+
+## Other boards
+
+`--config` picks the board. `config.toml` is the Orange Pi 5, `config-cm5.toml`
+the CM5, `config-opi5pro.toml` the Orange Pi 5 Pro. The Pro image has a vfat
+`/boot` at p1 (kernel, device tree, `orangepiEnv.txt`) and the ext4 root at
+p2; `[base] boot_part` and `root_part` tell `build.py` so. Without them it
+assumes one ext4 at p1.
+
+The optional `[display]` table makes the boot readable on a small HDMI panel:
+
+| key | effect |
+| --- | --- |
+| `video` | kernel `video=` argument, e.g. `HDMI-A-1:640x480@60`, for panels whose EDID lists another mode |
+| `fbcon_font` | console font (`VGA8x8` or `VGA8x16`; the vendor kernel has only these two) |
+| `verbosity` | kernel log level in `orangepiEnv.txt` (the vendor image uses 1, which prints almost nothing) |
+
+The optional `[npu]` table (`url`, `filename`, `sha256`) replaces the vendor's
+NPU runtime. The Orange Pi 5 Pro image ships `librknnrt` 1.4.0, which cannot run
+the 2.x models Hive hands out. `rknn-toolkit-lite2` and the backend's NPU check
+read `/usr/lib/librknnrt.so` and no other path, so the `overlay` phase downloads
+the file into `cache/` (sha256-checked) and installs it there. The vendor file
+stays as `librknnrt.so.bak`. If a dpkg package owns the path, `dpkg-divert`
+keeps a later upgrade from putting the old file back (the vendor file is then
+`librknnrt.so.distrib`). Keep the version in line with `rknn-toolkit-lite2` in
+`software/sorter/backend/pyproject.toml`.
 
 ## What is NOT in the image
 

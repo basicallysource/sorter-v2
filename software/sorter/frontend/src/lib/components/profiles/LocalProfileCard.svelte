@@ -1,9 +1,8 @@
 <script lang="ts">
-	import Boxes from '@lucide/svelte/icons/boxes';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import Panel from '$lib/components/ui/Panel.svelte';
+	import Card from '$lib/components/ui/Card.svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import type { LocalSortingProfile } from '$lib/sorting-profiles/types';
 
@@ -13,15 +12,15 @@
 		deleting,
 		onActivate,
 		onDelete,
-		onOpenBins
+		onOpen
 	}: {
 		profile: LocalSortingProfile;
 		activating: boolean;
 		deleting: boolean;
 		onActivate: () => void;
 		onDelete: () => void;
-		// The profile the machine runs can show its bins.
-		onOpenBins?: () => void;
+		// Shows what the profile sorts into and its description.
+		onOpen: () => void;
 	} = $props();
 
 	const summary = $derived(
@@ -36,8 +35,7 @@
 	);
 </script>
 
-<!-- A profile saved on this machine: not something to open, so a panel, not a Card. -->
-<Panel class="h-full">
+<Card label={profile.name || profile.filename} onclick={onOpen} class="h-full">
 	<div class="flex h-full flex-col gap-3">
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0 flex-1">
@@ -48,6 +46,9 @@
 					{#if profile.is_active}<Badge tone="success" dot>Active</Badge>{/if}
 				</div>
 				<p class="mt-0.5 truncate font-mono text-xs text-ink-muted">local:{profile.filename}</p>
+				{#if profile.description}
+					<p class="mt-2 line-clamp-2 text-sm text-ink-muted">{profile.description}</p>
+				{/if}
 			</div>
 			<div class="flex shrink-0 items-center gap-1">
 				<Button
@@ -73,12 +74,7 @@
 		{:else if profile.rule_count == null}
 			<Skeleton class="h-4 w-32" />
 		{:else}
-			<div class="flex flex-wrap items-center justify-between gap-2">
-				<p class="text-sm text-ink-muted">{summary}</p>
-				{#if profile.is_active && onOpenBins}
-					<Button size="sm" variant="ghost" icon={Boxes} onclick={onOpenBins}>See its categories</Button>
-				{/if}
-			</div>
+			<p class="text-sm text-ink-muted">{summary}</p>
 		{/if}
 	</div>
-</Panel>
+</Card>

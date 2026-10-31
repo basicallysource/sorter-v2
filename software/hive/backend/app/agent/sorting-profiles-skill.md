@@ -53,7 +53,7 @@ applies the profile on that machine.
    through) lists the parts it matches, most sold first. A throwaway rule
    with `name` `matches` a pattern is also a quick way to find parts.
 5. **Save**: `POST /api/profiles` for a new profile (`name`, `description`,
-   `rules`, `fallback_mode`, `change_note`: its first version), or
+   `rules`, `fallback_mode`, `bin_sort_by`, `change_note`: its first version), or
    `POST /api/profiles/{id}/versions` with the whole document and a short
    `change_note` for the next version. A profile's `web_url` is its page:
    give the person that link.
@@ -68,6 +68,7 @@ applies the profile on that machine.
   "description": "Big bricks apart, trans by itself, the rest by BrickLink category",
   "default_category_id": "misc",
   "fallback_mode": {"bricklink_categories": true},
+  "bin_sort_by": [],
   "rules": [
     {
       "id": "bricks-2x4",
@@ -115,6 +116,11 @@ applies the profile on that machine.
 - `fallback_mode` sets one of `bricklink_categories`, `rebrickable_categories`
   or `by_color` to true, or none. Sorting by color needs current sorter
   software; the preview's `requires` says so.
+- `bin_sort_by` is what a machine names its bins by: a list of `category`,
+  `part` and `color` (`[]` is by category). `["part", "color"]` gives one bin
+  per part and color (a LOT). Leave it out and a new version is by category,
+  so keep it when you save a changed copy of a profile that sets it. It needs
+  a sorter that can name bins this way; the preview's `requires` says so.
 
 ## Conditions
 
@@ -182,7 +188,7 @@ them. Put kit rules **above** broader rules, or those take the parts first
 | `GET /api/profiles?scope=mine` | the person's profiles (`library`, `defaults`, `discover` for others) |
 | `GET /api/profiles/{id}` | a profile, its versions, and the current version's rules and bins |
 | `GET /api/profiles/{id}/head` | the latest version number, cheap, to see if it changed |
-| `POST /api/profiles` | a new profile: `name`, `description`, `rules`, `fallback_mode` |
+| `POST /api/profiles` | a new profile: `name`, `description`, `rules`, `fallback_mode`, `bin_sort_by` |
 | `PATCH /api/profiles/{id}` | rename, describe, `visibility` (`private`, `unlisted`, `public`) |
 | `POST /api/profiles/{id}/versions` | save the next version: the whole document, `change_note`, `publish` |
 | `POST /api/profiles/{id}/versions/{version_id}/publish` | let other people's machines use a version |

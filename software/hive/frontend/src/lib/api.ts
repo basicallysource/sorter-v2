@@ -759,6 +759,7 @@ export interface SortingProfileVersion extends SortingProfileVersionSummary {
 	default_category_id: string;
 	rules: SortingProfileRule[];
 	fallback_mode: SortingProfileFallbackMode;
+	bin_sort_by?: string[];
 	compiled_stats: Record<string, unknown> | null;
 	// Every bin the version fills, keyed by category (a rule's id, bl_5, color_5,
 	// misc), and the order to show them in.
@@ -866,6 +867,9 @@ export interface ProfileDocument {
 	default_category_id?: string;
 	rules: SortingProfileRule[];
 	fallback_mode: SortingProfileFallbackMode;
+	// What a machine names its bins by ("category", "part", "color"); left
+	// out or empty is by category. Not edited here, but a save must keep it.
+	bin_sort_by?: string[];
 }
 
 export interface ProfilePreview {
@@ -2823,6 +2827,7 @@ export const api = {
 		rules?: SortingProfileRule[];
 		fallback_mode?: SortingProfileFallbackMode;
 		default_category_id?: string;
+		bin_sort_by?: string[];
 	}) {
 		return request<SortingProfileDetail>('POST', '/api/profiles', data);
 	},
@@ -2911,6 +2916,7 @@ export const api = {
 		default_category_id?: string;
 		rules: SortingProfileRule[];
 		fallback_mode: SortingProfileFallbackMode;
+		bin_sort_by?: string[];
 		change_note?: string | null;
 		label?: string | null;
 		publish?: boolean;

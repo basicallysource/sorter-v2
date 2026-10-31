@@ -10,6 +10,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+import bin_key
 import machine_toml
 
 
@@ -403,15 +404,22 @@ def getBinAssignmentConfig() -> dict[str, Any]:
     """Bin-assignment behavior. When allow_multiple_categories_per_bin is True,
     once every bin already has an assignment the distributor keeps sorting new
     categories by combining them into existing bins (picking the least-loaded
-    one) instead of falling through to the misc/discard passthrough."""
+    one) instead of falling through to the misc/discard passthrough.
+
+    sort_by says what a bin is named by: any of "category", "part" and "color"
+    (see bin_key.py). Category alone is the default."""
     config = machine_toml.read()
     section = config.get("bins")
     allow_multiple = False
-    if isinstance(section, dict) and isinstance(
-        section.get("allow_multiple_categories_per_bin"), bool
-    ):
-        allow_multiple = section["allow_multiple_categories_per_bin"]
-    return {"allow_multiple_categories_per_bin": allow_multiple}
+    sort_by = bin_key.DEFAULT_COMPONENTS
+    if isinstance(section, dict):
+        if isinstance(section.get("allow_multiple_categories_per_bin"), bool):
+            allow_multiple = section["allow_multiple_categories_per_bin"]
+        sort_by = bin_key.normalizeComponents(section.get("sort_by"))
+    return {
+        "allow_multiple_categories_per_bin": allow_multiple,
+        "sort_by": list(sort_by),
+    }
 
 
 def setBinAssignmentConfig(updates: dict[str, Any]) -> dict[str, Any]:
@@ -422,6 +430,13 @@ def setBinAssignmentConfig(updates: dict[str, Any]) -> dict[str, Any]:
             base["allow_multiple_categories_per_bin"] = bool(
                 updates["allow_multiple_categories_per_bin"]
             )
+        if "sort_by" in updates:
+            parsed = bin_key.parseComponents(updates["sort_by"])
+            if parsed is None:
+                raise ValueError(
+                    "sort_by must list one or more of: category, part, color"
+                )
+            base["sort_by"] = list(parsed)
         config["bins"] = base
     return getBinAssignmentConfig()
 

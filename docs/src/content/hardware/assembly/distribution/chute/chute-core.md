@@ -8,7 +8,7 @@ kicker: Chute — Chute core
 lede: The printed core of the chute, with its heat inserts. Build one per layer.
 permalink: /hardware/assembly/distribution/chute/chute-core/
 author: spencer
-contributors: [barthel, zed0]
+contributors: [barthel, jper1679, zed0]
 og_image: https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-opening-side-full-1961b4bfcb14.png
 tools_needed: [Soldering iron or heat-set insert press]
 parts_needed:
@@ -70,12 +70,20 @@ The chute core is finished when all 21 heat inserts are pressed in. Nothing is b
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-servo-side-full-f298d942db50.png" alt="Render of the servo side wall of the chute core with brass heat inserts pressed into all nine pockets on it">
-    <figcaption>The servo side: 9 inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-photo-servo-side-w1600-6c6474653682.jpg" alt="Photo of the servo side wall of the chute core with brass heat inserts in all nine pockets on it">
+    <figcaption>The servo side: 9 inserts in. <cite>Photo: jper1679.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-with-inserts-plain-side-full-a78d9ea26a29.png" alt="Render of the plain side wall of the chute core with brass heat inserts pressed into all six pockets on it">
-    <figcaption>The plain side: 6 inserts in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-photo-plain-side-w1600-ab2a895124f2.jpg" alt="Photo of the plain side wall of the chute core with brass heat inserts in all six pockets on it">
+    <figcaption>The plain side: 6 inserts in. <cite>Photo: jper1679.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-photo-rear-w1600-d4f6e9cf6644.jpg" alt="Photo of the rear wall of the chute core with four brass heat inserts in a square">
+    <figcaption>The rear: 4 inserts in, in a square. <cite>Photo: jper1679.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-photo-opening-side-w1600-c2c43d4b1482.jpg" alt="Photo of the chute core on its side showing the opening, with two brass heat inserts on the low wall under it">
+    <figcaption>The opening side: 2 inserts in, on the low wall under the opening. <cite>Photo: jper1679.</cite></figcaption>
   </figure>
 </div>
 

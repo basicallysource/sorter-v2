@@ -111,6 +111,11 @@ class ProfileRouter:
                 return category
         if self.fallback_by == "color" and color is not None:
             return f"color_{color}"
+        # A program can also route by part id itself: every recognised part
+        # becomes its own category (part_<id>), which the distribution then
+        # seeds into the next free bin, or drops through when none is left.
+        if self.fallback_by == "part":
+            return f"part_{part}"
         return self.default
 
     def _match(

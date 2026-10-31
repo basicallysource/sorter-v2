@@ -34,9 +34,11 @@
 		binClearingLabel,
 		sectionEnabled,
 		moveDisabled,
+		sizeCheckDisabled,
 		searchActive = false,
 		searchMatch = () => true,
 		onToggleEnabled,
+		onToggleSizeCheck,
 		onEmptyLayer,
 		onResetLayer,
 		onToggleNii,
@@ -70,9 +72,11 @@
 		binClearingLabel: (bin: BinInfo) => string;
 		sectionEnabled: (sectionIndex: number) => boolean;
 		moveDisabled: boolean;
+		sizeCheckDisabled: boolean;
 		searchActive?: boolean;
 		searchMatch?: (bin: BinInfo) => boolean;
 		onToggleEnabled: (enabled: boolean) => void;
+		onToggleSizeCheck: (enabled: boolean) => void;
 		onEmptyLayer: () => void;
 		onResetLayer: () => void;
 		onToggleNii: (enabled: boolean) => void;
@@ -143,6 +147,23 @@
 			</Button>
 			<span class="text-sm text-ink-muted">
 				Not-in-inventory mode sends pieces missing from the active BrickLink inventory (.bsx) to this layer.
+			</span>
+		</div>
+		<div class="flex flex-wrap items-center gap-2">
+			<Switch
+				checked={layer.max_dimension_mm !== null}
+				label={layer.max_dimension_mm !== null
+					? `Turn off the size check of layer ${layer.layer_index + 1}`
+					: `Turn on the size check of layer ${layer.layer_index + 1}`}
+				disabled={sizeCheckDisabled}
+				onchange={() => onToggleSizeCheck(layer.max_dimension_mm === null)}
+			/>
+			<span class="text-sm text-ink-muted">
+				{#if layer.max_dimension_mm !== null}
+					Size check on: pieces longer than {layer.max_dimension_mm} mm skip this layer.
+				{:else}
+					Size check off: any piece the machine can sort may land here. Long pieces can jam the funnel.
+				{/if}
 			</span>
 		</div>
 		<div class="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2 2xl:grid-cols-3">

@@ -588,6 +588,48 @@
 		}
 	}
 
+	// Turns a layer's size check off (limit null) or back on (the default limit of its
+	// bin count). Only the toggled layer sends the field; the others keep their limit.
+	async function toggleLayerSizeCheck(layerIndex: number, enabled: boolean) {
+		if (movingTo || homing || hasAnyClearing() || togglingLayerKey !== null) return;
+		const target = layers.find((layer) => layer.layer_index === layerIndex);
+		if (!target) return;
+		if (enabled && target.max_dimension_default_mm === null) {
+			error = `Layer ${layerIndex + 1} has no default size limit for ${target.bin_count} bins.`;
+			return;
+		}
+		togglingLayerKey = layerIndex;
+		statusMsg = '';
+		error = null;
+		try {
+			const payloadLayers = layers.map((layer) => ({
+				bin_count: layer.bin_count,
+				enabled: layer.enabled,
+				max_pieces_per_bin: layer.max_pieces_per_bin,
+				...(layer.layer_index === layerIndex
+					? { max_dimension_mm: enabled ? target.max_dimension_default_mm : null }
+					: {})
+			}));
+			const res = await fetch(`${baseUrl()}/api/hardware-config/storage-layers`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ layers: payloadLayers })
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			statusMsg = enabled
+				? `Layer ${layerIndex + 1}: size check on.`
+				: `Layer ${layerIndex + 1}: size check off.`;
+			await loadLayout();
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to update the size check';
+		} finally {
+			togglingLayerKey = null;
+		}
+	}
+
 	function sectionEnabled(layer: LayerInfo, sectionIndex: number): boolean {
 		return layer.section_enabled?.[sectionIndex] ?? true;
 	}
@@ -878,9 +920,11 @@
 					binClearingLabel={(bin) => binClearingLabel(layer.layer_index, bin.section_index, bin.bin_index)}
 					sectionEnabled={(sectionIndex) => sectionEnabled(layer, sectionIndex)}
 					moveDisabled={!!movingTo || homing || hasAnyClearing()}
+					sizeCheckDisabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
 					{searchActive}
 					searchMatch={(bin) => binMatchesSearch(layer.layer_index, bin)}
 					onToggleEnabled={(enabled) => void toggleLayerEnabled(layer.layer_index, enabled)}
+					onToggleSizeCheck={(enabled) => void toggleLayerSizeCheck(layer.layer_index, enabled)}
 					onEmptyLayer={() =>
 						void runBinAction(
 							'contents/clear',

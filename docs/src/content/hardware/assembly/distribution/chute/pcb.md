@@ -8,7 +8,7 @@ kicker: Chute — Layer adapter board
 lede: The board that drives the servo.
 permalink: /hardware/assembly/distribution/chute/pcb/
 author: spencer
-contributors: [barthel]
+contributors: [barthel, jper1679]
 tools_needed: ["Hex key, 2 mm for a button head or 2.5 mm for a socket head"]
 parts_needed:
   - part: layer-adapter-board-basically
@@ -53,10 +53,16 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 Seat it over the four inserts with the `J5` servo header, the three pins, towards the servo side of the core, the side the servo is on. Fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten.
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-rear-full-1ca6422e7957.png" alt="Render of the rear wall of the chute core with the four heat inserts the layer adapter board screws into ringed in red">
-  <figcaption>The four inserts the board sits on, in a square on the chute core's rear wall, the one opposite the opening. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-</figure>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-rear-full-1ca6422e7957.png" alt="Render of the rear wall of the chute core with the four heat inserts the layer adapter board screws into ringed in red">
+    <figcaption>The four inserts the board sits on, in a square on the chute core's rear wall, the one opposite the opening. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-pcb-photo-mounted-w1600-fb93997d0b0d.jpg" alt="Photo of the chute core from the rear, with the blue layer adapter board screwed to the rear wall by four screws, the two ribbon sockets and the J5 header facing the camera">
+    <figcaption>The board screwed down. <cite>Photo: jper1679.</cite></figcaption>
+  </figure>
+</div>
 
 {% include step.html n="2" title="Connect the ribbon cables (RIB1, RIB2)" %}
 

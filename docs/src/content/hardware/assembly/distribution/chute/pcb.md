@@ -7,6 +7,7 @@ slug: assembly-pcb
 kicker: Chute — Layer adapter board
 lede: The board that drives the servo.
 permalink: /hardware/assembly/distribution/chute/pcb/
+og_image: https://assets.basically.website/sorter-docs/chute-v3-pcb-photo-mounted-w1600-fb93997d0b0d.jpg
 author: spencer
 contributors: [barthel, jper1679]
 tools_needed: ["Hex key, 2 mm for a button head or 2.5 mm for a socket head"]
@@ -53,16 +54,10 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 Seat it over the four inserts with the `J5` servo header, the three pins, towards the servo side of the core, the side the servo is on. Fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten.
 
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-rear-full-1ca6422e7957.png" alt="Render of the rear wall of the chute core with the four heat inserts the layer adapter board screws into ringed in red">
-    <figcaption>The four inserts the board sits on, in a square on the chute core's rear wall, the one opposite the opening. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-pcb-photo-mounted-w1600-fb93997d0b0d.jpg" alt="Photo of the chute core from the rear, with the blue layer adapter board screwed to the rear wall by four screws, the two ribbon sockets and the J5 header facing the camera">
-    <figcaption>The board screwed down. <cite>Photo: jper1679.</cite></figcaption>
-  </figure>
-</div>
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-core-pockets-rear-full-1ca6422e7957.png" alt="Render of the rear wall of the chute core with the four heat inserts the layer adapter board screws into ringed in red">
+  <figcaption>The four inserts the board sits on, in a square on the chute core's rear wall, the one opposite the opening. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
 
 {% include step.html n="2" title="Connect the ribbon cables (RIB1, RIB2)" %}
 
@@ -138,8 +133,11 @@ All the cables of the layer boards are drawn together at [connecting the compone
 
 ## The finished result
 
-The board screwed down on its four inserts, the 300 mm (12 in) ribbon (`RIB2`) in `J4` with its far end loose, and the door servo's plug on `J5`. `J3` is fed once the chute is in the frame.
+The board screwed down on its four inserts, the 300 mm (12 in) ribbon (`RIB2`) in `J4` with its far end loose, and the door servo's plug on `J5`. `J3` is fed once the chute is in the frame. The photo shows the board on the core before the cables go in.
 
-<div class="img-placeholder">Photo of the layer adapter board screwed to the chute core, with the ribbon cable and the servo lead plugged in.</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-pcb-photo-mounted-w1600-fb93997d0b0d.jpg" alt="Photo of the chute core from the rear, with the blue layer adapter board screwed to the rear wall by four screws, the two ribbon sockets and the J5 header facing the camera">
+  <figcaption>The board screwed down on the rear wall. <cite>Photo: jper1679.</cite></figcaption>
+</figure>
 
 The [Chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page carries the other three sub-assemblies that go on the same core, and is where you should return once you're done here.

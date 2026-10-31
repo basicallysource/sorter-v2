@@ -102,6 +102,8 @@ sections:
                 url: /hardware/electronics/installation/orange-pi-mount/
           - title: Connecting the components
             url: /hardware/electronics/connecting/
+          - title: Test the control board
+            url: /hardware/electronics/test-control-board/
       - title: Install the bins
         url: /hardware/assembly/install-bins/
       - title: Software setup

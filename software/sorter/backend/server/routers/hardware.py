@@ -176,7 +176,13 @@ def save_storage_layer_hardware_config(
                 "servo_open_angle": layer.servo_open_angle,
                 "servo_closed_angle": layer.servo_closed_angle,
                 "max_pieces_per_bin": layer.max_pieces_per_bin,
-                "max_dimension_mm": layer.max_dimension_mm,
+                # Left out when the caller did not send it, so a save that
+                # does not know about the size limit keeps the saved one.
+                **(
+                    {"max_dimension_mm": layer.max_dimension_mm}
+                    if "max_dimension_mm" in layer.model_fields_set
+                    else {}
+                ),
             }
             for layer in requested_layers
         ]
@@ -236,7 +242,18 @@ def save_storage_layer_hardware_config(
             servo_closed = prior_layer.servo_closed_angle if prior_layer else None
         max_per_bin = layer_update.get("max_pieces_per_bin")
         max_per_bin_value = max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None
-        max_dim = layer_update.get("max_dimension_mm")
+        if "max_dimension_mm" in layer_update:
+            max_dim = layer_update["max_dimension_mm"]
+        elif (
+            prior_layer is not None
+            and cur_layer is not None
+            and count == int(cur_layer["bin_count"])
+        ):
+            max_dim = prior_layer.max_dimension_mm
+        else:
+            # A new layer, or one whose bin count changed: the old limit was
+            # set for another funnel size, so start from the default.
+            max_dim = _LAYER_MAX_DIMENSION_DEFAULTS_MM.get(count)
         max_dim_value = (
             float(max_dim)
             if isinstance(max_dim, (int, float)) and not isinstance(max_dim, bool) and max_dim > 0

@@ -44,6 +44,29 @@ for a GitHub release.
 | `finalize` | unmount, detach, rename to the versioned name |
 | `zip` | compress the newest image for distribution |
 
+## Building on macOS (podman or docker)
+
+`container/` builds the image in a privileged Ubuntu container, for hosts that
+are not Linux. It needs a container VM whose kernel has `qemu-aarch64`
+registered in binfmt_misc with the `F` flag (the podman machine has it; check
+`cat /proc/sys/fs/binfmt_misc/qemu-aarch64` inside the VM) and about 3 GiB of
+RAM and 15 GiB of disk for the VM.
+
+```bash
+cd software/sorteros/build/container
+./build-in-container.sh image                       # once: the builder image
+./build-in-container.sh extract <archive>           # unpack a vendor .7z/.xz that sits in ../cache/
+./build-in-container.sh build --config <config>     # same arguments as build.py
+./build-in-container.sh shell                       # shell in the working copy
+```
+
+Put the base image (or its archive) in `build/cache/` on the host. The working
+copy of the source tree and the loop-mounted image live in the podman volume
+`sorteros-build-work`; only the finished `.img` is copied to `build/out/`.
+`podman volume rm sorteros-build-work` frees the space. `build.py` itself is
+unchanged. `test/check.py image` mounts the image, so it needs the same
+privileged container (`./build-in-container.sh shell`).
+
 ## What is NOT in the image
 
 The Sorter software itself. First boot clones the repo (blobless), checks out

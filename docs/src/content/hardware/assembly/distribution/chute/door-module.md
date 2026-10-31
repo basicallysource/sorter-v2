@@ -115,18 +115,6 @@ The bearing race, the chute door, the two bearing covers and the servo adapter's
   <figcaption>The left holder, the mirror of the right, with the same five. <cite>Photo: jper1679.</cite></figcaption>
 </figure>
 
-<div class="prep-item">
-  <div class="prep-item-body">
-    <p><strong>Servo adapter (servo side):</strong> 4 × <strong>short</strong> M3 insert (M3S, <code>hsi-m3s</code>), one in each of the four round pockets on the face that goes against the flap-side half, the one with the slot for the horn. Do not use the standard M3 inserts here.</p>
-  </div>
-  <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-adapter-pockets-full-31467fbc322d.png" alt="Render of the servo-side half of the servo adapter, a round disc with a slot cut across its centre hole for the horn and four small round pockets ringed in red, evenly spaced around the edge">
-    <figcaption>The four pockets for the short inserts, on the slotted face. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-  </figure>
-</div>
-
-The renders show the pockets without a brass insert in them, so count the rings, not the brass.
-
 One more sub-assembly goes together here, before the step that uses it, and it takes no inserts.
 
 <div class="prep-item">
@@ -138,6 +126,18 @@ One more sub-assembly goes together here, before the step that uses it, and it t
     <figcaption>Both bearings pushed home, outboard faces up. <cite>Photo: jper1679.</cite></figcaption>
   </figure>
 </div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Servo adapter (servo side):</strong> 4 × <strong>short</strong> M3 insert (M3S, <code>hsi-m3s</code>), one in each of the four round pockets on the face that goes against the flap-side half, the one with the slot for the horn. Do not use the standard M3 inserts here.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-adapter-pockets-full-31467fbc322d.png" alt="Render of the servo-side half of the servo adapter, a round disc with a slot cut across its centre hole for the horn and four small round pockets ringed in red, evenly spaced around the edge">
+    <figcaption>The four pockets for the short inserts, on the slotted face. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+</div>
+
+The render shows the pockets without a brass insert in them, so count the rings, not the brass.
 
 {% include step.html n="2" title="Slide the servo into the housing and close it with the cover" %}
 
@@ -245,17 +245,6 @@ Snug all six down before tightening any of them, then swing the door by hand thr
 The servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Drop the horn into the servo-side half **splined sleeve first**: the sleeve sits in the hole in the middle of that half and the two arms lie in the slot around it. It does not fit any other way. Bring the flap-side half down over it and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the hexagonal socket and the countersunk holes) into the four short inserts in the servo side.
 
 The flap-side half has a raised hub with a hexagonal socket. The hub points at the door, and the socket is what takes the door's hexagonal spigot at first setup, see [coupling a chute door to its servo]({{ '/hardware/helpers/door-servo-coupling/' | relative_url }}).
-
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-adapter-exploded-flap-side-full-2c01ab089f58.png" alt="Render of the two servo adapter halves facing each other: the pink flap-side half in front with its raised hub, hexagonal socket and four holes, and the purple servo-side half behind it with a slot cut across its centre hole">
-    <figcaption>Exploded, in build order. The horn goes into the servo-side half (purple), then the flap-side half (pink) goes over it. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-v3-servo-adapter-exploded-servo-side-full-779146e3b3b0.png" alt="Render of the same two halves from the other side: the flat back of the flap-side half, and the servo-side half with its round centre hole">
-    <figcaption>The same two halves from the servo end. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-  </figure>
-</div>
 
 <div class="img-row">
   <figure>

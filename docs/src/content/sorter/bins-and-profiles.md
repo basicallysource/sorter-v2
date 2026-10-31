@@ -120,7 +120,9 @@ The funnels on a layer set the biggest piece its bins can take:
   <li><strong>Half-size layer</strong> (12 bins): up to 8 studs (64 mm).</li>
 </ul>
 
-Give a category whose pieces can be bigger than 6 studs a bin on a half-size layer. Do not count on the machine to stop a big piece going into a third-size bin.
+When a category needs its first bin, the machine picks a free bin on the smallest layer whose size limit takes the piece in hand, so a long piece does not claim a third-size bin. A piece that is bigger than the limit of every layer goes to the Discard bin without taking a bin at all. Later pieces of a category that already has a bin go to that bin if they fit its layer, and to the Discard bin if they do not. The machine never moves a bin you assigned by hand, so give a category whose pieces can be bigger than 6 studs a bin on a half-size layer yourself.
+
+These size checks only work for layers that have a size limit. A layer saved without one takes any size.
 
 The machine looks up the size of every part it identifies. A piece longer than 10 studs (80 mm) always goes to the Discard bin. A piece between 8 and 10 studs is still sent to its bin, and can get stuck even in a half-size funnel.
 

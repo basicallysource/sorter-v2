@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+package testprints.v1;
+
+option go_package = "github.com/basicallysource/sorter-v2/parts-calculator/backend/gen/testprints/v1;testprintsv1";
+
+service TestPrintService {
+  rpc GetSession(GetSessionRequest) returns (GetSessionResponse);
+  rpc ListTests(ListTestsRequest) returns (ListTestsResponse);
+  rpc GetTest(GetTestRequest) returns (GetTestResponse);
+  rpc GetDownload(GetDownloadRequest) returns (GetDownloadResponse);
+}
+
+service AdminService {
+  rpc SaveTest(SaveTestRequest) returns (SaveTestResponse);
+  rpc ListBoards(ListBoardsRequest) returns (ListBoardsResponse);
+}
+
+service DiscordBoardService {
+  rpc SyncChanges(SyncChangesRequest) returns (SyncChangesResponse);
+  rpc BindThread(BindThreadRequest) returns (BindThreadResponse);
+  rpc ApplyEvent(ApplyEventRequest) returns (ApplyEventResponse);
+}
+
+message OnshapeReference {
+  string document_id = 1;
+  string version_id = 2;
+  string element_id = 3;
+  string part_id = 4;
+  string label = 5;
+}
+
+message Asset {
+  string id = 1;
+  string filename = 2;
+  string content_type = 3;
+  int64 size = 4;
+  string sha256 = 5;
+}
+
+message TestCase {
+  string id = 1;
+  int64 revision = 2;
+  string title = 3;
+  string instructions = 4;
+  string kind = 5;
+  string state = 6;
+  string board_id = 7;
+  repeated OnshapeReference references = 8;
+  repeated Asset assets = 9;
+  string created_at = 10;
+  string updated_at = 11;
+  int32 claim_count = 12;
+  int32 feedback_count = 13;
+}
+
+message Claim {
+  string actor_id = 1;
+  string display_name = 2;
+  string created_at = 3;
+}
+
+message Feedback {
+  string id = 1;
+  string actor_id = 2;
+  string display_name = 3;
+  string body = 4;
+  repeated Asset assets = 5;
+  string created_at = 6;
+  string updated_at = 7;
+  string discord_url = 8;
+}
+
+message Board {
+  string id = 1;
+  string audience = 2;
+}
+
+message GetSessionRequest {}
+message GetSessionResponse {
+  bool signed_in = 1;
+  bool admin = 2;
+  string handle = 3;
+  string signin_url = 4;
+}
+message ListBoardsRequest {}
+message ListBoardsResponse { repeated Board boards = 1; }
+message ListTestsRequest {
+  string after_id = 1;
+  int32 limit = 2;
+  bool include_drafts = 3;
+}
+message ListTestsResponse {
+  repeated TestCase tests = 1;
+  string next_after_id = 2;
+}
+message GetTestRequest {
+  string id = 1;
+  string feedback_after_id = 2;
+}
+message GetTestResponse {
+  TestCase test = 1;
+  repeated Claim claims = 2;
+  repeated Feedback feedback = 3;
+  string next_feedback_after_id = 4;
+}
+message SaveTestRequest {
+  string request_id = 1;
+  TestCase test = 2;
+  int64 expected_revision = 3;
+}
+message SaveTestResponse { TestCase test = 1; }
+message GetDownloadRequest {
+  string test_id = 1;
+  string asset_id = 2;
+}
+message GetDownloadResponse { string url = 1; }
+message SyncChangesRequest {
+  int64 after_sequence = 1;
+  int32 limit = 2;
+}
+message Change {
+  int64 sequence = 1;
+  TestCase test = 2;
+}
+message SyncChangesResponse {
+  string board_id = 1;
+  string guild_id = 2;
+  string forum_id = 3;
+  string audience = 4;
+  repeated Change changes = 5;
+  int64 next_sequence = 6;
+  bool has_more = 7;
+}
+message BindThreadRequest {
+  string test_id = 1;
+  string guild_id = 2;
+  string forum_id = 3;
+  string thread_id = 4;
+}
+message BindThreadResponse {}
+message ApplyEventRequest {
+  string event_id = 1;
+  string test_id = 2;
+  string guild_id = 3;
+  string forum_id = 4;
+  string thread_id = 5;
+  string message_id = 6;
+  string actor_id = 7;
+  string display_name = 8;
+  string kind = 9;
+  string body = 10;
+  repeated string asset_ids = 11;
+  string occurred_at = 12;
+}
+message ApplyEventResponse {
+  bool duplicate = 1;
+  bool ignored = 2;
+}

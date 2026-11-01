@@ -1,0 +1,38 @@
+name: Parts backend release candidate
+on:
+  push:
+    tags: ['parts-backend/v*']
+permissions:
+  contents: write
+concurrency:
+  group: parts-backend-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.3'
+          cache-dependency-path: parts-calculator/backend/go.sum
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: parts-calculator/package-lock.json
+      - name: Check and package
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: bash parts-calculator/backend/scripts/package.sh "$RELEASE_TAG"
+      - name: Upload unsigned draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" --verify-tag --draft --title "$RELEASE_TAG" \
+            --notes 'Release candidate. Verify the source revision and sign release.json before publishing.' \
+            parts-calculator/backend/dist/parts-backend-linux-amd64.tar.gz \
+            parts-calculator/backend/dist/release.json

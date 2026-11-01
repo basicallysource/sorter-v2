@@ -64,6 +64,15 @@ build. Two halves:
 - **`src/`** — the app. Reads generated JSON, does all math in the browser.
   Fully static.
 
+## Optional test-print backend
+
+`backend/` is a separate Go module for the unlinked `/admin` and `/test-prints`
+pages. Read its `AGENTS.md` and `README.md` before editing it. Its proto is the
+shared Go/TypeScript RPC contract. Identity, asset storage and Discord board
+credentials are server-only. Run backend tests/vet and frontend check/build on
+the build host. Public Pages stays static; the Go service is a separate signed
+release and must not be enabled by changing the ordinary Pages deployment.
+
 ## Deploying
 
 **Pushing/merging to `main` auto-deploys.** Cloudflare Pages project

@@ -19,6 +19,11 @@ Two pieces:
 2. **SvelteKit app** (`src/`) — reads the generated data and does all the
    color/layer math in the browser. Fully static; Cloudflare Pages builds it.
 
+An optional [Go backend](backend/README.md) adds private test-print and assembly
+tracking, identity-backed administration, private file storage and a Discord
+board API. It is deployed separately by signed GitHub release; adding it does
+not enable it on the public static site.
+
 ```
 catalog/
   parts.json            # manifest: every part, its section(s), qty, color role

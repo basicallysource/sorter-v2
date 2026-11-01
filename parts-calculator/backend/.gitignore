@@ -1,0 +1,4 @@
+/.tools/
+/dist/
+/*.db*
+/.env

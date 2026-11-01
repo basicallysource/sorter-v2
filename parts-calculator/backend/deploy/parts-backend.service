@@ -1,0 +1,34 @@
+[Unit]
+Description=Parts calculator backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=parts-backend
+Group=parts-backend
+EnvironmentFile=/etc/parts-backend/service.env
+ExecStart=/opt/parts-backend/current/parts-backend
+WorkingDirectory=/var/lib/parts-backend
+StateDirectory=parts-backend
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=25
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+LockPersonality=true
+MemoryMax=256M
+TasksMax=64
+LimitNOFILE=1024
+
+[Install]
+WantedBy=multi-user.target

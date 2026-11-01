@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for a parts backend release
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=45s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

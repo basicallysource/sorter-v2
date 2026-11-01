@@ -25,11 +25,15 @@
 		"svelte-check": "^4.6.0",
 		"tailwindcss": "^4.3.0",
 		"typescript": "^6.0.3",
-		"vite": "^8.0.16"
+		"vite": "^8.0.16",
+		"@bufbuild/protoc-gen-es": "2.11.0"
 	},
 	"dependencies": {
 		"fflate": "^0.8.3",
 		"lucide-svelte": "^0.562.0",
-		"three": "^0.185.0"
+		"three": "^0.185.0",
+		"@bufbuild/protobuf": "2.11.0",
+		"@connectrpc/connect": "2.1.1",
+		"@connectrpc/connect-web": "2.1.1"
 	}
 }

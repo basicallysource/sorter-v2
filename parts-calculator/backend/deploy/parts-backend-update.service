@@ -1,0 +1,16 @@
+[Unit]
+Description=Install a signed parts backend release
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/parts-backend/update.env
+ExecStart=/opt/parts-backend/updater -update
+TimeoutStartSec=9min
+UMask=0077
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/parts-backend /var/lib/parts-backend
+NoNewPrivileges=true

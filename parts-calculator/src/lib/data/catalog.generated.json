@@ -16405,7 +16405,7 @@
 			"grams": 10.24,
 			"support_grams": 0.0,
 			"support_used": false,
-			"support_intentional": false,
+			"support_intentional": true,
 			"print_seconds": 2526,
 			"color": {
 				"role": "chute-core"
@@ -16552,7 +16552,7 @@
 			"grams": 10.25,
 			"support_grams": 0.0,
 			"support_used": false,
-			"support_intentional": false,
+			"support_intentional": true,
 			"print_seconds": 2534,
 			"color": {
 				"role": "chute-core"

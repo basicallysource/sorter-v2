@@ -2023,7 +2023,7 @@
         "role": "chute-core"
       },
       "optional": false,
-      "support": false,
+      "support": true,
       "requires": [
         {
           "part": "hsi-m3",
@@ -2066,7 +2066,7 @@
         "role": "chute-core"
       },
       "optional": false,
-      "support": false,
+      "support": true,
       "requires": [
         {
           "part": "hsi-m3",

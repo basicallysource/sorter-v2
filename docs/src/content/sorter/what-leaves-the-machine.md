@@ -23,7 +23,7 @@ Each channel has a camera, and the machine looks at its whole picture. A detecti
 
 <figure><img src="https://assets.basically.website/sorter-docs/sorter-camera-views-with-detections-full-8a02c58cd4b7.png" alt="The live views of C-channel 2, C-channel 3 and the classification channel in the sorter UI, with green boxes around the pieces the detector found on the two upper channels"><figcaption>The three camera views, with the zones shaded and a green box around each piece the detector found. <cite>Screenshot courtesy of jtimmer312.</cite></figcaption></figure>
 
-**The full camera pictures do not leave the machine by default.** Only the crops of pieces are sent to Brickognize, below. Full frames are uploaded only if you connect a Hive and leave **Full camera frames** on in Settings > Data (it is on until you turn it off). The hosted color model also stores the crops it receives. Both are covered further down.
+**The full camera pictures do not leave the machine by default.** Only the crops of pieces are sent to Brickognize, below. Full frames are uploaded only if you connect a Hive and leave **Full camera frames** on in Settings > Data (it is on until you turn it off). The hosted color model also stores the crops it receives, and with your own OpenRouter key and sample collection on, whole frames go to OpenRouter to be labelled. All three are covered further down.
 
 ## Brickognize — piece recognition (required)
 
@@ -157,6 +157,11 @@ happens when you use that page.
 
 ## BrickLink and OpenRouter — only with your own keys
 
-If you configure your own BrickLink store credentials or an OpenRouter API
-key, the machine calls those services for store inventory and experimental
-detection features. Without keys, these paths never run.
+If you configure your own BrickLink store credentials, the machine calls
+BrickLink for store inventory.
+
+With your own OpenRouter API key, the machine sends **whole camera frames** to
+OpenRouter (a Gemini model) to draw boxes around the pieces in training
+samples. This only happens while sample collection is on, and it finds pieces
+only: it does not identify parts and is not used for sorting. Without a key,
+these paths never run.

@@ -6294,6 +6294,16 @@
             "currency": "EUR",
             "as_of": "2026-10-02",
             "note": "Sold singly. Check the bore reads 8mm in the title (Riemenscheibe GT2 10mm 20 Zaehne 8mm)."
+          },
+          {
+            "region": "EU",
+            "vendor": "Amazon DE",
+            "url": "https://www.amazon.de/dp/B09X18XJK9",
+            "price": 20.09,
+            "pack_qty": 5,
+            "currency": "EUR",
+            "as_of": "2026-11-01",
+            "note": "PHITUODA, pack of 5. The listing does not mention grub screws."
           }
         ]
       },

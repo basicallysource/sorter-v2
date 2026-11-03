@@ -438,7 +438,7 @@
       "name": "Stator",
       "description": "Feeder stator. 4 required, all ash grey.",
       "info": "Print with the narrow top rim on the bed. Support is then needed at only one location.",
-      "internal_notes": "One per C-channel area. All four ash grey since the C-channel overhaul (2026-09-02); it was 1 gray + 3 black before that. Required. ~240mm disc (bed-max). Print orientation (top rim down, one support location) from ReveryX 2026-11-03; not measured, and the catalog's support grams were not re-sliced for it.",
+      "internal_notes": "One per C-channel area. All four ash grey since the C-channel overhaul (2026-09-02); it was 1 gray + 3 black before that. Required. ~240mm disc (bed-max). Print orientation: top rim down, one support location.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",

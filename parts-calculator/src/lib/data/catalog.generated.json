@@ -9277,7 +9277,7 @@
 			},
 			"optional": false,
 			"onshape": null,
-			"info": null,
+			"info": "Print with the narrow top rim on the bed. Support is then needed at only one location.",
 			"low_tolerance": false,
 			"low_tolerance_note": null,
 			"layer_scope": "all",

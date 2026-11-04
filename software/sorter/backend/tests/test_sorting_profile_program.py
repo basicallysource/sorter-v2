@@ -162,7 +162,15 @@ class TestPartFallback:
     def test_a_variant_takes_its_base_parts_category(self):
         router = ProfileRouter({**PROGRAM, "fallback": {"by": "part"}})
         assert router.route("3010pb176R", "5") == "part_3010"
-        assert router.route("122c01assy2", "7") == "part_122c01"
+        assert router.route("122c01assy2", "7") == "part_122"
+
+    def test_multi_suffix_variants_take_the_root_base_part(self):
+        router = ProfileRouter({**PROGRAM, "fallback": {"by": "part"}})
+        assert router.route("3010pb176c01", "5") == "part_3010"
+        assert router.route("30374pb02c01", "5") == "part_30374"
+        # A variant and the plain form of its multi-suffix id must share a bin.
+        assert router.route("122c01assy2", "7") == router.route("122c01", "7")
+        assert router.route("3010pb176c01", "5") == router.route("3010", "5")
 
     def test_rules_still_come_first(self):
         router = ProfileRouter({**PROGRAM, "fallback": {"by": "part"}})

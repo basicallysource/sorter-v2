@@ -114,11 +114,14 @@ class ProfileRouter:
         # A program can also route by part id itself: every recognised part
         # becomes its own category (part_<id>), which the distribution then
         # seeds into the next free bin, or drops through when none is left.
-        # A variant goes with its base part (3010pb176R -> part_3010), so a
-        # printed or assembled piece does not claim a bin of its own.
+        # A variant goes with its root base part (3010pb176R -> part_3010,
+        # 3010pb176c01 -> part_3010), so a printed or assembled piece does not
+        # claim a bin of its own. base_part_ids lists the nearest base first, so
+        # the root is its last entry: the plain form of a multi-suffix id
+        # (122c01 -> part_122) and its variants must land on the same part.
         if self.fallback_by == "part" and part:
             bases = base_part_ids(part)
-            return f"part_{bases[0] if bases else part}"
+            return f"part_{bases[-1] if bases else part}"
         return self.default
 
     def _match(

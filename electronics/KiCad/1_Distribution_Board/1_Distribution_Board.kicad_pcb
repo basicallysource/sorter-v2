@@ -56539,7 +56539,7 @@
 			(justify bottom)
 		)
 	)
-	(gr_text "1_Distribution_Board\nREV 1.4.2"
+	(gr_text "1_Distribution_Board\nREV 1.4.2\nLF"
 		(at 135.9 27.9 0)
 		(layer "F.SilkS")
 		(uuid "8818071a-6ae6-4e40-b933-cf51f68c9cff")

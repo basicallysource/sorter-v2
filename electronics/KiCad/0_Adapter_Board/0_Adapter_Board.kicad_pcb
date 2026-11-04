@@ -4968,7 +4968,7 @@
 			(justify left)
 		)
 	)
-	(gr_text "0_Adapter_Board\nREV 1.2"
+	(gr_text "0_Adapter_Board\nREV 1.2\nLF"
 		(at 118 63.9 90)
 		(layer "F.SilkS")
 		(uuid "11233350-3528-477f-9918-24a2e1fb628a")

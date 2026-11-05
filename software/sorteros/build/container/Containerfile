@@ -1,0 +1,27 @@
+# Build environment for build.py: Ubuntu with the tools the image build needs.
+# The arm64 chroot step runs through the host's binfmt/qemu-user registration
+# (flag F), so nothing arm64-specific is installed here.
+FROM docker.io/library/ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8
+
+# Same pnpm as chroot_apt.sh; "latest" changes behaviour between builds.
+ARG PNPM_VERSION=12.11.2
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        ca-certificates curl gnupg \
+        python3 rsync \
+        util-linux mount fdisk gdisk udev e2fsprogs dosfstools cloud-guest-utils \
+        p7zip-full xz-utils \
+ && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+ && apt-get install -y --no-install-recommends nodejs \
+ && npm install -g "pnpm@${PNPM_VERSION}" \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY entrypoint.sh /usr/local/bin/sorteros-entrypoint
+RUN chmod 0755 /usr/local/bin/sorteros-entrypoint
+
+ENTRYPOINT ["/usr/local/bin/sorteros-entrypoint"]
+CMD ["shell"]

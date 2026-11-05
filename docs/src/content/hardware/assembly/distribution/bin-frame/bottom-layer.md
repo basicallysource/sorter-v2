@@ -51,7 +51,7 @@ This layer uses **6 × piece D (Foot extension), 231 mm**, and **no piece C**. E
 
 The bottom layer does not get an External bracket — cover, and it does not get an External bracket — bottom vertical *below* its frame the way every other layer does. It gets an **External bracket — foot cover** instead, one per corner, which is the single printed part that replaces both of them.
 
-**Fit it now, before any extrusion goes in.** It takes 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side, and it is awkward to fit once piece D is through the corner.
+**Fit it now, before any extrusion goes in.** It takes 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side, and it is awkward to fit once piece D is through the corner. It also takes 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through the top holes into the External bracket, for a total of 4 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws for each External Bracket.
 
 **The screw sitting loose in the middle of the photo below is not one of these two.** It is a collar screw, one of the 2 that clamp the bracket onto the extrusion. It is the same size as the foot cover screws, but it stays loose for now and is tightened in step 2.
 

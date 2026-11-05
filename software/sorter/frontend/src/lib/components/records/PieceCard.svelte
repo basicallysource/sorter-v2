@@ -51,7 +51,7 @@
 
 	function formatBin(bin: PieceSummary['bin']): string {
 		if (!bin) return '—';
-		return `L${bin.x} · S${bin.y} · B${bin.z}`;
+		return `L${bin.x + 1} · S${bin.y + 1} · B${bin.z + 1}`;
 	}
 
 	function formatConfidence(c: number | null | undefined): string {

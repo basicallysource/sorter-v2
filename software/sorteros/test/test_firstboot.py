@@ -17,7 +17,7 @@ sys.modules["sorteros_firstboot"] = fb  # its dataclass looks itself up there
 _spec.loader.exec_module(fb)
 
 fb.SOFTWARE_STATUS = Path(tempfile.mkdtemp()) / "software.json"
-fb._read_meta = lambda: ("sorter", "4.1.0", "sorter/stable/v0.2.0")
+fb._read_meta = lambda: ("sorter", "4.1.2-rc", "sorter/stable/v0.2.0")
 BEFORE_UI = [s.name for s in fb.STAGES if s.before_ui]
 
 
@@ -163,6 +163,57 @@ class Handover(unittest.TestCase):
         fb._backend_answers = lambda: self.fail("no page, nothing to wait for")
         fb._start_sorter(None, self.ui_ready)
         self.assertEqual(self.calls, [("run", ("systemctl", "start", "sorter-backend-dev.service"), False)])
+
+
+class BoardCheck(unittest.TestCase):
+    """The setup site records the Orange Pi model it was told; the image knows
+    its own in /etc/orangepi-release."""
+
+    def setUp(self):
+        self.saved = (fb._read_config, fb.ORANGEPI_RELEASE)
+        self.release = Path(tempfile.mkdtemp()) / "orangepi-release"
+        fb.ORANGEPI_RELEASE = self.release
+
+    def tearDown(self):
+        fb._read_config, fb.ORANGEPI_RELEASE = self.saved
+
+    def config(self, **cfg):
+        fb._read_config = lambda: ("", cfg)
+
+    def test_a_matching_board_says_nothing(self):
+        self.release.write_text('BOARD=orangepi5pro\nBOARD_NAME="Orange Pi 5 Pro"\n')
+        self.config(board="orangepi5pro")
+        self.assertEqual(fb._board_mismatch(), "")
+
+    def test_another_board_is_named_on_both_sides(self):
+        self.release.write_text('BOARD=orangepi5pro\n')
+        self.config(board="orangepi5")
+        msg = fb._board_mismatch()
+        self.assertIn("orangepi5,", msg)
+        self.assertIn("orangepi5pro", msg)
+
+    def test_a_quoted_board_in_the_release_file_still_matches(self):
+        self.release.write_text('BOARD="orangepi5pro"\n')
+        self.config(board="orangepi5pro")
+        self.assertEqual(fb._board_mismatch(), "")
+
+    def test_no_board_in_the_config_or_no_release_file_says_nothing(self):
+        self.release.write_text('BOARD=orangepi5pro\n')
+        self.config()
+        self.assertEqual(fb._board_mismatch(), "")
+        self.config(board="orangepi5")
+        self.release.unlink()
+        self.assertEqual(fb._board_mismatch(), "")
+
+    def test_the_page_shows_the_notice_only_on_a_mismatch(self):
+        self.release.write_text('BOARD=orangepi5pro\n')
+        machine()
+        self.config(board="orangepi5")
+        page = fb._render_status_page().decode()
+        self.assertIn('role="alert"', page)
+        self.assertEqual(json.loads(fb._status_json())["notice"], fb._board_mismatch())
+        self.config(board="orangepi5pro")
+        self.assertNotIn('role="alert"', fb._render_status_page().decode())
 
 
 if __name__ == "__main__":

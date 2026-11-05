@@ -71,12 +71,18 @@ The portal source is the single source of truth — the build's `portal` phase c
 
 ## Versioning
 
-Version lives in `build/config.toml` under `[output] version`. It flows into the output filename (`sorteros-v{version}-{date}.img`). Bump before every build that will be flashed to hardware.
+SorterOS versions follow [Semantic Versioning 2.0.0](https://semver.org): `MAJOR.MINOR.PATCH`, with an optional pre-release suffix after a hyphen (`4.1.2-rc`). Use this scheme for every version, in `VERSION`, in a config override and in release names. A pre-release sorts below its release (`4.1.2-rc` < `4.1.2`). If a number needs more than one candidate, count them with dot-separated identifiers (`4.1.2-rc.1`, `4.1.2-rc.2`).
+
+Version lives in `build/VERSION`, once for every `build/config*.toml`. It flows into the output filename (`sorteros-v{version}-{date}.img`), `/etc/sorteros/version` and the MOTD. A config can still set its own `[output] version` to override it. Bump before every build that will be flashed to hardware.
 
 | Change type | Bump | Examples |
 |---|---|---|
-| New feature, new firstboot stage, new overlay file | **minor** (4.0 → 4.1) | adding `stage_clone_repo`, new portal flow step |
-| Bug fix, config tweak, comment-only change | **patch** (4.0 → 4.0.1) | fixing `sh()` error swallowing |
-| Incompatible firstboot protocol change, partition layout change | **major** (4.x → 5.0) | changing the config-toml schema, switching base image |
+| New feature, new firstboot stage, new overlay file | **minor** (4.1.2 → 4.2.0) | adding `stage_clone_repo`, new portal flow step |
+| Bug fix, config tweak, comment-only change | **patch** (4.1.1 → 4.1.2) | fixing `sh()` error swallowing |
+| Incompatible firstboot protocol change, partition layout change | **major** (4.2.0 → 5.0.0) | changing the config-toml schema, switching base image |
+
+A minor bump resets the patch number to 0, a major bump resets minor and patch. `build.py` refuses a version that is not valid SemVer (`4.1`, `v4.1.2`, `4.1.2_rc`) before it builds anything.
 
 Always bump before starting a build — never retroactively rename a build that was already flashed to hardware.
+
+`VERSION` carries the `-rc` suffix (`4.1.2-rc`) while the version is unreleased: every image built from it is a release candidate for that number. To release, drop the suffix in the commit that ships (`4.1.2`), build, run `--phase zip` and attach the `.zip` to a GitHub release (the install page points to the newest "SorterOS" release). The next change then bumps again and brings the suffix back (`4.1.3-rc`).

@@ -5,6 +5,7 @@ import type {
 	SortingProfileLibraryResponse,
 	SortingProfileSummary
 } from './types';
+import type { SortingProfileMetadata } from '$lib/stores/sortingProfile.svelte';
 
 type JsonError = { detail?: string };
 
@@ -58,6 +59,17 @@ export async function fetchLocalProfileMeta(
 		`${baseUrl}/api/sorting-profiles/local/${encodeURIComponent(filename)}/meta`
 	);
 	return unwrap<LocalProfileMeta>(res);
+}
+
+// What a saved profile sorts into, to read it before activating it.
+export async function fetchLocalProfileMetadata(
+	baseUrl: string,
+	filename: string
+): Promise<SortingProfileMetadata> {
+	const res = await fetch(
+		`${baseUrl}/api/sorting-profiles/local/${encodeURIComponent(filename)}/metadata`
+	);
+	return unwrap<SortingProfileMetadata>(res);
 }
 
 export async function fetchProfileDetail(

@@ -91,6 +91,9 @@
 	let rules = $state.raw<Rule[]>([]);
 	let fallback = $state<FallbackChoice>('none');
 	let defaultCategoryId = $state('misc');
+	// What the machine names its bins by. Not edited on this page, but every
+	// save and preview carries it, or a version would lose it.
+	let binSortBy = $state.raw<string[]>([]);
 	// The same, as last saved, for telling whether there is anything to save.
 	let savedRules = $state.raw<Rule[]>([]);
 	let savedKey = $state('');
@@ -103,8 +106,14 @@
 	// condition with no field, or nothing chosen yet), so it shows the rule as far
 	// as it is made. What a save sends keeps the conditions not yet finished, for
 	// the server to say so.
-	const draft = $derived(documentFor(profile?.name ?? '', rules, fallback, defaultCategoryId, true));
-	const toSave = $derived(documentFor(profile?.name ?? '', rules, fallback, defaultCategoryId));
+	const draft = $derived({
+		...documentFor(profile?.name ?? '', rules, fallback, defaultCategoryId, true),
+		bin_sort_by: binSortBy
+	});
+	const toSave = $derived({
+		...documentFor(profile?.name ?? '', rules, fallback, defaultCategoryId),
+		bin_sort_by: binSortBy
+	});
 	const serverKey = $derived(JSON.stringify(draft));
 	// What decides the parts a rule matches: its own conditions, not its name or
 	// its place, so renaming does not ask for them again.
@@ -265,6 +274,7 @@
 		rules = fresh;
 		fallback = fallbackChoice(version.fallback_mode);
 		defaultCategoryId = version.default_category_id || 'misc';
+		binSortBy = version.bin_sort_by ?? [];
 		savedRules = fresh;
 		savedKey = JSON.stringify([fresh, fallback, defaultCategoryId]);
 		baseVersion = version.version_number;
@@ -390,6 +400,7 @@
 				default_category_id: defaultCategoryId,
 				rules: toSave.rules,
 				fallback_mode: toSave.fallback_mode,
+				bin_sort_by: toSave.bin_sort_by,
 				change_note: note
 			});
 			// This version is ours: the head check must not take it for someone else's.
@@ -443,6 +454,7 @@
 				default_category_id: old.default_category_id,
 				rules: old.rules,
 				fallback_mode: old.fallback_mode,
+				bin_sort_by: old.bin_sort_by ?? [],
 				change_note: `Restored from v${old.version_number}`
 			});
 			baseVersion = version.version_number;

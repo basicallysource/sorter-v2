@@ -76,6 +76,48 @@ DEFINITIONS: list[dict[str, Any]] = [
         "rules": BASIC_PIECE_RULES,
         "fallback_mode": {"by_color": True},
     },
+    # The three profiles below also say what a bin is named by, so activating
+    # one sets up the whole pass: no rules, because the bin is the part, the
+    # color or both, whatever category a piece falls in. The fallback only
+    # gives each piece a meaningful category in the run's records.
+    {
+        "key": "default:bins-by-part",
+        "rank": 4,
+        "name": "One bin per part",
+        "description": (
+            "Sort by part number: each part gets its own bin, in any color. The machine names its bins "
+            "after the parts; the BrickLink categories listed here are only how records file a piece."
+        ),
+        "rules": [],
+        "fallback_mode": {"bricklink_categories": True},
+        "bin_sort_by": ["part"],
+    },
+    {
+        "key": "default:bins-by-color",
+        "rank": 5,
+        "name": "One bin per color",
+        "description": (
+            "Sort by color: each color gets its own bin, whatever the part. The machine names its bins "
+            "after the colors themselves, not after this profile's categories, so you can follow it with a "
+            "pass by part. Unlike Colors, which uses a color as a category, this profile needs a machine "
+            "that can name bins by color. The bins listed here are only how records file a piece."
+        ),
+        "rules": [],
+        "fallback_mode": {"by_color": True},
+        "bin_sort_by": ["color"],
+    },
+    {
+        "key": "default:bins-by-part-and-color",
+        "rank": 6,
+        "name": "One bin per part and color (LOT)",
+        "description": (
+            "Sort into lots: each combination of part and color gets its own bin. The machine names its "
+            "bins after part and color; the BrickLink categories listed here are only how records file a piece."
+        ),
+        "rules": [],
+        "fallback_mode": {"bricklink_categories": True},
+        "bin_sort_by": ["part", "color"],
+    },
 ]
 
 
@@ -126,6 +168,7 @@ def ensure_default_profiles(db: Session) -> list[str]:
                 "rules": definition["rules"],
                 "fallback_mode": definition["fallback_mode"],
                 "default_category_id": "misc",
+                "bin_sort_by": definition.get("bin_sort_by", []),
             }
         )
         if compiled.problems:

@@ -109,6 +109,18 @@ You can only assign categories from the active profile. You cannot set up the bi
 
 A category can have more than one bin. The machine then puts each piece in one of them at random.
 
+## Name bins by part, color or both
+
+By default a bin is named by a category. Sorting in several passes (first by category, then by part, then by color) works with other names too. Hive has three profiles that set this up when you activate them:
+
+<ul class="bulleted-list">
+  <li><strong>One bin per part</strong>: each part number gets its own bin, in any color.</li>
+  <li><strong>One bin per color</strong>: each color gets its own bin, whatever the part.</li>
+  <li><strong>One bin per part and color (LOT)</strong>: each combination of part and color gets its own bin, like a lot on BrickLink.</li>
+</ul>
+
+Activating one of them switches the naming and resets the bins' assignments, because bins named the old way would never match again. Activating a profile without a naming of its own switches back to categories. You can also choose the naming yourself under <strong>Name bins by</strong> on the Bins page. A piece with no known part goes to the Discard bin when the naming includes the part.
+
 A bin can have more than one category if **Allow multiple categories per bin** is on.
 
 ## How big a piece each layer takes

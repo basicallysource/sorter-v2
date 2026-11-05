@@ -172,6 +172,37 @@
 		}
 	}
 
+	async function setBinNotInInventory(layerIndex: number, bin: BinInfo, enabled: boolean) {
+		niiBusyLayer = layerIndex;
+		statusMsg = '';
+		error = null;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/not-in-inventory/set`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					scope: 'bin',
+					layer_index: layerIndex,
+					section_index: bin.section_index,
+					bin_index: bin.bin_index,
+					enabled
+				})
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			await loadLayout();
+			statusMsg = enabled
+				? `Bin ${bin.global_index + 1} on layer ${layerIndex + 1} now takes pieces not in inventory.`
+				: `Bin ${bin.global_index + 1} on layer ${layerIndex + 1} is back to normal sorting.`;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to update not-in-inventory mode';
+		} finally {
+			niiBusyLayer = null;
+		}
+	}
+
 	async function runAutoAssign(overlap: boolean) {
 		if (autoAssignBusy) return;
 		autoAssignBusy = true;
@@ -897,6 +928,7 @@
 							`reset-layer-${layer.layer_index}`
 						)}
 					onToggleNii={(enabled) => void setLayerNotInInventory(layer.layer_index, enabled)}
+					onToggleBinNii={(bin, enabled) => void setBinNotInInventory(layer.layer_index, bin, enabled)}
 					onToggleSection={(sectionIndex, enabled) =>
 						void setSectionEnabled(
 							'section',

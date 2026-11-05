@@ -4,6 +4,7 @@
 	import Crosshair from '@lucide/svelte/icons/crosshair';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import FolderOutput from '@lucide/svelte/icons/folder-output';
+	import PackageX from '@lucide/svelte/icons/package-x';
 	import Tag from '@lucide/svelte/icons/tag';
 	import PieceThumb from '$lib/components/PieceThumb.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -31,11 +32,13 @@
 		setProgress,
 		moveDisabled,
 		clearDisabled,
+		niiDisabled,
 		searchState = 'off',
 		onOpenDetails,
 		onMoveTo,
 		onEmpty,
-		onReset
+		onReset,
+		onToggleNii
 	}: {
 		bin: BinInfo;
 		layerEnabled: boolean;
@@ -51,11 +54,13 @@
 		setProgress: SetProgressSummary | null;
 		moveDisabled: boolean;
 		clearDisabled: boolean;
+		niiDisabled: boolean;
 		searchState?: 'off' | 'match' | 'miss';
 		onOpenDetails: () => void;
 		onMoveTo: () => void;
 		onEmpty: () => void;
 		onReset: () => void;
+		onToggleNii: (enabled: boolean) => void;
 	} = $props();
 
 	const catLabel = $derived(categoryLabel(bin.category_ids));
@@ -81,7 +86,15 @@
 	// Emptying or resetting a bin is rare, so it lives in a menu; the reset,
 	// which drops the bin's assignment, comes last.
 	const menuItems = $derived.by((): MenuEntry[] => {
-		const items: MenuEntry[] = [{ label: 'Assign categories', icon: Tag, onselect: onOpenDetails }];
+		const items: MenuEntry[] = [
+			{ label: 'Assign categories', icon: Tag, onselect: onOpenDetails },
+			{
+				label: bin.not_in_inventory ? 'Back to normal sorting' : 'Use for not in inventory',
+				icon: PackageX,
+				onselect: () => onToggleNii(!bin.not_in_inventory),
+				disabled: niiDisabled
+			}
+		];
 		if (contents && contents.piece_count > 0) {
 			items.push({ label: 'Empty this bin', icon: FolderOutput, onselect: onEmpty, disabled: clearDisabled });
 		}
@@ -125,14 +138,21 @@
 			>
 				{bin.global_index + 1}
 			</span>
-			<span
-				class="line-clamp-2 min-w-0 text-sm leading-5 {catLabel
-					? `font-medium ${isCurrent ? 'text-success-ink' : 'text-ink'}`
-					: 'text-ink-muted'}"
-				title={catLabel || 'No category assigned'}
-			>
-				{catLabel || 'Unassigned'}
-			</span>
+			<div class="flex min-w-0 flex-col items-start gap-1">
+				<span
+					class="line-clamp-2 min-w-0 text-sm leading-5 {catLabel
+						? `font-medium ${isCurrent ? 'text-success-ink' : 'text-ink'}`
+						: 'text-ink-muted'}"
+					title={catLabel || 'No category assigned'}
+				>
+					{catLabel || (bin.not_in_inventory ? 'Any category' : 'Unassigned')}
+				</span>
+				{#if bin.not_in_inventory}
+					<span title="Takes only pieces missing from the active BrickLink inventory (.bsx)">
+						<Badge tone="info">Not in inventory</Badge>
+					</span>
+				{/if}
+			</div>
 		</div>
 		<div class="-mr-1 flex shrink-0 items-center">
 			<Button

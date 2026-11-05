@@ -45,7 +45,8 @@
 		onOpenDetails,
 		onMoveTo,
 		onEmptyBin,
-		onResetBin
+		onResetBin,
+		onToggleBinNii
 	}: {
 		layer: LayerInfo;
 		isActive: boolean;
@@ -82,6 +83,7 @@
 		onMoveTo: (bin: BinInfo) => void;
 		onEmptyBin: (bin: BinInfo) => void;
 		onResetBin: (bin: BinInfo) => void;
+		onToggleBinNii: (bin: BinInfo, enabled: boolean) => void;
 	} = $props();
 
 	const layerNii = $derived(layer.bins.length > 0 && layer.bins.every((b) => b.not_in_inventory));
@@ -175,11 +177,13 @@
 							setProgress={setProgressFor(bin)}
 							moveDisabled={moveDisabled || !layer.enabled}
 							clearDisabled={clearDisabled || clearing}
+							{niiDisabled}
 							searchState={searchActive ? (searchMatch(bin) ? 'match' : 'miss') : 'off'}
 							onOpenDetails={() => onOpenDetails(bin)}
 							onMoveTo={() => onMoveTo(bin)}
 							onEmpty={() => onEmptyBin(bin)}
 							onReset={() => onResetBin(bin)}
+							onToggleNii={(enabled) => onToggleBinNii(bin, enabled)}
 						/>
 					{/snippet}
 				</SectionGroup>

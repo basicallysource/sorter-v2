@@ -30,17 +30,17 @@ Building a profile in the first place is [Build your first sorting profile]({{ '
 
 ## `HTTP 502`, with no sentence after it
 
-**Cause:** Usually a colour profile that is too large for Hive to apply. See [asking for colour]({{ '/hive/first-profile/ask-in-plain-words/#asking-for-colour' | relative_url }}).
+**Cause:** Hive did not answer, so the web server in front of it answered for it, which is what a bare 502 means. It used to be caused by a profile that sorts by color, which Hive could not build in time. That was fixed on 2026-09-30, and asking for colour no longer does it. What is left is Hive being busy or restarting: the first profile request after Hive starts waits for the parts catalog to load, which can take up to about a minute.
 
-**Fix:** Ask for fewer colours, one colour per box, with no shade variants. Sending the same request again will fail the same way.
+**Fix:** Wait a minute and send the message again. If it keeps happening, say so in [an issue](https://github.com/basicallysource/sorter-v2/issues).
 
 ---
 
-## `Internal server error`, when you save
+## `1 problem keeps this version from being saved`, when you save
 
-**Cause:** Usually a value that is not a number in a condition that compares numbers, most often a currency symbol: `bl_price_min >= $5` rather than `bl_price_min >= 5`. Hive stores what you typed as text, and the comparison against the price fails when it builds the profile. The message names no rule and no field, and nothing in the editor is marked.
+**Cause:** A condition Hive cannot read. The message counts the problems, and each one is shown on its rule and under its condition with a sentence of its own, such as `Lowest price, used: 'abc' is not a number`. Examples are a condition with nothing chosen yet, a pattern in **matches** that is not a valid regular expression, a value that is not a number in a condition that compares numbers, and a kit that no longer exists. Nothing is saved while any problem is open.
 
-**Fix:** Open your rules, find any condition using `>=` or `<=`, and leave only digits in the value box. `5`, not `$5`. A unit does the same thing: `10mm`, `5 USD` and `2019 or later` all break the save.
+**Fix:** Open each rule Hive points to, read the sentence under the condition, and fix it or remove the condition. Then save again.
 
 ---
 
@@ -80,7 +80,7 @@ Building a profile in the first place is [Build your first sorting profile]({{ '
 
 **Cause:** The model sent nothing back that Hive could use. This is not your key, whatever the error says underneath it. Hive offers you a link to your key settings for this message, and following it will not help.
 
-**Fix:** Send the message again first. If it keeps happening, open **Settings** and choose a different **Preferred Model**, then try once more.
+**Fix:** Send the message again first. If it keeps happening, open **Settings** and choose a different **Model** in the **AI assistant** panel, then try once more.
 
 ---
 

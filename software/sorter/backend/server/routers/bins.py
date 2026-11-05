@@ -41,6 +41,7 @@ from irl.bin_layout import (
     applyCategories,
     layoutMatchesCategories,
     mkLayoutFromConfig,
+    defaultMaxDimensionForBinCount,
     extractNotInInventory,
     applyNotInInventory,
     notInInventoryMatchesLayout,
@@ -591,6 +592,7 @@ def get_bins_layout() -> Dict[str, Any]:
                 if isinstance(max_dimension, (int, float)) and not isinstance(max_dimension, bool) and max_dimension > 0
                 else None
             ),
+            "max_dimension_default_mm": defaultMaxDimensionForBinCount(global_bin),
             "bins": bins_flat,
         })
 

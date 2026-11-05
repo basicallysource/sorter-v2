@@ -535,7 +535,7 @@
 	}
 
 	function formatBin(bin: [unknown, unknown, unknown]): string {
-		return `L${bin[0]} · S${bin[1]} · B${bin[2]}`;
+		return `L${Number(bin[0]) + 1} · S${Number(bin[1]) + 1} · B${Number(bin[2]) + 1}`;
 	}
 
 	function confidenceClass(conf: number): string {

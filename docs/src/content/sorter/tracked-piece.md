@@ -61,7 +61,7 @@ The card you came for. From left to right:
       <li><strong>Mold</strong>: which service identified the part, and how sure it was.</li>
       <li><strong>Color</strong>: the color, which service gave it, and how sure it was. Mold and color can come from different services, so each has its own percentage.</li>
       <li><strong>Category</strong>: the category the sorting profile put the part in.</li>
-      <li><strong>Bin</strong>: the layer, section and bin it was sent to, written <code>L0 · S1 · B1</code>, then its stage. These numbers start from 0, so <code>L0 · S1 · B1</code> is layer 1, section 2, bin 2 as the <strong>Bins</strong> page numbers them. For a piece that was not identified and has no recorded bin, it reads <strong>discard bin</strong>.</li>
+      <li><strong>Bin</strong>: the layer, section and bin it was sent to, written <code>L1 · S2 · B2</code>, then its stage. These numbers start from 1, like the <strong>Bins</strong> page: <code>L1 · S2 · B2</code> is layer 1, section 2, the second bin of that section. For a piece that was not identified and has no recorded bin, it reads <strong>discard bin</strong>.</li>
       <li><strong>Value</strong> (when known) and <strong>Seen</strong> (when the machine first saw it).</li>
     </ul>
   </li>

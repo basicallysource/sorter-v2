@@ -399,7 +399,7 @@
 
 	function formatBin(bin: [unknown, unknown, unknown] | null | undefined): string {
 		if (!bin) return '—';
-		return `L${bin[0]} · S${bin[1]} · B${bin[2]}`;
+		return `L${Number(bin[0]) + 1} · S${Number(bin[1]) + 1} · B${Number(bin[2]) + 1}`;
 	}
 
 	function formatRole(role: string): string {
@@ -557,7 +557,7 @@
 
 	function formatSummaryBin(bin: PieceSummary['bin']): string {
 		if (!bin) return '—';
-		return `L${bin.x} · S${bin.y} · B${bin.z}`;
+		return `L${bin.x + 1} · S${bin.y + 1} · B${bin.z + 1}`;
 	}
 
 	// --- The top card ---------------------------------------------------------

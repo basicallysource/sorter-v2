@@ -95,14 +95,14 @@
 		list.setFilters({ run: kind === 'run' ? id : null, lot: kind === 'lot' ? id : null });
 	}
 
-	// A bin as the pieces' rows write it (L0 · S1 · B1), with what it takes.
+	// A bin as the pieces' rows write it (L1 · S2 · B2, counted from 1), with what it takes.
 	const binOptions = $derived([
 		{ value: '', label: 'Any bin' },
 		...bins.map((b) => {
 			const categories = categoryLabel(b.categoryIds);
 			return {
 				value: `${b.layer}-${b.section}-${b.bin}`,
-				label: `L${b.layer} · S${b.section} · B${b.bin}${categories ? ` · ${categories}` : ''}`
+				label: `L${b.layer + 1} · S${b.section + 1} · B${b.bin + 1}${categories ? ` · ${categories}` : ''}`
 			};
 		})
 	]);

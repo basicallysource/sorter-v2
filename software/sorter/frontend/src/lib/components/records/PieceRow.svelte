@@ -62,12 +62,11 @@
 		});
 	}
 
-	// As the dashboard's recent pieces and the piece's page write it, counted from
-	// 0; the Bins page counts from 1, so the tooltip says it that way too.
+	// Counted from 1, like the Bins page.
 	function formatBin(bin: PieceSummary['bin']): { text: string; title: string } | null {
 		if (!bin) return null;
 		return {
-			text: `L${bin.x} · S${bin.y} · B${bin.z}`,
+			text: `L${bin.x + 1} · S${bin.y + 1} · B${bin.z + 1}`,
 			title: `Layer ${bin.x + 1}, section ${bin.y + 1}, bin ${bin.z + 1} on the Bins page`
 		};
 	}

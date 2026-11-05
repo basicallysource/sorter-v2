@@ -22,6 +22,31 @@ UV_VERSION=0.13.1
 log "apt update"
 apt-get update -y
 
+# The vendor image is months old. Install the security fixes Ubuntu has
+# published since, and nothing else: the pin lets apt consider only the
+# *-security pockets (every other source gets priority -1, so no feature
+# updates, no NodeSource, no Docker repo). The vendor's kernel, device tree
+# and board packages are held for the upgrade; a new kernel could change how
+# the board boots. The pin is removed again below, because the installs
+# that follow need the regular pockets.
+log "installing security updates"
+SECURITY_PIN=/etc/apt/preferences.d/zz-sorteros-security-only
+cat > "$SECURITY_PIN" <<'PIN'
+Package: *
+Pin: release a=*-security
+Pin-Priority: 990
+
+Package: *
+Pin: release *
+Pin-Priority: -1
+PIN
+HELD=$(dpkg-query -W -f='${Package}\n' 2>/dev/null \
+    | grep -E '^(linux-image|linux-dtb|linux-headers|linux-u-boot|orangepi)' || true)
+[ -z "$HELD" ] || echo "$HELD" | xargs apt-mark hold >/dev/null
+apt-get upgrade "${APT_OPTS[@]}"
+[ -z "$HELD" ] || echo "$HELD" | xargs apt-mark unhold >/dev/null
+rm -f "$SECURITY_PIN"
+
 # Node 22 via NodeSource.
 if ! node --version 2>/dev/null | grep -q '^v22'; then
     log "installing Node 22"

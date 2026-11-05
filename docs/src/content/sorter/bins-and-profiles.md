@@ -59,7 +59,7 @@ The page shows each layer, its sections, and their bins. Each bin shows its numb
 <ul class="bulleted-list">
   <li>You can turn off a layer, or one section of a layer. It then gets no pieces.</li>
   <li><strong>Sections across all layers</strong> turns a whole column off on every layer at once, or points the chute at it so you can find it.</li>
-  <li>A layer in <strong>Not-in-inventory mode</strong> only takes pieces that are not in your active BrickLink inventory (<code>.bsx</code>).</li>
+  <li>A layer in <strong>Not-in-inventory mode</strong> only takes pieces that are not in your active BrickLink inventory (<code>.bsx</code>). To give that job to one bin instead, open the bin's <strong>…</strong> menu and choose <strong>Use for not in inventory</strong>. Such a bin shows a <strong>Not in inventory</strong> badge and takes those pieces whatever their category; <strong>Back to normal sorting</strong> in the same menu undoes it.</li>
   <li>Pieces in the profile's <strong>Everything else</strong> do not go in a bin. They drop into the <strong>Discard bin</strong>, the bucket under the tower.</li>
   <li>A piece longer than 10 studs (80 mm) drops into the Discard bin. A smaller piece can still be too big for some bins: see <a href="#how-big-a-piece-each-layer-takes">How big a piece each layer takes</a>.</li>
 </ul>

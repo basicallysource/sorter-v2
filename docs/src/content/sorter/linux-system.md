@@ -48,7 +48,7 @@ image is pinned by checksum, and the build:
 Things that are **not** changed: the kernel and vendor drivers (so the Wi-Fi
 module and the board's hardware support come from the Orange Pi image), the
 `orangepi` user, and the default SSH credentials in
-[Install the SorterOS image]({{ '/sorter/installation/sorter-os/' | relative_url }}).
+[Log in over SSH]({{ '/sorter/ssh/' | relative_url }}).
 
 ## The system software that matters
 

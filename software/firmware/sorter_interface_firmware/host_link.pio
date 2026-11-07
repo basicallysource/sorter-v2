@@ -1,0 +1,31 @@
+; 8N1 UART to the host on two pins, 8 PIO cycles per bit.
+; The shape of pico-examples' uart_tx and uart_rx.
+
+.program host_link_tx
+.side_set 1 opt
+
+; OUT pin 0 and side-set pin 0 are both the TX pin.
+
+    pull       side 1 [7]  ; Stop bit, or wait here with the line idle high
+    set x, 7   side 0 [7]  ; Start bit
+bitloop:
+    out pins, 1            ; One data bit, LSB first
+    jmp x-- bitloop   [6]
+
+.program host_link_rx
+
+; IN pin 0 and the JMP pin are both the RX pin.
+
+start:
+    wait 0 pin 0           ; Wait for a start bit
+    set x, 7        [10]   ; Delay until halfway through the first data bit
+bitloop:
+    in pins, 1
+    jmp x-- bitloop [6]
+    jmp pin good_stop      ; The stop bit should be high
+
+    wait 1 pin 0           ; Framing error or break: drop the byte, wait for idle
+    jmp start
+
+good_stop:
+    push noblock           ; Never stall on a full FIFO, or the next start bit is missed

@@ -2,8 +2,7 @@
 // No PCA9685 and no I2C: GP10 and GP11 are stepper pins here.
 // LED/24V-en: GPIO27 (ch0, ports 1 and 2), GPIO28 (ch1, ports 3 and 4) — AO3400A NMOS
 // Hall input: GPIO3
-// GPIO7 and GPIO19 go to the host header's isolated UART and stay unused for now:
-// the host talks to this board over USB.
+// GPIO7 and GPIO19 are the host header's isolated UART (the host link).
 
 const char* const HW_ID = "basically_v1_5";
 
@@ -61,3 +60,11 @@ const uint8_t LED_OUTPUT_COUNT = 2;
 // TMC_UART_BUS_COUNT: it gates this bus's commands.
 #define SERVO_BUS_PIN 2
 const int SERVO_BUS_BAUDRATE = 1000000;
+
+// The host link: a UART to the computer the board sits on, through the header and
+// its isolator. GP7 sends, GP19 receives, and the firmware answers the same
+// commands there as over USB. On an Orange Pi 5 it is UART0 (overlay uart0-m2,
+// header pins 8 and 10). 1.5 Mbps is the Rockchip UART clock of 24 MHz over 16.
+#define HOST_LINK_TX_PIN 7
+#define HOST_LINK_RX_PIN 19
+const uint32_t HOST_LINK_BAUDRATE = 1500000;

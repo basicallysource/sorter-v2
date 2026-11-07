@@ -9,6 +9,7 @@ The firmware is designed to run on a Raspberry Pi Pico (RP2040) microcontroller 
 - `TMC2209.*` — TMC2209 stepper driver abstraction
 - `TMC_UART.*` — UART communication with TMC drivers
 - `ServoBus.*`, `servo_bus.pio` — Serial bus servos on one open-drain pin
+- `HostLink.*`, `host_link.pio` — UART link to the host on two pins (v1.5)
 - `message.*` — Message and command processing
 - `cobs.*`, `crc.*` — Communication utilities
 - `build/` — Build output directory
@@ -81,6 +82,12 @@ The channel byte is the servo's ID, 0 to 254, and 254 is broadcast. A wait for a
 | `0x52 WRITE` | `[address u8, data...]`, 1 to 64 data bytes | `[status u8]` |
 
 `status` is the servo's status (error) byte. A write to ID 254 waits for no answer and its status is 0. If a servo does not answer, or its packet is bad, the reply is an error (the `0x80` bit set on the command) with the text `No reply from servo N`. Bad lengths get an error reply saying so.
+
+## Host Link (v1.5)
+
+The v1.5 board sits on the host's header, and the host can talk to it there instead of over USB: a UART at 1.5 Mbps, 8N1, through the board's isolator, with GP7 sending and GP19 receiving. The commands, framing and replies are the same as over USB, and a reply goes back the way its command came. USB keeps working beside it. On an Orange Pi 5 the link is UART0 (`overlays=uart0-m2`, header pins 8 and 10, `/dev/ttyS0`), and header pin 15 high holds the Pico in reset, so drive it low.
+
+The RP2040 takes new firmware only over USB, so the first flash needs USB.
 
 ## Code Style
 - Follows LLVM style (see `.clang-format`).

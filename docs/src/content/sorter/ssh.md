@@ -22,26 +22,21 @@ do this.
 - **Windows:** follow Microsoft's
   [SSH in Windows Terminal](https://learn.microsoft.com/en-us/windows/terminal/tutorials/ssh)
   tutorial to get a client.
-- **macOS and Linux:** `ssh` is already installed.
+- **macOS:** `ssh` is already installed.
+- **Linux:** `ssh` comes from the `openssh-client` package. Check your
+  distribution's documentation for how to install it.
 
 ## Log in
 
-Open a terminal on your computer and run one of:
+Open a terminal on your computer and run:
 
 ```bash
 ssh root@sorter.local
 ```
 
-```bash
-ssh orangepi@sorter.local
-```
-
-- `root` can change anything on the machine.
-- `orangepi` is the normal user. The software lives in its home folder,
-  `/home/orangepi/sorter-v2`.
-- The default `root` password is in
-  [Install the SorterOS image]({{ '/sorter/installation/sorter-os/' | relative_url }}).
+- The default password is `orangepi`.
 - The first time, SSH asks whether to trust the machine. Type `yes`.
+- `root` can change anything on the machine.
 
 If you gave the machine another hostname in SorterOS Setup, use that instead of
 `sorter`.

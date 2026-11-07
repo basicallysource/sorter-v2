@@ -147,4 +147,4 @@ More in [troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}#first-
 
 - **New router or WiFi password.** When the Pi can't reach the internet for about a minute, its setup network comes back. Do step 4 again.
 - **Updates.** Settings, then Versions, in the SorterOS UI. You only need a new SorterOS image when the image itself changes.
-- **SSH.** User `root`, password `orangepi`.
+- **SSH.** See [Log in over SSH]({{ '/sorter/ssh/' | relative_url }}).

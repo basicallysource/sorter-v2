@@ -32,6 +32,7 @@
 
 #include "PCA9685.h"
 #include "Servo.h"
+#include "HostLink.h"
 #include "ServoBus.h"
 #include "Stepper.h"
 #include "TMC2209.h"
@@ -322,6 +323,10 @@ std::array<Servo, 16> servos{}; // Create 16 servo objects, but only the first S
 
 #ifdef SERVO_BUS_PIN
 ServoBus servo_bus(pio0, SERVO_BUS_PIN);
+#endif
+
+#ifdef HOST_LINK_TX_PIN
+HostLink host_link(pio1, HOST_LINK_TX_PIN, HOST_LINK_RX_PIN);
 #endif
 
 // clang-format on
@@ -1124,6 +1129,13 @@ int main() {
     BusMessageProcessor msg_processor(DEVICE_ADDRESS, command_tables, [](const char *data, int length) {
         stdio_put_string(data, length, false, false);
     });
+#ifdef HOST_LINK_TX_PIN
+    // The host link has its own processor, so a reply goes back where its command came from.
+    host_link.setup(HOST_LINK_BAUDRATE);
+    BusMessageProcessor link_processor(DEVICE_ADDRESS, command_tables, [](const char *data, int length) {
+        host_link.write(data, length);
+    });
+#endif
     // Main loop, this deals with communications and high level command processing
     while (true) {
         // Read characters from USB if available and feed to the message processor
@@ -1134,5 +1146,14 @@ int main() {
             msg_processor.processIncomingData((char)c);
             msg_processor.processQueuedMessage();
         }
+#ifdef HOST_LINK_TX_PIN
+        while (true) {
+            int c = host_link.getc();
+            if (c < 0)
+                break;
+            link_processor.processIncomingData((char)c);
+            link_processor.processQueuedMessage();
+        }
+#endif
     }
 }

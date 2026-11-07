@@ -103,9 +103,11 @@ add_executable(sorter_interface_firmware
     PCA9685.cpp
     Servo.cpp
     ServoBus.cpp
+    HostLink.cpp
 )
 
 pico_generate_pio_header(sorter_interface_firmware ${CMAKE_CURRENT_LIST_DIR}/servo_bus.pio)
+pico_generate_pio_header(sorter_interface_firmware ${CMAKE_CURRENT_LIST_DIR}/host_link.pio)
 
 pico_set_program_name(sorter_interface_firmware "sorter_interface_firmware")
 pico_set_program_version(sorter_interface_firmware "${FIRMWARE_GIT_VERSION}")

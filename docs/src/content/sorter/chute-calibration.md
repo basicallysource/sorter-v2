@@ -130,6 +130,8 @@ Test at least the first, a middle and the last bin of one section.
 
 Bins crossed out in red sit in the no-go wedge beside home. The chute cannot reach them and the machine will not send parts to them.
 
+**If every test aim is off by the same amount,** restart the backend from the **⋯** menu at the top right, home the chute again, and test again.
+
 If a bin is not centred, run steps 1 to 4 again and take the two captures as carefully as you can. The bins at the two ends of a section are the ones that show a sloppy capture first.
 
 ## If the chute does not move

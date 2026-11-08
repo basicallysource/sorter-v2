@@ -68,7 +68,7 @@ What the bins were designed for: cut flat, folded and glued. Cut them with the [
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>The built-in <strong>Bin (third, right-back)</strong> is wrong: it has no front wall, so it gives you three panels instead of four. Do not cut it. Print that bin, or cut it by hand from the template below, until the generator is fixed (<a href="https://github.com/basicallysource/sorter-v2/issues/1137">#1137</a>).</p>
+  <p>The built-in <strong>Bin (third, right-back)</strong> is wrong: it has no front wall, so it gives you three panels instead of four. Do not cut it. Export <strong>Bin (third, left)</strong> instead and mirror the pattern before cutting: the right bin is the left one flipped. Or print that bin, or cut it by hand from the template below. Until the generator is fixed (<a href="https://github.com/basicallysource/sorter-v2/issues/1137">#1137</a>).</p>
 </div>
 
 <div class="callout callout-warning">

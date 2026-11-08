@@ -228,6 +228,8 @@ sections:
             url: /sorter/training-data/
       - title: Under the hood
         pages:
+          - title: Log in over SSH
+            url: /sorter/ssh/
           - title: The Linux system
             url: /sorter/linux-system/
           - title: Dev flow

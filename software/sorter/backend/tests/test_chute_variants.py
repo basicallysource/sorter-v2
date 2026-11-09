@@ -54,8 +54,17 @@ class _Stepper:
         self._world = world
         self.total_steps_per_rev = STEPS_PER_MOTOR_TURN
         self._running = 0  # microsteps a poll while at speed
+        # A homing run, as its caller sees it: still moving at the first look,
+        # and its count just before the firmware zeroed it, read once.
+        self._looks_while_homing = 0
+        self._count_before_zero: int | None = None
 
-    stopped = True
+    @property
+    def stopped(self) -> bool:
+        if self._looks_while_homing > 0:
+            self._looks_while_homing -= 1
+            return False
+        return True
 
     def home(self, speed: int, _pin, home_pin_active_high: bool = True) -> None:
         self._world.homes.append((speed, home_pin_active_high))
@@ -64,6 +73,8 @@ class _Stepper:
             if self._world.input_high() == home_pin_active_high:
                 break
             self._world.turn(step)
+        self._count_before_zero = self._world.count
+        self._looks_while_homing = 1
         self._world.count = 0
 
     def move_degrees(self, motor_degrees: float) -> bool:
@@ -79,9 +90,16 @@ class _Stepper:
 
     @property
     def position(self) -> int:
+        if self._count_before_zero is not None:
+            count, self._count_before_zero = self._count_before_zero, None
+            return count
         # Each read lets the chute run on a little, as it does between polls.
         self._world.turn(self._running)
         return self._world.count
+
+    @position.setter
+    def position(self, value: int) -> None:
+        self._world.count = value
 
     @property
     def position_degrees(self) -> float:
@@ -204,5 +222,7 @@ def test_a_slip_ring_chutes_turn_can_be_measured():
     chute = _chute(world, SLIP_RING)
     assert chute.home()
     ratio = measureTurn(chute)
-    assert ratio == pytest.approx(5.2, abs=0.06)
+    # To a microstep or two of the 8,320 in this chute's turn.
+    assert ratio == pytest.approx(5.2, abs=0.002)
+    assert chute.gear_ratio == SLIP_RING.gear_ratio  # measuring changes nothing: saving it does
     assert not chute.homed  # it must be homed again before it is used

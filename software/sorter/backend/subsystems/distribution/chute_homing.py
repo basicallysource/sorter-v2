@@ -108,10 +108,43 @@ def homeOnMagnet(chute: "Chute") -> bool:
 
 
 def measureTurn(chute: "Chute") -> float | None:
-    """How many motor turns one turn of this chute takes: the microsteps from
-    where the magnet's window ends, round to where it ends again. The chute must
-    be homed on its magnet (so it stands at the window's edge) and is left
-    needing a home. None if the magnet did not come round."""
+    """How many motor turns one turn of this chute takes, from the magnet's edge
+    round to the same edge. The chute must be homed on its magnet and is left
+    needing a home. None if the magnet did not come round.
+
+    A chute that never unwinds adds up whatever its ratio is off by, turn after
+    turn, so this is read to a microstep or two. A first pass at speed gives the
+    ratio roughly (it only sees the edge between two readings); then the chute
+    goes almost a full turn by that ratio and crawls onto the edge, and the
+    step count just before the firmware zeroes it is the turn."""
+    rough = _roughTurn(chute)
+    if rough is None:
+        chute.logger.error("Chute: the magnet did not come round while measuring a turn.")
+        return None
+    as_built = chute.gear_ratio
+    chute.setGearRatio(rough)
+    try:
+        if not homeOnMagnet(chute):
+            return None
+        # Homing runs toward lower angles: on through the window and round, to
+        # stop a little short of the edge it started from.
+        if not _moveBy(chute, -(360.0 - 2 * MAGNET_CLEARANCE_DEG)):
+            return None
+        steps = _crawlOntoEdge(chute)
+    finally:
+        chute.setGearRatio(as_built)
+        chute.markUnhomed("its turn was measured")
+    if steps is None:
+        chute.logger.error("Chute: lost the magnet while measuring a turn.")
+        return None
+    ratio = steps / chute.stepper.total_steps_per_rev
+    chute.logger.info(f"Chute: one turn is {steps} µsteps, {ratio:.4f} motor turns")
+    return ratio
+
+
+def _roughTurn(chute: "Chute") -> float | None:
+    """The ratio to a part in a thousand: the count between two passes of the
+    same edge of the magnet's window, seen at speed."""
     stepper = chute.stepper
     speed = abs(MAGNET_SEEK_SPEED)
     chute.setSpeed(speed)
@@ -132,14 +165,39 @@ def measureTurn(chute: "Chute") -> float | None:
             time.sleep(POLL_S)
     finally:
         stepper.move_at_speed(0, force=True)
-        chute.markUnhomed("its turn was measured")
     if len(edges) < 2 or edges[1] == edges[0]:
-        chute.logger.error("Chute: the magnet did not come round while measuring a turn.")
         return None
-    steps = abs(edges[1] - edges[0])
-    ratio = steps / stepper.total_steps_per_rev
-    chute.logger.info(f"Chute: one turn is {steps} µsteps, {ratio:.4f} motor turns")
-    return ratio
+    return abs(edges[1] - edges[0]) / stepper.total_steps_per_rev
+
+
+def _crawlOntoEdge(chute: "Chute") -> int | None:
+    """Crawl onto the magnet's edge the way homing does, and return the step
+    count the chute had when it got there: the firmware zeroes it at the edge,
+    so it is the last one read before that."""
+    stepper = chute.stepper
+    stepper.home(MAGNET_CRAWL_SPEED, chute.home_pin, home_pin_active_high=chute.endstop_active_high)
+    started = time.monotonic()
+    give_up_after = _secondsFor(chute, MAGNET_CLEARANCE_DEG * 6, MAGNET_CRAWL_SPEED) + 1.0
+    last: int | None = None
+    reads = 0
+    while True:
+        elapsed = time.monotonic() - started
+        if stepper.stopped and elapsed >= START_GRACE_S:
+            break
+        if elapsed > give_up_after:
+            stepper.move_at_speed(0, force=True)
+            return None
+        position = stepper.position
+        reads += 1
+        if position != 0:
+            last = position
+    if last is None or not chute.endstop_triggered:
+        return None
+    # The chute went on for part of a reading's interval after the last one
+    # read: half of it, on average.
+    crawled_s = time.monotonic() - started
+    between_reads = abs(MAGNET_CRAWL_SPEED) * crawled_s / reads
+    return int(round(abs(last) + between_reads / 2))
 
 
 def _secondsFor(chute: "Chute", chute_degrees: float, speed: int) -> float:

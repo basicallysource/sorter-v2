@@ -37,7 +37,7 @@
 	</Alert>
 {:else if flow.hardwareState === 'error'}
 	<Alert tone="danger" title="The hardware stopped with a fault">
-		{flow.hardwareError ?? 'It did not say why.'} Check the boards' power and cables, then try again.
+		{flow.hardwareError ?? "It did not say why. Check the boards' power and cables, then try again."}
 		{#snippet actions()}
 			<Button size="sm" icon={RotateCcw} onclick={() => void flow.startHardware()}>Try again</Button>
 		{/snippet}

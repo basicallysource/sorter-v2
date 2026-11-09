@@ -165,19 +165,21 @@
 						/>
 					</SettingRow>
 				{/each}
+				<div class="flex flex-wrap gap-2 px-(--pad-panel) py-(--pad-row)">
+					<Button icon={Plus} disabled={draft.length >= MAX_LAYERS || saving} onclick={addLayer}>
+						Add a layer
+					</Button>
+					<Button
+						variant="ghost"
+						icon={Minus}
+						disabled={draft.length <= 1 || saving}
+						onclick={removeLayer}
+					>
+						Remove the bottom layer
+					</Button>
+				</div>
 			</div>
 			{#snippet footer()}
-				<Button
-					variant="ghost"
-					icon={Minus}
-					disabled={draft.length <= 1 || saving}
-					onclick={removeLayer}
-				>
-					Remove the bottom layer
-				</Button>
-				<Button icon={Plus} disabled={draft.length >= MAX_LAYERS || saving} onclick={addLayer}>
-					Add a layer
-				</Button>
 				<Button variant="primary" loading={saving} disabled={!changed} onclick={() => void save()}>
 					Save the layers
 				</Button>

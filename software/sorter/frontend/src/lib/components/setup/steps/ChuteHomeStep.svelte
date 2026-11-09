@@ -199,7 +199,7 @@
 		{/snippet}
 	</Panel>
 
-	{#if magnet && chute.turns_freely}
+	{#if magnet && chute.turns_freely && homeFound}
 		<MeasureTurn base={flow.base} {chute} ready={flow.hardwareUp && !homing} onmeasured={() => void flow.reload()} />
 	{/if}
 

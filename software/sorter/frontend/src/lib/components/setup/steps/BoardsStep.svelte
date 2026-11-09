@@ -24,7 +24,7 @@
 	// in its own words are left out.
 	const issues = $derived(
 		discovery.issues.filter(
-			(issue) => !issue.startsWith('Missing required steppers') && issue !== 'No control boards detected.'
+			(issue) => !issue.startsWith('Missing required steppers') && !issue.startsWith('No control board')
 		)
 	);
 	// A USB servo adapter, or a board that did not answer: what else might be part of the machine.

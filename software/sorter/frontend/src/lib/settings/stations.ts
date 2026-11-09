@@ -3,6 +3,7 @@ import CircuitBoard from '@lucide/svelte/icons/circuit-board';
 import Cloud from '@lucide/svelte/icons/cloud';
 import Cpu from '@lucide/svelte/icons/cpu';
 import Database from '@lucide/svelte/icons/database';
+import DoorOpen from '@lucide/svelte/icons/door-open';
 import Gauge from '@lucide/svelte/icons/gauge';
 import Timer from '@lucide/svelte/icons/timer';
 import GitBranch from '@lucide/svelte/icons/git-branch';
@@ -156,6 +157,12 @@ export const computerNavItem: SettingsNavItem = {
 	icon: Thermometer
 };
 
+export const doorsNavItem: SettingsNavItem = {
+	href: '/settings/doors',
+	label: 'Doors',
+	icon: DoorOpen
+};
+
 export const jitterTestNavItem: SettingsNavItem = {
 	href: '/settings/jitter-test',
 	label: 'Jitter test',
@@ -279,6 +286,7 @@ export const settingsNavItems: SettingsNavEntry[] = [
 	...stationPageConfigs,
 	chuteNavItem,
 	storageLayersNavItem,
+	doorsNavItem,
 	controlBoardNavItem,
 	computerNavItem,
 	{ type: 'heading', label: 'Helpers' },

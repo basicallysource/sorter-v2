@@ -8,6 +8,11 @@ and the card the dashboard shows (``describe``).
 
 One incident is open at a time, and the machine holds while it is. The slot
 still lives in ``runtime_stats`` until every kind reports through here.
+
+A kind that does not hold the machine (``holds=False``) is a warning: any
+number can be open beside the incident, one per kind and subject, the machine
+keeps sorting, and each closes when ``clear`` says its condition ended. They
+are kept in ``runtime_stats`` too, and recorded with the incidents.
 """
 
 from __future__ import annotations
@@ -62,6 +67,12 @@ def report(gc: Any, kind: str, *, subject: str, **fields: Any) -> bool:
     runtime_stats = getattr(gc, "runtime_stats", None)
     if runtime_stats is None:
         return False
+    definition = KINDS.get(kind)
+    if definition is not None and not definition.holds:
+        runtime_stats.openWarning(
+            {"kind": kind, "subject": subject, "severity": "warning", "triggered_at": time.time(), **fields}
+        )
+        return True
     active = runtime_stats.activeIncident()
     if isinstance(active, dict):
         return active.get("kind") == kind and active.get("subject") == subject
@@ -73,6 +84,12 @@ def report(gc: Any, kind: str, *, subject: str, **fields: Any) -> bool:
 
 def clear(gc: Any, kind: str, *, subject: str | None = None, resolved_by: str = "system") -> None:
     """The problem is gone: close this kind's incident (for ``subject``, if given)."""
+    definition = KINDS.get(kind)
+    if definition is not None and not definition.holds:
+        runtime_stats = getattr(gc, "runtime_stats", None)
+        if runtime_stats is not None:
+            runtime_stats.clearWarning(kind, subject=subject, resolved_by=resolved_by)
+        return
     if openIncident(gc, kind, subject) is not None:
         gc.runtime_stats.clearActiveIncident(kind=kind, resolved_by=resolved_by)
 
@@ -98,6 +115,8 @@ def describe(incident: dict[str, Any] | None) -> dict[str, Any] | None:
         "actions": [{"key": key, "label": ACTIONS[key].label} for key in actions],
         "since": incident.get("triggered_at"),
     }
+    if kind is not None and kind.link is not None:
+        card["link"] = {"href": kind.link[0], "label": kind.link[1]}
     progress = incident.get("recovery")
     if isinstance(progress, dict):
         # A recovery procedure is working on it (recovery/): what it is doing,

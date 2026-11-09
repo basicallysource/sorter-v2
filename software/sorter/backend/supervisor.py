@@ -44,7 +44,10 @@ CONTENT_TYPES.add_type("font/woff2", ".woff2")
 
 class BackendSupervisor:
     """Runs the backend, restarts it when it exits, and restarts it on request.
-    The backend inherits the supervisor's stdout and stderr (the journal)."""
+    The backend inherits the supervisor's stdout and stderr (the journal), and
+    is told how many times it was started (SORTER_BACKEND_STARTS) and how many
+    of the runs before ended on their own (SORTER_BACKEND_UNEXPECTED_EXITS),
+    which the Computer settings page shows."""
 
     def __init__(
         self,
@@ -70,6 +73,8 @@ class BackendSupervisor:
         self._process_started_at: float | None = None
         self._consecutive_fast_crashes = 0
         self._cache_cleared_for_streak = False
+        self._starts = 0
+        self._unexpected_exits = 0
 
     def start(self) -> None:
         self._start_backend()
@@ -102,10 +107,15 @@ class BackendSupervisor:
             process = self._process
             if process is not None and process.poll() is None:
                 return
+            self._starts += 1
             child = subprocess.Popen(
                 self._command,
                 cwd=str(self._cwd),
-                env=self._environment,
+                env={
+                    **self._environment,
+                    "SORTER_BACKEND_STARTS": str(self._starts),
+                    "SORTER_BACKEND_UNEXPECTED_EXITS": str(self._unexpected_exits),
+                },
                 start_new_session=True,
             )
             self._process = child
@@ -141,6 +151,7 @@ class BackendSupervisor:
             self._process = None
             if self._shutdown.is_set() or self._restart_requested:
                 return
+            self._unexpected_exits += 1
             if started_at is not None and time.time() - started_at < self._fast_crash_window_s:
                 self._consecutive_fast_crashes += 1
             else:

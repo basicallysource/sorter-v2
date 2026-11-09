@@ -95,19 +95,14 @@ def _hardwareInfo() -> dict[str, Any]:
     if model:
         info["model"] = model
     try:
-        with open("/proc/meminfo", "r") as handle:
-            for line in handle:
-                if line.startswith("MemTotal:"):
-                    info["ram_bytes"] = int(line.split()[1]) * 1024
-                    break
+        import computer_health
+
+        info["ram_bytes"] = computer_health.memTotalBytes()
+        # The chip's own zone (the SoC's or the processor's), as the Computer
+        # settings page shows it.
+        info["cpu_temp_c"] = computer_health.mainTemperatureC()
     except Exception:
         pass
-    raw_temp = _readFirstLine("/sys/class/thermal/thermal_zone0/temp")
-    if raw_temp:
-        try:
-            info["cpu_temp_c"] = round(int(raw_temp) / 1000.0, 1)
-        except Exception:
-            pass
     try:
         usage = shutil.disk_usage("/")
         info["disk_free_bytes"] = int(usage.free)

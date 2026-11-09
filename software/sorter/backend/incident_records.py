@@ -163,12 +163,16 @@ def _buildFilters(
     status: Optional[str] = None,
     date_from: Optional[float] = None,
     date_to: Optional[float] = None,
+    exclude_kinds: tuple[str, ...] = (),
 ) -> tuple[list[str], list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []
     if kind is not None:
         clauses.append("kind = ?")
         params.append(kind)
+    if exclude_kinds:
+        clauses.append(f"kind NOT IN ({', '.join('?' for _ in exclude_kinds)})")
+        params.extend(exclude_kinds)
     if status is not None:
         clauses.append("status = ?")
         params.append(status)
@@ -191,6 +195,7 @@ def listIncidents(
     status: Optional[str] = None,
     date_from: Optional[float] = None,
     date_to: Optional[float] = None,
+    exclude_kinds: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """One page of the incidents, newest first, cut at an anchor like the pieces
     list (piece_records.listPieces): the newest id when the first page is asked
@@ -201,7 +206,7 @@ def listIncidents(
     reads only the counts."""
     limit = max(0, min(limit, 500))
     clauses, params = _buildFilters(
-        kind=kind, status=status, date_from=date_from, date_to=date_to
+        kind=kind, status=status, date_from=date_from, date_to=date_to, exclude_kinds=exclude_kinds
     )
 
     def where(extra: list[str], extra_params: list[Any]) -> tuple[str, list[Any]]:

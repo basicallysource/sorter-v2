@@ -576,6 +576,10 @@ def main() -> None:
     # stalls), as telemetry records the sync worker sends.
     import fleet_telemetry
     gc.fleet_telemetry = fleet_telemetry.start(gc)
+    # The computer's own health (temperatures, slowing down, memory, storage),
+    # always: the Computer settings page, the log, and dashboard warnings.
+    import computer_health
+    computer_health.start(gc)
     # Sends everything kept for Hive (piece history, crops, control data,
     # training samples, telemetry) to every enabled Hive, watermark-based so
     # months of backlog sync without redundant re-uploads.
@@ -834,6 +838,12 @@ def main() -> None:
             fleet_telemetry.shutdown()
         except Exception as exc:
             gc.logger.warning(f"Failed to keep the telemetry window during shutdown: {exc}")
+        try:
+            import computer_health
+
+            computer_health.shutdown()
+        except Exception as exc:
+            gc.logger.warning(f"Failed to keep the computer health window during shutdown: {exc}")
         try:
             import upload_stats
 

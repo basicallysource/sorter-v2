@@ -96,6 +96,17 @@ driving at the last reading (`exposure_time_absolute` under auto exposure).
 Schema 1 had no controls (its reader asked for controls some cameras lack and
 got nothing back).
 
+**`computer_health`** (window, schema 1): the computer the backend runs on
+(`software/sorter/backend/computer_health.py`), an hour at a time whether or
+not the machine sorts, and at shutdown: `model`, `zones` (each thermal zone's
+`slows_c`, `hot_c` and `critical_c`, from its trip points), `temp_max_c`,
+`slowed_minutes` (the minutes the kernel was slowing the chip down to cool it,
+summed from each minute's share), `warnings` open at the end, and `minutes`:
+one `[minute start, hottest °C, share of readings slowed down, CPU use %,
+memory used %]` per minute, any of them null where the computer does not
+report it. The machine reads its own windows back after a restart for its
+Computer settings page.
+
 ## Size
 
 A stepper window of five steppers measured 11 KB of JSON for 22 minutes of
@@ -103,7 +114,8 @@ sorting on a test machine (2 KB compressed; its schema 1 form was 21 KB), and a
 camera window under 1 KB. A window grows little past that, as the bands fill
 rather than multiply, so a sorting hour is about 12 KB of JSON per machine,
 stored compressed at about 3 KB; snapshots and stalls are rare. A thousand
-machines sorting six hours a day add about 20 MB a day.
+machines sorting six hours a day add about 20 MB a day. A computer health
+window is about 2 KB, so 24 a day per machine, sorting or not.
 
 ## Reading it
 

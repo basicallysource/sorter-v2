@@ -199,15 +199,9 @@ def _controllerBoards() -> dict[str, Any]:
 
 
 def _system() -> dict[str, Any]:
-    info: dict[str, Any] = {"ram_bytes": None, "disk_total_bytes": None, "cpu_count": os.cpu_count()}
-    try:
-        with open("/proc/meminfo") as handle:
-            for line in handle:
-                if line.startswith("MemTotal:"):
-                    info["ram_bytes"] = int(line.split()[1]) * 1024
-                    break
-    except Exception:
-        pass
+    import computer_health
+
+    info: dict[str, Any] = {"ram_bytes": computer_health.memTotalBytes(), "disk_total_bytes": None, "cpu_count": os.cpu_count()}
     try:
         import shutil
 

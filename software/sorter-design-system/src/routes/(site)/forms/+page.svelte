@@ -11,6 +11,7 @@
 	import Textarea from '$lib/components/Textarea.svelte';
 	import Checkbox from '$lib/components/Checkbox.svelte';
 	import RadioGroup from '$lib/components/RadioGroup.svelte';
+	import PictureChoice from '$lib/components/PictureChoice.svelte';
 	import Switch from '$lib/components/Switch.svelte';
 	import SegmentedControl from '$lib/components/SegmentedControl.svelte';
 	import Badge from '$lib/components/Badge.svelte';
@@ -30,6 +31,8 @@
 	let upload = $state(true);
 	let keepRaw = $state(false);
 	let mode = $state<'color' | 'part' | 'set'>('part');
+	let chute = $state<'cable_cage' | 'slip_ring' | null>(null);
+	let settledChute = $state<'cable_cage' | 'slip_ring' | null>('slip_ring');
 	let capture = $state(true);
 	let theme = $state<'light' | 'dark'>('light');
 	let threshold = $state(40);
@@ -165,7 +168,7 @@
 
 <SiteSection
 	title="Choices"
-	lead="A checkbox for a choice saved with a form; radios when each choice needs a sentence; a segmented control for two to five short choices that apply at once; a select for more."
+	lead="A checkbox for a choice saved with a form; radios when each choice needs a sentence; a picture choice when a picture tells them apart; a segmented control for two to five short choices that apply at once; a select for more."
 >
 	<div class="grid gap-4 md:grid-cols-2">
 		<Specimen>
@@ -188,6 +191,55 @@
 			/>
 		</Specimen>
 	</div>
+	<Panel title="Which chute this machine has">
+		<PictureChoice
+			name="chute-kind"
+			label="Which chute this machine has"
+			bind:value={chute}
+			options={[
+				{
+					value: 'cable_cage',
+					label: 'Cable Cage Chute',
+					help: 'A ribbon cable in a cage carries the wiring. The chute turns just under one full turn.',
+					picture: 'https://assets.basically.website/sorter-ui/chute-cable-cage-4bf6338ecc0c.webp'
+				},
+				{
+					value: 'slip_ring',
+					label: 'Slip Ring Chute',
+					help: 'A slip ring carries the wiring. The chute turns all the way round, without limit.',
+					picture: 'https://assets.basically.website/sorter-ui/chute-slip-ring-4c9ea54c4b14.webp'
+				}
+			]}
+		/>
+	</Panel>
+	<p class="text-sm text-ink-muted">
+		A picture choice, when the options are told apart by how they look. The chosen tile takes the
+		primary's tint; a picture that cannot load leaves a quiet blank. Below, one option is settled and
+		the other says why it cannot be chosen; the second picture's address is broken on purpose.
+	</p>
+	<Panel>
+		<PictureChoice
+			name="chute-settled"
+			label="Which chute this machine has"
+			bind:value={settledChute}
+			options={[
+				{
+					value: 'cable_cage',
+					label: 'Cable Cage Chute',
+					help: 'A ribbon cable in a cage carries the wiring. The chute turns just under one full turn.',
+					picture: 'https://assets.basically.website/sorter-ui/chute-cable-cage-4bf6338ecc0c.webp',
+					disabled: true,
+					note: 'Not this machine: its control board has no servos for this chute.'
+				},
+				{
+					value: 'slip_ring',
+					label: 'Slip Ring Chute',
+					help: 'A slip ring carries the wiring. The chute turns all the way round, without limit.',
+					picture: 'https://assets.basically.website/sorter-ui/missing.webp'
+				}
+			]}
+		/>
+	</Panel>
 	<Specimen>
 		<div class="flex flex-wrap items-center gap-6">
 			<SegmentedControl

@@ -1,116 +1,56 @@
-export type WizardStepConfirmation<Id extends string = string> = Partial<Record<Id, boolean>>;
+// What only the person at the machine knows, kept in this browser per machine:
+// that a motor turned the way it should, that the chute found its home, that a
+// camera's zone and picture were looked at, that Hive was skipped. Everything
+// the machine itself knows (a name, a board, a saved chute, a set-up door) is
+// read from its setup summary instead, so another browser sees the same steps
+// done.
 
-export type PersistedVerificationState = {
-	reviewedZones?: Record<string, boolean>;
-	tunedPictures?: Record<string, boolean>;
-	verifiedSteppers?: Record<string, boolean>;
+export type SetupMarks = {
+	// Motors whose direction was checked by eye, by name.
+	motors?: Record<string, boolean>;
+	// The kind of chute (its key) that last found its home here.
+	chuteHome?: string | null;
+	// Camera roles whose zone was reviewed, and whose picture was tuned.
+	zones?: Record<string, boolean>;
+	pictures?: Record<string, boolean>;
+	hiveSkipped?: boolean;
+	finished?: boolean;
 };
 
-export type PersistedServoSource = 'waveshare' | 'pca';
-
-export function progressStorageKey(machineId: string): string {
-	return `setup-wizard-progress:${machineId}`;
+function key(machineId: string): string {
+	return `setup-marks:${machineId}`;
 }
 
-export function verificationStorageKey(machineId: string): string {
-	return `setup-wizard-verification:${machineId}`;
+function readJson(name: string): Record<string, unknown> | null {
+	const raw = window.localStorage.getItem(name);
+	const parsed = raw ? JSON.parse(raw) : null;
+	return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
 }
 
-export function servoSourceStorageKey(machineId: string): string {
-	return `setup-wizard-servo-source:${machineId}`;
-}
-
-export function loadStoredConfirmations<Id extends string>(
-	machineId: string
-): WizardStepConfirmation<Id> {
+export function loadMarks(machineId: string): SetupMarks {
 	if (typeof window === 'undefined' || !machineId) return {};
 	try {
-		const raw = window.localStorage.getItem(progressStorageKey(machineId));
-		if (!raw) return {};
-		const parsed = JSON.parse(raw);
-		return parsed && typeof parsed === 'object' ? (parsed as WizardStepConfirmation<Id>) : {};
+		const marks = readJson(key(machineId));
+		if (marks) return marks as SetupMarks;
+		// What an older version of these steps kept.
+		const checked = readJson(`setup-wizard-verification:${machineId}`) ?? {};
+		const progress = readJson(`setup-wizard-progress:${machineId}`) ?? {};
+		return {
+			motors: (checked.verifiedSteppers as Record<string, boolean>) ?? {},
+			zones: (checked.reviewedZones as Record<string, boolean>) ?? {},
+			pictures: (checked.tunedPictures as Record<string, boolean>) ?? {},
+			finished: progress.advanced === true
+		};
 	} catch {
 		return {};
 	}
 }
 
-export function persistConfirmations<Id extends string>(
-	machineId: string,
-	confirmations: WizardStepConfirmation<Id>
-): void {
+export function saveMarks(machineId: string, marks: SetupMarks): void {
 	if (typeof window === 'undefined' || !machineId) return;
 	try {
-		window.localStorage.setItem(progressStorageKey(machineId), JSON.stringify(confirmations));
+		window.localStorage.setItem(key(machineId), JSON.stringify(marks));
 	} catch {
-		// ignore storage issues
-	}
-}
-
-export function loadStoredVerificationState(machineId: string): {
-	reviewedZones: Record<string, boolean>;
-	tunedPictures: Record<string, boolean>;
-	verifiedSteppers: Record<string, boolean>;
-} {
-	const empty = { reviewedZones: {}, tunedPictures: {}, verifiedSteppers: {} };
-	if (typeof window === 'undefined' || !machineId) return empty;
-	try {
-		const raw = window.localStorage.getItem(verificationStorageKey(machineId));
-		if (!raw) return empty;
-		const parsed = JSON.parse(raw) as PersistedVerificationState | null;
-		return {
-			reviewedZones:
-				parsed?.reviewedZones && typeof parsed.reviewedZones === 'object'
-					? parsed.reviewedZones
-					: {},
-			tunedPictures:
-				parsed?.tunedPictures && typeof parsed.tunedPictures === 'object'
-					? parsed.tunedPictures
-					: {},
-			verifiedSteppers:
-				parsed?.verifiedSteppers && typeof parsed.verifiedSteppers === 'object'
-					? parsed.verifiedSteppers
-					: {}
-		};
-	} catch {
-		return empty;
-	}
-}
-
-export function persistVerificationState(
-	machineId: string,
-	state: PersistedVerificationState
-): void {
-	if (typeof window === 'undefined' || !machineId) return;
-	try {
-		window.localStorage.setItem(verificationStorageKey(machineId), JSON.stringify(state));
-	} catch {
-		// ignore storage issues
-	}
-}
-
-export function loadStoredServoSource(machineId: string): PersistedServoSource | null {
-	if (typeof window === 'undefined' || !machineId) return null;
-	try {
-		const raw = window.localStorage.getItem(servoSourceStorageKey(machineId));
-		if (raw === 'waveshare' || raw === 'pca') return raw;
-		return null;
-	} catch {
-		return null;
-	}
-}
-
-export function persistServoSource(
-	machineId: string,
-	value: PersistedServoSource | null
-): void {
-	if (typeof window === 'undefined' || !machineId) return;
-	try {
-		if (value === null) {
-			window.localStorage.removeItem(servoSourceStorageKey(machineId));
-		} else {
-			window.localStorage.setItem(servoSourceStorageKey(machineId), value);
-		}
-	} catch {
-		// ignore storage issues
+		// A browser that keeps nothing only forgets these marks.
 	}
 }

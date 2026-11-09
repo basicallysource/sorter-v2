@@ -22,7 +22,8 @@ export type LayoutLayer = {
 	bins: LayoutBin[];
 };
 
-export type Geometry = ChuteGeometry & { maxAngleDeg: number };
+// maxAngleDeg is null for a chute that turns without limit.
+export type Geometry = ChuteGeometry & { maxAngleDeg: number | null };
 
 /** Each layer's chute and bin kind, from the top: three bins a section is
  *  'third', two is 'half', and any other count draws as 'third'. */

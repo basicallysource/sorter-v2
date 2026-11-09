@@ -36,6 +36,9 @@
 		moveDisabled,
 		searchActive = false,
 		searchMatch = () => true,
+		position = 'middle',
+		discardChoosable = false,
+		onToggleDiscard = () => {},
 		onToggleEnabled,
 		onEmptyLayer,
 		onResetLayer,
@@ -73,6 +76,10 @@
 		moveDisabled: boolean;
 		searchActive?: boolean;
 		searchMatch?: (bin: BinInfo) => boolean;
+		// Where the layer sits in the stack, counted from the top.
+		position?: 'top' | 'middle' | 'bottom' | 'only';
+		discardChoosable?: boolean;
+		onToggleDiscard?: (bin: BinInfo) => void;
 		onToggleEnabled: (enabled: boolean) => void;
 		onEmptyLayer: () => void;
 		onResetLayer: () => void;
@@ -106,10 +113,14 @@
 
 <Panel
 	title="Layer {layer.layer_index + 1}"
-	description="{layer.section_count} sections · {layer.bin_count} bins"
+	description="{position === 'top' ? 'The top layer · ' : position === 'bottom' ? 'The bottom layer · ' : ''}{layer.section_count} sections · {layer.bin_count} bins{layer.door ===
+	'fixed'
+		? ' · Its door is fixed shut, with no servo'
+		: ''}"
 	class="relative"
 >
 	{#snippet actions()}
+		{#if layer.door === 'fixed'}<Badge>Fixed door</Badge>{/if}
 		{#if isActive}<Badge tone="success" dot>Active</Badge>{/if}
 		<Switch
 			checked={layer.enabled}
@@ -179,6 +190,8 @@
 							clearDisabled={clearDisabled || clearing}
 							{niiDisabled}
 							searchState={searchActive ? (searchMatch(bin) ? 'match' : 'miss') : 'off'}
+							{discardChoosable}
+							onToggleDiscard={() => onToggleDiscard(bin)}
 							onOpenDetails={() => onOpenDetails(bin)}
 							onMoveTo={() => onMoveTo(bin)}
 							onEmpty={() => onEmptyBin(bin)}

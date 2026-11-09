@@ -24,6 +24,9 @@
 	import { getMachinesContext } from '$lib/machines/context';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { onMount } from 'svelte';
+	import { getBinsLayout } from '$lib/api/bins';
+	import { saveDiscardBin, type BinAddress } from '$lib/api/chute';
+	import { errorMessage } from '$lib/api/http';
 
 	const manager = getMachinesContext();
 	// Active profile (id/name) — bin layouts are scoped to it. Local profiles carry a
@@ -50,6 +53,9 @@
 	};
 
 	let layers = $state<LayerInfo[]>([]);
+	// Where the pieces no bin takes go: a tray under the chute, or the discard bin.
+	let fallsThrough = $state(true);
+	let discardBin = $state<BinAddress | null>(null);
 	let currentAngle = $state<number | null>(null);
 	let activeLayer = $state<number | null>(null);
 	let loading = $state(true);
@@ -122,15 +128,15 @@
 
 	async function loadLayout() {
 		try {
-			const res = await fetch(`${baseUrl()}/api/bins/layout`);
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const data = await res.json();
+			const data = await getBinsLayout(baseUrl());
 			layers = data.layers ?? [];
+			fallsThrough = data.falls_through !== false;
+			discardBin = data.discard_bin ?? null;
 			currentAngle = data.current_angle;
 			activeLayer = data.active_layer;
 			error = null;
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Failed to load bin layout';
+			error = errorMessage(e, 'The bins did not load.');
 		} finally {
 			loading = false;
 		}
@@ -386,6 +392,24 @@
 		}
 	}
 
+	// A bin's menu makes it the discard bin, or stops it being one.
+	async function toggleDiscard(layerIndex: number, bin: BinInfo) {
+		statusMsg = '';
+		error = null;
+		const next: BinAddress | null = bin.discard
+			? null
+			: { layer_index: layerIndex, section_index: bin.section_index, bin_index: bin.bin_index };
+		try {
+			await saveDiscardBin(baseUrl(), next);
+			statusMsg = next
+				? `Bin ${bin.global_index + 1} on layer ${layerIndex + 1} is the discard bin now.`
+				: 'There is no discard bin now.';
+			await loadLayout();
+		} catch (e) {
+			error = errorMessage(e, 'The discard bin was not saved.');
+		}
+	}
+
 	function isCurrentBin(bin: BinInfo): boolean {
 		if (currentAngle === null) return false;
 		return Math.abs(bin.angle - currentAngle) < 2;
@@ -595,10 +619,12 @@
 		statusMsg = '';
 		error = null;
 		try {
+			// Every limit goes back as it was loaded, so only the switch changes.
 			const payloadLayers = layers.map((layer) => ({
 				bin_count: layer.bin_count,
 				enabled: layer.layer_index === layerIndex ? enabled : layer.enabled,
-				max_pieces_per_bin: layer.max_pieces_per_bin
+				max_pieces_per_bin: layer.max_pieces_per_bin,
+				max_dimension_mm: layer.max_dimension_mm ?? null
 			}));
 			const res = await fetch(`${baseUrl()}/api/hardware-config/storage-layers`, {
 				method: 'POST',
@@ -810,7 +836,7 @@
 			<div class="divide-y divide-line">
 				<SettingRow
 					label="Allow multiple categories per bin"
-					help="When every bin already has an assignment, keep sorting new categories by combining them into existing bins (least-loaded first) instead of sending them to the discard passthrough."
+					help="When every bin already has an assignment, keep sorting new categories by combining them into existing bins (least-loaded first) instead of sending them to discard."
 				>
 					<Switch
 						checked={allowMultiCategory}
@@ -911,6 +937,15 @@
 					moveDisabled={!!movingTo || homing || hasAnyClearing()}
 					{searchActive}
 					searchMatch={(bin) => binMatchesSearch(layer.layer_index, bin)}
+					position={layers.length === 1
+						? 'only'
+						: layer.layer_index === 0
+							? 'top'
+							: layer.layer_index === layers.length - 1
+								? 'bottom'
+								: 'middle'}
+					discardChoosable={!fallsThrough}
+					onToggleDiscard={(bin) => void toggleDiscard(layer.layer_index, bin)}
 					onToggleEnabled={(enabled) => void toggleLayerEnabled(layer.layer_index, enabled)}
 					onEmptyLayer={() =>
 						void runBinAction(
@@ -958,7 +993,16 @@
 				/>
 			{/each}
 
-			<DiscardBinCard />
+			<DiscardBinCard
+				base={baseUrl()}
+				{fallsThrough}
+				{discardBin}
+				{layers}
+				onsaved={async (bin) => {
+					statusMsg = bin ? 'The discard bin is saved.' : 'There is no discard bin now.';
+					await loadLayout();
+				}}
+			/>
 		{/if}
 	</div>
 </AppShell>

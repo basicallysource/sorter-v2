@@ -6,15 +6,21 @@ export type BinInfo = {
 	angle: number;
 	category_ids: string[];
 	not_in_inventory?: boolean;
+	// The bin for the pieces no other bin takes.
+	discard?: boolean;
 };
 
 export type LayerInfo = {
+	// Counted from 0, from the top.
 	layer_index: number;
 	enabled: boolean;
+	// A fixed door has no servo and is always shut.
+	door?: 'servo' | 'fixed';
 	section_count: number;
 	section_enabled?: boolean[];
 	bin_count: number;
 	max_pieces_per_bin: number | null;
+	max_dimension_mm?: number | null;
 	bins: BinInfo[];
 };
 

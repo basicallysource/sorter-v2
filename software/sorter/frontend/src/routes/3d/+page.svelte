@@ -123,7 +123,8 @@
 			num_sections: number;
 			section_width_deg: number;
 			first_section_offset_deg: number;
-			max_angle_deg: number;
+			// null: the chute turns without limit and reaches every bin.
+			max_angle_deg: number | null;
 		};
 	};
 

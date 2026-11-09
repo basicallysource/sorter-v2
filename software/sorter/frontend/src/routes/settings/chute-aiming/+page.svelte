@@ -33,7 +33,8 @@
 	let numSections = $state(DEFAULT_NUM_SECTIONS);
 	let sectionWidthDeg = $state(DEFAULT_SECTION_WIDTH_DEG);
 	let firstSectionOffsetDeg = $state(DEFAULT_FIRST_SECTION_OFFSET_DEG);
-	let maxAngleDeg = $state(350);
+	// How far the chute turns from home; null when it turns without limit.
+	let maxAngleDeg = $state<number | null>(350);
 
 	const sectionPitchDeg = $derived(numSections > 0 ? 360 / numSections : 60);
 	const pillarWidthDeg = $derived(sectionPitchDeg - sectionWidthDeg);
@@ -126,7 +127,7 @@
 			if (Number.isFinite(c?.num_sections)) numSections = c.num_sections;
 			if (Number.isFinite(c?.section_width_deg)) sectionWidthDeg = c.section_width_deg;
 			if (Number.isFinite(c?.first_section_offset_deg)) firstSectionOffsetDeg = c.first_section_offset_deg;
-			if (Number.isFinite(c?.max_angle_deg)) maxAngleDeg = c.max_angle_deg;
+			maxAngleDeg = Number.isFinite(c?.max_angle_deg) ? c.max_angle_deg : null;
 			void loadCalibrations();
 			void loadLive();
 		} catch (e: any) {
@@ -541,8 +542,13 @@
 		{/snippet}
 		<div class="px-(--pad-panel) pb-4">
 			<Alert tone="warning">
-				Every step here moves the chute. It hits a hard stop at home and can never cross it, so it has
-				about {fmt(maxAngleDeg, 0)}° of travel. Always home first.
+				{#if maxAngleDeg === null}
+					Every step here moves the chute. It turns all the way round, so home first to give it a fixed
+					start.
+				{:else}
+					Every step here moves the chute. It hits a hard stop at home and can never cross it, so it has
+					about {fmt(maxAngleDeg, 0)}° of travel. Always home first.
+				{/if}
 			</Alert>
 		</div>
 		<ol class="divide-y divide-line border-t border-line">
@@ -690,14 +696,21 @@
 
 	<Panel
 		title="Reachable bins by layout"
-		description="Chute travel 0 to {fmt(maxAngleDeg, 0)}°, with a {fmt(360 - maxAngleDeg, 0)}° no-go wedge at home."
+		description={maxAngleDeg === null
+			? 'This chute turns all the way round, so it reaches every bin.'
+			: `Chute travel 0 to ${fmt(maxAngleDeg, 0)}°, with a ${fmt(360 - maxAngleDeg, 0)}° no-go wedge at home.`}
 	>
 		<div class="flex flex-col gap-4">
 			<p class="text-sm text-ink-muted">
-				Each layout shows where the chute points for that many bins a section. Bins crossed out in red
-				fall in the wedge between the end of travel ({fmt(maxAngleDeg, 0)}°) and home (0°), which is
-				what loses bins whenever home does not land on a pillar. Click a reachable bin to test-aim at
-				it.
+				{#if maxAngleDeg === null}
+					Each layout shows where the chute points for that many bins a section. Click a bin to test-aim at
+					it.
+				{:else}
+					Each layout shows where the chute points for that many bins a section. Bins crossed out in red
+					fall in the wedge between the end of travel ({fmt(maxAngleDeg, 0)}°) and home (0°), which is
+					what loses bins whenever home does not land on a pillar. Click a reachable bin to test-aim at
+					it.
+				{/if}
 			</p>
 			<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 				{#each VIZ_SIZES as size (size)}

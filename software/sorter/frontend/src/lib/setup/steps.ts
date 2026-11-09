@@ -101,7 +101,9 @@ const STEPS: StepDefinition[] = [
 		id: 'home',
 		title: 'Chute home',
 		description: 'Check the chute finds its home, then tell it where the bins are round it.',
-		status: ({ summary, marks }) => ({ done: marks.chuteHome === summary.config.chute.variant })
+		status: ({ summary, marks }) => ({
+			done: summary.readiness.chute_homed || marks.chuteHome === summary.config.chute.variant
+		})
 	},
 	{
 		id: 'bins',

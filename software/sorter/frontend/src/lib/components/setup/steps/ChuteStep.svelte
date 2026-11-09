@@ -108,7 +108,7 @@
 		title="Which chute this machine has"
 		description={boardKind
 			? undefined
-			: 'Look at the top of the chute, where the wiring to the doors turns with it.'}
+			: 'Look at how the wiring reaches the doors on the chute: through a cage with a coiled ribbon cable on top of it, or through a round slip ring under it.'}
 	>
 		<PictureChoice
 			name="chute-kind"

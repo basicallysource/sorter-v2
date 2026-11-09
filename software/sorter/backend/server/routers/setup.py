@@ -530,6 +530,8 @@ def get_setup_wizard_summary() -> Dict[str, Any]:
         ),
         # A chute nothing falls out of needs a bin for the pieces no bin takes.
         "discard_ready": bool(chute["falls_through"]) or chute["discard_bin"] is not None,
+        # Whether the running chute has found its home since the hardware started.
+        "chute_homed": bool(getattr(getattr(shared_state.getActiveIRL(), "chute", None), "homed", False)),
         "ready_for_motion_test": shared_state.hardware_state == "ready",
     }
 

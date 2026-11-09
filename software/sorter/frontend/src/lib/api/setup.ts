@@ -72,6 +72,8 @@ export type Readiness = {
 	servo_configured: boolean;
 	// The pieces no bin takes have somewhere to go.
 	discard_ready: boolean;
+	// The chute has found its home since the machine was last started.
+	chute_homed: boolean;
 	// The machine is homed and ready to run.
 	ready_for_motion_test: boolean;
 };

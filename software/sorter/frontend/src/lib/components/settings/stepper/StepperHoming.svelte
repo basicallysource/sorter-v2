@@ -2,8 +2,9 @@
 	import House from '@lucide/svelte/icons/house';
 	import Button from '$lib/components/ui/Button.svelte';
 
-	// Homing, as the buttons at the top of a motor's panel: find the endstop, or
-	// cancel and stop every stepper if the wrong motor moves.
+	// Homing, as the buttons at the top of a motor's panel: find home (a switch
+	// or a magnet, by the kind of chute), or cancel and stop every stepper if the
+	// wrong motor moves.
 	let {
 		loading,
 		saving,
@@ -23,7 +24,7 @@
 
 <div class="flex flex-wrap items-center gap-2">
 	<Button icon={House} loading={homing} disabled={loading || saving || canceling} onclick={onHome}>
-		Home to the endstop
+		Find home
 	</Button>
 	<Button variant="danger" loading={canceling} disabled={!homing} onclick={onCancel}>Cancel</Button>
 </div>

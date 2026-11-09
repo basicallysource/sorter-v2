@@ -91,6 +91,18 @@ class MCUBusError(Exception):
     pass
 
 
+class MCUDeviceError(MCUBusError):
+    """The board understood the command and refused it: its reply has the error
+    bit set and says why. No retry changes that, so it is never retried."""
+
+    def __init__(self, command: int, payload: bytes):
+        self.command = command
+        self.payload = payload
+        # The board's own words, e.g. "No reply from servo 3".
+        self.detail = payload.decode("utf-8", errors="replace")
+        super().__init__(f"Error response received, command: {command:#04x}, payload: {payload}")
+
+
 PORT_BUSY_WAIT_S = 2.0
 
 # A board on a plain UART instead of USB, like the v1.5 board on the Orange Pi's
@@ -291,18 +303,13 @@ class MCUBus:
                     )
 
                 if message.command & 0x80:
-                    # Application-level NACK from MCU: not a transient framing
-                    # glitch, no retry will rescue it. Raise out of the loop.
-                    raise MCUBusError(
-                        f"Error response received, command: {message.command:#04x}, payload: {message.payload}"
-                    ) from None
+                    raise MCUDeviceError(message.command, message.payload) from None
 
                 return message
+            except MCUDeviceError:
+                raise
             except MCUBusError as exc:
                 last_exc = exc
-                if "Error response received" in str(exc):
-                    # MCU-side NACK: don't retry, surface immediately.
-                    raise
                 if attempt + 1 < attempts:
                     logging.warning(
                         "MCU bus transient error (attempt %d/%d) addr=%d cmd=%#04x ch=%d: %s",

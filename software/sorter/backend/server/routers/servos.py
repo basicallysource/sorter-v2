@@ -240,7 +240,7 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
         servo = {}
 
     backend = servo.get("backend", "pca9685")
-    if backend not in {"pca9685", "waveshare"}:
+    if backend not in {"pca9685", "waveshare", "bus"}:
         backend = "pca9685"
 
     port = servo.get("port")

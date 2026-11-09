@@ -49,6 +49,7 @@ _LAYER_MAX_DIMENSION_DEFAULTS_MM: dict[int, float] = {
     6: 80.0,
     12: 80.0,
     18: 50.0,
+    24: 45.0,
     30: 40.0,
 }
 

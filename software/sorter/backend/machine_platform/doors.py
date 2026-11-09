@@ -295,6 +295,30 @@ class BusServoDoor(Door):
         return info
 
 
+def setDoorsFor(doors: list[Door], target_layer_index: int) -> None:
+    """Set the doors so a piece dropped now lands on the target layer: its door
+    shut, every other door that can move open. A door that cannot be moved
+    safely (not calibrated, not answering) is left alone."""
+    for index, door in enumerate(doors):
+        if index == target_layer_index or not door.can_open:
+            continue
+        if door.available and door.is_calibrated:
+            door.apply_open_speed()
+            door.open()
+    target = doors[target_layer_index]
+    if target.available and target.is_calibrated:
+        target.apply_close_speed()
+        target.close()
+
+
+def catchingLayer(doors: list[Door]) -> int | None:
+    """The layer a piece dropped now would land on: the first shut door from the top."""
+    for index, door in enumerate(doors):
+        if door.isClosed():
+            return index
+    return None
+
+
 def releaseAll(link: ServoLink) -> None:
     """Let every servo on a bus go, watched or not."""
     link.stop(registers.BROADCAST_ID, release=True)

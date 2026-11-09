@@ -34,6 +34,7 @@ _ASSET_PATTERNS: List[tuple[re.Pattern[str], str, str, str]] = [
     (re.compile(r"^basically-v1-1-feeder-.*\.uf2$"), "basically_rp2040", "feeder-v1-1", "feeder"),
     (re.compile(r"^basically-v1-1-distribution-.*\.uf2$"), "basically_rp2040", "distribution-v1-1", "distribution"),
     (re.compile(r"^basically-v1-2-distribution-.*\.uf2$"), "basically_rp2040", "distribution-v1-2", "distribution"),
+    (re.compile(r"^basically-v1-5-distribution-.*\.uf2$"), "basically_rp2040", "distribution-v1-5", "distribution"),
     (re.compile(r"^feeder-skr-.*\.uf2$"), "skr_pico", "feeder-skr", "feeder"),
     (re.compile(r"^distribution-skr-.*\.uf2$"), "skr_pico", "distribution-skr", "distribution"),
 ]

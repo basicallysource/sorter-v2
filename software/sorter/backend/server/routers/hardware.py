@@ -38,7 +38,8 @@ class StorageLayerSettingsPayload(BaseModel):
     layers: List[StorageLayerPayload] = []
 
 
-ALLOWED_STORAGE_LAYER_BIN_COUNTS = [6, 12, 18, 30]
+# Bins a layer, six sections round: whole, halves, thirds, quarters and fifths.
+ALLOWED_STORAGE_LAYER_BIN_COUNTS = [6, 12, 18, 24, 30]
 DEFAULT_STORAGE_LAYER_SECTION_COUNT = 6
 
 

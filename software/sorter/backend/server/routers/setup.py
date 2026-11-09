@@ -10,6 +10,9 @@ import serial.tools.list_ports
 
 from hardware.bus import MCUBus
 from hardware.firmware_flash import bootloaderPresent
+from hardware_settings.chute import readChuteSettings, saveChuteSettings
+from hardware_settings.doors import readDoorSettings
+from irl.bin_layout import getBinLayout
 from hardware_settings.motors import MOTORS, NAME_ALIASES, motorNamed, motorSockets
 from hardware_settings.steppers import readStepperSettings
 from local_state import get_or_create_machine_id
@@ -17,6 +20,7 @@ from machine_platform.control_board import discover_control_boards
 from server import shared_state
 import machine_toml
 from server.routers.cameras import CAMERA_SETUP_ROLES, _camera_source_for_role
+from server.routers.chute import _chute_settings_from_config
 from server.routers.servos import _servo_settings_from_config
 from server.routers.steppers import save_stepper_settings
 from toml_config import getMachineNickname
@@ -40,6 +44,12 @@ def _board_summary(board: Any) -> dict[str, Any]:
         "logical_steppers": list(getattr(board, "logical_stepper_names", tuple())),
         "servo_count": len(getattr(board, "servos", [])),
         "input_aliases": dict(getattr(board, "input_aliases", {})),
+        # A board with its own servo bus turns the doors with serial servos, and
+        # one whose firmware does not watch them is too old to move any.
+        "servo_bus": bool(getattr(interface, "has_servo_bus", False)),
+        "servo_guard": bool(getattr(interface, "has_servo_guard", False)),
+        # The kind of chute this board is made for, if it is made for one.
+        "chute_variant": getattr(board, "chute_variant", None),
     }
 
 
@@ -455,6 +465,32 @@ def _build_discovery_payload(
     }
 
 
+def _keepBoardsChuteVariant(boards: list[dict[str, Any]]) -> None:
+    """Write down the kind of chute a found board is made for, unless one is
+    saved already: later pages ask which chute this is with no board at hand."""
+    variant = next((board["chute_variant"] for board in boards if board.get("chute_variant")), None)
+    if variant is None or "variant" in readChuteSettings().saved:
+        return
+    try:
+        saveChuteSettings({"variant": variant})
+    except (ValueError, machine_toml.MachineTomlError):
+        pass
+
+
+def _doorsSummary(config: Dict[str, Any], chute: Dict[str, Any]) -> Dict[str, Any]:
+    """How many layer doors need a serial servo set up, and how many have one."""
+    layer_count = len(getBinLayout().layers)
+    fixed_layer = layer_count - 1 if chute["fixed_bottom_door"] and layer_count > 0 else None
+    settings = readDoorSettings(config)
+    servo_layers = [index for index in range(layer_count) if index != fixed_layer]
+    return {
+        "layer_count": layer_count,
+        "fixed_layer": fixed_layer,
+        "needed": len(servo_layers),
+        "set_up": sum(1 for index in servo_layers if index < len(settings) and settings[index].calibrated),
+    }
+
+
 @router.get("/api/setup-wizard/needed")
 def get_setup_wizard_needed() -> Dict[str, bool]:
     # A machine that has never been through the wizard has neither a name nor a
@@ -476,15 +512,24 @@ def get_setup_wizard_summary() -> Dict[str, Any]:
     servo_settings = _servo_settings_from_config(config)
     discovery = _discover_control_board_summary()
 
+    _keepBoardsChuteVariant(discovery["boards"])
+    config = machine_toml.read()
+    chute = _chute_settings_from_config(config)
+    doors = _doorsSummary(config, chute)
+    servo_bus = any(board.get("servo_bus") for board in discovery["boards"]) or servo_settings["backend"] == "bus"
+
     readiness = {
         "machine_named": bool(getMachineNickname()),
         "boards_detected": bool(discovery["boards"]) and not discovery["missing_required_steppers"],
         "cameras_assigned": _camera_assignments_complete(camera_assignments),
         "servo_configured": (
-            servo_settings["backend"] == "waveshare"
-            or bool(discovery["pca_available"])
-        )
-        and int(servo_settings.get("layer_count", 0)) > 0,
+            doors["set_up"] == doors["needed"] and doors["needed"] > 0
+            if servo_bus
+            else (servo_settings["backend"] == "waveshare" or bool(discovery["pca_available"]))
+            and int(servo_settings.get("layer_count", 0)) > 0
+        ),
+        # A chute nothing falls out of needs a bin for the pieces no bin takes.
+        "discard_ready": bool(chute["falls_through"]) or chute["discard_bin"] is not None,
         "ready_for_motion_test": shared_state.hardware_state == "ready",
     }
 
@@ -501,10 +546,14 @@ def get_setup_wizard_summary() -> Dict[str, Any]:
         "config": {
             "camera_assignments": camera_assignments,
             "servo": {
-                "backend": servo_settings["backend"],
+                # "bus": serial servos on the control board's own bus, set up
+                # through /api/doors.
+                "backend": "bus" if servo_bus else servo_settings["backend"],
                 "layer_count": servo_settings["layer_count"],
                 "port": servo_settings["port"],
             },
+            "chute": chute,
+            "doors": doors,
             "stepper_directions": _current_stepper_direction_payload(),
         },
         "discovery": discovery,

@@ -46,7 +46,8 @@ from irl.bin_layout import (
     notInInventoryMatchesLayout,
 )
 from server import shared_state
-from server.routers.chute import _chute_move, _chute_settings_from_config
+from machine_platform.doors import catchingLayer, setDoorsFor
+from server.routers.chute import _chute_move, _chute_settings_from_config, _virtual_bin_angle
 from server.routers.steppers import _ensure_not_homing
 from sorting_profile import MISC_CATEGORY, categoryResolver
 from subsystems.distribution.chute import BinAddress
@@ -552,9 +553,11 @@ def get_bins_layout() -> Dict[str, Any]:
     layout_config = getBinLayout()
     config = machine_toml.read()
     chute_cfg = _chute_settings_from_config(config)
-    first_bin_center = float(chute_cfg["first_bin_center"])
-    pillar_width_deg = float(chute_cfg["pillar_width_deg"])
-    usable_per_section = 60.0 - pillar_width_deg
+    num_sections = int(chute_cfg["num_sections"])
+    section_width_deg = float(chute_cfg["section_width_deg"])
+    first_section_offset_deg = float(chute_cfg["first_section_offset_deg"])
+    discard_bin = chute_cfg["discard_bin"]
+    fixed_layer = len(layout_config.layers) - 1 if chute_cfg["fixed_bottom_door"] else None
 
     layers_out = []
     for layer_idx, layer in enumerate(layout_config.layers):
@@ -563,15 +566,21 @@ def get_bins_layout() -> Dict[str, Any]:
         global_bin = 0
         for section_idx, section_bins in enumerate(sections):
             num_bins = len(section_bins)
-            bin_width = usable_per_section / num_bins if num_bins else 0
             for bin_idx, bin_size in enumerate(section_bins):
-                angle = first_bin_center + section_idx * 60 + bin_idx * bin_width
+                # Where the chute points for this bin: the same formula it aims by.
+                angle = _virtual_bin_angle(
+                    num_sections, num_bins, section_idx, bin_idx, section_width_deg, first_section_offset_deg
+                ) % 360.0
                 bins_flat.append({
                     "section_index": section_idx,
                     "bin_index": bin_idx,
                     "global_index": global_bin,
                     "size": bin_size,
                     "angle": round(angle, 2),
+                    # The bin kept for the pieces no other bin wants.
+                    "discard": discard_bin is not None and (
+                        discard_bin["layer_index"], discard_bin["section_index"], discard_bin["bin_index"]
+                    ) == (layer_idx, section_idx, bin_idx),
                 })
                 global_bin += 1
         max_per_bin = getattr(layer, "max_pieces_per_bin", None)
@@ -582,6 +591,8 @@ def get_bins_layout() -> Dict[str, Any]:
         layers_out.append({
             "layer_index": layer_idx,
             "enabled": layer.enabled,
+            # A fixed door has no servo and is always shut.
+            "door": "fixed" if layer_idx == fixed_layer else "servo",
             "section_count": len(sections),
             "section_enabled": section_enabled,
             "bin_count": global_bin,
@@ -605,14 +616,11 @@ def get_bins_layout() -> Dict[str, Any]:
                 current_angle = round(float(chute.current_angle), 2)
             except Exception:
                 pass
-        servos = list(getattr(shared_state.controller_ref.irl, "servos", []))
-        for i, servo in enumerate(servos):
-            try:
-                if hasattr(servo, "isOpen") and servo.isOpen():
-                    active_layer = i
-                    break
-            except Exception:
-                pass
+        # The layer a piece dropped now would land on: the first shut door.
+        try:
+            active_layer = catchingLayer(list(getattr(shared_state.controller_ref.irl, "servos", [])))
+        except Exception:
+            pass
 
         # Read category assignments from the live distribution layout
         dist_layout = getattr(shared_state.controller_ref.irl, "distribution_layout", None)
@@ -661,6 +669,10 @@ def get_bins_layout() -> Dict[str, Any]:
     return {
         "ok": True,
         "layers": layers_out,
+        # Where the pieces no bin takes go: out of the bottom into a tray
+        # (falls_through), or to the discard bin, if one is chosen.
+        "falls_through": bool(chute_cfg["falls_through"]),
+        "discard_bin": discard_bin,
         "current_angle": current_angle,
         "active_layer": active_layer,
     }
@@ -679,7 +691,7 @@ def set_bins_settings(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 @router.post("/api/bins/move-to")
 def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
-    """Move chute to a specific bin and open the correct layer servo."""
+    """Point the chute at a bin and set the doors so a piece dropped lands in it."""
     if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
         raise HTTPException(status_code=503, detail="Hardware controller not initialized.")
 
@@ -702,23 +714,12 @@ def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
     if target_angle is None:
         raise HTTPException(status_code=400, detail="Bin is unreachable (angle out of range).")
 
-    # Close all servos first, then open the target layer
-    for i, servo in enumerate(servos):
-        try:
-            if hasattr(servo, "isOpen") and servo.isOpen():
-                servo.close()
-        except Exception:
-            pass
+    try:
+        setDoorsFor(servos, payload.layer_index)
+    except Exception as exc:
+        raise HTTPException(status_code=409, detail=f"The doors could not be set: {exc}")
 
     estimated_ms = _chute_move(chute.moveToBin, address)
-
-    # Open the target layer servo
-    target_servo = servos[payload.layer_index]
-    try:
-        if hasattr(target_servo, "open"):
-            target_servo.open()
-    except Exception:
-        pass
 
     return {
         "ok": True,

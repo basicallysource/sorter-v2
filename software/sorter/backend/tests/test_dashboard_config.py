@@ -42,6 +42,7 @@ class DashboardConfigTests(unittest.TestCase):
                 "piece_circling",
                 "piece_held",
                 "distribution_servo_bus_offline",
+                "distribution_door_blocked",
                 "distribution_no_bin_available",
             ],
             definition_kinds,

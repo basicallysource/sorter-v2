@@ -1,9 +1,10 @@
 """The machine's telemetry records, kept until every Hive has them.
 
 A record is one small JSON document about how the machine is set up or how it
-runs, written by fleet_telemetry and computer_health and sent by the sync
-worker's telemetry leg (the machine_telemetry stream) to every Hive, by its id:
-records never change once written. Three forms:
+runs, written by fleet_telemetry and computer_health. The sync worker's
+telemetry leg (the machine_telemetry stream) sends them to every Hive, by their
+id, except the kinds in LOCAL_KINDS, which are the machine's own and never leave
+it. Records never change once written. Three forms:
 
 - snapshot: state (the machine specs), written only when it differs from the
   last one of its kind, so a quiet machine writes none.
@@ -58,6 +59,12 @@ def _createTables(conn: sqlite3.Connection) -> None:
     )
 
 
+# Kinds kept on the machine and never sent: the computer's health is for the
+# person at the machine (its Computer settings page reads it back).
+LOCAL_KINDS = frozenset({"computer_health"})
+_NOT_LOCAL = "kind NOT IN (" + ", ".join("?" for _ in LOCAL_KINDS) + ")"
+
+
 def _connection():
     return db.connect(_createTables)
 
@@ -79,11 +86,15 @@ def write(
     if len(encoded.encode()) > MAX_DATA_BYTES:
         return None
     ended_at = started_at if ended_at is None else ended_at
+    created_at = time.time()
+    # A record that is never sent has nothing to wait for: it counts as sent,
+    # so it is not shown as waiting and is pruned like one every Hive has.
+    synced_at = created_at if kind in LOCAL_KINDS else None
     with _connection() as conn:
         cursor = conn.execute(
-            "INSERT INTO telemetry_records (kind, form, schema, started_at, ended_at, data, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (kind, form, int(schema), float(started_at), float(ended_at), encoded, time.time()),
+            "INSERT INTO telemetry_records (kind, form, schema, started_at, ended_at, data, created_at, synced_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (kind, form, int(schema), float(started_at), float(ended_at), encoded, created_at, synced_at),
         )
         conn.commit()
         return int(cursor.lastrowid)
@@ -115,12 +126,13 @@ def listKind(kind: str, since: float) -> list[dict[str, Any]]:
 
 
 def listAfter(after_id: int, limit: int) -> list[dict[str, Any]]:
-    """Records above `after_id` in id order, as the sync leg sends them."""
+    """Records above `after_id` in id order, as the sync leg sends them: all
+    but the machine's own (LOCAL_KINDS)."""
     with _connection() as conn:
         rows = conn.execute(
             "SELECT id, kind, form, schema, started_at, ended_at, data FROM telemetry_records "
-            "WHERE id > ? ORDER BY id LIMIT ?",
-            (int(after_id), int(limit)),
+            f"WHERE id > ? AND {_NOT_LOCAL} ORDER BY id LIMIT ?",
+            (int(after_id), *LOCAL_KINDS, int(limit)),
         ).fetchall()
     return [
         {
@@ -136,10 +148,14 @@ def listAfter(after_id: int, limit: int) -> list[dict[str, Any]]:
     ]
 
 
-def maxId() -> int:
+def countAfter(after_id: int) -> int:
+    """How many records above `after_id` the sync leg has yet to send."""
     with _connection() as conn:
-        row = conn.execute("SELECT COALESCE(MAX(id), 0) AS m FROM telemetry_records").fetchone()
-    return int(row["m"])
+        row = conn.execute(
+            f"SELECT COUNT(*) AS n FROM telemetry_records WHERE id > ? AND {_NOT_LOCAL}",
+            (int(after_id), *LOCAL_KINDS),
+        ).fetchone()
+    return int(row["n"])
 
 
 def stats() -> dict[str, int]:

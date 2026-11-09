@@ -63,9 +63,8 @@ STREAMS: tuple[Stream, ...] = (
         "machine_telemetry",
         "Machine telemetry",
         "How this sorter is set up and how it runs: its hardware and software, each motor's driver "
-        "settings and load, each camera's exposure, stalls, and its computer's temperature, speed and "
-        "memory. Summarised an hour at a time, so it stays small. No pictures and nothing about what "
-        "you sort.",
+        "settings and load, each camera's exposure, and stalls. Summarised an hour at a time, so it "
+        "stays small. No pictures and nothing about what you sort.",
         KIND_TELEMETRY, SIZE_SMALL, required=True, default=True, legacy_key="machine_specs",
     ),
     Stream(

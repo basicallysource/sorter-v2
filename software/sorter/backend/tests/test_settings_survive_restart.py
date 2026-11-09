@@ -127,10 +127,11 @@ class _Board:
     servos = ()
     input_aliases = {"chute_home": 0}
     chute_home_active_high = False
+    chute_variant = None
 
     def __init__(self, sockets: list[str]) -> None:
         self.identity = BoardIdentity("basically_rp2040", "distribution", "DISTRIBUTION MB", "/dev/board", 0)
-        self.interface = SimpleNamespace(name="DISTRIBUTION MB")
+        self.interface = SimpleNamespace(name="DISTRIBUTION MB", has_servo_bus=False)
         self.board_key = "distribution"
         self.drivers = {socket: _Driver(channel) for channel, socket in enumerate(sockets)}
         self._steppers = tuple(DiscoveredStepper(socket, socket, driver) for socket, driver in self.drivers.items())

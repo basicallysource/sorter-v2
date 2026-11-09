@@ -549,7 +549,7 @@ class _TargetSyncer:
             DATA_TYPE_RECORDS: count(DATA_TYPE_RECORDS, piece_records.countRecordsAfter),
             DATA_TYPE_PREDICTIONS: count(DATA_TYPE_PREDICTIONS, lambda wm: piece_predictions.getMaxId() - wm),
             DATA_TYPE_TRAINING_RUNS: count(DATA_TYPE_TRAINING_RUNS, training_runs.countRunsAfter),
-            DATA_TYPE_TELEMETRY: count(DATA_TYPE_TELEMETRY, lambda wm: telemetry_store.maxId() - wm),
+            DATA_TYPE_TELEMETRY: count(DATA_TYPE_TELEMETRY, telemetry_store.countAfter),
             DATA_TYPE_IMAGES: count(DATA_TYPE_IMAGES, piece_image_store.countImagesAfter),
             DATA_TYPE_CROPS: count(DATA_TYPE_CROPS, lambda wm: channel_crop_store.getMaxCropId() - wm),
             DATA_TYPE_CONTROL_DATA: count(DATA_TYPE_CONTROL_DATA, lambda wm: control_data_store.getMaxSegmentId() - wm),

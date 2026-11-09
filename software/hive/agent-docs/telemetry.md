@@ -96,7 +96,10 @@ driving at the last reading (`exposure_time_absolute` under auto exposure).
 Schema 1 had no controls (its reader asked for controls some cameras lack and
 got nothing back).
 
-**`computer_health`** (window, schema 1): the computer the backend runs on
+**`computer_health`** (window, schema 1) is the one kind that is **never
+sent**: it is the machine's own (`telemetry_store.LOCAL_KINDS`), kept for its
+Computer settings page, which reads its windows back after a restart. It
+describes the computer the backend runs on
 (`software/sorter/backend/computer_health.py`), an hour at a time whether or
 not the machine sorts, and at shutdown: `model`, `zones` (each thermal zone's
 `slows_c`, `hot_c` and `critical_c`, from its trip points), `temp_max_c`,
@@ -104,8 +107,7 @@ not the machine sorts, and at shutdown: `model`, `zones` (each thermal zone's
 summed from each minute's share), `warnings` open at the end, and `minutes`:
 one `[minute start, hottest °C, share of readings slowed down, CPU use %,
 memory used %]` per minute, any of them null where the computer does not
-report it. The machine reads its own windows back after a restart for its
-Computer settings page.
+report it.
 
 ## Size
 
@@ -114,8 +116,7 @@ sorting on a test machine (2 KB compressed; its schema 1 form was 21 KB), and a
 camera window under 1 KB. A window grows little past that, as the bands fill
 rather than multiply, so a sorting hour is about 12 KB of JSON per machine,
 stored compressed at about 3 KB; snapshots and stalls are rare. A thousand
-machines sorting six hours a day add about 20 MB a day. A computer health
-window is about 2 KB, so 24 a day per machine, sorting or not.
+machines sorting six hours a day add about 20 MB a day.
 
 ## Reading it
 

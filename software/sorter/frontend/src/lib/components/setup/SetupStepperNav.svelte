@@ -1,12 +1,8 @@
 <script lang="ts">
 	import Check from '@lucide/svelte/icons/check';
+	import Select from '$lib/components/ui/Select.svelte';
 
-	type WizardStepDefinition<Id extends string = string> = {
-		id: Id;
-		title: string;
-		description: string;
-		requiresManualConfirm: boolean;
-	};
+	type NavStep = { id: string; title: string; short?: string };
 
 	type StepStatus = 'current' | 'done' | 'ready';
 
@@ -15,16 +11,30 @@
 		getStatus,
 		onSelect
 	}: {
-		steps: WizardStepDefinition[];
+		steps: NavStep[];
 		getStatus: (stepId: string) => StepStatus;
 		onSelect: (stepId: string) => void;
 	} = $props();
+
+	const current = $derived(steps.find((step) => getStatus(step.id) === 'current')?.id ?? steps[0]?.id);
+	const options = $derived(
+		steps.map((step, index) => ({
+			value: step.id,
+			label: `${index + 1}. ${step.short ?? step.title}`,
+			hint: getStatus(step.id) === 'done' ? 'Done' : undefined
+		}))
+	);
 </script>
+
+<!-- On a phone the steps are a list to pick from: a row of thirteen does not fit. -->
+<div class="rounded-panel bg-surface p-3 sm:hidden">
+	<Select label="Setup step" value={current} {options} onchange={(id) => onSelect(id)} class="w-full" />
+</div>
 
 <!-- The steps in a row on the surface, joined by a line that turns green as
      they are done; below md only the numbers show (the page's title names the
      current one). -->
-<nav aria-label="Setup steps" class="rounded-panel bg-surface px-2 py-4 sm:px-(--pad-panel)">
+<nav aria-label="Setup steps" class="rounded-panel bg-surface px-2 py-4 max-sm:hidden sm:px-(--pad-panel)">
 	<ol class="flex items-start">
 		{#each steps as step, index (step.id)}
 			{@const status = getStatus(step.id)}
@@ -47,7 +57,7 @@
 				<button
 					type="button"
 					onclick={() => onSelect(step.id)}
-					aria-label={step.title}
+					aria-label="{step.title}{status === 'done' ? ', done' : ''}"
 					aria-current={status === 'current' ? 'step' : undefined}
 					class="relative flex size-8 items-center justify-center rounded-badge text-sm font-medium transition-colors {status ===
 					'done'
@@ -63,7 +73,7 @@
 						? 'font-medium text-ink'
 						: 'text-ink-muted'}"
 				>
-					{step.title}
+					{step.short ?? step.title}
 				</span>
 			</li>
 		{/each}

@@ -16,7 +16,8 @@
 		numSections: number;
 		sectionWidthDeg: number;
 		firstSectionOffsetDeg: number;
-		maxAngleDeg: number;
+		// null: the chute turns without limit, so there is no wedge it cannot reach.
+		maxAngleDeg: number | null;
 		binCount: number;
 		liveAngleDeg?: number | null;
 		selected?: Selected | null;
@@ -55,9 +56,9 @@
 	const total = $derived(numSections * binCount);
 	const unreachableCount = $derived(bins.filter((b) => !b.reachable).length);
 
-	const deadzonePath = $derived(annularWedge(maxAngleDeg, 360, R - 16, R + 3));
+	const deadzonePath = $derived(maxAngleDeg === null ? null : annularWedge(maxAngleDeg, 360, R - 16, R + 3));
 	const needle = $derived(liveAngleDeg === null ? null : polar(((liveAngleDeg % 360) + 360) % 360));
-	const maxTick = $derived(polar(maxAngleDeg, R + 8));
+	const maxTick = $derived(maxAngleDeg === null ? null : polar(maxAngleDeg, R + 8));
 	const homeLabel = $derived(polar(0, R + 9));
 	const homeRim = $derived(polar(0, R));
 
@@ -79,13 +80,15 @@
 		<circle cx={CX} cy={CY} r={R} class="fill-surface stroke-line" stroke-width="1" />
 
 		<!-- The single mechanical deadzone: the wedge between max travel and home. -->
-		<path d={deadzonePath} class="fill-danger" opacity="0.12" />
-		<path
-			d={`M ${polar(maxAngleDeg, R + 3).x} ${polar(maxAngleDeg, R + 3).y} A ${R + 3} ${R + 3} 0 0 1 ${polar(360, R + 3).x} ${polar(360, R + 3).y}`}
-			class="stroke-danger"
-			fill="none"
-			stroke-width="1.5"
-		/>
+		{#if deadzonePath && maxAngleDeg !== null}
+			<path d={deadzonePath} class="fill-danger" opacity="0.12" />
+			<path
+				d={`M ${polar(maxAngleDeg, R + 3).x} ${polar(maxAngleDeg, R + 3).y} A ${R + 3} ${R + 3} 0 0 1 ${polar(360, R + 3).x} ${polar(360, R + 3).y}`}
+				class="stroke-danger"
+				fill="none"
+				stroke-width="1.5"
+			/>
+		{/if}
 
 		<!-- Section boundary ticks. -->
 		{#each Array.from({ length: numSections }, (_, s) => firstSectionOffsetDeg + s * sectionPitchDeg) as edge}
@@ -98,7 +101,9 @@
 		<line x1={CX} y1={CY} x2={homeRim.x} y2={homeRim.y} class="stroke-ink-muted" stroke-width="0.5" stroke-dasharray="2 2" />
 		<circle cx={homeRim.x} cy={homeRim.y} r="2.5" class="fill-primary" />
 		<text x={homeLabel.x} y={homeLabel.y} text-anchor="middle" font-size="10" class="fill-ink-muted">home 0°</text>
-		<text x={maxTick.x} y={maxTick.y} text-anchor="middle" font-size="10" class="fill-danger">max {maxAngleDeg.toFixed(0)}°</text>
+		{#if maxTick && maxAngleDeg !== null}
+			<text x={maxTick.x} y={maxTick.y} text-anchor="middle" font-size="10" class="fill-danger">max {maxAngleDeg.toFixed(0)}°</text>
+		{/if}
 
 		{#if needle}
 			<line x1={CX} y1={CY} x2={needle.x} y2={needle.y} class="stroke-primary" stroke-width="1.5" />
@@ -142,7 +147,7 @@
 		<circle cx={CX} cy={CY} r="2" class="fill-ink-muted" />
 	</svg>
 
-	{#if unreachableCount > 0}
+	{#if unreachableCount > 0 && maxAngleDeg !== null}
 		<p class="text-sm text-danger-ink">
 			{unreachableCount}
 			{unreachableCount === 1 ? 'bin falls' : 'bins fall'} in the {maxAngleDeg.toFixed(0)}° no-go wedge by home.

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Component } from 'svelte';
 	import ArchiveX from '@lucide/svelte/icons/archive-x';
+	import Trash from '@lucide/svelte/icons/trash';
 	import Crosshair from '@lucide/svelte/icons/crosshair';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import FolderOutput from '@lucide/svelte/icons/folder-output';
@@ -34,6 +35,8 @@
 		clearDisabled,
 		niiDisabled,
 		searchState = 'off',
+		discardChoosable = false,
+		onToggleDiscard = () => {},
 		onOpenDetails,
 		onMoveTo,
 		onEmpty,
@@ -56,6 +59,9 @@
 		clearDisabled: boolean;
 		niiDisabled: boolean;
 		searchState?: 'off' | 'match' | 'miss';
+		// The machine's chute drops nothing out of the bottom, so a bin can be its discard bin.
+		discardChoosable?: boolean;
+		onToggleDiscard?: () => void;
 		onOpenDetails: () => void;
 		onMoveTo: () => void;
 		onEmpty: () => void;
@@ -95,6 +101,13 @@
 				disabled: niiDisabled
 			}
 		];
+		if (discardChoosable) {
+			items.push({
+				label: bin.discard ? 'Stop using as the discard bin' : 'Use as the discard bin',
+				icon: Trash,
+				onselect: onToggleDiscard
+			});
+		}
 		if (contents && contents.piece_count > 0) {
 			items.push({ label: 'Empty this bin', icon: FolderOutput, onselect: onEmpty, disabled: clearDisabled });
 		}
@@ -147,6 +160,11 @@
 				>
 					{catLabel || (bin.not_in_inventory ? 'Any category' : 'Unassigned')}
 				</span>
+				{#if bin.discard}
+					<span title="Takes the pieces no other bin takes">
+						<Badge tone="warning">Discard</Badge>
+					</span>
+				{/if}
 				{#if bin.not_in_inventory}
 					<span title="Takes only pieces missing from the active BrickLink inventory (.bsx)">
 						<Badge tone="info">Not in inventory</Badge>

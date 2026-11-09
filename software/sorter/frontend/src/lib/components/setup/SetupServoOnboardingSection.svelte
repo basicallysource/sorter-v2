@@ -1,7 +1,17 @@
+<!--
+	The door servos of a machine whose control board has no servo bus of its
+	own: PWM servos on a board (the layer calibrator), or serial servos on a
+	USB adapter (scan, give each its own ID, calibrate, assign it a layer).
+	Which of the two is what was saved, until the person picks the other; it is
+	never guessed again after the motors power up. A servo's ID changes only
+	when the person presses the button for it.
+-->
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { errorMessage, getJson, postJson } from '$lib/api/http';
+	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import SerialPortPanel from './servo/SerialPortPanel.svelte';
 	import ServoInventoryList from './servo/ServoInventoryList.svelte';
 	import ServoLayerCalibrator from '$lib/components/servo/ServoLayerCalibrator.svelte';
@@ -53,18 +63,20 @@
 	type ServoSource = 'waveshare' | 'pca';
 
 	let {
-		servoSource = 'pca',
-		discoveredServoSource = 'pca',
-		discoveredWaveshareServos = 0,
-		onSaved = null,
-		onSourceChange = null
+		initialSource = 'pca',
+		adapterServos = null,
+		onSaved = null
 	}: {
-		servoSource?: ServoSource;
-		discoveredServoSource?: ServoSource;
-		discoveredWaveshareServos?: number;
+		// The kind saved for this machine.
+		initialSource?: ServoSource;
+		// Servos a USB adapter answered with, when the buses were probed.
+		adapterServos?: number | null;
 		onSaved?: (() => void | Promise<void>) | null;
-		onSourceChange?: ((value: ServoSource) => void) | null;
 	} = $props();
+
+	let servoSource = $state<ServoSource>(untrack(() => initialSource));
+	// Bumped after a save, so the PWM calibrator loads what was saved.
+	let calibratorKey = $state(0);
 
 	const manager = getMachinesContext();
 
@@ -89,7 +101,9 @@
 	let servoIssues = $state<HardwareIssue[]>([]);
 
 	let layerCount = $state<number>(0);
-	let storageLayers = $state<Array<{ bin_count: number; enabled: boolean }>>([]);
+	let storageLayers = $state<
+		Array<{ bin_count: number; enabled: boolean; max_pieces_per_bin: number | null; max_dimension_mm: number | null }>
+	>([]);
 	// servoId → layer index (1-based). For PCA, channelId → layer index.
 	let layerByAssignment = $state<Record<number, number>>({});
 	// per-layer invert (1-based layer index → invert)
@@ -102,15 +116,14 @@
 	// per-servo UI state
 	let busyByServoId = $state<Record<number, string>>({}); // 'calibrating' | 'moving' | 'promoting'
 	let lastMoveByServoId = $state<Record<number, 'open' | 'close' | 'center'>>({});
-	// Track servo ids we've already auto-promoted this session so we don't loop.
-	let autoPromotedIds = $state<Set<number>>(new Set());
 
 	let selectedServoId = $state<number | null>(null);
 	let nudgeDegrees = $state<number>(5);
 
-	// Effective number of assignable layers. If we have more servos on the bus
-	// than the configured storage layers, expand so every servo can be mapped.
-	const effectiveLayerCount = $derived(Math.max(layerCount, busServos.length));
+	// A servo is assigned to one of the layers the Bins step set; a servo past
+	// their count waits for a layer.
+	const effectiveLayerCount = $derived(layerCount);
+	const extraServos = $derived(Math.max(0, busServos.length - layerCount));
 
 	function currentBackendBaseUrl(): string {
 		return (
@@ -210,6 +223,8 @@
 		storageLayers = storageLayersRaw.map((sl: any) => ({
 			bin_count: Number(sl?.bin_count ?? 12),
 			enabled: sl?.enabled !== false,
+			max_pieces_per_bin: typeof sl?.max_pieces_per_bin === 'number' ? sl.max_pieces_per_bin : null,
+			max_dimension_mm: typeof sl?.max_dimension_mm === 'number' ? sl.max_dimension_mm : null
 		}));
 
 		const newAssignments: Record<number, number> = {};
@@ -243,15 +258,13 @@
 		loading = true;
 		errorMsg = null;
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config`);
-			if (!res.ok) throw new Error(await res.text());
-			applySettings(await res.json());
+			applySettings(await getJson(currentBackendBaseUrl(), '/api/hardware-config'));
 			settingsLoaded = true;
 			if (backend === 'waveshare') {
 				void loadWaveshareInventory({ refresh: false, silent: true });
 			}
-		} catch (e: any) {
-			errorMsg = e.message ?? 'Failed to load servo setup';
+		} catch (e) {
+			errorMsg = errorMessage(e, 'The servo setup did not load.');
 		} finally {
 			loading = false;
 		}
@@ -268,16 +281,12 @@
 
 	function applyWaveshareInventory(payload: WaveshareInventoryPayload) {
 		availablePorts = Array.isArray(payload?.ports) ? payload.ports : [];
-		const previousCount = busServos.length;
 		busServos = Array.isArray(payload?.servos) ? payload.servos : [];
 		suggestedNextId =
 			typeof payload?.suggested_next_id === 'number' ? payload.suggested_next_id : null;
 		highestSeenId = typeof payload?.highest_seen_id === 'number' ? payload.highest_seen_id : 0;
 		if (!port.trim() && typeof payload?.current_port === 'string' && payload.current_port) {
 			port = payload.current_port;
-		}
-		if (previousCount === 0 && busServos.length > 0) {
-			maybeAutoPromoteFactoryId();
 		}
 	}
 
@@ -292,18 +301,16 @@
 			errorMsg = null;
 		}
 		try {
-			const url = new URL(
-				`${currentBackendBaseUrl()}/api/hardware-config/waveshare/${refresh ? 'rescan' : 'status'}`
+			const path = `/api/hardware-config/waveshare/${refresh ? 'rescan' : 'status'}`;
+			const query = { port: port.trim() || null };
+			applyWaveshareInventory(
+				refresh
+					? await postJson(currentBackendBaseUrl(), path, undefined, { query })
+					: await getJson(currentBackendBaseUrl(), path, { query })
 			);
-			if (port.trim()) {
-				url.searchParams.set('port', port.trim());
-			}
-			const res = await fetch(url.toString(), { method: refresh ? 'POST' : 'GET' });
-			if (!res.ok) throw new Error(await res.text());
-			applyWaveshareInventory(await res.json());
-		} catch (e: any) {
+		} catch (e) {
 			if (!options.silent) {
-				errorMsg = e.message ?? 'Failed to scan Waveshare bus';
+				errorMsg = errorMessage(e, 'The servo adapter was not scanned.');
 			}
 		} finally {
 			if (refresh) {
@@ -314,23 +321,6 @@
 
 	async function scanBus(options: { silent?: boolean } = {}) {
 		await loadWaveshareInventory({ refresh: true, silent: options.silent });
-	}
-
-	function maybeAutoPromoteFactoryId() {
-		if (suggestedNextId === null) return;
-		const target = suggestedNextId;
-		const candidate = busServos.find((s) => s.id === 1);
-		if (!candidate) return;
-		// Avoid re-promoting the same id repeatedly if the backend still reports it briefly.
-		if (autoPromotedIds.has(1)) return;
-		if (busyByServoId[1]) return;
-		autoPromotedIds = new Set([...autoPromotedIds, 1]);
-		void promoteServoId(1, target).finally(() => {
-			// Allow another auto-promotion cycle for a freshly-connected factory servo.
-			setTimeout(() => {
-				autoPromotedIds = new Set([...autoPromotedIds].filter((id) => id !== 1));
-			}, 1500);
-		});
 	}
 
 	function setBusy(servoId: number, kind: string | null) {
@@ -348,19 +338,14 @@
 		errorMsg = null;
 		statusMsg = '';
 		try {
-			const res = await fetch(
-				`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos/${servoId}/calibrate`,
-				{ method: 'POST' }
+			const payload = await postJson<{ message?: string }>(
+				currentBackendBaseUrl(),
+				`/api/hardware-config/waveshare/servos/${servoId}/calibrate`
 			);
-			if (!res.ok) {
-				const text = await res.text();
-				throw new Error(text);
-			}
-			const payload = await res.json();
 			statusMsg = payload?.message ?? `Servo ${servoId} calibrated.`;
 			await loadWaveshareInventory({ refresh: true });
-		} catch (e: any) {
-			errorMsg = e.message ?? `Failed to calibrate servo ${servoId}`;
+		} catch (e) {
+			errorMsg = errorMessage(e, `Servo ${servoId} was not calibrated.`);
 		} finally {
 			setBusy(servoId, null);
 		}
@@ -371,21 +356,12 @@
 		errorMsg = null;
 		statusMsg = '';
 		try {
-			const res = await fetch(
-				`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos/${servoId}/move`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ position })
-				}
-			);
-			if (!res.ok) {
-				const text = await res.text();
-				throw new Error(text);
-			}
+			await postJson(currentBackendBaseUrl(), `/api/hardware-config/waveshare/servos/${servoId}/move`, {
+				position
+			});
 			lastMoveByServoId = { ...lastMoveByServoId, [servoId]: position };
-		} catch (e: any) {
-			errorMsg = e.message ?? `Failed to move servo ${servoId}`;
+		} catch (e) {
+			errorMsg = errorMessage(e, `Servo ${servoId} did not move.`);
 		} finally {
 			setBusy(servoId, null);
 		}
@@ -401,24 +377,17 @@
 		errorMsg = null;
 		statusMsg = '';
 		try {
-			const res = await fetch(
-				`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos/${servoId}/nudge`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ degrees })
-				}
+			const data = await postJson<{ raw_position?: number; limits?: unknown }>(
+				currentBackendBaseUrl(),
+				`/api/hardware-config/waveshare/servos/${servoId}/nudge`,
+				{ degrees }
 			);
-			if (!res.ok) {
-				const text = await res.text();
-				throw new Error(text);
+			const raw = data.raw_position;
+			if (typeof raw === 'number' && data.limits) {
+				busServos = busServos.map((s) => (s.id === servoId ? { ...s, position: raw } : s));
 			}
-			const data = await res.json();
-			if (typeof data.raw_position === 'number' && data.limits) {
-				busServos = busServos.map(s => s.id === servoId ? { ...s, position: data.raw_position } : s);
-			}
-		} catch (e: any) {
-			errorMsg = e.message ?? `Failed to nudge servo ${servoId}`;
+		} catch (e) {
+			errorMsg = errorMessage(e, `Servo ${servoId} did not move.`);
 		} finally {
 			setBusy(servoId, null);
 		}
@@ -429,19 +398,11 @@
 		errorMsg = null;
 		statusMsg = '';
 		try {
-			const res = await fetch(
-				`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos/${currentId}/set-id`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ new_id: newId })
-				}
+			const payload = await postJson<{ message?: string }>(
+				currentBackendBaseUrl(),
+				`/api/hardware-config/waveshare/servos/${currentId}/set-id`,
+				{ new_id: newId }
 			);
-			if (!res.ok) {
-				const text = await res.text();
-				throw new Error(text);
-			}
-			const payload = await res.json();
 			// Move any existing layer assignment from old id to new id.
 			if (layerByAssignment[currentId] !== undefined) {
 				const layer = layerByAssignment[currentId];
@@ -452,8 +413,8 @@
 			}
 			statusMsg = payload?.message ?? `Servo ${currentId} → ${newId}.`;
 			await loadWaveshareInventory({ refresh: true });
-		} catch (e: any) {
-			errorMsg = e.message ?? `Failed to change servo ID`;
+		} catch (e) {
+			errorMsg = errorMessage(e, 'The servo ID was not changed.');
 		} finally {
 			setBusy(currentId, null);
 		}
@@ -519,8 +480,9 @@
 			if (onBus.size > 0 && !onBus.has(servoId)) continue;
 			servoByLayer[layerIdx] = servoId;
 		}
-		const upper = Math.max(layerCount, effectiveLayerCount);
-		for (let layer = 1; layer <= upper; layer++) {
+		// One channel per layer, as many as the layers saved: the machine
+		// refuses any other count.
+		for (let layer = 1; layer <= layerCount; layer++) {
 			const id =
 				servoByLayer[layer] ?? (backend === 'waveshare' ? layer : layer - 1);
 			channels.push({
@@ -532,7 +494,14 @@
 	}
 
 	function buildStorageLayersForSave() {
-		const result: Array<{ bin_count: number; enabled: boolean; servo_open_angle: number | null; servo_closed_angle: number | null }> = [];
+		const result: Array<{
+			bin_count: number;
+			enabled: boolean;
+			servo_open_angle: number | null;
+			servo_closed_angle: number | null;
+			max_pieces_per_bin: number | null;
+			max_dimension_mm: number | null;
+		}> = [];
 		for (let i = 0; i < layerCount; i++) {
 			const sl = storageLayers[i];
 			const openStr = openAngleByLayer[i + 1] ?? '';
@@ -544,6 +513,8 @@
 				enabled: sl?.enabled ?? true,
 				servo_open_angle: openVal !== null && Number.isFinite(openVal) ? openVal : null,
 				servo_closed_angle: closedVal !== null && Number.isFinite(closedVal) ? closedVal : null,
+				max_pieces_per_bin: sl?.max_pieces_per_bin ?? null,
+				max_dimension_mm: sl?.max_dimension_mm ?? null
 			});
 		}
 		return result;
@@ -557,33 +528,28 @@
 			const channels = buildChannelsForSave();
 
 			const storageLayers = buildStorageLayersForSave();
-			const storageRes = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/storage-layers`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ layers: storageLayers })
+			await postJson(currentBackendBaseUrl(), '/api/hardware-config/storage-layers', {
+				layers: storageLayers
 			});
-			if (!storageRes.ok) throw new Error(await storageRes.text());
-
-			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/servo`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
+			const payload = await postJson<{ message?: string }>(
+				currentBackendBaseUrl(),
+				'/api/hardware-config/servo',
+				{
 					backend,
 					open_angle: openAngle,
 					closed_angle: closedAngle,
 					port: backend === 'waveshare' ? port.trim() || null : null,
 					channels
-				})
-			});
-			if (!res.ok) throw new Error(await res.text());
-			const payload = await res.json();
+				}
+			);
 			statusMsg = payload?.message ?? 'Servo setup saved.';
+			calibratorKey += 1;
 			await loadSettings();
 			if (onSaved) {
 				await onSaved();
 			}
-		} catch (e: any) {
-			errorMsg = e.message ?? 'Failed to save servo setup';
+		} catch (e) {
+			errorMsg = errorMessage(e, 'The servos were not saved.');
 		} finally {
 			saving = false;
 		}
@@ -663,27 +629,26 @@
 			</Panel>
 		{/if}
 	{:else}
-		<Panel title="Servo backend">
-			{#snippet actions()}
-				{#if discoveredServoSource !== servoSource && onSourceChange}
-					<Button size="sm" onclick={() => onSourceChange(discoveredServoSource)}>
-						Use the detected one ({discoveredServoSource === 'waveshare' ? 'Waveshare' : 'PCA9685'})
-					</Button>
-				{/if}
-			{/snippet}
-			<p class="text-sm text-ink-muted">
-				{#if servoSource !== 'waveshare'}
-					No Waveshare servo bus found, so a PCA9685 on a control board is assumed.
-				{:else if discoveredServoSource === 'waveshare'}
-					The Waveshare SC serial bus was found{#if discoveredWaveshareServos > 0}, with
-						<span class="text-ink">
-							{discoveredWaveshareServos}
-							{discoveredWaveshareServos === 1 ? 'servo' : 'servos'}
-						</span> on it{/if}.
-				{:else}
-					Using the Waveshare SC serial bus.
-				{/if}
-			</p>
+		<Panel
+			title="How the doors are turned"
+			description="PWM servos wired to a control board, or serial servos on a USB servo adapter."
+		>
+			<SegmentedControl
+				label="How the doors are turned"
+				bind:value={servoSource}
+				options={[
+					{ value: 'pca', label: 'PWM servos on a board' },
+					{ value: 'waveshare', label: 'USB servo adapter' }
+				]}
+			/>
+			{#if servoSource !== initialSource}
+				<p class="mt-3 text-sm text-ink-muted">Saved when you save the servos below.</p>
+			{:else if servoSource === 'pca' && adapterServos}
+				<p class="mt-3 text-sm text-ink-muted">
+					A USB servo adapter answered with {adapterServos}
+					{adapterServos === 1 ? 'servo' : 'servos'} on it. Choose it above if the doors are on it.
+				</p>
+			{/if}
 		</Panel>
 
 		{#if servoSource === 'waveshare'}
@@ -716,7 +681,13 @@
 				onNudge={(servoId, degrees) => void nudgeServo(servoId, degrees)}
 			/>
 		{:else}
-			<ServoLayerCalibrator />
+			{#key calibratorKey}<ServoLayerCalibrator />{/key}
+		{/if}
+		{#if servoSource === 'waveshare' && extraServos > 0}
+			<Alert tone="warning">
+				There {extraServos === 1 ? 'is a servo' : `are ${extraServos} servos`} on the bus past the
+				{layerCount} layers. Add layers in the Bins step to give {extraServos === 1 ? 'it' : 'them'} a door.
+			</Alert>
 		{/if}
 
 		{#if servoIssues.length}
@@ -729,9 +700,11 @@
 		{:else if statusMsg}
 			<Alert tone="success">{statusMsg}</Alert>
 		{/if}
-		<div class="flex flex-wrap items-center gap-3">
-			<Button variant="primary" loading={saving} onclick={saveServoSetup}>Save the servos</Button>
-			{#if loading}<span class="text-sm text-ink-muted">Loading the servo configuration…</span>{/if}
-		</div>
+		{#if servoSource === 'waveshare' || servoSource !== initialSource}
+			<div class="flex flex-wrap items-center gap-3">
+				<Button variant="primary" loading={saving} onclick={saveServoSetup}>Save the servos</Button>
+				{#if loading}<span class="text-sm text-ink-muted">Loading the servo configuration…</span>{/if}
+			</div>
+		{/if}
 	{/if}
 </div>

@@ -79,6 +79,16 @@ the example app shows them together.
 - **`RadioGroup`**: one of a few choices when each needs a sentence.
 - **`Switch`**: on or off, applied the moment it changes. It needs a name
   (`label`), and the switch alone shows its state: no "On" badge beside it.
+- **`PictureChoice`**: one of a few choices that a picture tells apart
+  better than words (which kind of chute a machine has). Each option is a tile
+  on a well: its picture, then a radio's dot, its name and one sentence. The
+  chosen tile takes the primary's tint; the pointer lays a faint fill over the
+  others; the arrow keys move the choice and focus draws the 2px outline round
+  the tile. A picture holds its place (4:3) while it loads, and one that cannot
+  load (a machine with no internet) leaves a quiet blank in its place, so the
+  tiles never jump and the choice still reads from the words. An option that
+  cannot be chosen is faded and says why in `note`. `plane="surface"` is for
+  tiles on a well or a dialog's own plane.
 - **`SegmentedControl`**: two to five short choices that apply at once
   (Light / Dark, Degrees / Seconds), as one control: a single 1px
   `line-strong` outline, the segments divided by 1px lines with no gap and no

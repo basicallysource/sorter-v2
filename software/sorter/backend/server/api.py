@@ -154,6 +154,7 @@ from server.routers.versions import router as versions_router
 from server.routers.status_ping import router as status_ping_router
 from server.routers.sharing import router as sharing_router
 from server.routers.leds import router as leds_router
+from server.routers.computer import router as computer_router
 from server.routers.zones import router as zones_router
 
 app.include_router(hardware_router)
@@ -195,6 +196,7 @@ app.include_router(versions_router)
 app.include_router(status_ping_router)
 app.include_router(zones_router)
 app.include_router(leds_router)
+app.include_router(computer_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle

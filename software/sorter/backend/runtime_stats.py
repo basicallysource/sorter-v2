@@ -135,6 +135,11 @@ class RuntimeStatsCollector:
         # active incident, if persistence succeeded. None whenever there is
         # no active incident or the DB write failed (never blocks the machine).
         self._active_incident_row_id: int | None = None
+        # Warnings (incident kinds that do not hold the machine), by (kind,
+        # subject), and their incident_records rows. Replaced whole on every
+        # change, so a reader on another thread always sees a complete dict.
+        self._warnings: dict[tuple[str, str], dict[str, Any]] = {}
+        self._warning_row_ids: dict[tuple[str, str], int] = {}
         self._perf_ms_samples: dict[str, list[float]] = {}
         # Uncapped cumulative call-count per metric key. The sample lists above
         # are ring buffers (their length saturates), so these are the only
@@ -380,6 +385,49 @@ class RuntimeStatsCollector:
         except Exception:
             return "unknown"
 
+    def openWarning(self, warning: dict[str, Any]) -> None:
+        """Show a warning beside any incident, or refresh the one already open
+        for its kind and subject (it keeps its start time and its record)."""
+        key = (str(warning.get("kind")), str(warning.get("subject") or ""))
+        previous = self._warnings.get(key)
+        payload = dict(warning)
+        payload["updated_at"] = float(time.time())
+        if previous is not None:
+            payload["triggered_at"] = previous.get("triggered_at", payload.get("triggered_at"))
+        self._warnings = {**self._warnings, key: payload}
+        self._last_updated_at = payload["updated_at"]
+        try:
+            import incident_records
+
+            row_id = self._warning_row_ids.get(key)
+            if row_id is not None:
+                incident_records.updateIncident(row_id, payload)
+            else:
+                self._warning_row_ids[key] = incident_records.openIncident(payload)
+        except Exception as exc:
+            db.report_failure("warning persist", exc)
+
+    def clearWarning(self, kind: str, *, subject: str | None = None, resolved_by: str = "system") -> None:
+        keys = [k for k in self._warnings if k[0] == kind and (subject is None or k[1] == subject)]
+        if not keys:
+            return
+        self._warnings = {k: v for k, v in self._warnings.items() if k not in keys}
+        self._last_updated_at = time.time()
+        for key in keys:
+            row_id = self._warning_row_ids.pop(key, None)
+            if row_id is None:
+                continue
+            try:
+                import incident_records
+
+                incident_records.resolveIncident(row_id, resolved_by=resolved_by)
+            except Exception as exc:
+                db.report_failure("warning resolve", exc)
+
+    def warnings(self) -> list[dict[str, Any]]:
+        """The open warnings, oldest first."""
+        return sorted((dict(w) for w in self._warnings.values()), key=lambda w: w.get("triggered_at") or 0.0)
+
     def activeIncident(self) -> dict[str, Any] | None:
         """Return the currently active blocking incident, if any."""
         return dict(self._active_incident) if self._active_incident else None
@@ -446,6 +494,10 @@ class RuntimeStatsCollector:
             )
         except Exception as exc:
             db.report_failure("incident persist", exc)
+
+    def perfMsSummary(self, name: str) -> dict[str, float | int]:
+        """One latency metric over its recent samples (n, avg, med, p90, min, max)."""
+        return _calcMsSummary(list(self._perf_ms_samples.get(name) or ()))
 
     def observePerfMs(self, name: str, value_ms: float) -> None:
         bucket = self._perf_ms_samples.get(name)
@@ -864,6 +916,7 @@ class RuntimeStatsCollector:
             ),
             "active_incident": dict(self._active_incident) if self._active_incident else None,
             "incident_card": incidents.describe(self._active_incident),
+            "warning_cards": [incidents.describe(w) for w in self.warnings()],
         }
         if live:
             live_part["state_machines"] = {

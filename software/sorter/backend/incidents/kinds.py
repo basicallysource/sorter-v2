@@ -5,6 +5,11 @@ about it in one sentence (``todo``, filled in from the incident's own fields),
 and which buttons its card offers (``actions``, keys into ``actions.ACTIONS``).
 Kinds the Incidents settings page lets you switch off or handle automatically
 also carry that page's wording and their default handling.
+
+Most kinds hold the machine until they are dealt with. A kind with
+``holds=False`` is a warning instead: the machine keeps sorting, its card
+shows beside any incident, and it goes when its condition ends (the
+computer's health, computer_health.py, raises these).
 """
 
 from __future__ import annotations
@@ -36,6 +41,10 @@ class IncidentKind:
     # The recovery procedure (recovery.PROCEDURES) the machine works through
     # when this kind is handled automatically.
     procedure: str | None = None
+    # False: a warning that does not hold the machine (see above).
+    holds: bool = True
+    # A page that tells more, as (path, button label).
+    link: tuple[str, str] | None = None
 
     def actionsFor(self, incident: dict[str, Any]) -> tuple[str, ...]:
         return self.actions(incident) if callable(self.actions) else self.actions
@@ -45,6 +54,43 @@ def _stallActions(incident: dict[str, Any]) -> tuple[str, ...]:
     # A chute stall loses its home: clearing the latch alone would leave it
     # needing a home, so its one button does both.
     return ("rehome_chute",) if incident.get("requires_rehome") else ("clear_stall",)
+
+
+def _computerWarnings() -> tuple[IncidentKind, ...]:
+    # The computer's health (computer_health.py). {detail} is its reading.
+    link = ("/settings/computer", "Computer health")
+    return (
+        IncidentKind(
+            "computer_hot",
+            title="Computer too hot",
+            todo="{detail} Check that its fan turns and nothing blocks its vents. Sorting can be slower until it cools.",
+            actions=(), holds=False, link=link,
+        ),
+        IncidentKind(
+            "computer_disk_full",
+            title="Storage nearly full",
+            todo="{detail} When it runs out, the machine can no longer save pieces or pictures. Free up space on it.",
+            actions=(), holds=False, link=link,
+        ),
+        IncidentKind(
+            "computer_read_only",
+            title="Storage turned read-only",
+            todo="{detail} This usually means the storage has errors. Restart the machine; if it happens again, replace the storage.",
+            actions=(), holds=False, link=link,
+        ),
+        IncidentKind(
+            "computer_memory_low",
+            title="Memory nearly full",
+            todo="{detail} The machine can slow down or stop. If it stays like this, restart the backend from the System menu.",
+            actions=(), holds=False, link=link,
+        ),
+        IncidentKind(
+            "computer_power_low",
+            title="Supply voltage low",
+            todo="{detail} It can make the computer slow down or restart. Use the machine's own power supply and cable.",
+            actions=(), holds=False, link=link,
+        ),
+    )
 
 
 KINDS: dict[str, IncidentKind] = {
@@ -104,6 +150,7 @@ KINDS: dict[str, IncidentKind] = {
             default_handling=OFF,
             off_label="Leave it to the hardware alert",
         ),
+        *_computerWarnings(),
         IncidentKind(
             "distribution_door_blocked",
             title="A bin door is blocked",

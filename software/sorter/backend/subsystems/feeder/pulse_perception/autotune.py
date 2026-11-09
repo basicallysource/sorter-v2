@@ -402,9 +402,13 @@ class FeederAutoTuner:
     def _incidentCountBetween(self, start_ts: float, end_ts: float) -> int:
         try:
             import incident_records
+            from incidents import KINDS
 
+            # Only what held the machine: a warning about the computer is not
+            # the feeder's doing.
+            warnings = tuple(k for k, v in KINDS.items() if not v.holds)
             result = incident_records.listIncidents(
-                limit=1, date_from=start_ts, date_to=end_ts
+                limit=1, date_from=start_ts, date_to=end_ts, exclude_kinds=warnings
             )
             return int(result.get("total") or 0)
         except Exception:

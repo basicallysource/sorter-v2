@@ -13,6 +13,7 @@ import Settings from '@lucide/svelte/icons/settings';
 import ShieldAlert from '@lucide/svelte/icons/shield-alert';
 import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 import Wifi from '@lucide/svelte/icons/wifi';
+import Thermometer from '@lucide/svelte/icons/thermometer';
 import Wrench from '@lucide/svelte/icons/wrench';
 import Zap from '@lucide/svelte/icons/zap';
 import {
@@ -149,6 +150,12 @@ export const controlBoardNavItem: SettingsNavItem = {
 	icon: CircuitBoard
 };
 
+export const computerNavItem: SettingsNavItem = {
+	href: '/settings/computer',
+	label: 'Computer',
+	icon: Thermometer
+};
+
 export const jitterTestNavItem: SettingsNavItem = {
 	href: '/settings/jitter-test',
 	label: 'Jitter test',
@@ -273,6 +280,7 @@ export const settingsNavItems: SettingsNavEntry[] = [
 	chuteNavItem,
 	storageLayersNavItem,
 	controlBoardNavItem,
+	computerNavItem,
 	{ type: 'heading', label: 'Helpers' },
 	incidentsNavItem,
 	cycleTimeNavItem,

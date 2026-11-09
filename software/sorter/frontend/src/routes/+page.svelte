@@ -52,6 +52,11 @@
 	const incidentCard = $derived(
 		(runtimeStats.incident_card ?? null) as IncidentCardData | null
 	);
+	// Warnings beside the incident, which do not hold the machine (the
+	// computer too hot, its storage nearly full).
+	const warningCards = $derived(
+		(Array.isArray(runtimeStats.warning_cards) ? runtimeStats.warning_cards : []) as IncidentCardData[]
+	);
 
 	async function startSystem() {
 		const baseUrl = currentBackendBaseUrl();
@@ -265,6 +270,9 @@
 				{#if incidentCard}
 					<IncidentCard card={incidentCard} baseUrl={currentBackendBaseUrl()} />
 				{/if}
+				{#each warningCards as card (`${card.kind}:${card.subject}`)}
+					<IncidentCard {card} baseUrl={currentBackendBaseUrl()} />
+				{/each}
 
 				<div class="max-lg:order-last lg:contents">
 					{#if training && training.config.enabled}

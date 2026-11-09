@@ -1,14 +1,15 @@
 """The machine's telemetry records, kept until every Hive has them.
 
 A record is one small JSON document about how the machine is set up or how it
-runs, written by fleet_telemetry and sent by the sync worker's telemetry leg
-(the machine_telemetry stream) to every Hive, by its id: records never change
-once written. Three forms:
+runs, written by fleet_telemetry and computer_health and sent by the sync
+worker's telemetry leg (the machine_telemetry stream) to every Hive, by its id:
+records never change once written. Three forms:
 
 - snapshot: state (the machine specs), written only when it differs from the
   last one of its kind, so a quiet machine writes none.
-- window: a distribution over a stretch of sorting (stepper load, camera
-  readings), an hour at most, closed when sorting stops.
+- window: a distribution over a stretch of time, an hour at most: of sorting
+  (stepper load, camera readings; closed when sorting stops), or of the
+  computer's health, sorting or not.
 - event: something rare and discrete (a stall), with its context.
 
 `kind` names what the record describes and `schema` the version of its data's
@@ -96,6 +97,21 @@ def lastSnapshot(kind: str) -> dict[str, Any] | None:
             (kind, FORM_SNAPSHOT),
         ).fetchone()
     return json.loads(row["data"]) if row else None
+
+
+def listKind(kind: str, since: float) -> list[dict[str, Any]]:
+    """The records of `kind` that end at or after `since`, oldest first (the
+    computer health page reads its history back this way after a restart)."""
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT started_at, ended_at, data FROM telemetry_records "
+            "WHERE kind = ? AND ended_at >= ? ORDER BY id",
+            (kind, float(since)),
+        ).fetchall()
+    return [
+        {"started_at": float(row["started_at"]), "ended_at": float(row["ended_at"]), "data": json.loads(row["data"])}
+        for row in rows
+    ]
 
 
 def listAfter(after_id: int, limit: int) -> list[dict[str, Any]]:

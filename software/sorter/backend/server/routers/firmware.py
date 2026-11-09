@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 import server.shared_state as shared_state
 from hardware import firmware_flash
-from hardware.bus import MCUBus, MCUDevice
+from hardware.bus import MCUBus, MCUDevice, header_uarts
 from hardware.firmware_flash import FlashCancelled, FlashError
 
 router = APIRouter()
@@ -506,6 +506,11 @@ def _runFlashJob(gc: Any, job: FlashJob) -> None:
             port = job.request.board_port
             if not port:
                 raise FlashError("No board_port given (required unless recovery mode).")
+            if port in header_uarts():
+                raise FlashError(
+                    f"The board on {port} is reached over a UART, and it takes firmware "
+                    "only over its USB port. Connect its USB and flash it there."
+                )
             job.setPhase("identifying", f"Checking board on {port}...")
             info = firmware_flash.identifyBoard(gc, port)
             if info is None:

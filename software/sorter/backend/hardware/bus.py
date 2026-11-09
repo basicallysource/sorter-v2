@@ -93,6 +93,26 @@ class MCUBusError(Exception):
 
 PORT_BUSY_WAIT_S = 2.0
 
+# A board on a plain UART instead of USB, like the v1.5 board on the Orange Pi's
+# header: SORTER_HEADER_UART=/dev/ttyS0 (optionally /dev/ttyS0:1500000). USB
+# boards are found by their VID and PID; a UART can't be, so it is named.
+HEADER_UART_ENV = "SORTER_HEADER_UART"
+HEADER_UART_DEFAULT_BAUD = 1_500_000
+USB_BAUD = 576000  # ignored by USB CDC; kept for the boards that read it
+
+
+def header_uarts() -> dict[str, int]:
+    """The UART ports named in SORTER_HEADER_UART, with the baud rate of each.
+    Several are separated by commas."""
+    ports: dict[str, int] = {}
+    for item in os.environ.get(HEADER_UART_ENV, "").split(","):
+        item = item.strip()
+        if not item:
+            continue
+        path, _, baud = item.partition(":")
+        ports[path] = int(baud) if baud else HEADER_UART_DEFAULT_BAUD
+    return ports
+
 
 def _openExclusive(port: str, *, baudrate: int, timeout: float) -> serial.Serial:
     """Open the port exclusively. A second opener (a UI probe, the flasher, a
@@ -112,14 +132,16 @@ def _openExclusive(port: str, *, baudrate: int, timeout: float) -> serial.Serial
 class MCUBus:
     """Class for communicating with the MCU over a serial bus using a custom protocol."""
 
-    def __init__(self, port: str, baudrate: int = 576000, timeout: float = 0.1):
+    def __init__(self, port: str, baudrate: int | None = None, timeout: float = 0.1):
         """Initialize the MCUBus with the given serial port parameters.
 
         Args:
             port: The serial port to use (e.g. "/dev/ttyUSB0")
-            baudrate: The baud rate for the serial communication (default 576000)
-            timeout: The read timeout in seconds (default 0.01s = 10ms)
+            baudrate: The baud rate; by default a header UART's own (SORTER_HEADER_UART), else 576000
+            timeout: The read timeout in seconds (default 0.1 s)
         """
+        if baudrate is None:
+            baudrate = header_uarts().get(port, USB_BAUD)
 
         self._serial = _openExclusive(port, baudrate=baudrate, timeout=timeout)
         self._lock = Lock()
@@ -334,12 +356,17 @@ class MCUBus:
             pid: The USB Product ID to filter by (default 0x000a, Pico SDK CDC UART)
 
         Returns:
-            A list of serial port names (e.g. ["/dev/ttyUSB0", "/dev/ttyUSB1"])
+            A list of serial port names (e.g. ["/dev/ttyACM0", "/dev/ttyS0"]): the USB
+            boards, then any header UART named in SORTER_HEADER_UART that exists
         """
         import serial.tools.list_ports
 
         ports = serial.tools.list_ports.comports()
-        return [port.device for port in ports if port.vid == vid and port.pid == pid]
+        found = [port.device for port in ports if port.vid == vid and port.pid == pid]
+        for path in header_uarts():
+            if path not in found and os.path.exists(path):
+                found.append(path)
+        return found
 
     def scan_devices(self, min_address=0, max_address=15) -> list[int]:
         """Scan the bus for devices by sending a ping command to each address in the specified range.

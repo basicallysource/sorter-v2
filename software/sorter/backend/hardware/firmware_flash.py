@@ -11,7 +11,7 @@ import time
 from typing import Callable, Optional
 
 from global_config import GlobalConfig
-from hardware.bus import BaseCommandCode, MCUBus, MCUDevice
+from hardware.bus import BaseCommandCode, MCUBus, MCUDevice, header_uarts
 
 UF2_MAGIC_START_0 = 0x0A324655
 UF2_MAGIC_START_1 = 0x9E5D5157
@@ -238,6 +238,8 @@ def waitForSerialBoard(
         if cancel.is_set():
             raise FlashCancelled()
         for port in MCUBus.enumerate_buses():
+            if port in header_uarts():
+                continue  # flashed over USB, so it comes back over USB
             info = identifyBoard(gc, port)
             if info is not None:
                 info["port"] = port

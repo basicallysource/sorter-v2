@@ -250,7 +250,7 @@ def discover_control_boards(
     if not ports:
         raise HardwareFault(
             BOARDS_NOT_FOUND,
-            f"No control board is connected over USB. {_CHECK_BOARDS}",
+            f"No control board is connected over USB or a header UART. {_CHECK_BOARDS}",
         )
 
     discovered_boards: list[SorterInterfaceControlBoard] = []

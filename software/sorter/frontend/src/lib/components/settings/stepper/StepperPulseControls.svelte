@@ -34,7 +34,8 @@
 		pulseDuration: number;
 		pulseSpeed: number;
 		pulseDegrees: number;
-		gearRatio: number;
+		// Motor turns for one turn of the output; null while it is not known.
+		gearRatio: number | null;
 		onPulse: (direction: 'cw' | 'ccw') => void;
 		onStop: () => void;
 	} = $props();
@@ -132,7 +133,7 @@
 	{#if keyboardShortcuts}
 		<p class="text-sm text-ink-muted">The arrow keys jog it too.</p>
 	{/if}
-	{#if pulseMode === 'degrees' && gearRatio !== 1}
+	{#if pulseMode === 'degrees' && gearRatio !== null && gearRatio !== 1}
 		<p class="num text-sm text-ink-muted">
 			Gear ratio {gearRatio.toFixed(2)}:1, so {pulseDegrees}° at the output is
 			{(pulseDegrees * gearRatio).toFixed(1)}° at the motor.

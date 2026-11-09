@@ -121,7 +121,12 @@
 		persistStoredStepperPulseSetting(stepperKey, 'pulseDegrees', pulseDegrees);
 	});
 
-	const gearRatio = $derived(gearRatioOverride ?? STEPPER_GEAR_RATIOS[stepperKey]);
+	// The chute's gearing depends on the kind of chute, so it is read from the machine
+	// with the chute's settings; null until then.
+	let chuteGearRatio = $state<number | null>(null);
+	const gearRatio = $derived(
+		gearRatioOverride ?? (stepperKey === 'chute' ? chuteGearRatio : STEPPER_GEAR_RATIOS[stepperKey])
+	);
 
 	// --- Endstop settings ---
 	let endstopActiveHigh = $state(false);
@@ -303,6 +308,8 @@
 				if (stepperKey === 'chute') {
 					chuteFirstBinCenter = Number(payload?.first_bin_center ?? chuteFirstBinCenter);
 					chutePillarWidthDeg = Number(payload?.pillar_width_deg ?? chutePillarWidthDeg);
+					const ratio = Number(payload?.gear_ratio);
+					chuteGearRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : null;
 					chuteOperatingSpeed = Number(
 						payload?.operating_speed_microsteps_per_second ?? chuteOperatingSpeed
 					);
@@ -372,6 +379,12 @@
 	async function moveDegrees(direction: 'cw' | 'ccw') {
 		const key = `${stepperKey}:${direction}`;
 		if (pulsing[key]) return;
+		if (gearRatio === null) {
+			scope = 'motor';
+			statusMsg = '';
+			errorMsg = 'The machine has not said how the chute is geared yet. Reload the page.';
+			return;
+		}
 		pulsing = { ...pulsing, [key]: true };
 		scope = 'motor';
 		statusMsg = '';
@@ -816,7 +829,7 @@
 						At {formatNumber(currentPositionDegrees)}°, {stepperMicrosteps ?? 'unknown'} microsteps
 					{/if}
 				</p>
-				{#if isChute}
+				{#if isChute && gearRatio !== null}
 					<p class="num text-sm text-ink-muted">
 						Gear ratio {gearRatio.toFixed(2)}:1{chuteStepperDegrees !== null &&
 						chuteOutputAngle !== null

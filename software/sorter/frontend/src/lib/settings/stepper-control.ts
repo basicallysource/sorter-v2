@@ -1,3 +1,4 @@
+import { getChute } from '$lib/api/chute';
 import type { StepperKey } from '$lib/settings/stations';
 
 // The two ways a stepper turns, in words.
@@ -19,14 +20,26 @@ const DEFAULT_STEPPER_PULSE_SETTINGS: StoredStepperPulseSettings = {
 	pulseDegrees: 90
 };
 
-export const STEPPER_GEAR_RATIOS: Record<StepperKey, number> = {
+// Motor turns for one turn of what the motor drives, for the motors geared the same on
+// every machine. The chute is not here: its gearing depends on the kind of chute the
+// machine has, and a machine can have measured its own, so it is asked of the machine
+// (stepperGearRatio).
+export const STEPPER_GEAR_RATIOS: Record<Exclude<StepperKey, 'chute'>, number> = {
 	c_channel_1: 130 / 12,
 	c_channel_2: 130 / 12,
 	c_channel_3: 130 / 12,
 	c_channel_4: 130 / 12,
-	carousel: 130 / 12,
-	chute: 120 / 25
+	carousel: 130 / 12
 };
+
+export async function stepperGearRatio(baseUrl: string, stepperKey: StepperKey): Promise<number> {
+	if (stepperKey !== 'chute') return STEPPER_GEAR_RATIOS[stepperKey];
+	const ratio = Number((await getChute(baseUrl)).gear_ratio);
+	if (!(Number.isFinite(ratio) && ratio > 0)) {
+		throw new Error("The machine did not say the chute's gear ratio.");
+	}
+	return ratio;
+}
 
 export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification C-channel (C4)';
 export const CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO = STEPPER_GEAR_RATIOS.c_channel_4;
@@ -100,7 +113,7 @@ export async function triggerStoredStepperPulse(
 	const settings = loadStoredStepperPulseSettings(stepperKey);
 
 	if (settings.pulseMode === 'degrees') {
-		const gearRatio = options?.gearRatio ?? STEPPER_GEAR_RATIOS[stepperKey] ?? 1;
+		const gearRatio = options?.gearRatio ?? (await stepperGearRatio(baseUrl, stepperKey));
 		const motorDegrees =
 			settings.pulseDegrees * gearRatio * (direction === 'ccw' ? -1 : 1);
 		const params = new URLSearchParams({

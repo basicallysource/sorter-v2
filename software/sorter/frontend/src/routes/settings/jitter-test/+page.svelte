@@ -8,7 +8,7 @@
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
-	import { STEPPER_GEAR_RATIOS } from '$lib/settings/stepper-control';
+	import { stepperGearRatio } from '$lib/settings/stepper-control';
 	import { stepperLabels, type StepperKey } from '$lib/settings/stations';
 
 	const manager = getMachinesContext();
@@ -97,8 +97,24 @@
 		);
 	}
 
-	const gearRatio = $derived(STEPPER_GEAR_RATIOS[settings.stepper] ?? 1);
-	const outputAmplitudeDeg = $derived(settings.amplitudeDeg / gearRatio);
+	// Motor turns for one turn of the rotor. The chute's is asked of the machine, so
+	// this is null until it answers.
+	let gearRatio = $state<number | null>(null);
+	$effect(() => {
+		const stepper = settings.stepper;
+		gearRatio = null;
+		stepperGearRatio(currentBackendBaseUrl(), stepper).then(
+			(ratio) => {
+				if (settings.stepper === stepper) gearRatio = ratio;
+			},
+			() => {}
+		);
+	});
+	const amplitudeHelp = $derived(
+		gearRatio === null
+			? undefined
+			: `About ${(settings.amplitudeDeg / gearRatio).toFixed(2)}° at the rotor (gear ratio ${gearRatio.toFixed(2)}:1).`
+	);
 
 	async function readError(res: Response): Promise<string> {
 		try {
@@ -186,7 +202,9 @@
 
 <Panel
 	title="Presets"
-	description="A preset fills in the settings below; then press Jitter. Amplitudes are at the motor: the rotor moves about {gearRatio.toFixed(1)} times less."
+	description={gearRatio === null
+		? 'A preset fills in the settings below; then press Jitter. Amplitudes are at the motor.'
+		: `A preset fills in the settings below; then press Jitter. Amplitudes are at the motor: the rotor moves about ${gearRatio.toFixed(1)} times less.`}
 	flush
 >
 	<div
@@ -221,7 +239,7 @@
 		<Field
 			label="Amplitude"
 			for="jitter-amplitude"
-			help="About {outputAmplitudeDeg.toFixed(2)}° at the rotor (gear ratio {gearRatio.toFixed(2)}:1)."
+			help={amplitudeHelp}
 		>
 			<Input id="jitter-amplitude" type="number" step={0.1} bind:value={settings.amplitudeDeg} unit="° a stroke" />
 		</Field>

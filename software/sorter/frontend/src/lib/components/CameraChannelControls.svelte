@@ -7,7 +7,7 @@
 	import { onMount } from 'svelte';
 	import {
 		DIRECTION_WORDS,
-		STEPPER_GEAR_RATIOS,
+		stepperGearRatio,
 		loadStoredStepperPulseSetting,
 		persistStoredStepperPulseSetting
 	} from '$lib/settings/stepper-control';
@@ -110,7 +110,7 @@
 		pendingSide = side;
 		errorMessage = null;
 		try {
-			const gear_ratio = STEPPER_GEAR_RATIOS[stepperKey] ?? 1;
+			const gear_ratio = await stepperGearRatio(currentBackendBaseUrl(), stepperKey);
 			const speed = loadStoredStepperPulseSetting<number>(stepperKey, 'pulseSpeed', 800);
 			const params = new URLSearchParams({
 				stepper: stepperKey,

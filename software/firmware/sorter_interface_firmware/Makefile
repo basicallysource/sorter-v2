@@ -12,7 +12,7 @@ ifneq ($(wildcard $(HOMEBREW_LLVM)/clang),)
 	HOST_CXX := $(HOMEBREW_LLVM)/clang++
 endif
 
-.PHONY: setup build \
+.PHONY: setup build test-servo-guard \
         build-feeder-v1-1 build-distribution-v1-1 flash-feeder-v1-1 flash-distribution-v1-1 \
         build-feeder-v1-2 build-distribution-v1-2 flash-feeder-v1-2 flash-distribution-v1-2 \
         build-feeder-v1-5 build-distribution-v1-5 flash-feeder-v1-5 flash-distribution-v1-5 \
@@ -26,6 +26,12 @@ $(PICO_SDK_PATH)/pico_sdk_init.cmake:
 	cd $(PICO_SDK_PATH) && git submodule update --init --depth 1
 
 build: build-feeder-v1-1 build-distribution-v1-1
+
+# The serial servo guard's logic, on this computer against pretend servos: no board.
+test-servo-guard:
+	@mkdir -p build-test
+	$(HOST_CXX) -std=c++17 -Wall -Wextra -O1 -o build-test/servo_guard_test test/servo_guard_test.cpp ServoGuard.cpp
+	./build-test/servo_guard_test
 
 build-feeder-v1-1: setup
 	@mkdir -p build-feeder-v1-1

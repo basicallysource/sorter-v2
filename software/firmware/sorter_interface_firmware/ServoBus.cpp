@@ -145,12 +145,13 @@ bool ServoBus::readByte(uint8_t *byte, uint32_t deadline_us) {
  *  \param id The ID asked. A broadcast ping is answered with the servo's own ID.
  *  \param data Where to store the data bytes.
  *  \param data_len Number of data bytes this reply must carry.
- *  \return The servo's status byte, or -1 on no reply or a bad packet.
+ *  \return The servo's status byte, SERVO_BUS_NO_REPLY if nothing came, or
+ *          SERVO_BUS_GARBLED if what came is not this servo's packet.
  */
 int ServoBus::receive(uint8_t id, uint8_t *data, size_t data_len) {
     uint8_t byte;
     if (!readByte(&byte, time_us_32() + REPLY_TIMEOUT_US)) {
-        return -1;
+        return SERVO_BUS_NO_REPLY;
     }
     // The servo has started: the rest comes at once.
     const uint32_t deadline_us = time_us_32() + (uint32_t)(data_len + PACKET_OVERHEAD) * 2 * _byte_time_us + SLACK_US;
@@ -158,34 +159,34 @@ int ServoBus::receive(uint8_t id, uint8_t *data, size_t data_len) {
     int header_bytes = byte == 0xFF ? 1 : 0;
     while (header_bytes < 2) {
         if (!readByte(&byte, deadline_us)) {
-            return -1;
+            return SERVO_BUS_GARBLED;
         }
         header_bytes = byte == 0xFF ? header_bytes + 1 : 0;
     }
     uint8_t reply_id = 0xFF;
     while (reply_id == 0xFF) {
         if (!readByte(&reply_id, deadline_us)) {
-            return -1;
+            return SERVO_BUS_GARBLED;
         }
     }
     uint8_t reply_len;
     uint8_t status;
     if (!readByte(&reply_len, deadline_us) || reply_len != data_len + 2 || !readByte(&status, deadline_us)) {
-        return -1;
+        return SERVO_BUS_GARBLED;
     }
     uint8_t sum = reply_id + reply_len + status;
     for (size_t i = 0; i < data_len; i++) {
         if (!readByte(&data[i], deadline_us)) {
-            return -1;
+            return SERVO_BUS_GARBLED;
         }
         sum += data[i];
     }
     uint8_t checksum;
     if (!readByte(&checksum, deadline_us) || checksum != (uint8_t)~sum) {
-        return -1;
+        return SERVO_BUS_GARBLED;
     }
     if (reply_id != id && id != SERVO_BUS_BROADCAST_ID) {
-        return -1;
+        return SERVO_BUS_GARBLED;
     }
     return status;
 }
@@ -200,12 +201,13 @@ int ServoBus::receive(uint8_t id, uint8_t *data, size_t data_len) {
  *  \param params_len Number of parameters.
  *  \param data Where to store the data bytes of the answer.
  *  \param data_len Number of data bytes the answer must carry.
- *  \return The servo's status byte, or -1 on no reply or a bad packet.
+ *  \return The servo's status byte, or SERVO_BUS_NO_REPLY, SERVO_BUS_GARBLED or
+ *          SERVO_BUS_STUCK.
  */
 int ServoBus::transact(uint8_t id, uint8_t instruction, const uint8_t *params, size_t params_len, uint8_t *data,
                        size_t data_len) {
     if (params_len > MAX_PARAMS) {
-        return -1;
+        return SERVO_BUS_NO_REPLY; // Nothing was sent
     }
     uint8_t packet[PACKET_OVERHEAD + MAX_PARAMS];
     size_t length = 0;
@@ -223,7 +225,7 @@ int ServoBus::transact(uint8_t id, uint8_t instruction, const uint8_t *params, s
     packet[length++] = (uint8_t)~sum;
 
     if (!send(packet, length)) {
-        return -1;
+        return SERVO_BUS_STUCK;
     }
     if (id == SERVO_BUS_BROADCAST_ID && instruction == SERVO_BUS_INST_WRITE) {
         return 0;

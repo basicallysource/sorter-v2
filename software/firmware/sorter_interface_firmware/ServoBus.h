@@ -24,29 +24,22 @@
 #ifndef SERVO_BUS_H
 #define SERVO_BUS_H
 
+#include "ServoWire.h"
 #include "hardware/pio.h"
-#include <stddef.h>
-#include <stdint.h>
-
-const uint8_t SERVO_BUS_BROADCAST_ID = 254;
-const uint8_t SERVO_BUS_INST_PING = 0x01;
-const uint8_t SERVO_BUS_INST_READ = 0x02;
-const uint8_t SERVO_BUS_INST_WRITE = 0x03;
-const size_t SERVO_BUS_MAX_DATA = 64; // Most data bytes in one read or write
 
 /** \brief Feetech SC protocol over a half-duplex PIO UART on one open-drain pin.
  *
  * Packets are `FF FF ID LEN INSTR PARAMS CHECKSUM`, the checksum being the
  * inverted sum from ID on. A servo answers `FF FF ID LEN STATUS DATA CHECKSUM`.
  */
-class ServoBus {
+class ServoBus : public ServoWire {
   public:
     ServoBus(PIO pio, uint pin);
 
     void setupComm(long baudrate = 1000000);
 
     int transact(uint8_t id, uint8_t instruction, const uint8_t *params, size_t params_len, uint8_t *data,
-                 size_t data_len);
+                 size_t data_len) override;
 
   private:
     PIO _pio;

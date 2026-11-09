@@ -9,6 +9,8 @@ The firmware is designed to run on a Raspberry Pi Pico (RP2040) microcontroller 
 - `TMC2209.*` — TMC2209 stepper driver abstraction
 - `TMC_UART.*` — UART communication with TMC drivers
 - `ServoBus.*`, `servo_bus.pio` — Serial bus servos on one open-drain pin
+- `ServoGuard.*`, `ServoWire.h` — Watches serial servos while they move, and stops one that meets resistance
+- `test/` — Desk tests that need no board
 - `HostLink.*`, `host_link.pio` — UART link to the host on two pins (v1.5)
 - `message.*` — Message and command processing
 - `cobs.*`, `crc.*` — Communication utilities
@@ -81,7 +83,33 @@ The channel byte is the servo's ID, 0 to 254, and 254 is broadcast. A wait for a
 | `0x51 READ` | `[address u8, count u8]`, count 1 to 64 | `[status u8, data...]`, count data bytes |
 | `0x52 WRITE` | `[address u8, data...]`, 1 to 64 data bytes | `[status u8]` |
 
-`status` is the servo's status (error) byte. A write to ID 254 waits for no answer and its status is 0. If a servo does not answer, or its packet is bad, the reply is an error (the `0x80` bit set on the command) with the text `No reply from servo N`. Bad lengths get an error reply saying so.
+`status` is the servo's status (error) byte. A write to ID 254 waits for no answer and its status is 0. Bad lengths get an error reply saying so. When no good answer comes, the reply is an error (the `0x80` bit set on the command) whose text begins with what went wrong:
+
+- `No reply from servo N`: silence. No servo has that ID.
+- `Garbled reply from servo N`: bytes came back that are no packet. Two servos share the ID and answer over each other (new servos all come as ID 1), or the line is noisy.
+- `Servo bus line is stuck (servo N)`: the line did not carry what the board sent. It is held low or shorted.
+
+### Guarded moves (`MOVE`, `PROBE`, `STATE`, `STOP`)
+
+A servo that pushes against something it cannot move draws its stall current until something lets go, and a host can be busy for longer than that takes. So the board watches the servos it is asked to move (`ServoGuard`). `GET_OBSERVABILITY` reports `"servo_guard":true` when these commands exist.
+
+| Command | Payload | Reply |
+|---|---|---|
+| `0x53 MOVE` | `<BHHHBHHBBHH`: flags, goal, time ms, speed, acceleration, stall load, stall ms, flat, arrived, back-off, timeout ms | none |
+| `0x54 STATE` | none | `<BHhHHH`: state, position, load, mark, peak load, elapsed ms |
+| `0x55 PROBE` | `<BbBBHHHH`: flags, direction, step, period ms, limit, lag, load, back-off | none |
+| `0x56 STOP` | `[release u8]` | none |
+
+Positions are the servo's own counts. Flags: bit 0 is the SC series (big-endian registers, a goal with a time; without it the STS series, a goal with a speed and an acceleration), bit 1 lets the servo go when it arrives, bit 2 lets it go once it has backed off or been stopped short.
+
+- **`MOVE`** writes the goal, turns the torque on and reads the servo every 10 ms. Within `arrived` counts of the goal it has arrived. Loaded past `stall load` (0 to 1000) while moving less than `flat` counts, for `stall ms`, it has stalled: the board sends it `back-off` counts back the way it came (never past where it started) and reports where it stalled. The servo's own overload flag counts as a stall at once. Past `timeout ms` it is stopped where it is.
+- **`PROBE`** finds an end of travel without pushing hard. The torque comes on with the goal where the servo already is; then the goal creeps `step` counts every `period ms` toward `limit` (`direction` +1 for higher counts, -1 for lower). When the servo falls `lag` counts behind its goal, or its load passes `load`, on two readings in a row, something holds it: the board backs it off and reports where.
+- **`STATE`** is what the board knows of that servo. States: 0 idle (not watched), 1 moving, 2 arrived, 3 stalled, 4 timed out, 5 lost (it stopped answering), 6 probing, 7 contact (a probe met resistance; `mark` is where), 8 no contact (a probe reached its limit). `mark` is where it stalled or met resistance, `peak load` the most load since it began.
+- **`STOP`** ends the watch and stops the servo: `release` 1 lets it go, 0 holds it where it is. With ID 254 it lets every servo go.
+
+A `WRITE` to a watched servo ends its watch: the host has taken it over. The board watches up to 8 servos at once; a ninth that is still moving is refused with `Servo guard is full (servo N)`.
+
+`make test-servo-guard` runs the guard's logic on a desk against pretend servos, with no board.
 
 ## Host Link (v1.5)
 

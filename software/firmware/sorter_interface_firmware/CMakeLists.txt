@@ -103,6 +103,7 @@ add_executable(sorter_interface_firmware
     PCA9685.cpp
     Servo.cpp
     ServoBus.cpp
+    ServoGuard.cpp
     HostLink.cpp
 )
 

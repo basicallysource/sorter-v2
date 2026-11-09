@@ -34,6 +34,7 @@
 #include "Servo.h"
 #include "HostLink.h"
 #include "ServoBus.h"
+#include "ServoGuard.h"
 #include "Stepper.h"
 #include "TMC2209.h"
 #include "TMC_UART.h"
@@ -225,15 +226,26 @@ uint8_t DEVICE_ADDRESS = INIT_DEVICE_ADDRESS;
 void CMDH_servo_bus_ping(const BusMessage *msg, BusMessage *resp);
 void CMDH_servo_bus_read(const BusMessage *msg, BusMessage *resp);
 void CMDH_servo_bus_write(const BusMessage *msg, BusMessage *resp);
+void CMDH_servo_bus_move(const BusMessage *msg, BusMessage *resp);
+void CMDH_servo_bus_state(const BusMessage *msg, BusMessage *resp);
+void CMDH_servo_bus_probe(const BusMessage *msg, BusMessage *resp);
+void CMDH_servo_bus_stop(const BusMessage *msg, BusMessage *resp);
 bool VAL_servo_bus_id(uint8_t channel);
+bool VAL_servo_bus_one_id(uint8_t channel);
 
-// The channel is the servo's ID, 254 being broadcast.
+// The channel is the servo's ID, 254 being broadcast. PING, READ and WRITE carry
+// bytes to a servo and back. MOVE, PROBE, STATE and STOP are the guard: moves the
+// board itself watches, and stops when the servo meets resistance (ServoGuard.h).
 const struct CommandTable servoBusCmdTable = {
     .prefix = "SERVO_BUS",
     .commands = {{
         {"PING", "", "B", 0, VAL_servo_bus_id, CMDH_servo_bus_ping},
         {"READ", "BB", "Bs", 2, VAL_servo_bus_id, CMDH_servo_bus_read},
         {"WRITE", "Bs", "B", 255, VAL_servo_bus_id, CMDH_servo_bus_write},
+        {"MOVE", "BHHHBHHBBHH", "", ServoGuardMove::BYTES, VAL_servo_bus_one_id, CMDH_servo_bus_move},
+        {"STATE", "", "BHhHHH", 0, VAL_servo_bus_one_id, CMDH_servo_bus_state},
+        {"PROBE", "BbBBHHHH", "", ServoGuardProbe::BYTES, VAL_servo_bus_one_id, CMDH_servo_bus_probe},
+        {"STOP", "?", "", 1, VAL_servo_bus_id, CMDH_servo_bus_stop},
     }}};
 #endif
 
@@ -323,6 +335,7 @@ std::array<Servo, 16> servos{}; // Create 16 servo objects, but only the first S
 
 #ifdef SERVO_BUS_PIN
 ServoBus servo_bus(pio0, SERVO_BUS_PIN);
+ServoGuard servo_guard(servo_bus);
 #endif
 
 #ifdef HOST_LINK_TX_PIN
@@ -384,7 +397,7 @@ int dump_observability(char *buf, size_t buf_size) {
     snprintf(led_gpios_buf + led_len, sizeof(led_gpios_buf) - led_len, "]");
 
 #ifdef SERVO_BUS_PIN
-#define OBSERVABILITY_SERVO_BUS ",\"servo_bus\":true"
+#define OBSERVABILITY_SERVO_BUS ",\"servo_bus\":true,\"servo_guard\":true"
 #else
 #define OBSERVABILITY_SERVO_BUS ""
 #endif
@@ -1010,16 +1023,27 @@ bool VAL_servo_channel(uint8_t channel) { return channel < SERVO_COUNT; }
 
 #ifdef SERVO_BUS_PIN
 bool VAL_servo_bus_id(uint8_t channel) { return channel <= SERVO_BUS_BROADCAST_ID; }
+bool VAL_servo_bus_one_id(uint8_t channel) { return channel < SERVO_BUS_BROADCAST_ID; }
 
-static void servo_bus_no_reply(const BusMessage *msg, BusMessage *resp) {
+// Why a servo command got no good answer, in words the host tells apart by how
+// they begin: silence, two servos answering at once, or a line that is held.
+static void servo_bus_failed(const BusMessage *msg, BusMessage *resp, int result) {
     resp->command = msg->command | 0x80; // Set error bit
-    resp->payload_length = snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "No reply from servo %u", msg->channel);
+    const char *format = "No reply from servo %u";
+    if (result == SERVO_BUS_GARBLED) {
+        format = "Garbled reply from servo %u";
+    } else if (result == SERVO_BUS_STUCK) {
+        format = "Servo bus line is stuck (servo %u)";
+    } else if (result == SERVO_GUARD_FULL) {
+        format = "Servo guard is full (servo %u)";
+    }
+    resp->payload_length = snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, format, msg->channel);
 }
 
 void CMDH_servo_bus_ping(const BusMessage *msg, BusMessage *resp) {
     int status = servo_bus.transact(msg->channel, SERVO_BUS_INST_PING, msg->payload, 0, NULL, 0);
     if (status < 0) {
-        servo_bus_no_reply(msg, resp);
+        servo_bus_failed(msg, resp, status);
         return;
     }
     resp->payload[0] = (uint8_t)status;
@@ -1037,7 +1061,7 @@ void CMDH_servo_bus_read(const BusMessage *msg, BusMessage *resp) {
     }
     int status = servo_bus.transact(msg->channel, SERVO_BUS_INST_READ, msg->payload, 2, resp->payload + 1, count);
     if (status < 0) {
-        servo_bus_no_reply(msg, resp);
+        servo_bus_failed(msg, resp, status);
         return;
     }
     resp->payload[0] = (uint8_t)status;
@@ -1053,14 +1077,48 @@ void CMDH_servo_bus_write(const BusMessage *msg, BusMessage *resp) {
                      msg->payload_length, (unsigned)(1 + SERVO_BUS_MAX_DATA));
         return;
     }
+    // A servo the host writes to itself is no longer the guard's to judge.
+    servo_guard.forget(msg->channel);
     int status =
         servo_bus.transact(msg->channel, SERVO_BUS_INST_WRITE, msg->payload, msg->payload_length, NULL, 0);
     if (status < 0) {
-        servo_bus_no_reply(msg, resp);
+        servo_bus_failed(msg, resp, status);
         return;
     }
     resp->payload[0] = (uint8_t)status;
     resp->payload_length = 1;
+}
+
+void CMDH_servo_bus_move(const BusMessage *msg, BusMessage *resp) {
+    int result = servo_guard.move(msg->channel, ServoGuardMove::parse(msg->payload), time_us_32());
+    if (result < 0) {
+        servo_bus_failed(msg, resp, result);
+        return;
+    }
+    resp->payload_length = 0;
+}
+
+void CMDH_servo_bus_state(const BusMessage *msg, BusMessage *resp) {
+    servo_guard.report(msg->channel, time_us_32()).pack(resp->payload);
+    resp->payload_length = ServoGuardReport::BYTES;
+}
+
+void CMDH_servo_bus_probe(const BusMessage *msg, BusMessage *resp) {
+    int result = servo_guard.probe(msg->channel, ServoGuardProbe::parse(msg->payload), time_us_32());
+    if (result < 0) {
+        servo_bus_failed(msg, resp, result);
+        return;
+    }
+    resp->payload_length = 0;
+}
+
+void CMDH_servo_bus_stop(const BusMessage *msg, BusMessage *resp) {
+    int result = servo_guard.stop(msg->channel, msg->payload[0] != 0, time_us_32());
+    if (result < 0) {
+        servo_bus_failed(msg, resp, result);
+        return;
+    }
+    resp->payload_length = 0;
 }
 #endif
 
@@ -1154,6 +1212,10 @@ int main() {
             link_processor.processIncomingData((char)c);
             link_processor.processQueuedMessage();
         }
+#endif
+#ifdef SERVO_BUS_PIN
+        // Between commands, so the guard and a command never talk on the bus at once.
+        servo_guard.tick(time_us_32());
 #endif
     }
 }

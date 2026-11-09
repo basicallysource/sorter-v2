@@ -314,6 +314,12 @@ def discover_control_boards(
             for address in devices:
                 try:
                     sorter_interface = SorterInterface(bus, address, gc)
+                    uid = sorter_interface.uid
+                    if uid is not None and any(board.interface.uid == uid for board in attempt_boards):
+                        # One board reached two ways (USB and the header): it is
+                        # used over the first link that found it.
+                        gc.logger.info(f"The board on {port} is one already found on another link; using that link.")
+                        continue
                     board = SorterInterfaceControlBoard(
                         sorter_interface=sorter_interface,
                         gc=gc,

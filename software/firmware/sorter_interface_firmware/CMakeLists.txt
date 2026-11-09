@@ -161,6 +161,7 @@ target_link_libraries(sorter_interface_firmware
         pico_stdlib
         pico_bootrom
         pico_time
+        pico_unique_id
         hardware_i2c
         hardware_pio
         hardware_timer

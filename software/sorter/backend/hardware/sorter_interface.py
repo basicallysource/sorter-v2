@@ -1015,6 +1015,13 @@ class SorterInterface(MCUDevice):
         return str(self._observability().get("hw", "unknown"))
 
     @property
+    def uid(self) -> str | None:
+        """The board's own serial number, the same over every link to it, or
+        None from a firmware that does not say."""
+        uid = self._observability().get("uid")
+        return str(uid) if uid else None
+
+    @property
     def has_servo_bus(self) -> bool:
         """Whether this board drives serial bus servos itself."""
         return bool(self._observability().get("servo_bus"))

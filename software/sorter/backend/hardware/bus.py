@@ -113,6 +113,23 @@ HEADER_UART_DEFAULT_BAUD = 1_500_000
 USB_BAUD = 576000  # ignored by USB CDC; kept for the boards that read it
 
 
+USB_VID = 0x2E8A  # Raspberry Pi
+USB_PID = 0x000A  # Pico SDK CDC UART
+
+
+def usb_port_of(uid: str | None) -> str | None:
+    """The USB serial port of the board with this serial number (what its
+    firmware reports as "uid"), or None if it is not on USB here."""
+    if not uid:
+        return None
+    import serial.tools.list_ports
+
+    for port in serial.tools.list_ports.comports():
+        if port.vid == USB_VID and port.pid == USB_PID and (port.serial_number or "").upper() == uid.upper():
+            return port.device
+    return None
+
+
 def header_uarts() -> dict[str, int]:
     """The UART ports named in SORTER_HEADER_UART, with the baud rate of each.
     Several are separated by commas."""

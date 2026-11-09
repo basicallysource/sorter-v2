@@ -47,7 +47,8 @@ def rig():
     interface = SorterInterface(bus, 0, gc)
     yield SimpleNamespace(sim=sim, bus=bus, interface=interface, link=BoardServoLink(interface), folder=folder)
     bus.close()
-    sim.stop()
+    sim.stop()  # takes its symlink and socket with it
+    os.rmdir(folder)
 
 
 def ctl(rig, **payload):

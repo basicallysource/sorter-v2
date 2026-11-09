@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 import machine_toml
 from irl.bin_layout import (
+    defaultMaxDimensionForBinCount,
     getBinLayout,
     saveBinLayout,
     BinLayoutConfig,
@@ -170,14 +171,20 @@ def save_storage_layer_hardware_config(
     current = _storage_layer_settings_from_layout(layout)
     requested_layers = list(payload.layers)
     if requested_layers:
+        # A limit the caller leaves out stays as saved; one sent as null is
+        # taken off. Callers that only change the bin counts or switch a layer
+        # on used to wipe both limits by not mentioning them.
         layer_updates = [
             {
                 "bin_count": int(layer.bin_count),
                 "enabled": bool(layer.enabled),
                 "servo_open_angle": layer.servo_open_angle,
                 "servo_closed_angle": layer.servo_closed_angle,
-                "max_pieces_per_bin": layer.max_pieces_per_bin,
-                "max_dimension_mm": layer.max_dimension_mm,
+                **{
+                    key: getattr(layer, key)
+                    for key in ("max_pieces_per_bin", "max_dimension_mm")
+                    if key in layer.model_fields_set
+                },
             }
             for layer in requested_layers
         ]
@@ -235,9 +242,17 @@ def save_storage_layer_hardware_config(
         servo_closed = layer_update.get("servo_closed_angle")
         if not isinstance(servo_closed, int):
             servo_closed = prior_layer.servo_closed_angle if prior_layer else None
-        max_per_bin = layer_update.get("max_pieces_per_bin")
+        max_per_bin = (
+            layer_update["max_pieces_per_bin"]
+            if "max_pieces_per_bin" in layer_update
+            else (prior_layer.max_pieces_per_bin if prior_layer else None)
+        )
         max_per_bin_value = max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None
-        max_dim = layer_update.get("max_dimension_mm")
+        max_dim = (
+            layer_update["max_dimension_mm"]
+            if "max_dimension_mm" in layer_update
+            else (prior_layer.max_dimension_mm if prior_layer else defaultMaxDimensionForBinCount(count))
+        )
         max_dim_value = (
             float(max_dim)
             if isinstance(max_dim, (int, float)) and not isinstance(max_dim, bool) and max_dim > 0

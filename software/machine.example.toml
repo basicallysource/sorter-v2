@@ -21,7 +21,29 @@
 # id = 2
 # invert = false
 
-# Each entry in sections is one layer's bin layout (bottom to top).
+# For serial bus servos on the control board's own servo bus (a board that has
+# one names this backend by itself). The Doors setup page writes these: one
+# entry a layer, the top layer first, with the servo's ID and where its door is
+# shut and open, in the servo's own counts. A layer with no id has no servo.
+# backend = "bus"
+#
+# [[servo.channels]]
+# id = 11
+# closed = 641
+# open = 362
+
+# The chute. variant says which kind this machine has: "cable_cage" (turns
+# between two stops, homes on a switch, pieces no bin takes fall out of the
+# bottom) or "slip_ring" (turns without limit, homes on a magnet, and needs a
+# discard bin for the pieces no bin takes). A board made for one kind says so
+# itself. gear_ratio is this machine's own measured ratio, motor turns for one
+# turn of the chute. discard_bin is [layer, section, bin], counted from 0.
+# [chute]
+# variant = "slip_ring"
+# gear_ratio = 6.0
+# discard_bin = [4, 0, 0]
+
+# Each entry in sections is one layer's bin layout (top to bottom).
 # servo_open_angles / servo_closed_angles set the PCA9685 servo open/closed
 # angles per layer index. A layer is only "calibrated" (and driven on home)
 # when both its open and closed angle are set.

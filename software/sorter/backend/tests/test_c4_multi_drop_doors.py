@@ -37,6 +37,7 @@ from subsystems.classification_channel.two_piece.flow import (
     TwoPieceClassificationChannel,
 )
 from subsystems.distribution.chute import BinAddress
+from subsystems.distribution.chute_variants import CABLE_CAGE
 from subsystems.distribution.positioning import Positioning
 from subsystems.distribution.states import DistributionState
 from subsystems.shared_variables import SharedVariables
@@ -47,6 +48,9 @@ _PRECISE_ZONE = 3
 
 class _Servo:
     available = True
+    is_calibrated = True
+    can_open = True
+    fault = None
 
     def __init__(self, log: list[str], index: int, *, shadow_open: bool = False) -> None:
         self._log = log
@@ -367,6 +371,9 @@ def _mkPositioning(shared, servos, log):
         stepper=SimpleNamespace(stopped=True),
         checking=False,
         positionCheckDue=lambda: False,
+        variant=CABLE_CAGE,
+        discard_bin=None,
+        isDiscardBin=lambda address: False,
     )
     sorting_profile = SimpleNamespace(
         getCategoryIdForPart=lambda part_id, color_id: "cat_a",

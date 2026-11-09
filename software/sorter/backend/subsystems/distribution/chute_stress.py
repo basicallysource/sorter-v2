@@ -21,7 +21,8 @@ from stress_test_runs import (
     recordChuteStressRunStart,
     updateChuteStressRunProgress,
 )
-from subsystems.distribution.chute import GEAR_RATIO, HOME_SPEED_MICROSTEPS_PER_SEC, HOME_TIMEOUT_MS, Chute
+from subsystems.distribution.chute import Chute
+from subsystems.distribution.chute_homing import HOME_SPEED_MICROSTEPS_PER_SEC, HOME_TIMEOUT_MS
 
 _TELEMETRY_STATUS_MAP = {
     "completed": stepper_telemetry.RUN_STATUS_COMPLETED,
@@ -304,7 +305,7 @@ class ChuteStressTestRunner:
         delta_output = target_deg - current_deg
         if abs(delta_output) < 0.01:
             return 0.0
-        delta_motor = delta_output * GEAR_RATIO * (-1 if self._state.params.invert_direction else 1)
+        delta_motor = delta_output * self.chute.gear_ratio * (-1 if self._state.params.invert_direction else 1)
 
         try:
             est_ms = stepper.estimateMoveDegreesMs(

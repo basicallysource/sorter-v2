@@ -1,7 +1,9 @@
-"""The chute's settings, kept in [chute]: its aiming geometry, its home switch
-(input and polarity), its operating speed, and its position check (whether and
-how often it checks itself against its home switch, see
-subsystems/distribution/position_check.py).
+"""The chute's settings, kept in [chute]: which kind of chute it is
+(subsystems/distribution/chute_variants.py), its measured gear ratio, its aiming
+geometry, its home sensor (input and polarity), its operating speed, its
+position check (whether and how often it checks itself against its home sensor,
+see subsystems/distribution/position_check.py), and the bin that takes the
+pieces no other bin wants, on a chute nothing falls out of.
 
 readChuteSettings is the only reader (start-up and the routes) and
 saveChuteSettings the only writer; applyChuteSettings puts the settings on the
@@ -18,6 +20,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 import machine_toml
+from subsystems.distribution.chute_variants import DEFAULT_VARIANT, VARIANTS, ChuteVariant, variantFor
 
 CHUTE = "chute"
 
@@ -36,6 +39,9 @@ DEFAULT_POSITION_CHECK_EVERY = 50
 GEOMETRY = ("num_sections", "section_width_deg", "first_section_offset_deg")
 LEGACY_GEOMETRY = ("first_bin_center", "pillar_width_deg")
 CHANGEABLE = GEOMETRY + LEGACY_GEOMETRY + (
+    "variant",
+    "gear_ratio",
+    "discard_bin",
     "endstop_active_high",
     "operating_speed_microsteps_per_second",
     "position_check",
@@ -54,8 +60,20 @@ class ChuteSettings:
     # Check the chute's position against its home switch every this many pieces.
     position_check: bool
     position_check_every: int
+    # Which kind of chute this is: a key of chute_variants.VARIANTS.
+    variant_key: str = DEFAULT_VARIANT.key
+    # Motor turns for one turn of the chute as measured on this machine, or
+    # None to use the ratio its kind of chute is built with.
+    gear_ratio: float | None = None
+    # (layer, section, bin), all counted from 0: where the pieces no other bin
+    # wants go. Only a chute nothing falls out of needs one.
+    discard_bin: tuple[int, int, int] | None = None
     # The settings machine.toml holds; the others are defaults.
     saved: frozenset[str] = frozenset()
+
+    @property
+    def variant(self) -> ChuteVariant:
+        return variantFor(self.variant_key)
 
     @property
     def section_pitch_deg(self) -> float:
@@ -67,6 +85,9 @@ class ChuteSettings:
 
     def describe(self) -> str:
         return (
+            f"{self.variant.label}, "
+            f"{f'{self.gear_ratio:g} motor turns a turn (measured)' if self.gear_ratio else 'gear ratio as built'}, "
+            f"discard bin {self.discard_bin if self.discard_bin else 'none'}, "
             f"{self.num_sections} sections {self.section_width_deg:.2f}° wide, the first at "
             f"{self.first_section_offset_deg:.2f}°, endstop on input {self.home_pin_channel} "
             f"active {'high' if self.endstop_active_high else 'low'}, operating speed "
@@ -76,14 +97,19 @@ class ChuteSettings:
         )
 
 
-def boardDefaults(input_aliases: Mapping[str, int], endstop_active_high: bool | None) -> dict[str, Any]:
-    """The home input and polarity a distribution board comes with, as
-    readChuteSettings takes them."""
+def boardDefaults(
+    input_aliases: Mapping[str, int],
+    endstop_active_high: bool | None,
+    variant_key: str | None = None,
+) -> dict[str, Any]:
+    """The home input and polarity a distribution board comes with, and the kind
+    of chute it is made for if it is made for one, as readChuteSettings takes them."""
     return {
         "home_pin_channel": input_aliases.get("chute_home", DEFAULT_HOME_PIN_CHANNEL),
         "endstop_active_high": (
             DEFAULT_ENDSTOP_ACTIVE_HIGH if endstop_active_high is None else endstop_active_high
         ),
+        "variant_key": variant_key or DEFAULT_VARIANT.key,
     }
 
 
@@ -92,10 +118,12 @@ def readChuteSettings(
     *,
     home_pin_channel: int = DEFAULT_HOME_PIN_CHANNEL,
     endstop_active_high: bool = DEFAULT_ENDSTOP_ACTIVE_HIGH,
+    variant_key: str = DEFAULT_VARIANT.key,
     logger: Any = None,
 ) -> ChuteSettings:
-    """The chute's settings. `home_pin_channel` and `endstop_active_high` are
-    the distribution board's own, used unless machine.toml sets them."""
+    """The chute's settings. `home_pin_channel`, `endstop_active_high` and
+    `variant_key` are the distribution board's own, used unless machine.toml
+    sets them."""
     if config is None:
         config = machine_toml.read()
     raw = config.get(CHUTE)
@@ -156,6 +184,9 @@ def readChuteSettings(
         position_check_every=read(
             "position_check_every", DEFAULT_POSITION_CHECK_EVERY, _positiveInt, "a whole number of pieces above 0",
         ),
+        variant_key=read("variant", variant_key, _isVariant, f"one of {', '.join(VARIANTS)}"),
+        gear_ratio=_floatOrNone(read("gear_ratio", None, _isGearRatio, "a number of motor turns above 0")),
+        discard_bin=_binOrNone(read("discard_bin", None, _isBin, "[layer, section, bin], counted from 0")),
         saved=frozenset(saved),
     )
 
@@ -165,10 +196,12 @@ def saveChuteSettings(
     *,
     home_pin_channel: int = DEFAULT_HOME_PIN_CHANNEL,
     endstop_active_high: bool = DEFAULT_ENDSTOP_ACTIVE_HIGH,
+    variant_key: str = DEFAULT_VARIANT.key,
 ) -> ChuteSettings:
     """Save some of the chute's settings; raises ValueError naming a bad one,
     saving none. The geometry can be given the aiming way (GEOMETRY) or the
-    legacy way (LEGACY_GEOMETRY), and both are written in step."""
+    legacy way (LEGACY_GEOMETRY), and both are written in step. `gear_ratio`
+    and `discard_bin` given as None are taken out again."""
     for key in changes:
         if key not in CHANGEABLE:
             raise ValueError(f"There is no chute setting '{key}'.")
@@ -204,6 +237,15 @@ def saveChuteSettings(
         every = changes.get("position_check_every")
         if every is not None and not _positiveInt(every):
             raise ValueError("position_check_every must be a whole number of pieces above 0.")
+        variant = changes.get("variant")
+        if variant is not None and not _isVariant(variant):
+            raise ValueError(f"variant must be one of {', '.join(VARIANTS)}.")
+        gear_ratio = changes.get("gear_ratio")
+        if gear_ratio is not None and not _isGearRatio(gear_ratio):
+            raise ValueError("gear_ratio must be a number of motor turns above 0.")
+        discard_bin = changes.get("discard_bin")
+        if discard_bin is not None and not _isBin(discard_bin):
+            raise ValueError("discard_bin must be [layer, section, bin], counted from 0.")
 
         chute = config.get(CHUTE)
         if not isinstance(chute, dict):
@@ -225,14 +267,32 @@ def saveChuteSettings(
             chute["position_check"] = check
         if every is not None:
             chute["position_check_every"] = every
+        if variant is not None:
+            chute["variant"] = variant
+        if "gear_ratio" in changes:
+            if gear_ratio is None:
+                chute.pop("gear_ratio", None)
+            else:
+                chute["gear_ratio"] = round(float(gear_ratio), 5)
+        if "discard_bin" in changes:
+            if discard_bin is None:
+                chute.pop("discard_bin", None)
+            else:
+                chute["discard_bin"] = [int(index) for index in discard_bin]
     return readChuteSettings(
-        config, home_pin_channel=home_pin_channel, endstop_active_high=endstop_active_high
+        config,
+        home_pin_channel=home_pin_channel,
+        endstop_active_high=endstop_active_high,
+        variant_key=variant_key,
     )
 
 
 def applyChuteSettings(chute: Any, settings: ChuteSettings) -> None:
-    """Put the settings on a running Chute. Its home input is fixed when the
-    hardware starts; the rest takes effect on its next move."""
+    """Put the settings on a running Chute. Its home input and which kind of
+    chute it is are fixed when the hardware starts; the rest takes effect on
+    its next move."""
+    chute.setGearRatio(settings.gear_ratio)
+    chute.setDiscardBin(settings.discard_bin)
     chute.setAimingCalibration(
         settings.num_sections,
         settings.section_width_deg,
@@ -253,6 +313,30 @@ def _isBool(value: Any) -> bool:
 
 def _positiveInt(value: Any) -> bool:
     return type(value) is int and value >= 1
+
+
+def _isVariant(value: Any) -> bool:
+    return isinstance(value, str) and value in VARIANTS
+
+
+def _isGearRatio(value: Any) -> bool:
+    return _isNumber(value) and value > 0
+
+
+def _isBin(value: Any) -> bool:
+    return (
+        isinstance(value, (list, tuple))
+        and len(value) == 3
+        and all(_nonNegativeInt(index) for index in value)
+    )
+
+
+def _floatOrNone(value: Any) -> float | None:
+    return None if value is None else float(value)
+
+
+def _binOrNone(value: Any) -> tuple[int, int, int] | None:
+    return None if value is None else (int(value[0]), int(value[1]), int(value[2]))
 
 
 def _nonNegativeInt(value: Any) -> bool:

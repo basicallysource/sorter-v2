@@ -12,6 +12,7 @@ import json
 from dataclasses import dataclass
 from typing import Protocol
 from .bus import MCUDevice, BaseCommandCode
+from .door import Door
 import struct
 from global_config import GlobalConfig
 
@@ -689,7 +690,7 @@ class StepperMotor:
         return (float(steps) / (self._steps_per_revolution * self._microsteps)) * 360.0
 
 
-class ServoMotor:
+class ServoMotor(Door):
     def __init__(self, device: MCUDevice, channel: int, gc: GlobalConfig):
         self._dev = device
         self._channel = channel
@@ -1006,7 +1007,41 @@ class SorterInterface(MCUDevice):
         self.servos = tuple(ServoMotor(self, ch, gc) for ch in servo_channels)
         # Read the device name from the board info, or use a default name based on the address if not provided
         self._name = self._board_info.get("device_name", f"SorterInterface_{address}")
-        self.hw_id: str = self._board_info.get("hw", "unknown")
+        self._servo_link: "BoardServoLink | None" = None
+
+    @property
+    def hw_id(self) -> str:
+        """Which board this is, as its firmware names it (e.g. "basically_v1_5")."""
+        return str(self._observability().get("hw", "unknown"))
+
+    @property
+    def has_servo_bus(self) -> bool:
+        """Whether this board drives serial bus servos itself."""
+        return bool(self._observability().get("servo_bus"))
+
+    @property
+    def has_servo_guard(self) -> bool:
+        """Whether its firmware watches the servos it moves. One that does not
+        is too old to move a serial servo safely."""
+        return bool(self._observability().get("servo_guard"))
+
+    @property
+    def servo_link(self) -> "BoardServoLink | None":
+        """This board's servo bus, or None if it has none."""
+        if not self.has_servo_bus:
+            return None
+        if self._servo_link is None:
+            from hardware.feetech.board_link import BoardServoLink
+
+            self._servo_link = BoardServoLink(self)
+        return self._servo_link
+
+    def _observability(self) -> dict:
+        try:
+            return self.get_observability_info()
+        except Exception as exc:
+            self._gc.logger.warning(f"{self._name}: could not read what this board has: {exc}")
+            return {}
 
     def shutdown(self):
         for dout in self.digital_outputs:

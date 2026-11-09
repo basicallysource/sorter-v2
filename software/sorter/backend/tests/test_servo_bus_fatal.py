@@ -27,6 +27,7 @@ from runtime_stats import RuntimeStatsCollector
 from server import shared_state
 from sorting_profile import MISC_CATEGORY, SortingProfile
 from subsystems.distribution.chute import Chute
+from subsystems.distribution.chute_variants import CABLE_CAGE
 from subsystems.distribution.positioning import (
     DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND,
     DOORS_STOP_WAIT_S,
@@ -63,7 +64,7 @@ class _AllCategoriesProfile(SortingProfile):
 
 
 def _mk_offline_servo() -> SimpleNamespace:
-    servo = SimpleNamespace(available=False, stopped=True)
+    servo = SimpleNamespace(available=False, stopped=True, is_calibrated=True, can_open=True, fault=None, apply_open_speed=lambda: None, apply_close_speed=lambda: None)
     servo.isClosed = lambda: False
     servo.isOpen = lambda: False
     servo.open = MagicMock(side_effect=RuntimeError("bus offline"))
@@ -72,7 +73,7 @@ def _mk_offline_servo() -> SimpleNamespace:
 
 
 def _mk_healthy_servo() -> SimpleNamespace:
-    servo = SimpleNamespace(available=True, stopped=True)
+    servo = SimpleNamespace(available=True, stopped=True, is_calibrated=True, can_open=True, fault=None, apply_open_speed=lambda: None, apply_close_speed=lambda: None)
     servo.isClosed = lambda: True
     servo.isOpen = lambda: False
     servo.open = MagicMock()
@@ -144,6 +145,9 @@ class ServoBusFatalTests(unittest.TestCase):
         shared = SharedVariables(gc=self.gc, bus=None)
         shared.transport = transport
         chute = MagicMock(spec=Chute)
+        chute.variant = CABLE_CAGE
+        chute.discard_bin = None
+        chute.isDiscardBin = MagicMock(return_value=False)
         chute.isBinReachable = MagicMock(return_value=True)
         chute.moveToBin = MagicMock(return_value=250)
         chute.stepper = SimpleNamespace(stopped=True)

@@ -9,6 +9,7 @@ from global_config import GlobalConfig
 from hardware.bus import MCUBus
 from hardware.fault import HardwareFault
 from hardware.sorter_interface import DigitalInputPin, ServoMotor, SorterInterface, StepperMotor
+from subsystems.distribution.chute_variants import SLIP_RING
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,9 @@ class BoardProfile:
     # Polarity of the chute home switch as this board is shipped, when it
     # differs from hardware_settings.chute's default. machine.toml still wins.
     chute_home_active_high: bool | None = None
+    # The kind of chute this board is made for (a key of chute_variants.VARIANTS),
+    # when it is made for one. machine.toml still wins.
+    chute_variant: str | None = None
 
 
 SKR_PICO_FEEDER_PROFILE = BoardProfile(
@@ -101,6 +105,25 @@ BASICALLY_V1_2_DISTRIBUTION_PROFILE = BoardProfile(
     chute_home_active_high=False,
 )
 
+# One board for the whole machine: five steppers, serial bus servos on its own
+# bus and no PWM servos. It sits on the host's header and is made for the chute
+# that turns without limit, whose home is a magnet on a hall sensor.
+BASICALLY_V1_5_HW_ID = "basically_v1_5"
+BASICALLY_V1_5_DISTRIBUTION_PROFILE = BoardProfile(
+    family="basically_rp2040",
+    role="distribution",
+    physical_to_canonical_stepper_names={
+        "chute_stepper": "chute_stepper",
+        "c_channel_1_rotor": "c_channel_1_rotor",
+        "c_channel_2_rotor": "c_channel_2_rotor",
+        "c_channel_3_rotor": "c_channel_3_rotor",
+        "carousel": "carousel",
+    },
+    input_aliases={"chute_home": 0},  # GPIO3, the hall sensor's plug
+    chute_home_active_high=True,  # the sensor reads high over the magnet
+    chute_variant=SLIP_RING.key,
+)
+
 GENERIC_PROFILE = BoardProfile(
     family="generic_sorter_interface",
     role="unknown",
@@ -140,6 +163,10 @@ class ControlBoard(ABC):
 
     @property
     def chute_home_active_high(self) -> bool | None:
+        return None
+
+    @property
+    def chute_variant(self) -> str | None:
         return None
 
     @abstractmethod
@@ -215,6 +242,10 @@ class SorterInterfaceControlBoard(ControlBoard):
     @property
     def chute_home_active_high(self) -> bool | None:
         return self._profile.chute_home_active_high
+
+    @property
+    def chute_variant(self) -> str | None:
+        return self._profile.chute_variant
 
     def iter_steppers(self) -> tuple[DiscoveredStepper, ...]:
         return self._discovered_steppers
@@ -379,6 +410,10 @@ def _detect_board_profile(sorter_interface: SorterInterface) -> BoardProfile:
     if physical_names == _BASICALLY_FEEDER_NAMES:
         return BASICALLY_FEEDER_PROFILE
     if "chute_stepper" in physical_names:
+        # The firmware says which board it runs on; older boards are told apart
+        # by what they have.
+        if sorter_interface.hw_id == BASICALLY_V1_5_HW_ID:
+            return BASICALLY_V1_5_DISTRIBUTION_PROFILE
         if digital_output_count >= 5:
             return SKR_PICO_DISTRIBUTION_PROFILE
         if digital_output_count <= 2:

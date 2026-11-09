@@ -23,6 +23,8 @@ from utils.event import knownObjectToEvent
 SERVO_BUS_OFFLINE_TITLE = "Servo bus offline"
 DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND = "distribution_servo_bus_offline"
 DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND = "distribution_no_bin_available"
+DISTRIBUTION_DOOR_BLOCKED_INCIDENT_KIND = "distribution_door_blocked"
+DISTRIBUTION_NO_DISCARD_BIN_INCIDENT_KIND = "distribution_no_discard_bin"
 # A door still moving refuses a new command, so the doors for the next piece
 # are set only once every flap has stopped; after this long, set them anyway.
 DOORS_STOP_WAIT_S = 2.0
@@ -75,7 +77,9 @@ class Positioning(BaseState):
         self.event_queue = event_queue
         self._phase: str = "init"
         self._target_address: BinAddress | None = None
-        self._door_servo_index: int | None = None
+        # The doors this piece's route set moving: all must stop, and none may
+        # have met anything, before the piece is let go.
+        self._doors_commanded: list[int] = []
         self._doors_wait_since: float | None = None
         self._state_entered_at: float = 0.0
         self._moving_started_at: float = 0.0
@@ -106,6 +110,11 @@ class Positioning(BaseState):
                 # One left running when this state was last cleaned up.
                 self._setOccupancyState("positioning.check_chute_position")
                 return None
+            if self._incidentActive(DISTRIBUTION_DOOR_BLOCKED_INCIDENT_KIND):
+                # A door met something. Nothing moves it again until the person
+                # at the machine says its way is clear.
+                self._setOccupancyState("positioning.door_blocked_incident")
+                return DistributionState.IDLE
             if not self._doorsStopped(now):
                 self._setOccupancyState("positioning.wait_doors_stopped")
                 return None
@@ -128,25 +137,13 @@ class Positioning(BaseState):
             self.shared.distribution_positioned_uuid = piece.uuid
 
             if piece.too_big:
-                # Oversize for any real bin — send it down the center of the
-                # chute to the misc bottom bin (open every usable door so it
-                # falls straight through). Never claims a bin, never raises a
-                # no-bin incident.
+                # Oversize for any real bin: it goes to the discard. Never claims
+                # a bin, never raises a no-bin incident.
                 self.logger.info(
                     f"Positioning: piece {piece.uuid} is too big "
-                    f"({piece.max_dimension_mm}mm) — passthrough to misc bottom bin"
+                    f"({piece.max_dimension_mm}mm) — to the discard"
                 )
-                self._openAllDoorsForPassthrough()
-                piece.stage = PieceStage.distributing
-                piece.distributing_at = time.time()
-                piece.distribution_target_selected_at = piece.distributing_at
-                piece.category_id = MISC_CATEGORY
-                piece.destination_bin = None
-                piece.updated_at = time.time()
-                self._piece = piece
-                self.event_queue.put(knownObjectToEvent(piece))
-                self._setOccupancyState("positioning.passthrough_too_big")
-                return DistributionState.READY
+                return self._discard(piece, MISC_CATEGORY, "positioning.passthrough_too_big")
 
             if piece.part_id is not None:
                 category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
@@ -193,17 +190,7 @@ class Positioning(BaseState):
                         "still loose on the channel, so every door stayed open until it had had "
                         "a couple of turns to fall.",
                     )
-                self._openAllDoorsForPassthrough()
-                piece.stage = PieceStage.distributing
-                piece.distributing_at = time.time()
-                piece.distribution_target_selected_at = piece.distributing_at
-                piece.category_id = category_id
-                piece.destination_bin = None
-                piece.updated_at = time.time()
-                self._piece = piece
-                self.event_queue.put(knownObjectToEvent(piece))
-                self._setOccupancyState("positioning.passthrough_loose_piece")
-                return DistributionState.READY
+                return self._discard(piece, category_id, "positioning.passthrough_loose_piece")
 
             address = self._trainingBinAddress()
             if address is None:
@@ -228,25 +215,14 @@ class Positioning(BaseState):
                 ):
                     self._setOccupancyState("positioning.no_bin_incident")
                     return DistributionState.IDLE
-                # Pass-through: no bin available for this category. Open
-                # every usable layer door so the piece falls straight
-                # through to the bottom tray. Finalize the piece record
-                # via SENDING so stats/events stay consistent.
+                # No bin available for this category: it goes to the discard.
+                # The piece record is finalized via SENDING so stats and events
+                # stay consistent.
                 self.logger.warning(
-                    f"Positioning: no bin for category {category_id} — passthrough to bottom"
+                    f"Positioning: no bin for category {category_id} — to the discard"
                 )
                 self._raiseBinsFullAlert(category_id)
-                self._openAllDoorsForPassthrough()
-                piece.stage = PieceStage.distributing
-                piece.distributing_at = time.time()
-                piece.distribution_target_selected_at = piece.distributing_at
-                piece.category_id = category_id
-                piece.destination_bin = None
-                piece.updated_at = time.time()
-                self._piece = piece
-                self.event_queue.put(knownObjectToEvent(piece))
-                self._setOccupancyState("positioning.passthrough_no_bin")
-                return DistributionState.READY
+                return self._discard(piece, category_id, "positioning.passthrough_no_bin")
 
             if self._exceedsLayerMaxDimension(piece, address.layer_index):
                 # The piece fits a real bin by category, but is physically too
@@ -255,76 +231,13 @@ class Positioning(BaseState):
                 layer_max = self._layerMaxDimensionMm(address.layer_index)
                 self.logger.info(
                     f"Positioning: piece {piece.uuid} ({piece.max_dimension_mm}mm) exceeds "
-                    f"layer {address.layer_index} limit ({layer_max}mm) — passthrough to misc bottom bin"
+                    f"layer {address.layer_index} limit ({layer_max}mm) — to the discard"
                 )
-                self._openAllDoorsForPassthrough()
-                piece.stage = PieceStage.distributing
-                piece.distributing_at = time.time()
-                piece.distribution_target_selected_at = piece.distributing_at
-                piece.category_id = MISC_CATEGORY
-                piece.destination_bin = None
                 piece.too_big_for_layer = True
                 piece.intended_layer_index = address.layer_index
-                piece.updated_at = time.time()
-                self._piece = piece
-                self.event_queue.put(knownObjectToEvent(piece))
-                self._setOccupancyState("positioning.passthrough_too_big_for_layer")
-                return DistributionState.READY
+                return self._discard(piece, MISC_CATEGORY, "positioning.passthrough_too_big_for_layer")
 
-            self.logger.info(
-                f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
-            )
-            if not self._selectDoor(address.layer_index):
-                self.logger.warning(
-                    f"Positioning: layer {address.layer_index} is unavailable for distribution, retrying with remaining layers"
-                )
-                # If every layer is now blocked AND the root cause is that
-                # every configured servo is offline, this is the fatal
-                # servo-bus case: the controller can no longer dispense
-                # anything. Pause + red banner.
-                usable_count = sum(
-                    1
-                    for li, layer in enumerate(self.layout.layers)
-                    if getattr(layer, "enabled", True) and li not in self._blocked_layers
-                )
-                if usable_count == 0 and self._allEnabledLayersServoOffline():
-                    self._raiseServoBusOfflineAlert(
-                        "no layer servo responded during door selection"
-                    )
-                return DistributionState.IDLE
-
-            piece.stage = PieceStage.distributing
-            piece.distributing_at = time.time()
-            piece.distribution_target_selected_at = piece.distributing_at
-            piece.category_id = category_id
-            piece.destination_bin = (
-                address.layer_index,
-                address.section_index,
-                address.bin_index,
-            )
-            piece.updated_at = time.time()
-            self._piece = piece
-            self.event_queue.put(knownObjectToEvent(piece))
-
-            if not self.gc.disable_servos:
-                self._door_servo_index = address.layer_index
-            self._target_address = address
-            if self.chute.positionCheckDue():
-                self._startPositionCheck()
-                return None
-            self._startChuteMove()
-            # Re-read the clock: `now` was taken at the top of step(), and the
-            # init phase above (bin lookup, servo selection, the move command
-            # itself) can block for seconds on the serial bus or a disk stall,
-            # which is not part of the move.
-            now = time.monotonic()
-            self._moving_started_at = now
-            init_ms = (now - self._state_entered_at) * 1000
-            if self.gc.disable_servos:
-                self.logger.info(f"Positioning: init phase took {init_ms:.0f}ms, now waiting for chute")
-            else:
-                self.logger.info(f"Positioning: init phase took {init_ms:.0f}ms, now waiting for servo+chute")
-            return None
+            return self._routeToBin(piece, category_id, address)
 
         if self._phase == "start_chute":
             if self.chute.stepper.stopped:
@@ -350,10 +263,20 @@ class Positioning(BaseState):
         if self._phase == "moving":
             self._setOccupancyState("positioning.wait_servo_and_chute_motion")
             chute_stopped = self.chute.stepper.stopped
-            servo_stopped = self._isDoorServoStopped()
-            if not chute_stopped or not servo_stopped:
+            doors_stopped = self._commandedDoorsStopped()
+            if not chute_stopped or not doors_stopped:
                 return None
             self.shared.set_chute_motion(False, target_bin=self._target_address)
+            blocked = self._blockedDoor()
+            if blocked is not None:
+                # The piece has not been let go yet: it waits where it is until
+                # the door's way is clear, then is routed afresh.
+                layer_index, fault = blocked
+                self._raiseDoorBlockedIncident(layer_index, fault)
+                self._phase = "init"
+                self._doors_commanded = []
+                self._setOccupancyState("positioning.door_blocked_incident")
+                return DistributionState.IDLE
             if self._piece is not None and self._piece.distribution_positioned_at is None:
                 self._piece.distribution_positioned_at = time.time()
             move_ms = (now - self._moving_started_at) * 1000
@@ -405,7 +328,7 @@ class Positioning(BaseState):
         target_address = self._target_address
         self._phase = "init"
         self._target_address = None
-        self._door_servo_index = None
+        self._doors_commanded = []
         self._state_entered_at = 0.0
         self._moving_started_at = 0.0
         self._piece = None
@@ -444,12 +367,12 @@ class Positioning(BaseState):
         if layer_index >= len(self.irl.servos):
             self._markLayerUnavailable(layer_index, "no servo configured for this layer")
             return False
-        servo_available = bool(getattr(self.irl.servos[layer_index], "available", True))
+        servo_available = self.irl.servos[layer_index].available
         if not servo_available:
             self._servo_offline_layers.add(layer_index)
             self._markLayerUnavailable(layer_index, "its servo backend is offline")
             return False
-        if not bool(getattr(self.irl.servos[layer_index], "is_calibrated", True)):
+        if not self.irl.servos[layer_index].is_calibrated:
             # Uncalibrated PWM servos are skipped so pieces are never routed to a
             # door that cannot safely move. Logged at debug (not warning) because
             # this state persists until the operator calibrates the layer, and
@@ -486,7 +409,7 @@ class Positioning(BaseState):
             return True
         for index, servo in enumerate(self.irl.servos):
             try:
-                moving = bool(getattr(servo, "available", True)) and not servo.stopped
+                moving = servo.available and not servo.stopped
             except Exception:
                 moving = False  # an unreachable servo is _isLayerUsable's to judge
             if not moving:
@@ -503,19 +426,147 @@ class Positioning(BaseState):
         self._doors_wait_since = None
         return True
 
-    def _isDoorServoStopped(self) -> bool:
-        if self._door_servo_index is None:
-            return True
-        try:
-            return self.irl.servos[self._door_servo_index].stopped
-        except Exception as exc:
-            # Unknown is not stopped: keep waiting instead of dropping the piece
-            # behind a flap in an unknown place.
-            self._markLayerUnavailable(
-                self._door_servo_index,
-                f"servo stop check failed: {exc}",
-            )
+    def _commandedDoorsStopped(self) -> bool:
+        for layer_index in self._doors_commanded:
+            try:
+                if not self.irl.servos[layer_index].stopped:
+                    return False
+            except Exception as exc:
+                # Unknown is not stopped: keep waiting instead of dropping the piece
+                # behind a flap in an unknown place.
+                self._markLayerUnavailable(layer_index, f"servo stop check failed: {exc}")
+                return False
+        return True
+
+    def _blockedDoor(self) -> tuple[int, str] | None:
+        """The first door this route moved that did not end where it was sent."""
+        for layer_index in self._doors_commanded:
+            fault = self.irl.servos[layer_index].fault
+            if fault:
+                return layer_index, fault
+        return None
+
+    def _incidentActive(self, kind: str) -> bool:
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        if runtime_stats is None or not hasattr(runtime_stats, "activeIncident"):
             return False
+        try:
+            active = runtime_stats.activeIncident()
+        except Exception:
+            return False
+        return isinstance(active, dict) and active.get("kind") == kind
+
+    def _raiseDoorBlockedIncident(self, layer_index: int, fault: str) -> None:
+        self.logger.error(f"Positioning: {fault}")
+        published = self._publishDistributionIncident(
+            DISTRIBUTION_DOOR_BLOCKED_INCIDENT_KIND,
+            detail=fault,
+            severity="critical",
+            role="distribution_door",
+            channel_label="Distribution",
+            layer_index=int(layer_index),
+            layer_number=int(layer_index) + 1,
+        )
+        if not published:
+            # Nobody is called: the layer is left out until the next piece.
+            self._markLayerUnavailable(layer_index, "its door met something")
+
+    def _raiseNoDiscardBinIncident(self) -> None:
+        self._publishDistributionIncident(
+            DISTRIBUTION_NO_DISCARD_BIN_INCIDENT_KIND,
+            detail="A piece no bin takes has nowhere to go: no discard bin is set, or the one set cannot be reached.",
+            severity="critical",
+            role="distribution_discard",
+            channel_label="Distribution",
+        )
+
+    def _markDistributing(self, piece, category_id: str, address: BinAddress | None) -> None:
+        piece.stage = PieceStage.distributing
+        piece.distributing_at = time.time()
+        piece.distribution_target_selected_at = piece.distributing_at
+        piece.category_id = category_id
+        piece.destination_bin = (
+            None
+            if address is None
+            else (address.layer_index, address.section_index, address.bin_index)
+        )
+        piece.updated_at = time.time()
+        self._piece = piece
+        self.event_queue.put(knownObjectToEvent(piece))
+
+    def _discard(self, piece, category_id: str, occupancy_state: str) -> Optional[DistributionState]:
+        """Send a piece no bin takes where such pieces go on this chute. One with
+        a tray under it: every door opens and the piece falls through, with no
+        destination bin. One nothing falls out of: the piece goes to the bin
+        kept for them, like a piece going to any bin."""
+        if self.chute.variant.falls_through:
+            self._openAllDoorsForPassthrough()
+            self._markDistributing(piece, category_id, None)
+            self._setOccupancyState(occupancy_state)
+            return DistributionState.READY
+        address = self.chute.discard_bin
+        if address is None or not self._binUsable(address):
+            self._raiseNoDiscardBinIncident()
+            self._setOccupancyState("positioning.no_discard_bin_incident")
+            return DistributionState.IDLE
+        self._clearDistributionIncident(DISTRIBUTION_NO_DISCARD_BIN_INCIDENT_KIND)
+        self._setOccupancyState(occupancy_state)
+        return self._routeToBin(piece, category_id, address)
+
+    def _binUsable(self, address: BinAddress) -> bool:
+        layers = self.layout.layers
+        if address.layer_index >= len(layers):
+            return False
+        layer = layers[address.layer_index]
+        if address.section_index >= len(layer.sections):
+            return False
+        if address.bin_index >= len(layer.sections[address.section_index].bins):
+            return False
+        return self._isLayerUsable(address.layer_index) and self.chute.isBinReachable(address)
+
+    def _routeToBin(self, piece, category_id: str, address: BinAddress) -> Optional[DistributionState]:
+        """Set the doors for this bin's layer, mark the piece as on its way and
+        start the chute toward the bin."""
+        self.logger.info(
+            f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
+        )
+        if not self._selectDoor(address.layer_index):
+            self.logger.warning(
+                f"Positioning: layer {address.layer_index} is unavailable for distribution, retrying with remaining layers"
+            )
+            # If every layer is now blocked AND the root cause is that
+            # every configured servo is offline, this is the fatal
+            # servo-bus case: the controller can no longer dispense
+            # anything. Pause + red banner.
+            usable_count = sum(
+                1
+                for li, layer in enumerate(self.layout.layers)
+                if getattr(layer, "enabled", True) and li not in self._blocked_layers
+            )
+            if usable_count == 0 and self._allEnabledLayersServoOffline():
+                self._raiseServoBusOfflineAlert(
+                    "no layer servo responded during door selection"
+                )
+            return DistributionState.IDLE
+
+        self._markDistributing(piece, category_id, address)
+        self._target_address = address
+        if self.chute.positionCheckDue():
+            self._startPositionCheck()
+            return None
+        self._startChuteMove()
+        # Re-read the clock: the caller's was taken at the top of step(), and
+        # the init phase (bin lookup, servo selection, the move command itself)
+        # can block for seconds on the serial bus or a disk stall, which is not
+        # part of the move.
+        now = time.monotonic()
+        self._moving_started_at = now
+        init_ms = (now - self._state_entered_at) * 1000
+        if self.gc.disable_servos:
+            self.logger.info(f"Positioning: init phase took {init_ms:.0f}ms, now waiting for chute")
+        else:
+            self.logger.info(f"Positioning: init phase took {init_ms:.0f}ms, now waiting for servo+chute")
+        return None
 
     def _raiseBinsFullAlert(self, category_id: str) -> None:
         return
@@ -572,7 +623,7 @@ class Positioning(BaseState):
                 # Treat missing entries as offline so a half-configured
                 # machine trips the alert too.
                 continue
-            if bool(getattr(self.irl.servos[li], "available", True)):
+            if self.irl.servos[li].available:
                 return False
         return True
 
@@ -716,11 +767,10 @@ class Positioning(BaseState):
         if self.gc.disable_servos:
             return
         for i, servo in enumerate(self.irl.servos):
-            if not self._isLayerUsable(i):
+            if not servo.can_open or not self._isLayerUsable(i):
                 continue
             try:
-                if hasattr(servo, "apply_open_speed"):
-                    servo.apply_open_speed()
+                servo.apply_open_speed()
                 if not servo.open():
                     self._markLayerUnavailable(i, "its servo refused to open for passthrough")
             except Exception as exc:
@@ -730,6 +780,7 @@ class Positioning(BaseState):
                 )
 
     def _selectDoor(self, target_layer_index: int) -> bool:
+        self._doors_commanded = []
         if self.gc.disable_servos:
             return True
         if not self._isLayerUsable(target_layer_index):
@@ -737,6 +788,21 @@ class Positioning(BaseState):
             return False
 
         target_servo = self.irl.servos[target_layer_index]
+
+        # A piece reaches a layer only past every door above it (the layers
+        # before it in the list). One of those that cannot be opened, or whose
+        # place is not known, may be shut and would catch the piece in the wrong
+        # bin: then this layer cannot be reached. A layer switched off is the
+        # operator's own business and is not asked.
+        for i in range(target_layer_index):
+            above = self.irl.servos[i]
+            if not getattr(self.layout.layers[i], "enabled", True):
+                continue
+            if not above.can_open or not self._isLayerUsable(i):
+                self._markLayerUnavailable(
+                    target_layer_index, f"layer {i + 1}'s door above it cannot be opened"
+                )
+                return False
 
         # Never trust shadow state: re-issue the full door configuration
         # before every dispense. Open every other usable layer (park), then
@@ -747,11 +813,10 @@ class Positioning(BaseState):
         # noticing until a piece lands in the wrong bin.
         opened_layers: list[int] = []
         for i, servo in enumerate(self.irl.servos):
-            if i == target_layer_index or not self._isLayerUsable(i):
+            if i == target_layer_index or not servo.can_open or not self._isLayerUsable(i):
                 continue
             try:
-                if hasattr(servo, "apply_open_speed"):
-                    servo.apply_open_speed()
+                servo.apply_open_speed()
                 if servo.open():
                     opened_layers.append(i)
                 else:
@@ -763,8 +828,7 @@ class Positioning(BaseState):
                 )
 
         try:
-            if hasattr(target_servo, "apply_close_speed"):
-                target_servo.apply_close_speed()
+            target_servo.apply_close_speed()
             if not target_servo.close():
                 self._markLayerUnavailable(target_layer_index, "its servo refused to close")
                 return False
@@ -782,6 +846,7 @@ class Positioning(BaseState):
             f"Door config: closed layer-{target_layer_index} (target), "
             f"opened parked layers {opened_layers}"
         )
+        self._doors_commanded = [target_layer_index, *opened_layers]
         return True
 
     def _trainingBinAddress(self) -> Optional[BinAddress]:
@@ -867,6 +932,9 @@ class Positioning(BaseState):
                     if bool(b.not_in_inventory) != not_in_inventory:
                         continue
                     address = BinAddress(layer_idx, section_idx, bin_idx)
+                    if self.chute.isDiscardBin(address):
+                        # Kept for the pieces no bin takes: never given a category.
+                        continue
                     if not self.chute.isBinReachable(address):
                         unreachable_bins += 1
                         continue

@@ -105,6 +105,22 @@ KINDS: dict[str, IncidentKind] = {
             off_label="Leave it to the hardware alert",
         ),
         IncidentKind(
+            "distribution_door_blocked",
+            title="A bin door is blocked",
+            todo="A bin door met something while moving and backed off. Take out whatever is in its way, then press Done.",
+            actions=("done",),
+            scope="Distribution",
+            description="A bin door met resistance while moving, so it stopped and backed off.",
+            default_handling=MANUAL,
+            off_label="Leave that layer out and carry on",
+        ),
+        IncidentKind(
+            "distribution_no_discard_bin",
+            title="No discard bin",
+            todo="A piece no bin takes has nowhere to go. Choose a discard bin on the Bins page, then press Done.",
+            actions=("done",),
+        ),
+        IncidentKind(
             "distribution_no_bin_available",
             title="No bin for this piece",
             todo="No bin takes this piece. Assign a bin or free one up, or send it to the bucket.",

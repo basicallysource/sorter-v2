@@ -34,6 +34,7 @@ from subsystems.distribution.ready import Ready
 from subsystems.distribution.sending import CHUTE_SETTLE_MS, Sending
 from subsystems.distribution.states import DistributionState
 from subsystems.shared_variables import SharedVariables
+from subsystems.distribution.chute_variants import CABLE_CAGE
 
 _PRECISE_ZONE = 3
 _LOGGER = logging.getLogger("test_c4_distribution_handoff")
@@ -154,7 +155,7 @@ def test_positioning_records_the_piece_it_aims_for() -> None:
         SimpleNamespace(servos=[]),  # type: ignore[arg-type]
         _mkGc(),  # type: ignore[arg-type]
         shared,
-        SimpleNamespace(checking=False),  # type: ignore[arg-type]
+        SimpleNamespace(checking=False, variant=CABLE_CAGE),  # type: ignore[arg-type]
         layout,  # type: ignore[arg-type]
         SimpleNamespace(),  # type: ignore[arg-type]
         queue.Queue(),

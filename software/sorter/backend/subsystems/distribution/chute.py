@@ -1,4 +1,3 @@
-import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from global_config import GlobalConfig
@@ -12,19 +11,20 @@ from hardware_settings.chute import (
 )
 from irl.bin_layout import DistributionLayout
 
+from .chute_homing import homeOnMagnet, homeOnSwitch
+from .chute_variants import DEFAULT_VARIANT, HOME_ON_MAGNET, ChuteVariant
+
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor, DigitalInputPin
     from .position_check import PositionCheck
 
-GEAR_RATIO = 120 / 25  # 25T motor gear -> 25T idle gear -> 120T chute gear
-CHUTE_MAX_ANGLE = 350
-
 # Chute aiming geometry.
 #
-# The chute rotates within [0, 360) and hits a HARD STOP at either end — it
-# can neither cross zero nor pass 360. So every reachable bin angle must stay
-# inside that arc, and the home switch must sit such that the trailing margin
-# of the last section still fits before 360.
+# Angles are measured from home, in the direction the chute turns away from it.
+# A chute with a travel limit (chute_variants.py) turns within [0, travel] and
+# can neither cross zero nor pass its far stop, so every reachable bin angle
+# must stay inside that arc. A chute that turns without limit reaches every
+# angle and takes the short way round.
 #
 # The geometry is described by three calibrated invariants, all of which are
 # bin-count INDEPENDENT (this is what lets one calibration serve 1/2/3/5-bin
@@ -45,10 +45,8 @@ CHUTE_MAX_ANGLE = 350
 # "chute-aiming-calibration" for the full derivation and the calibration
 # routine that measures theta0 and W. The defaults are in hardware_settings/chute.py.
 
-HOME_SPEED_MICROSTEPS_PER_SEC = -1000
 # The chute's moves start and end at this speed; they cruise at the operating speed.
 MIN_SPEED_MICROSTEPS_PER_SEC = 16
-HOME_TIMEOUT_MS = 15000
 
 
 @dataclass
@@ -72,12 +70,21 @@ class Chute:
         operating_speed_microsteps_per_second: int = DEFAULT_OPERATING_SPEED_MICROSTEPS_PER_SEC,
         position_check: bool = DEFAULT_POSITION_CHECK,
         position_check_every: int = DEFAULT_POSITION_CHECK_EVERY,
+        variant: ChuteVariant = DEFAULT_VARIANT,
+        gear_ratio: float | None = None,
+        discard_bin: tuple[int, int, int] | None = None,
     ):
         self.gc = gc
         self.logger = gc.logger
         self.stepper = stepper
         self.home_pin = home_pin
         self.layout = layout
+        self.variant = variant
+        # Motor turns for one turn of the chute: this machine's own measured
+        # ratio when it has one, else the ratio its kind of chute is built with.
+        self.gear_ratio = float(gear_ratio) if gear_ratio else variant.gear_ratio
+        self.discard_bin: BinAddress | None = None
+        self.setDiscardBin(discard_bin)
         self.num_sections = max(1, int(num_sections))
         self.section_width_deg = float(section_width_deg)
         self.first_section_offset_deg = float(first_section_offset_deg)
@@ -203,8 +210,21 @@ class Chute:
 
     @property
     def current_angle(self) -> float:
-        stepper_angle = self.stepper.position_degrees
-        return stepper_angle / GEAR_RATIO
+        angle = self.stepper.position_degrees / self.gear_ratio
+        # A chute that turns without limit keeps counting turns; where it points
+        # is the angle within one.
+        return angle % 360.0 if self.variant.turns_freely else angle
+
+    def setGearRatio(self, gear_ratio: float | None) -> None:
+        self.gear_ratio = float(gear_ratio) if gear_ratio else self.variant.gear_ratio
+
+    def setDiscardBin(self, discard_bin: tuple[int, int, int] | None) -> None:
+        """The bin that takes the pieces no other bin wants. A chute pieces fall
+        out of the bottom of needs none: they land in the tray under it."""
+        self.discard_bin = BinAddress(*discard_bin) if discard_bin else None
+
+    def isDiscardBin(self, address: BinAddress) -> bool:
+        return self.discard_bin is not None and self.discard_bin == address
 
     def _binsInSection(self, layer_index: int, section_index: int) -> int:
         try:
@@ -239,14 +259,15 @@ class Chute:
         )
         if unclamped:
             return angle
-        # The chute travels [0, CHUTE_MAX_ANGLE] and can never cross the home
-        # stop, so wrap the bin onto the circle: it is reachable iff its wrapped
-        # position lands inside the travel window. The arc (CHUTE_MAX_ANGLE, 360)
-        # just before home is the only dead wedge. Wrapping is what lets a
-        # section that home cut through still serve the bins sitting just
-        # clockwise of home — reached the long way round, never across the stop.
+        # Wrap the bin onto the circle. A chute with a travel limit can never
+        # cross its home stop, so the bin is reachable iff its wrapped position
+        # lands inside the travel: the arc between the far stop and home is the
+        # only dead wedge. Wrapping is what lets a section that home cut through
+        # still serve the bins sitting just clockwise of home — reached the long
+        # way round, never across the stop.
         norm = angle % 360.0
-        if norm > CHUTE_MAX_ANGLE:
+        travel = self.variant.travel_deg
+        if travel is not None and norm > travel:
             return None
         return norm
 
@@ -256,19 +277,25 @@ class Chute:
             address.section_index, address.bin_index, num_bins
         )
 
-    def _setSpeed(self, speed: int) -> None:
+    def setSpeed(self, speed: int) -> None:
         # The board keeps the last speed limits any caller sent (start-up's, a
         # jog's, a sweep's), so every chute move sets its own.
         self.stepper.set_speed_limits(MIN_SPEED_MICROSTEPS_PER_SEC, speed)
 
+    def travelTo(self, target: float) -> float:
+        """How far the chute turns to point at `target`, in chute degrees, signed.
+        A chute with a travel limit goes straight there between its stops; one
+        that turns without limit takes the short way round."""
+        if self.variant.turns_freely:
+            return (target - self.current_angle + 180.0) % 360.0 - 180.0
+        target = max(0.0, min(360.0, target))
+        return target - self.current_angle
+
     def moveToAngle(self, target: float, max_speed: int | None = None) -> int | None:
         """Start a move at the operating speed, or at `max_speed` when given; the
         estimated duration in ms, or None if the board refused it."""
-        target = max(0.0, min(360.0, target))
         current = self.current_angle
-        target_stepper_angle = target * GEAR_RATIO
-        current_stepper_angle = current * GEAR_RATIO
-        delta_stepper_angle = target_stepper_angle - current_stepper_angle
+        delta_stepper_angle = self.travelTo(target) * self.gear_ratio
         speed = int(max_speed or self.operating_speed_microsteps_per_second)
         estimated_ms = self.stepper.estimateMoveDegreesMs(delta_stepper_angle, max_speed=speed)
 
@@ -278,7 +305,7 @@ class Chute:
             )
             return estimated_ms
 
-        self._setSpeed(speed)
+        self.setSpeed(speed)
         self.logger.info(
             f"Chute: moving from {current:.1f}° to {target:.1f}° at {speed} µsteps/s (delta_stepper_deg={delta_stepper_angle:.2f}, est_ms={estimated_ms})"
         )
@@ -304,11 +331,8 @@ class Chute:
 
     def moveToAngleBlocking(self, target: float, timeout_buffer_ms: int = 0) -> int | None:
         """Move and wait; the estimated duration in ms, or None if it was refused or did not finish."""
-        target = max(0.0, min(360.0, target))
         current = self.current_angle
-        target_stepper_angle = target * GEAR_RATIO
-        current_stepper_angle = current * GEAR_RATIO
-        delta_stepper_angle = target_stepper_angle - current_stepper_angle
+        delta_stepper_angle = self.travelTo(target) * self.gear_ratio
         speed = int(self.operating_speed_microsteps_per_second)
         estimated_ms = self.stepper.estimateMoveDegreesMs(delta_stepper_angle, max_speed=speed)
         timeout_ms = max(1, estimated_ms + timeout_buffer_ms)
@@ -319,7 +343,7 @@ class Chute:
             )
             return estimated_ms
 
-        self._setSpeed(speed)
+        self.setSpeed(speed)
         self.logger.info(
             f"Chute: moving(blocking) from {current:.1f}° to {target:.1f}° at {speed} µsteps/s (delta_stepper_deg={delta_stepper_angle:.2f}, est_ms={estimated_ms}, timeout_ms={timeout_ms})"
         )
@@ -327,7 +351,7 @@ class Chute:
             return None
         return estimated_ms
 
-    def _backoffToFirstBin(self) -> bool:
+    def backoffToFirstBin(self) -> bool:
         backoff_angle = self.angleForVirtualBin(
             0, 0, self._binsInFirstSection(), unclamped=True
         )
@@ -344,39 +368,9 @@ class Chute:
             return False
 
     def home(self) -> bool:
-        self.logger.info("Chute: homing via sensor")
-        pos_before = self.current_angle
-        raw_before = self.raw_endstop_active
-        self.stepper.home(
-            HOME_SPEED_MICROSTEPS_PER_SEC,
-            self.home_pin,
-            home_pin_active_high=self.endstop_active_high,
-        )
-        start = time.monotonic()
-        polls = 0
-        while not self.stepper.stopped:
-            polls += 1
-            if (time.monotonic() - start) * 1000 > HOME_TIMEOUT_MS:
-                self.logger.error(
-                    f"Chute: homing timed out after {HOME_TIMEOUT_MS}ms "
-                    f"(polls={polls}, moved={self.current_angle - pos_before:.2f}°, "
-                    f"endstop raw={self.raw_endstop_active} triggered={self.endstop_triggered})"
-                )
-                return False
-            time.sleep(0.01)
-        elapsed_ms = (time.monotonic() - start) * 1000
-        if not self.endstop_triggered:
-            self.logger.warning(
-                "Chute: homing stopped before the endstop triggered "
-                f"(elapsed={elapsed_ms:.0f}ms, polls={polls}, "
-                f"moved={self.current_angle - pos_before:.2f}° from {pos_before:.2f}°, "
-                f"endstop raw {raw_before}->{self.raw_endstop_active} "
-                f"(active_high={self.endstop_active_high}, triggered={self.endstop_triggered})). "
-                "polls<=1 / moved~0 means the firmware reported stopped before motion began (race); "
-                "large moved means it travelled without the switch ever firing."
-            )
-            return False
-        if not self._backoffToFirstBin():
+        """Find home the way this kind of chute does (chute_homing.py)."""
+        find_home = homeOnMagnet if self.variant.home_on == HOME_ON_MAGNET else homeOnSwitch
+        if not find_home(self):
             return False
         self.logger.info("Chute: homed successfully")
         self._homed = True

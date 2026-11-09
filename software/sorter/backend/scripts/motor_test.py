@@ -30,7 +30,7 @@ from logger import Logger
 from hardware.sorter_interface import StepperMotor, ServoMotor, DigitalOutputPin, DigitalInputPin
 import irl.config as _irl_bootstrap  # must precede machine_platform import to resolve circular dep
 from machine_platform.control_board import discover_control_boards
-from subsystems.distribution.chute import HOME_SPEED_MICROSTEPS_PER_SEC, HOME_TIMEOUT_MS
+from subsystems.distribution.chute_homing import HOME_SPEED_MICROSTEPS_PER_SEC, HOME_TIMEOUT_MS
 
 # ── global state ──────────────────────────────────────────────────────────────
 

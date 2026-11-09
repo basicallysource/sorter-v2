@@ -7,8 +7,12 @@ from typing import Any, Sequence
 import serial.tools.list_ports
 
 from global_config import GlobalConfig
+from hardware.door import Door
+from hardware.feetech.link import ServoLink
+from hardware_settings.doors import BACKEND_BUS, DoorSetting, readDoorSettings
 from irl.parse_user_toml import ServoChannelConfig, WaveshareServoConfig
 from machine_platform.control_board import ControlBoard
+from machine_platform.doors import BusServoDoor, FixedDoor, MissingDoor, releaseAll
 
 
 @dataclass(frozen=True)
@@ -17,7 +21,7 @@ class LayerServoAssignment:
     invert: bool = False
 
 
-class UnassignedServoMotor:
+class UnassignedServoMotor(Door):
     def __init__(self, *, invert: bool, layer_index: int):
         self.channel = None
         self._invert = invert
@@ -26,6 +30,10 @@ class UnassignedServoMotor:
 
     @property
     def available(self) -> bool:
+        return False
+
+    @property
+    def is_calibrated(self) -> bool:
         return False
 
     @property
@@ -81,7 +89,7 @@ class UnassignedServoMotor:
         return False
 
 
-class OfflineServoMotor:
+class OfflineServoMotor(Door):
     def __init__(
         self,
         *,
@@ -98,6 +106,10 @@ class OfflineServoMotor:
 
     @property
     def available(self) -> bool:
+        return False
+
+    @property
+    def is_calibrated(self) -> bool:
         return False
 
     @property
@@ -348,6 +360,95 @@ class WaveshareServoController(ServoController):
         return None
 
 
+class BoardBusServoController(ServoController):
+    """Serial bus servos on a control board's own servo bus. Which servo turns
+    which layer's door, and between which positions, is in hardware_settings/doors.py."""
+
+    backend_name = BACKEND_BUS
+    supports_feedback = True
+    supports_calibration = True
+
+    def __init__(
+        self,
+        gc: GlobalConfig,
+        source_board: ControlBoard,
+        *,
+        fixed_bottom_door: bool,
+    ):
+        self._gc = gc
+        self._source_board = source_board
+        self._fixed_bottom_door = fixed_bottom_door
+        self.issues = []
+
+    @property
+    def link(self) -> ServoLink | None:
+        return self._source_board.interface.servo_link
+
+    @property
+    def firmware_too_old(self) -> bool:
+        return not self._source_board.interface.has_servo_guard
+
+    def fixedLayer(self, layer_count: int) -> int | None:
+        """The layer whose door has no servo, if this machine has one."""
+        return layer_count - 1 if self._fixed_bottom_door and layer_count > 0 else None
+
+    def create_layer_servos(self, distribution_layout: Any) -> list[Any]:
+        layer_count = len(distribution_layout.layers)
+        settings = readDoorSettings(logger=self._gc.logger)
+        fixed_layer = self.fixedLayer(layer_count)
+        doors: list[Any] = []
+        for index in range(layer_count):
+            if index == fixed_layer:
+                doors.append(FixedDoor(index))
+                continue
+            setting = settings[index] if index < len(settings) else DoorSetting()
+            doors.append(self.doorFor(index, setting))
+        return doors
+
+    def doorFor(self, layer_index: int, setting: DoorSetting) -> Any:
+        link = self.link
+        if link is None or self.firmware_too_old:
+            return self._missing(
+                layer_index,
+                setting,
+                "The control board's firmware is too old to move serial servos safely. Update it.",
+            )
+        if setting.servo_id is None:
+            return self._missing(layer_index, setting, "No servo is set up for this layer's door.")
+        door = BusServoDoor(self._gc.logger, link, layer_index, setting)
+        if not door.available:
+            self._issue(layer_index, setting, door.feedback()["error"])
+        self._gc.logger.info(
+            f"Layer {layer_index + 1} door: servo {setting.servo_id}, "
+            + (f"closed {setting.closed}, open {setting.open}" if setting.calibrated else "not calibrated")
+        )
+        return door
+
+    def _missing(self, layer_index: int, setting: DoorSetting, error: str) -> MissingDoor:
+        self._issue(layer_index, setting, error)
+        return MissingDoor(layer_index, error, servo_id=setting.servo_id)
+
+    def _issue(self, layer_index: int, setting: DoorSetting, error: str | None) -> None:
+        issue: dict[str, Any] = {
+            "kind": "servo",
+            "backend": self.backend_name,
+            "layer_index": layer_index,
+            "message": error or "This layer's door cannot be moved.",
+        }
+        if setting.servo_id is not None:
+            issue["servo_id"] = setting.servo_id
+        self.issues.append(issue)
+
+    def shutdown(self) -> None:
+        link = self.link
+        if link is None or self.firmware_too_old:
+            return
+        try:
+            releaseAll(link)
+        except Exception as exc:
+            self._gc.logger.warning(f"Could not let the door servos go: {exc}")
+
+
 def build_servo_controller(
     gc: GlobalConfig,
     *,
@@ -355,6 +456,7 @@ def build_servo_controller(
     servo_channel_config: Sequence[ServoChannelConfig],
     waveshare_config: WaveshareServoConfig | None,
     mcu_ports: Sequence[str],
+    fixed_bottom_door: bool = False,
 ) -> ServoController:
     assignments = [
         LayerServoAssignment(id=channel.id, invert=channel.invert)
@@ -368,6 +470,11 @@ def build_servo_controller(
             assignments=assignments,
             mcu_ports=mcu_ports,
         )
+
+    # A board with its own servo bus has no PWM servos: its doors are on the bus.
+    bus_board = next((board for board in control_boards if board.interface.has_servo_bus), None)
+    if bus_board is not None:
+        return BoardBusServoController(gc, bus_board, fixed_bottom_door=fixed_bottom_door)
 
     servo_source = _select_pca_servo_source(control_boards)
     if servo_source is None:

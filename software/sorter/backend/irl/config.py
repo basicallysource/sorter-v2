@@ -39,7 +39,7 @@ from .parse_user_toml import (
     loadServoChannelConfig,
     loadWaveshareServoConfig,
 )
-from hardware_settings.chute import boardDefaults, readChuteSettings
+from hardware_settings.chute import boardDefaults, readChuteSettings, saveChuteSettings
 from hardware_settings.motors import MOTORS, Motor, motorSockets
 from hardware_settings.servos import applyServoSpeeds, readServoSpeeds
 from hardware_settings.steppers import StepperSettings, applyStepperSettings, readStepperSettings
@@ -1098,7 +1098,23 @@ def _bindHardware(irl_interface: IRLInterface, config: IRLConfig, gc: GlobalConf
 
     from .bin_layout import calibratedAnglesForLayer
 
-    # Initialize servos — either Waveshare SC bus or PCA9685 (default)
+    if distribution_board is None:
+        raise RuntimeError("Distribution board not found — cannot initialize chute homing")
+    chute_board_defaults = boardDefaults(
+        distribution_board.input_aliases,
+        distribution_board.chute_home_active_high,
+        distribution_board.chute_variant,
+    )
+    chute_settings = readChuteSettings(machine_specific_params, **chute_board_defaults, logger=gc.logger)
+    if distribution_board.chute_variant is not None and "variant" not in chute_settings.saved:
+        # Which chute a machine has is asked for before the hardware starts too
+        # (the bins, the setup pages), where no board is at hand to say: write
+        # down what this board is made for.
+        chute_settings = saveChuteSettings({"variant": distribution_board.chute_variant}, **chute_board_defaults)
+        gc.logger.info(f"Chute: this board is made for the {chute_settings.variant.label}; saved")
+
+    # The layer doors: serial servos on the board's own bus, serial servos on a
+    # USB adapter, or PWM servos on the board.
     if gc.disable_servos:
         gc.logger.info("Servo init skipped (--disable servos)")
         irl_interface.servo_controller = None
@@ -1111,6 +1127,7 @@ def _bindHardware(irl_interface: IRLInterface, config: IRLConfig, gc: GlobalConf
             servo_channel_config=servo_channel_config,
             waveshare_config=waveshare_config,
             mcu_ports=mcu_ports,
+            fixed_bottom_door=chute_settings.variant.fixed_bottom_door,
         )
         irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
             irl_interface.distribution_layout
@@ -1153,13 +1170,6 @@ def _bindHardware(irl_interface: IRLInterface, config: IRLConfig, gc: GlobalConf
 
     from subsystems.distribution.chute import Chute
 
-    if distribution_board is None:
-        raise RuntimeError("Distribution board not found — cannot initialize chute homing")
-    chute_settings = readChuteSettings(
-        machine_specific_params,
-        **boardDefaults(distribution_board.input_aliases, distribution_board.chute_home_active_high),
-        logger=gc.logger,
-    )
     chute_home_pin = distribution_board.get_input(chute_settings.home_pin_channel)
     if chute_home_pin is None:
         raise RuntimeError(
@@ -1177,5 +1187,8 @@ def _bindHardware(irl_interface: IRLInterface, config: IRLConfig, gc: GlobalConf
         operating_speed_microsteps_per_second=chute_settings.operating_speed_microsteps_per_second,
         position_check=chute_settings.position_check,
         position_check_every=chute_settings.position_check_every,
+        variant=chute_settings.variant,
+        gear_ratio=chute_settings.gear_ratio,
+        discard_bin=chute_settings.discard_bin,
     )
     gc.logger.info(f"Chute configured: {chute_settings.describe()}")

@@ -68,7 +68,9 @@ def checkPosition(chute: "Chute") -> PositionCheck:
     """Find the home switch from CHECK_FROM_DEG above it and return how far
     the chute had drifted. Blocks for about two seconds; the caller runs it
     off the main loop."""
-    from .chute import GEAR_RATIO, HOME_SPEED_MICROSTEPS_PER_SEC
+    from .chute_homing import HOME_SPEED_MICROSTEPS_PER_SEC
+
+    gear_ratio = chute.gear_ratio
 
     started = time.monotonic()
     stepper = chute.stepper
@@ -101,13 +103,13 @@ def checkPosition(chute: "Chute") -> PositionCheck:
         return failed("it stopped before the switch")
 
     def chuteDeg(steps: float) -> float:
-        return stepper.degrees_for_microsteps(steps) / GEAR_RATIO
+        return stepper.degrees_for_microsteps(steps) / gear_ratio
 
     interval_s = homing_s / reads if reads else None
     precision = round(chuteDeg(abs(speed) * interval_s), 3) if interval_s else None
     duration = round(time.monotonic() - started, 2)
     if last is None or abs(chuteDeg(last)) >= CHECK_FROM_DEG:
-        steps = stepper.microsteps_for_degrees(CHECK_FROM_DEG * GEAR_RATIO)
+        steps = stepper.microsteps_for_degrees(CHECK_FROM_DEG * gear_ratio)
         return PositionCheck(
             time.time(), True, steps, CHECK_FROM_DEG, beyond_range=True,
             precision_deg=precision, duration_s=duration,

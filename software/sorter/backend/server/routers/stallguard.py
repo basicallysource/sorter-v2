@@ -142,7 +142,7 @@ class _ChuteRandomMotion(_SweepMotion):
     def _home_if_needed(self) -> None:
         if bool(getattr(self._chute, "homed", False)):
             return
-        from subsystems.distribution.chute import HOME_SPEED_MICROSTEPS_PER_SEC, HOME_TIMEOUT_MS
+        from subsystems.distribution.chute_homing import HOME_SPEED_MICROSTEPS_PER_SEC, HOME_TIMEOUT_MS
 
         st = self._chute.stepper
         st.enabled = True

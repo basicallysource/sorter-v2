@@ -23,6 +23,8 @@ from typing import Any, Dict
 
 import serial
 
+from .door import Door
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -402,7 +404,7 @@ def calibrate_servo(bus: ScServoBus, servo_id: int) -> tuple[int, int]:
 # WaveshareServoMotor — drop-in replacement for ServoMotor
 # ---------------------------------------------------------------------------
 
-class WaveshareServoMotor:
+class WaveshareServoMotor(Door):
     """A servo motor controlled via the Waveshare SC serial bus.
 
     Presents the same interface as `hardware.sorter_interface.ServoMotor`
@@ -533,6 +535,12 @@ class WaveshareServoMotor:
 
     @property
     def available(self) -> bool:
+        return True
+
+    @property
+    def is_calibrated(self) -> bool:
+        # Its open and closed places are its own stored limits, found when it
+        # was first set up.
         return True
 
     def open(self, open_angle: int | None = None) -> bool:

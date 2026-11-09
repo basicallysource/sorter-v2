@@ -27,7 +27,8 @@ from chute_calibrations import (
 )
 from server import shared_state
 from server.routers.steppers import _ensure_not_homing, _stop_all_steppers
-from subsystems.distribution.chute import CHUTE_MAX_ANGLE
+from subsystems.distribution.chute_homing import measureTurn
+from subsystems.distribution.chute_variants import VARIANTS
 
 router = APIRouter()
 
@@ -66,6 +67,17 @@ class ChuteMoveToAnglePayload(BaseModel):
     angle: float
 
 
+class ChuteVariantPayload(BaseModel):
+    variant: str
+
+
+class ChuteDiscardBinPayload(BaseModel):
+    # The bin, counted from 0, or all three left out to have none.
+    layer_index: Optional[int] = None
+    section_index: Optional[int] = None
+    bin_index: Optional[int] = None
+
+
 class ChuteVirtualBinPayload(BaseModel):
     num_sections: int
     bins_in_section: int
@@ -91,10 +103,13 @@ def _live_chute() -> Any | None:
 
 
 def _board_defaults() -> Dict[str, Any]:
-    """The distribution board's own home input and polarity, used where none is
-    saved. Only the running chute knows them; it was built with them."""
+    """The distribution board's own home input, polarity and kind of chute, used
+    where none is saved. Only the running chute knows them; it was built with them."""
     chute = _live_chute()
     defaults: Dict[str, Any] = {}
+    variant = getattr(chute, "variant", None)
+    if variant is not None:
+        defaults["variant_key"] = variant.key
     channel = _pin_channel(getattr(chute, "home_pin", None))
     if channel is not None:
         defaults["home_pin_channel"] = channel
@@ -120,7 +135,36 @@ def _chute_payload(settings: ChuteSettings) -> Dict[str, Any]:
         "position_check": settings.position_check,
         "position_check_every": settings.position_check_every,
         "home_pin_channel": settings.home_pin_channel,
-        "max_angle_deg": CHUTE_MAX_ANGLE,
+        # Which kind of chute this is, and what follows from it.
+        "variant": settings.variant.key,
+        "variant_label": settings.variant.label,
+        "variant_saved": "variant" in settings.saved,
+        "variants": [_variant_payload(variant) for variant in VARIANTS.values()],
+        "turns_freely": settings.variant.turns_freely,
+        "falls_through": settings.variant.falls_through,
+        "fixed_bottom_door": settings.variant.fixed_bottom_door,
+        "home_on": settings.variant.home_on,
+        # None on a chute that turns without limit.
+        "max_angle_deg": settings.variant.travel_deg,
+        "gear_ratio": round(settings.gear_ratio or settings.variant.gear_ratio, 5),
+        "gear_ratio_measured": settings.gear_ratio is not None,
+        "discard_bin": (
+            None
+            if settings.discard_bin is None
+            else dict(zip(("layer_index", "section_index", "bin_index"), settings.discard_bin))
+        ),
+    }
+
+
+def _variant_payload(variant: Any) -> Dict[str, Any]:
+    return {
+        "key": variant.key,
+        "label": variant.label,
+        "summary": variant.summary,
+        "turns_freely": variant.turns_freely,
+        "falls_through": variant.falls_through,
+        "fixed_bottom_door": variant.fixed_bottom_door,
+        "home_on": variant.home_on,
     }
 
 
@@ -256,6 +300,85 @@ def get_live_chute_status() -> Dict[str, Any]:
     return _live_chute_status()
 
 
+@router.post("/api/hardware-config/chute/variant")
+def save_chute_variant(payload: ChuteVariantPayload) -> Dict[str, Any]:
+    """Say which kind of chute this machine has. The running hardware keeps the
+    kind it started with until it is started again."""
+    try:
+        settings = saveChuteSettings({"variant": payload.variant}, **_board_defaults())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    chute = _live_chute()
+    restart_needed = chute is not None and getattr(chute.variant, "key", None) != settings.variant.key
+    return {
+        "ok": True,
+        "settings": _chute_payload(settings),
+        "restart_needed": restart_needed,
+        "message": (
+            f"Saved: {settings.variant.label}. Start the hardware again to use it."
+            if restart_needed
+            else f"Saved: {settings.variant.label}."
+        ),
+    }
+
+
+@router.post("/api/hardware-config/chute/discard-bin")
+def save_chute_discard_bin(payload: ChuteDiscardBinPayload) -> Dict[str, Any]:
+    """Choose the bin that takes the pieces no other bin wants, or none."""
+    indices = (payload.layer_index, payload.section_index, payload.bin_index)
+    if all(index is None for index in indices):
+        discard_bin = None
+    elif any(index is None for index in indices):
+        raise HTTPException(status_code=400, detail="Give the layer, section and bin, or none of them.")
+    else:
+        discard_bin = [int(index) for index in indices]  # type: ignore[arg-type]
+        layout = getBinLayout()
+        layer, section, bin_index = discard_bin
+        if (
+            layer >= len(layout.layers)
+            or section >= len(layout.layers[layer].sections)
+            or bin_index >= len(layout.layers[layer].sections[section])
+        ):
+            raise HTTPException(status_code=400, detail="There is no such bin in this machine's layout.")
+    settings, applied_live = _save_and_apply_chute({"discard_bin": discard_bin})
+    return {"ok": True, "settings": _chute_payload(settings), "applied_live": applied_live}
+
+
+@router.post("/api/hardware-config/chute/calibrate/measure-turn")
+def calibrate_chute_measure_turn() -> Dict[str, Any]:
+    """Measure how many motor turns one turn of this chute takes, on a chute
+    that turns without limit: home, turn once round to the magnet again, save
+    the ratio, home again."""
+    _ensure_not_homing("measure the chute's turn")
+    chute = _live_chute()
+    if chute is None:
+        raise HTTPException(status_code=503, detail="Hardware not initialized. Power on the motors first.")
+    if not chute.variant.turns_freely:
+        raise HTTPException(
+            status_code=409,
+            detail=f"The {chute.variant.label} cannot turn all the way round, so its turn cannot be measured.",
+        )
+    try:
+        if not chute.homed and not chute.home():
+            raise HTTPException(status_code=409, detail="The chute could not find its home, so its turn was not measured.")
+        ratio = measureTurn(chute)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Measuring the chute's turn failed: {exc}")
+    if ratio is None:
+        raise HTTPException(status_code=409, detail="The magnet did not come round. Check the sensor and that the chute turns freely.")
+    settings, _ = _save_and_apply_chute({"gear_ratio": ratio})
+    homed = bool(chute.home())
+    return {
+        "ok": True,
+        "gear_ratio": round(ratio, 5),
+        "homed": homed,
+        "settings": _chute_payload(settings),
+        "message": f"One turn of the chute is {ratio:.3f} turns of its motor. Saved.",
+    }
+
+
 @router.post("/api/hardware-config/chute/calibrate/find-endstop")
 def calibrate_chute_find_endstop() -> Dict[str, Any]:
     _ensure_not_homing("home the chute")
@@ -342,7 +465,9 @@ def _chute_reachability(
     num_sections: int, section_width_deg: float, first_section_offset_deg: float
 ) -> Dict[str, Any]:
     # For the active (or default) layout, report whether every bin's center
-    # angle lands inside the chute's reachable arc [0, CHUTE_MAX_ANGLE].
+    # angle lands inside the chute's travel, the way Chute.angleForVirtualBin
+    # judges it. A chute that turns without limit reaches them all.
+    travel = readChuteSettings(**_board_defaults()).variant.travel_deg
     layout = getBinLayout()
     unreachable: List[Dict[str, Any]] = []
     total = 0
@@ -359,7 +484,7 @@ def _chute_reachability(
                     section_width_deg,
                     first_section_offset_deg,
                 )
-                if angle < 0 or angle > CHUTE_MAX_ANGLE:
+                if travel is not None and angle % 360.0 > travel:
                     unreachable.append(
                         {
                             "layer_index": layer_index,

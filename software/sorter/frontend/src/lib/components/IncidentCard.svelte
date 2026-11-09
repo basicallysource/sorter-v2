@@ -1,7 +1,9 @@
 <script lang="ts" module>
 	/*
-		The open incident, as the backend describes it (incidents.describe):
-		what happened, one line of what to do, and the buttons that do it.
+		The open incident, or a warning beside it, as the backend describes it
+		(incidents.describe): what happened, one line of what to do, the buttons
+		that do it, and a page that tells more. A warning (the computer's
+		health) has no buttons: it goes when its condition ends.
 	*/
 	export type IncidentCardData = {
 		kind: string;
@@ -9,6 +11,7 @@
 		subject: string;
 		todo: string;
 		actions: { key: string; label: string }[];
+		link?: { href: string; label: string };
 		// A recovery procedure working on it (backend recovery/): which step of
 		// how many, what that step does, and how it went.
 		recovery?: {
@@ -57,6 +60,7 @@
 	tone="warning"
 	title={card.subject ? `${card.title} · ${card.subject}` : card.title}
 	class="shrink-0 max-lg:order-first"
+	actions={card.actions.length > 0 || card.link ? buttons : undefined}
 >
 	<p>{card.todo}</p>
 	{#if card.recovery}
@@ -80,16 +84,22 @@
 	{#if error}
 		<p class="mt-1.5 text-danger-ink">{error}</p>
 	{/if}
-	{#snippet actions()}
-		{#each card.actions as action, i (action.key)}
-			<Button
-				variant={i === 0 ? 'primary' : 'secondary'}
-				loading={pending === action.key}
-				disabled={pending !== null}
-				onclick={() => act(action.key)}
-			>
-				{action.label}
-			</Button>
-		{/each}
-	{/snippet}
 </Alert>
+
+{#snippet buttons()}
+	{#each card.actions as action, i (action.key)}
+		<Button
+			variant={i === 0 ? 'primary' : 'secondary'}
+			loading={pending === action.key}
+			disabled={pending !== null}
+			onclick={() => act(action.key)}
+		>
+			{action.label}
+		</Button>
+	{/each}
+	{#if card.link}
+		<Button href={card.link.href} variant={card.actions.length > 0 ? 'ghost' : 'secondary'}>
+			{card.link.label}
+		</Button>
+	{/if}
+{/snippet}

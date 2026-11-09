@@ -522,7 +522,11 @@ class Positioning(BaseState):
             return False
         if address.bin_index >= len(layer.sections[address.section_index].bins):
             return False
-        return self._isLayerUsable(address.layer_index) and self.chute.isBinReachable(address)
+        return (
+            self._isLayerUsable(address.layer_index)
+            and self._doorInTheWay(address.layer_index) is None
+            and self.chute.isBinReachable(address)
+        )
 
     def _routeToBin(self, piece, category_id: str, address: BinAddress) -> Optional[DistributionState]:
         """Set the doors for this bin's layer, mark the piece as on its way and
@@ -779,6 +783,21 @@ class Positioning(BaseState):
                     f"opening for passthrough failed: {exc}",
                 )
 
+    def _doorInTheWay(self, target_layer_index: int) -> int | None:
+        """A piece reaches a layer only past every door above it (the layers
+        before it in the list). One of those that cannot be opened, or whose
+        place is not known, may be shut and would catch the piece in the wrong
+        bin: then the layer cannot be reached, and this is that door's layer. A
+        layer switched off is the operator's own business and is not asked."""
+        if self.gc.disable_servos:
+            return None
+        for i in range(target_layer_index):
+            if not getattr(self.layout.layers[i], "enabled", True):
+                continue
+            if not self.irl.servos[i].can_open or not self._isLayerUsable(i):
+                return i
+        return None
+
     def _selectDoor(self, target_layer_index: int) -> bool:
         self._doors_commanded = []
         if self.gc.disable_servos:
@@ -789,20 +808,12 @@ class Positioning(BaseState):
 
         target_servo = self.irl.servos[target_layer_index]
 
-        # A piece reaches a layer only past every door above it (the layers
-        # before it in the list). One of those that cannot be opened, or whose
-        # place is not known, may be shut and would catch the piece in the wrong
-        # bin: then this layer cannot be reached. A layer switched off is the
-        # operator's own business and is not asked.
-        for i in range(target_layer_index):
-            above = self.irl.servos[i]
-            if not getattr(self.layout.layers[i], "enabled", True):
-                continue
-            if not above.can_open or not self._isLayerUsable(i):
-                self._markLayerUnavailable(
-                    target_layer_index, f"layer {i + 1}'s door above it cannot be opened"
-                )
-                return False
+        blocking = self._doorInTheWay(target_layer_index)
+        if blocking is not None:
+            self._markLayerUnavailable(
+                target_layer_index, f"layer {blocking + 1}'s door above it cannot be opened"
+            )
+            return False
 
         # Never trust shadow state: re-issue the full door configuration
         # before every dispense. Open every other usable layer (park), then

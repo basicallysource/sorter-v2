@@ -42,6 +42,9 @@ class ChuteVariant:
     falls_through: bool
     # The bottom layer's door has no servo and is always shut.
     fixed_bottom_door: bool
+    # The bins on each layer of a machine built with this chute, the top layer
+    # first: what a machine starts with until its own layout is saved.
+    layer_bins: tuple[int, ...]
 
     @property
     def turns_freely(self) -> bool:
@@ -57,6 +60,7 @@ CABLE_CAGE = ChuteVariant(
     home_on=HOME_ON_SWITCH,
     falls_through=True,
     fixed_bottom_door=False,
+    layer_bins=(12, 12, 12, 12),
 )
 
 SLIP_RING = ChuteVariant(
@@ -68,6 +72,8 @@ SLIP_RING = ChuteVariant(
     home_on=HOME_ON_MAGNET,
     falls_through=False,
     fixed_bottom_door=True,
+    # Quarters at the top, two layers of thirds, halves, and whole bins at the bottom.
+    layer_bins=(24, 18, 18, 12, 6),
 )
 
 VARIANTS: dict[str, ChuteVariant] = {variant.key: variant for variant in (CABLE_CAGE, SLIP_RING)}

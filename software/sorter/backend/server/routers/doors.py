@@ -74,6 +74,7 @@ class _Search:
 
 _lock = threading.Lock()
 _last_scan: list[Any] = []
+_scanned = False
 _watch: Optional[door_setup.HandWatch] = None
 _search: Optional[_Search] = None
 
@@ -217,6 +218,9 @@ def _state() -> Dict[str, Any]:
         "layer_count": layer_count,
         "fixed_layer": fixed_layer,
         "layers": layers,
+        # Whether the bus has been scanned since the backend started: until it
+        # has, an empty list of servos says nothing.
+        "scanned": _scanned,
         "servos": servos,
         "shared_ids": [servo["servo_id"] for servo in servos if servo["state"] == "shared"],
         "watching": _watch is not None,
@@ -243,11 +247,12 @@ def get_doors() -> Dict[str, Any]:
 @router.post("/api/doors/scan")
 def scan_doors() -> Dict[str, Any]:
     """Ask the bus what is on it."""
-    global _last_scan
+    global _last_scan, _scanned
     link = _link()
     try:
         with _lock:
             _last_scan = door_setup.scanBus(link)
+            _scanned = True
     except ServoLinkError as exc:
         raise _fail(exc)
     found = [servo for servo in _last_scan if servo.state == "ok"]

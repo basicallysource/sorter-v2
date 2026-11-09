@@ -105,6 +105,12 @@ def checkPosition(chute: "Chute") -> PositionCheck:
     def chuteDeg(steps: float) -> float:
         return stepper.degrees_for_microsteps(steps) / gear_ratio
 
+    if last is not None and chute.variant.turns_freely:
+        # A chute that turns without limit has counted its turns too: the drift
+        # is what is left over a whole number of them.
+        turn = stepper.total_steps_per_rev * gear_ratio
+        last = int(round((last + turn / 2) % turn - turn / 2))
+
     interval_s = homing_s / reads if reads else None
     precision = round(chuteDeg(abs(speed) * interval_s), 3) if interval_s else None
     duration = round(time.monotonic() - started, 2)

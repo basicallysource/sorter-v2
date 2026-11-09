@@ -268,11 +268,13 @@ class BusServoDoor(Door):
         return
 
     def feedback(self) -> dict[str, Any]:
+        # Asking is what finds a servo that has come back.
+        available = self.available
         info: dict[str, Any] = {
             "kind": "servo",
             "layer_index": self.layer_index,
             "servo_id": self.channel,
-            "available": self._servo is not None,
+            "available": available,
             "calibrated": self.is_calibrated,
             "closed_position": self._setting.closed,
             "open_position": self._setting.open,

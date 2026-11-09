@@ -76,6 +76,11 @@ def identifyBoard(gc: GlobalConfig, port: str) -> dict | None:
         except Exception as exc:
             gc.logger.info(f"Board on {port} did not answer GET_VERSION: {exc}")
             info["version"] = None
+        try:
+            # Its serial number, from firmware that reports it.
+            info["uid"] = json.loads(dev.send_command(BaseCommandCode.GET_OBSERVABILITY, 0, b"").payload.decode()).get("uid")
+        except Exception:
+            info["uid"] = None
         return info
     except Exception as exc:
         gc.logger.info(f"No responsive board on {port}: {exc}")

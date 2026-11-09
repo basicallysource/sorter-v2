@@ -24,6 +24,7 @@
 #include "hardware/pwm.h"
 #include "hardware/timer.h"
 #include "pico/multicore.h"
+#include "pico/unique_id.h"
 #include "pico/stdlib.h"
 #include <array>
 #include <stdio.h>
@@ -401,11 +402,17 @@ int dump_observability(char *buf, size_t buf_size) {
 #else
 #define OBSERVABILITY_SERVO_BUS ""
 #endif
+    // The microcontroller's own serial number, the one its USB port gives too: a
+    // host that reaches this board two ways (USB and the header) sees it is one board.
+    char uid[2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1];
+    pico_get_unique_board_id_string(uid, sizeof(uid));
+
     int n_bytes = snprintf(
         buf,
         buf_size,
-        "{\"hw\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s" OBSERVABILITY_SERVO_BUS "}",
+        "{\"hw\":\"%s\",\"uid\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s" OBSERVABILITY_SERVO_BUS "}",
         HW_ID,
+        uid,
         diag_pins_len > 0 ? diag_pins_buf : "[]",
         led_gpios_buf);
 

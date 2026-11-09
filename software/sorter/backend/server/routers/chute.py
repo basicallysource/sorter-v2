@@ -28,7 +28,7 @@ from chute_calibrations import (
 from server import shared_state
 from server.routers.steppers import _ensure_not_homing, _stop_all_steppers
 from subsystems.distribution.chute_homing import measureTurn
-from subsystems.distribution.chute_variants import VARIANTS
+from subsystems.distribution.chute_variants import HOME_ON_MAGNET, VARIANTS
 
 router = APIRouter()
 
@@ -394,16 +394,26 @@ def calibrate_chute_find_endstop() -> Dict[str, Any]:
         homed = bool(chute.home())
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to find chute endstop: {e}")
+    on_magnet = chute.variant.home_on == HOME_ON_MAGNET
     if not homed:
         raise HTTPException(
             status_code=409,
-            detail="Chute homing stopped before the endstop triggered. It's possible that the switch is not making good contact with the chute. Try moving it closer to the chute.",
+            detail=(
+                "The chute turned a full turn and its home sensor never saw the magnet. Check that the "
+                "sensor is plugged in, that the magnet is fitted, and that the chute turns."
+                if on_magnet
+                else "Chute homing stopped before the endstop triggered. It's possible that the switch is not making good contact with the chute. Try moving it closer to the chute."
+            ),
         )
 
     return {
         "ok": True,
         "status": _live_chute_status(),
-        "message": "Step 1 complete. Chute moved slowly until the endstop was found and then moved to bin 1.",
+        "message": (
+            "The chute found its magnet and stands at home."
+            if on_magnet
+            else "Step 1 complete. Chute moved slowly until the endstop was found and then moved to bin 1."
+        ),
     }
 
 

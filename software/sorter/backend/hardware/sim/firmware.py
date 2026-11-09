@@ -35,6 +35,7 @@ from .steppers import Tmc2209
 from .world import DIGITAL_INPUT_COUNT, DIGITAL_OUTPUT_COUNT, STEPPER_NAMES, World
 
 HW_ID = "basically_v1_5"
+UID = "5349D00000000001"  # a pretend board's serial number
 DEVICE_NAME = "DISTRIBUTION MB"
 FIRMWARE_VARIANT = "distribution-v1-5"
 FIRMWARE_VERSION = "firmware/v0.8.1-sim"
@@ -295,7 +296,10 @@ class Firmware:
     def observability(self) -> str:
         diag = json.dumps(self.diag_pins, separators=(",", ":"))
         leds = json.dumps(list(DIGITAL_OUTPUT_PINS), separators=(",", ":"))
-        return f'{{"hw":"{HW_ID}","diag_pins":{diag},"led_gpios":{leds},"servo_bus":true,"servo_guard":true}}'
+        return (
+            f'{{"hw":"{HW_ID}","uid":"{UID}","diag_pins":{diag},"led_gpios":{leds},'
+            '"servo_bus":true,"servo_guard":true}'
+        )
 
     def version_json(self) -> str:
         return json.dumps(

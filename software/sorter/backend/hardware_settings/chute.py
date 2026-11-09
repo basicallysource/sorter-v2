@@ -170,6 +170,7 @@ def readChuteSettings(
         if "first_bin_center" in saved:
             saved.add("first_section_offset_deg")
     saved -= set(LEGACY_GEOMETRY)
+    variant = variantFor(read("variant", variant_key, _isVariant, f"one of {', '.join(VARIANTS)}"))
     return ChuteSettings(
         num_sections=num_sections,
         section_width_deg=section_width,
@@ -180,11 +181,15 @@ def readChuteSettings(
             "operating_speed_microsteps_per_second", DEFAULT_OPERATING_SPEED_MICROSTEPS_PER_SEC,
             _positiveInt, "a whole number of µsteps/s above 0",
         ),
-        position_check=read("position_check", DEFAULT_POSITION_CHECK, _isBool, "true or false"),
+        # A chute that turns without limit never comes back to a stop, so
+        # whatever its position is off by stays: it checks itself unless told not to.
+        position_check=read(
+            "position_check", DEFAULT_POSITION_CHECK or variant.turns_freely, _isBool, "true or false"
+        ),
         position_check_every=read(
             "position_check_every", DEFAULT_POSITION_CHECK_EVERY, _positiveInt, "a whole number of pieces above 0",
         ),
-        variant_key=read("variant", variant_key, _isVariant, f"one of {', '.join(VARIANTS)}"),
+        variant_key=variant.key,
         gear_ratio=_floatOrNone(read("gear_ratio", None, _isGearRatio, "a number of motor turns above 0")),
         discard_bin=_binOrNone(read("discard_bin", None, _isBin, "[layer, section, bin], counted from 0")),
         saved=frozenset(saved),

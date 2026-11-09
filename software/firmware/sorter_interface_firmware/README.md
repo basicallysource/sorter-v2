@@ -115,7 +115,7 @@ A `WRITE` to a watched servo ends its watch: the host has taken it over. The boa
 
 The v1.5 board sits on the host's header, and the host can talk to it there instead of over USB: a UART at 1.5 Mbps, 8N1, through the board's isolator, with GP7 sending and GP19 receiving. The commands, framing and replies are the same as over USB, and a reply goes back the way its command came. USB keeps working beside it. On an Orange Pi 5 the link is UART0 (`overlays=uart0-m2`, header pins 8 and 10, `/dev/ttyS0`), and header pin 15 high holds the Pico in reset, so drive it low.
 
-The RP2040 takes new firmware only over USB, so the first flash needs USB.
+The RP2040 takes new firmware only over USB, so a flash needs the board's USB port plugged into the host. `GET_OBSERVABILITY` reports the microcontroller's serial number as `"uid"`, the same one its USB port gives, so a host that reaches the board both ways knows it is one board: it uses it over one link, and flashes it over USB.
 
 ## Code Style
 - Follows LLVM style (see `.clang-format`).

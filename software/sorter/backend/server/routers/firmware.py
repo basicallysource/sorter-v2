@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import threading
@@ -15,7 +16,7 @@ from pydantic import BaseModel
 
 import server.shared_state as shared_state
 from hardware import firmware_flash
-from hardware.bus import MCUBus, MCUDevice, header_uarts
+from hardware.bus import BaseCommandCode, MCUBus, MCUDevice, header_uarts, usb_port_of
 from hardware.firmware_flash import FlashCancelled, FlashError
 
 router = APIRouter()
@@ -198,6 +199,7 @@ def _liveBoards() -> Optional[List[Dict[str, Any]]]:
 
 def _probeBoards(gc: Any) -> List[Dict[str, Any]]:
     boards: List[Dict[str, Any]] = []
+    seen_uids: set[str] = set()
     for port in MCUBus.enumerate_buses():
         bus: Optional[MCUBus] = None
         try:
@@ -214,6 +216,14 @@ def _probeBoards(gc: Any) -> List[Dict[str, Any]]:
                     version = dev.get_version()
                 except Exception:
                     pass
+                try:
+                    uid = json.loads(dev.send_command(BaseCommandCode.GET_OBSERVABILITY, 0, b"").payload.decode()).get("uid")
+                except Exception:
+                    uid = None
+                if uid:
+                    if uid in seen_uids:
+                        continue  # one board reached two ways: listed once, on its first link
+                    seen_uids.add(uid)
                 boards.append(
                     {
                         "device_name": info.get("device_name", f"unknown@{address}"),
@@ -507,13 +517,15 @@ def _runFlashJob(gc: Any, job: FlashJob) -> None:
             port = job.request.board_port
             if not port:
                 raise FlashError("No board_port given (required unless recovery mode).")
-            if port in header_uarts():
-                raise FlashError(
-                    f"The board on {port} is reached over a UART, and it takes firmware "
-                    "only over its USB port. Connect its USB and flash it there."
-                )
             job.setPhase("identifying", f"Checking board on {port}...")
             info = firmware_flash.identifyBoard(gc, port)
+            if port in header_uarts() and usb_port_of((info or {}).get("uid")) is None:
+                # The bootloader only takes firmware over USB: sent there with no
+                # USB cable, the board would sit in it until its power was cycled.
+                raise FlashError(
+                    f"The board on {port} is reached over its header, and it takes firmware "
+                    "only over USB. Plug its USB port into this computer, then flash it."
+                )
             if info is None:
                 raise FlashError(
                     f"No responsive board on {port}. If it is blank or wedged, "

@@ -38,7 +38,9 @@ class Chute:
     start_angle: float = 120.0  # where the chute is when the world starts
     magnet_angle: float = 0.0  # the middle of the magnet window
     magnet_width: float = 18.0
-    active_level: int = 0  # the input reads this while the sensor is active
+    # The level the input reads while the sensor is active. The v1.5 board's
+    # hall module reads high over the magnet.
+    active_level: int = 1
     forced: bool | None = None  # held active or inactive by hand, or None
 
     @property
@@ -80,7 +82,8 @@ class World:
         self._stopping = threading.Event()
 
     def read_input(self, channel: int) -> int:
-        """An input pin's level. Inputs are pulled up; the hall sensor pulls its low."""
+        """An input pin's level. The hall sensor's input follows the magnet; any
+        other reads high, as a pulled-up input with nothing on it does."""
         if channel == HALL_INPUT:
             return self.chute.level()
         return 1

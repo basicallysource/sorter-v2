@@ -18,7 +18,7 @@ Behind it is a small world that moves in real time:
   counts every write, so the backend's driver set-up and its check pass.
 - **The chute**: its stepper turns it through a 6:1 drive (9,600 microsteps a
   turn at 8 microsteps), without limit. A hall sensor on digital input 0 reads
-  active (low) while the chute is inside an 18 degree magnet window, at 0 degrees
+  high while the chute is inside an 18 degree magnet window, at 0 degrees
   by default; the chute starts at 120 degrees. `HOME` runs until the input reads
   the level asked for, stops dead and zeroes the count, as the firmware does.
 - **Serial bus servos** on the board's servo bus: Feetech SC15s by default, each

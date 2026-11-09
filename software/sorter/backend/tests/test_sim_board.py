@@ -124,11 +124,11 @@ def test_a_stepper_move_takes_time_and_ends_where_asked(rig):
 def test_homing_the_chute_on_its_hall_sensor(rig):
     chute = rig.interface.steppers[0]
     hall = rig.interface.digital_inputs[0]
-    assert hall.value is True, "inactive: pulled up"
-    chute.home(2000, hall, home_pin_active_high=False)
+    assert hall.value is False, "away from the magnet, the sensor reads low"
+    chute.home(2000, hall, home_pin_active_high=True)
     wait(lambda: chute.stopped, what="homing")
     assert chute.position == 0
-    assert hall.value is False, "the hall sensor is active where it stopped"
+    assert hall.value is True, "the hall sensor reads high where it stopped, over the magnet"
     angle = rig.sim.world.chute.angle
     assert abs(angle - (360 - 9)) < 0.5, f"stopped at the edge of the magnet window, not {angle}"
 

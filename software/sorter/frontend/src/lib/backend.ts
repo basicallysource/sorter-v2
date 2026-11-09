@@ -1,4 +1,6 @@
-const BACKEND_PORT = 8000;
+// A machine's backend is on 8000. VITE_SORTER_API_PORT moves it for development,
+// where several backends share one computer (the backend takes SORTER_API_PORT).
+const BACKEND_PORT = Number(import.meta.env.VITE_SORTER_API_PORT ?? 8000);
 
 export function getBackendHttpBase(): string {
 	if (typeof window === 'undefined') return `http://localhost:${BACKEND_PORT}`;

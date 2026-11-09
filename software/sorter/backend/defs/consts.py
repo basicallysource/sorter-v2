@@ -1,3 +1,5 @@
+import os
+
 # Main-loop pacing. The loop runs controller.step() then sleeps this long.
 # With the Rev03 vision refactor the coordinator step is ~15 ms (was ~590 ms),
 # so the sleep is now the dominant term in the loop period. 10 ms gives a
@@ -32,5 +34,7 @@ CLASSIFICATION_CHANNEL_CLOCKWISE = True
 
 # The port the backend API serves on. main.py and api_only.py bind it, and the
 # Hive heartbeat reports it (machine_network.py) so the machine's Hive page can
-# point API users at it.
-BACKEND_PORT = 8000
+# point API users at it. A machine always uses 8000; SORTER_API_PORT moves it for
+# development, where several backends share one computer (the UI built for it
+# needs the same port in VITE_SORTER_API_PORT).
+BACKEND_PORT = int(os.environ.get("SORTER_API_PORT", "8000"))

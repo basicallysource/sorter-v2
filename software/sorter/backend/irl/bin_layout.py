@@ -118,58 +118,28 @@ class DistributionLayout:
 VALID_BIN_SIZES = {"small", "medium", "big"}
 
 
-DEFAULT_BIN_LAYOUT = BinLayoutConfig(
-    layers=[
-        LayerConfig(
-            sections=[
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-            ],
-        ),
-        LayerConfig(
-            sections=[
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-            ],
-        ),
-        LayerConfig(
-            sections=[
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-            ],
-        ),
-        LayerConfig(
-            sections=[
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-                ["medium", "medium"],
-            ],
-        ),
-    ]
-)
+DEFAULT_SECTION_COUNT = 6
 
 
-# The default layout has 12-bin layers, so give each the 12-bin size limit.
-for _default_layer in DEFAULT_BIN_LAYOUT.layers:
-    if _default_layer.max_dimension_mm is None:
-        _default_layer.max_dimension_mm = defaultMaxDimensionForBinCount(
-            _binCountOf(_default_layer.sections)
+def defaultBinLayout() -> BinLayoutConfig:
+    """The layout a machine has until one is saved: the layers its kind of chute
+    is built with (chute_variants.py), six sections round, each layer with its
+    bin count's size limit."""
+    from hardware_settings.chute import readChuteSettings
+
+    try:
+        layer_bins = readChuteSettings().variant.layer_bins
+    except machine_toml.MachineTomlError:
+        from subsystems.distribution.chute_variants import DEFAULT_VARIANT
+
+        layer_bins = DEFAULT_VARIANT.layer_bins
+    layers = []
+    for bin_count in layer_bins:
+        sections = [["medium"] * (bin_count // DEFAULT_SECTION_COUNT) for _ in range(DEFAULT_SECTION_COUNT)]
+        layers.append(
+            LayerConfig(sections=sections, max_dimension_mm=defaultMaxDimensionForBinCount(bin_count))
         )
+    return BinLayoutConfig(layers=layers)
 
 
 def _parseLayersDict(data: dict) -> BinLayoutConfig | None:
@@ -292,7 +262,7 @@ def getBinLayout() -> BinLayoutConfig:
     if toml_result is not None:
         return toml_result
 
-    return DEFAULT_BIN_LAYOUT
+    return defaultBinLayout()
 
 
 def saveBinLayout(config: BinLayoutConfig) -> None:

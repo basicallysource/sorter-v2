@@ -146,7 +146,11 @@ def findTravel(
         open_ended: list[str] = []
         stops: dict[int, int] = {}
         for direction, limit, name in ((-1, low_limit, "low"), (1, high_limit, "high")):
-            said("Turning the door slowly one way until it stops" if direction < 0 else "And slowly the other way")
+            said(
+                "Turning the door slowly one way until it stops"
+                if direction < 0
+                else "Turning the door slowly the other way until it stops"
+            )
             servo.probe(direction, limit=limit)
             report = _waitProbe(servo, cancelled)
             if report.state == GuardState.CONTACT:

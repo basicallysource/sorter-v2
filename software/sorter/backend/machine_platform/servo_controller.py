@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
 import serial.tools.list_ports
 
@@ -10,9 +10,12 @@ from global_config import GlobalConfig
 from hardware.door import Door
 from hardware.feetech.link import ServoLink
 from hardware_settings.doors import BACKEND_BUS, DoorSetting, readDoorSettings
-from irl.parse_user_toml import ServoChannelConfig, WaveshareServoConfig
 from machine_platform.control_board import ControlBoard
 from machine_platform.doors import BusServoDoor, FixedDoor, MissingDoor, releaseAll
+
+if TYPE_CHECKING:
+    # irl imports this package, so its types are only named here.
+    from irl.parse_user_toml import ServoChannelConfig, WaveshareServoConfig
 
 
 @dataclass(frozen=True)

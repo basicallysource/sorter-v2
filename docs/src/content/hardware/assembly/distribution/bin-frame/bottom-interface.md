@@ -57,6 +57,11 @@ The bottom interface is the Lazy Susan bearing assembly the chute rests and spin
   </figure>
 </div>
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>Printing the extrusion mount:</strong> the STL does not sit flat on the plate, and the slicer will warn about floating regions. Use <strong>Place on face</strong> and pick the large 160 × 89 mm face, so the 28 mm thickness stands up. A few small regions may still be flagged around the bolt holes.</p>
+</div>
+
 The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in steps 5 to 10, and its fasteners are called out inline at each step.
 
 {% include fastener-legend.html %}

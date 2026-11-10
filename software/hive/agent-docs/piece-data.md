@@ -70,6 +70,10 @@ file endpoints (crops, piece images, control data, samples, and the older
 - On S3 a file up to 8 MB goes in one `put_object`, not through a transfer
   manager.
 
+While the web process is overloaded these file endpoints answer 429 before
+any of that runs, and the sorter sends the data again later
+([load-shedding.md](load-shedding.md)).
+
 A crop with its file is three statements (token, crop, watermark), none
 compiled again, around the storage write; `tests/test_machine_ingest.py`
 holds the line.

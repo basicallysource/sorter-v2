@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from app import background
 from app.config import settings
 from app.database import engine
+from app.middleware.load_shed import load_shedder
 from app.middleware.request_timing import request_stats
 from app.models.job import Job
 from app.services import job_queue
@@ -47,6 +48,7 @@ def server_status(db: Session) -> dict[str, Any]:
         "generated_at": _iso(datetime.now(timezone.utc)),
         "process": _part(_process),
         "requests": _part(request_stats.snapshot),
+        "load_shed": _part(load_shedder.snapshot),
         "workers": _db_part(db, _workers),
         "jobs": _db_part(db, _jobs),
         "database": _db_part(db, _database),

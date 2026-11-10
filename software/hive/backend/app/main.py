@@ -21,6 +21,7 @@ from app.errors import (
     unhandled_exception_handler,
 )
 from app.logging_config import configure_app_logging
+from app.middleware.load_shed import LoadShedMiddleware
 from app.middleware.request_timing import RequestTimingMiddleware
 from app.rate_limiting import rate_limit_exceeded_handler
 from app.routers import (
@@ -94,6 +95,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Inside the timing middleware, so a refused upload still counts on the Server page.
+app.add_middleware(LoadShedMiddleware)  # app/middleware/load_shed.py
 app.add_middleware(RequestTimingMiddleware)  # added last, so outermost: app/middleware/request_timing.py
 
 app.add_exception_handler(APIError, api_error_handler)

@@ -75,7 +75,6 @@ designed, not the way they print. Check each part before you slice it.
 
 <ul class="bulleted-list">
   <li><strong>Do not use auto orient.</strong> "Optimize orientation" and "auto rotate" in Bambu Studio, Orca and PrusaSlicer pick their own face. That can put a gear tooth or a bracket arm across the layer lines, where it snaps in use. Choose the face yourself with Place on face.</li>
-  <li><strong>"Floating regions" warning:</strong> the part is not sitting on a flat face. Turn it with Place on face and slice again. The Lazy Susan extrusion mount is one: lay it on its large 160 × 89 mm face.</li>
   <li><strong>Moving a part is always fine.</strong> Slide it around the plate, or spin it flat (around Z). That does not change which face is down.</li>
   <li><strong>Parts import off centre, and some import below or above the plate.</strong> They are exported where they sit in the machine. Move the part onto the plate and carry on. That is normal and it is not a broken file.</li>
   <li><strong>The NEMA bracket needs a spin.</strong> It is 255.9 mm across as it comes and an A1 bed is 256 mm, so it slices with no room for a brim. Rotate it about 25 degrees flat on the plate and it clears with about 28 mm to spare.</li>

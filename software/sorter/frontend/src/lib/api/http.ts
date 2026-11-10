@@ -90,6 +90,17 @@ export function postJson<T>(base: string, path: string, body?: unknown, options:
 	return request<T>(base, path, { ...options, method: 'POST', body });
 }
 
+// What a refusal for the hardware's state (backend server/hardware_needs.py)
+// says the hardware needs, so a page can offer that button: start it, home it,
+// wait for it, or stop it. Null for any other failure.
+export type HardwareNeeds = 'start' | 'home' | 'wait' | 'stop';
+
+export function hardwareNeeds(e: unknown): HardwareNeeds | null {
+	if (!(e instanceof ApiError) || !e.body || typeof e.body !== 'object') return null;
+	const needs = (e.body as { needs?: unknown }).needs;
+	return needs === 'start' || needs === 'home' || needs === 'wait' || needs === 'stop' ? needs : null;
+}
+
 // What to show for a caught error.
 export function errorMessage(e: unknown, fallback = 'Something went wrong.'): string {
 	if (e instanceof Error && e.message) return e.message;

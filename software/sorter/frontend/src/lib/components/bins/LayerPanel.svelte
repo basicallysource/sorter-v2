@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import ArchiveX from '@lucide/svelte/icons/archive-x';
 	import FolderOutput from '@lucide/svelte/icons/folder-output';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -39,6 +40,7 @@
 		position = 'middle',
 		discardChoosable = false,
 		onToggleDiscard = () => {},
+		binNotice,
 		onToggleEnabled,
 		onEmptyLayer,
 		onResetLayer,
@@ -80,6 +82,8 @@
 		position?: 'top' | 'middle' | 'bottom' | 'only';
 		discardChoosable?: boolean;
 		onToggleDiscard?: (bin: BinInfo) => void;
+		// Shown in a bin's card, under its name (BinCard's `notice`).
+		binNotice?: Snippet<[BinInfo]>;
 		onToggleEnabled: (enabled: boolean) => void;
 		onEmptyLayer: () => void;
 		onResetLayer: () => void;
@@ -192,6 +196,7 @@
 							searchState={searchActive ? (searchMatch(bin) ? 'match' : 'miss') : 'off'}
 							{discardChoosable}
 							onToggleDiscard={() => onToggleDiscard(bin)}
+							notice={binNotice}
 							onOpenDetails={() => onOpenDetails(bin)}
 							onMoveTo={() => onMoveTo(bin)}
 							onEmpty={() => onEmptyBin(bin)}

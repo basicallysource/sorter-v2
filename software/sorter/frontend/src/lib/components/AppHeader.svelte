@@ -7,15 +7,14 @@
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Menu from '$lib/components/ui/Menu.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
-	import {
-		getBackendHttpBase,
-		getBackendWsBase,
-		machineHttpBaseUrlFromWsUrl,
-		machineWsUrlFromHttpBaseUrl,
-		requestBackendRestart
-	} from '$lib/backend';
+	import { requestBackendRestart } from '$lib/backend';
 	import SortingProfileDropdown from '$lib/components/SortingProfileDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
+	import {
+		homeSelectedMachine,
+		selectedBaseUrl,
+		startSelectedMachine
+	} from '$lib/machines/system-actions';
 	import { machineDowntime } from '$lib/stores/machineDowntime.svelte';
 	import { userConfig } from '$lib/stores/userConfig.svelte';
 	import { recordsViews } from '$lib/records/tabs';
@@ -47,39 +46,7 @@
 	let rebootTimedOut = $state(false);
 
 	function currentBackendBaseUrl(): string {
-		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? getBackendHttpBase();
-	}
-
-	function currentBackendWsUrl(): string {
-		return (
-			manager.selectedMachine?.url ??
-			machineWsUrlFromHttpBaseUrl(currentBackendBaseUrl()) ??
-			`${getBackendWsBase()}/ws`
-		);
-	}
-
-	function keepSystemStatusFresh(baseUrl: string) {
-		const wsUrl = machineWsUrlFromHttpBaseUrl(baseUrl) ?? currentBackendWsUrl();
-		manager.ensureConnected(wsUrl);
-		manager.queueSystemStatusRefreshes(baseUrl);
-	}
-
-	function applySystemActionResponse(
-		payload: Record<string, unknown> | null,
-		fallbackState: string,
-		fallbackStep: string | null
-	) {
-		const state =
-			typeof payload?.hardware_state === 'string' ? payload.hardware_state : fallbackState;
-		const step = typeof payload?.message === 'string' ? payload.message : fallbackStep;
-		const no_power_development_mode =
-			manager.selectedMachine?.systemStatus?.no_power_development_mode ?? false;
-		manager.applySystemStatusToSelected({
-			hardware_state: state,
-			hardware_error: null,
-			homing_step: state === 'homing' || state === 'initializing' ? step : null,
-			no_power_development_mode
-		});
+		return selectedBaseUrl(manager);
 	}
 
 	const liveMachineName = $derived(
@@ -128,6 +95,8 @@
 		cameraActive === cameraTotal ? 'success' : cameraActive > 0 ? 'warning' : 'danger'
 	);
 
+	// The same words the backend's refusals name the state by
+	// (backend server/hardware_needs.py).
 	const hardwareStateLabel = $derived(
 		hardwareState === 'ready'
 			? 'Ready'
@@ -136,9 +105,9 @@
 				: hardwareState === 'homing'
 					? 'Homing'
 					: hardwareState === 'initializing'
-						? 'Initializing'
+						? 'Starting'
 						: hardwareState === 'initialized'
-							? 'Initialized'
+							? 'Started, not homed'
 							: hardwareState === 'error'
 								? 'Error'
 								: 'Unknown'
@@ -148,29 +117,7 @@
 		hardwareState === 'standby' || hardwareState === 'error' || hardwareState === 'initialized'
 	);
 
-	async function homeSystem() {
-		const baseUrl = currentBackendBaseUrl();
-		try {
-			const response = await fetch(`${baseUrl}/api/system/recover`, { method: 'POST' });
-			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-			applySystemActionResponse(payload, 'homing', 'Starting safe recovery...');
-			keepSystemStatusFresh(baseUrl);
-		} catch {
-			keepSystemStatusFresh(baseUrl);
-		}
-	}
-
-	async function initializeSystem() {
-		const baseUrl = currentBackendBaseUrl();
-		try {
-			const response = await fetch(`${baseUrl}/api/system/initialize`, { method: 'POST' });
-			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-			applySystemActionResponse(payload, 'initializing', 'Initializing hardware...');
-			keepSystemStatusFresh(baseUrl);
-		} catch {
-			keepSystemStatusFresh(baseUrl);
-		}
-	}
+	const homeSystem = () => homeSelectedMachine(manager);
 
 	async function togglePauseResume() {
 		const resuming = machineState === 'paused' || hardwareState === 'initialized';
@@ -299,9 +246,9 @@
 		...(hardwareState === 'standby' || hardwareState === 'error'
 			? [
 					{
-						label: 'Initialize without homing',
+						label: 'Start without homing',
 						icon: Power,
-						onselect: () => void initializeSystem()
+						onselect: () => void startSelectedMachine(manager)
 					}
 				]
 			: []),

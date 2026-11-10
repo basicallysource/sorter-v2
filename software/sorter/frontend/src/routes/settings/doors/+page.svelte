@@ -61,7 +61,7 @@
 {:else}
 	<DoorsSetup>
 		{#snippet notready()}
-			Start it from the menu at the top right (the three dots): Initialize without homing starts the
+			Start it from the menu at the top right (the three dots): Start without homing starts the
 			hardware without moving anything.
 		{/snippet}
 	</DoorsSetup>

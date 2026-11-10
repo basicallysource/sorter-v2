@@ -62,13 +62,6 @@
 		return `Request failed with status ${res.status}`;
 	}
 
-	function humanizeStepperError(message: string): string {
-		if (message.includes('Controller not initialized')) {
-			return 'Hardware not started. Press Home in the dashboard first.';
-		}
-		return message;
-	}
-
 	// The shakes a recovery procedure runs (backend recovery/profiles.py), by
 	// hand: the same list and the same code.
 	type Shake = { key: string; label: string; blurb: string };
@@ -96,7 +89,7 @@
 				method: 'POST'
 			});
 			if (!res.ok) {
-				throw new Error(humanizeStepperError(await readErrorMessage(res)));
+				throw new Error(await readErrorMessage(res));
 			}
 		} catch (e: any) {
 			errorMessage = e?.message ?? 'Could not shake the channel';
@@ -122,7 +115,7 @@
 				{ method: 'POST' }
 			);
 			if (!res.ok) {
-				throw new Error(humanizeStepperError(await readErrorMessage(res)));
+				throw new Error(await readErrorMessage(res));
 			}
 		} catch (e: any) {
 			errorMessage = e?.message ?? 'Could not move channel';

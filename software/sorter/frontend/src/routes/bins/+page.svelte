@@ -26,7 +26,10 @@
 	import { onMount } from 'svelte';
 	import { getBinsLayout } from '$lib/api/bins';
 	import { saveDiscardBin, type BinAddress } from '$lib/api/chute';
-	import { errorMessage } from '$lib/api/http';
+	import { errorMessage, hardwareNeeds, postJson, type HardwareNeeds } from '$lib/api/http';
+	import { homeSelectedMachine } from '$lib/machines/system-actions';
+	import House from '@lucide/svelte/icons/house';
+	import X from '@lucide/svelte/icons/x';
 
 	const manager = getMachinesContext();
 	// Active profile (id/name) — bin layouts are scoped to it. Local profiles carry a
@@ -61,6 +64,14 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let movingTo = $state<string | null>(null);
+	// A move to a bin that did not happen, shown in that bin's card.
+	let moveRefusal = $state<{
+		layerIndex: number;
+		sectionIndex: number;
+		binIndex: number;
+		message: string;
+		needs: HardwareNeeds | null;
+	} | null>(null);
 	let homing = $state(false);
 	let statusMsg = $state('');
 	let clearingStates = $state<ClearingState[]>([]);
@@ -345,29 +356,32 @@
 		movingTo = key;
 		statusMsg = '';
 		error = null;
+		moveRefusal = null;
 		try {
-			const res = await fetch(`${baseUrl()}/api/bins/move-to`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					layer_index: layerIndex,
-					section_index: sectionIndex,
-					bin_index: binIndex
-				})
+			const data = await postJson<{ target_angle: number }>(baseUrl(), '/api/bins/move-to', {
+				layer_index: layerIndex,
+				section_index: sectionIndex,
+				bin_index: binIndex
 			});
-			if (!res.ok) {
-				const detail = await res.json().catch(() => null);
-				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
-			}
-			const data = await res.json();
 			statusMsg = `Moved to ${data.target_angle}°`;
 			activeLayer = layerIndex;
 			currentAngle = data.target_angle;
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Move failed';
+			moveRefusal = {
+				layerIndex,
+				sectionIndex,
+				binIndex,
+				message: errorMessage(e, 'The chute did not move.'),
+				needs: hardwareNeeds(e)
+			};
 		} finally {
 			movingTo = null;
 		}
+	}
+
+	function homeFromBin() {
+		moveRefusal = null;
+		void homeSelectedMachine(manager);
 	}
 
 	async function homeChute() {
@@ -764,6 +778,7 @@
 		detailsOpen = false;
 		detailsBin = null;
 		movingTo = null;
+		moveRefusal = null;
 		homing = false;
 		clearingStates = [];
 		togglingLayerKey = null;
@@ -911,6 +926,24 @@
 			{#each layers as layer (layer.layer_index)}
 				{@const layerBusy = isLayerClearing(layer.layer_index)}
 				{@const layerIsActive = activeLayer === layer.layer_index}
+				{#snippet moveNotice(bin: BinInfo)}
+					{#if moveRefusal && moveRefusal.layerIndex === layer.layer_index && moveRefusal.sectionIndex === bin.section_index && moveRefusal.binIndex === bin.bin_index}
+						<Alert
+							tone={moveRefusal.needs ? 'warning' : 'danger'}
+							title="The chute did not move to bin {bin.global_index + 1}"
+						>
+							{moveRefusal.message}
+							<div class="mt-2 flex flex-wrap gap-2">
+								{#if moveRefusal.needs === 'home'}
+									<Button size="sm" variant="primary" icon={House} onclick={homeFromBin}>Home</Button>
+								{/if}
+								<Button size="sm" variant="ghost" icon={X} onclick={() => (moveRefusal = null)}>
+									Dismiss
+								</Button>
+							</div>
+						</Alert>
+					{/if}
+				{/snippet}
 				<LayerPanel
 					{layer}
 					isActive={layerIsActive}
@@ -946,6 +979,7 @@
 								: 'middle'}
 					discardChoosable={!fallsThrough}
 					onToggleDiscard={(bin) => void toggleDiscard(layer.layer_index, bin)}
+					binNotice={moveNotice}
 					onToggleEnabled={(enabled) => void toggleLayerEnabled(layer.layer_index, enabled)}
 					onEmptyLayer={() =>
 						void runBinAction(

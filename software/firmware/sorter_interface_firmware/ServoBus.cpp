@@ -32,6 +32,12 @@
 // return delay a servo can be set to (254 x 2 us).
 static const uint32_t REPLY_TIMEOUT_US = 2000;
 static const uint32_t SLACK_US = 200;
+// The line is left quiet this long between the end of one exchange and the start
+// of the next. A servo that has just answered is not listening again at once: an
+// SC15 sent its next instruction straight after its answer does not hear it, so of
+// the three instructions that start a guarded move the third went unanswered every
+// time (measured on a v1.5 board, where instructions a millisecond apart never did).
+static const uint32_t QUIET_GAP_US = 1000;
 
 static const size_t PACKET_OVERHEAD = 6; // FF FF ID LEN INSTR/STATUS CHECKSUM
 static const size_t MAX_PARAMS = 1 + SERVO_BUS_MAX_DATA; // A write's address and data
@@ -209,6 +215,9 @@ int ServoBus::transact(uint8_t id, uint8_t instruction, const uint8_t *params, s
     if (params_len > MAX_PARAMS) {
         return SERVO_BUS_NO_REPLY; // Nothing was sent
     }
+    while (!time_reached(_quiet_since_us + QUIET_GAP_US)) {
+        tight_loop_contents();
+    }
     uint8_t packet[PACKET_OVERHEAD + MAX_PARAMS];
     size_t length = 0;
     packet[length++] = 0xFF;
@@ -224,11 +233,14 @@ int ServoBus::transact(uint8_t id, uint8_t instruction, const uint8_t *params, s
     }
     packet[length++] = (uint8_t)~sum;
 
+    int result;
     if (!send(packet, length)) {
-        return SERVO_BUS_STUCK;
+        result = SERVO_BUS_STUCK;
+    } else if (id == SERVO_BUS_BROADCAST_ID && instruction == SERVO_BUS_INST_WRITE) {
+        result = 0;
+    } else {
+        result = receive(id, data, data_len);
     }
-    if (id == SERVO_BUS_BROADCAST_ID && instruction == SERVO_BUS_INST_WRITE) {
-        return 0;
-    }
-    return receive(id, data, data_len);
+    _quiet_since_us = time_us_32();
+    return result;
 }

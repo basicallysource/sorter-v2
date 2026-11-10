@@ -51,6 +51,8 @@ class ServoBus : public ServoWire {
     uint _rx_offset = 0;
     float _clkdiv = 1.0f;
     uint32_t _byte_time_us = 10;
+    // When the last exchange ended: the next one waits for the line to have been quiet.
+    uint32_t _quiet_since_us = 0;
 
     void stop();
     void start();

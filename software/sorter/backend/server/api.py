@@ -107,6 +107,12 @@ async def _machine_toml_error(_request: Request, exc: machine_toml.MachineTomlEr
     return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
+# A refusal for the hardware's state says what it needs beside its `detail`.
+from server import hardware_needs
+
+hardware_needs.installHandler(app)
+
+
 def _load_saved_api_keys_into_environment() -> None:
     saved_api_keys = get_api_keys()
     if saved_api_keys.get("openrouter"):

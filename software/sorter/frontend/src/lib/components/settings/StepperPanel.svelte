@@ -182,13 +182,6 @@
 		return value === null ? '--' : value.toFixed(digits);
 	}
 
-	function humanizeStepperError(message: string): string {
-		if (message.includes('Controller not initialized')) {
-			return 'Hardware not started. Press Start in the dashboard first.';
-		}
-		return message;
-	}
-
 	async function readErrorMessage(res: Response): Promise<string> {
 		try {
 			const data = await res.json();
@@ -365,7 +358,7 @@
 				method: 'POST'
 			});
 			if (!res.ok) {
-				errorMsg = humanizeStepperError(await readErrorMessage(res));
+				errorMsg = await readErrorMessage(res);
 				return;
 			}
 			statusMsg = `Pulsing ${DIRECTION_WORDS[direction]}.`;
@@ -402,7 +395,7 @@
 				{ method: 'POST' }
 			);
 			if (!res.ok) {
-				errorMsg = humanizeStepperError(await readErrorMessage(res));
+				errorMsg = await readErrorMessage(res);
 				return;
 			}
 			statusMsg = `Moving ${pulseDegrees}° ${DIRECTION_WORDS[direction]}.`;
@@ -424,7 +417,7 @@
 				method: 'POST'
 			});
 			if (!res.ok) {
-				errorMsg = humanizeStepperError(await readErrorMessage(res));
+				errorMsg = await readErrorMessage(res);
 				return;
 			}
 			statusMsg = 'Stopped.';

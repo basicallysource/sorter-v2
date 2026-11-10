@@ -25,8 +25,8 @@ from chute_calibrations import (
     listChuteCalibrationInstances,
     recordChuteCalibrationInstance,
 )
-from server import shared_state
-from server.routers.steppers import _ensure_not_homing, _stop_all_steppers
+from server import hardware_needs, shared_state
+from server.routers.steppers import _stop_all_steppers
 from subsystems.distribution.chute_homing import measureTurn
 from subsystems.distribution.chute_variants import HOME_ON_MAGNET, VARIANTS
 
@@ -349,10 +349,9 @@ def calibrate_chute_measure_turn() -> Dict[str, Any]:
     """Measure how many motor turns one turn of this chute takes, on a chute
     that turns without limit: home, turn once round to the magnet again, save
     the ratio, home again."""
-    _ensure_not_homing("measure the chute's turn")
-    chute = _live_chute()
+    chute = getattr(hardware_needs.needStarted(), "chute", None)
     if chute is None:
-        raise HTTPException(status_code=503, detail="Hardware not initialized. Power on the motors first.")
+        raise HTTPException(status_code=503, detail="Chute subsystem unavailable.")
     if not chute.variant.turns_freely:
         raise HTTPException(
             status_code=409,
@@ -381,12 +380,7 @@ def calibrate_chute_measure_turn() -> Dict[str, Any]:
 
 @router.post("/api/hardware-config/chute/calibrate/find-endstop")
 def calibrate_chute_find_endstop() -> Dict[str, Any]:
-    _ensure_not_homing("home the chute")
-    irl = shared_state.getActiveIRL()
-    if irl is None:
-        raise HTTPException(status_code=503, detail="Hardware not initialized. Open the Motion or Endstops step to power on the steppers first.")
-
-    chute = getattr(irl, "chute", None)
+    chute = getattr(hardware_needs.needStarted(), "chute", None)
     if chute is None or not hasattr(chute, "home"):
         raise HTTPException(status_code=503, detail="Chute subsystem unavailable.")
 
@@ -433,11 +427,7 @@ def _homed_chute() -> Any:
     # be aimed after a no-homing /api/system/initialize (steppers up, nothing
     # homed) — homing the chute alone is enough to use it, no cameras or full
     # recover required.
-    _ensure_not_homing("move the chute")
-    irl = shared_state.getActiveIRL()
-    if irl is None:
-        raise HTTPException(status_code=503, detail="Hardware not initialized. Initialize or home the system first.")
-    chute = getattr(irl, "chute", None)
+    chute = getattr(hardware_needs.needStarted(), "chute", None)
     if chute is None:
         raise HTTPException(status_code=503, detail="Chute subsystem not available.")
     if not getattr(chute, "homed", False):

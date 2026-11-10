@@ -213,8 +213,9 @@ class SystemLifecycleTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as ctx:
             steppers.resume()
 
-        self.assertEqual(409, ctx.exception.status_code)
-        self.assertIn("Cannot resume", str(ctx.exception.detail))
+        self.assertEqual(503, ctx.exception.status_code)
+        self.assertEqual("wait", ctx.exception.needs)
+        self.assertIn("The machine is homing", str(ctx.exception.detail))
 
     def test_manual_motion_is_blocked_while_hardware_worker_is_active(self) -> None:
         release = threading.Event()
@@ -229,8 +230,9 @@ class SystemLifecycleTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as ctx:
             steppers.pulse_stepper("carousel", "cw", duration_s=0.1, speed=100)
 
-        self.assertEqual(409, ctx.exception.status_code)
-        self.assertIn("Cannot pulse", str(ctx.exception.detail))
+        self.assertEqual(503, ctx.exception.status_code)
+        self.assertEqual("wait", ctx.exception.needs)
+        self.assertIn("The machine is homing", str(ctx.exception.detail))
 
         release.set()
         worker = shared_state.hardware_worker_thread

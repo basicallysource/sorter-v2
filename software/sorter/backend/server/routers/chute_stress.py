@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 import stepper_telemetry
-from server import shared_state
+from server import hardware_needs
 from stress_test_runs import listChuteStressRuns
 from subsystems.distribution.chute_stress import (
     CHUTE_MAX_ANGLE_LIMIT_DEG,
@@ -38,21 +38,10 @@ class StressTestRunsResponse(BaseModel):
 
 
 def _resolveChute() -> Any:
-    irl = shared_state.getActiveIRL()
-    if irl is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Hardware not initialized. Start or home the system first.",
-        )
-    chute = getattr(irl, "chute", None)
+    chute = getattr(hardware_needs.needStarted(), "chute", None)
     if chute is None:
         raise HTTPException(status_code=500, detail="Chute hardware unavailable")
     return chute
-
-
-def _hardwareWorkerAlive() -> bool:
-    worker = shared_state.hardware_worker_thread
-    return bool(worker is not None and worker.is_alive())
 
 
 def _ensureManualMotionAllowed() -> None:
@@ -64,12 +53,7 @@ def _ensureManualMotionAllowed() -> None:
             status_code=409,
             detail="Cannot run a separate chute stress test while power stress is active.",
         )
-    state = shared_state.hardware_state
-    if _hardwareWorkerAlive() or state in {"homing", "initializing"}:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Cannot run chute stress test while hardware is {state}.",
-        )
+    hardware_needs.needIdle()
 
 
 def _activeRunner() -> ChuteStressTestRunner:

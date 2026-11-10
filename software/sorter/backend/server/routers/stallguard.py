@@ -15,10 +15,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from hardware_settings.steppers import TMC_REG_GCONF, TMC_REG_TCOOLTHRS, applyStepperSettings, readStepperSettings
-from server import shared_state
+from server import hardware_needs, shared_state
 from server.routers.steppers import (
     TMC_REG_DRV_STATUS, TMC_REG_SG_RESULT, TMC_REG_TSTEP,
-    _ensure_manual_motion_allowed, _ensure_not_homing, _halt_stepper, _motor,
+    _ensure_manual_motion_allowed, _halt_stepper, _motor,
     _resolve_stepper, _safe_read_register, _stepper_mapping, save_stepper_settings,
 )
 from stepper_stall_monitor import CHUTE_NEEDS_HOMING_INCIDENT_KIND, STEPPER_STALL_INCIDENT_KIND
@@ -298,13 +298,14 @@ def stallguard_sweep(
     if profile == "chute_random":
         # The chute has hard endstops, so its motion must run on the homed Chute
         # object (absolute, clamped angles) — never a raw open-loop spin.
+        # _resolve_stepper above made sure the hardware is started.
         irl = shared_state.getActiveIRL()
         chute = getattr(irl, "chute", None) if irl is not None else None
         if chute is None:
             lock.release()
             raise HTTPException(
                 status_code=409,
-                detail="chute_random needs the initialized chute; initialize hardware first.",
+                detail="chute_random needs the chute, and this machine's hardware has none.",
             )
         motion: _SweepMotion = _ChuteRandomMotion(
             chute, speed, min_delta_deg, chute_min_deg, chute_max_deg
@@ -978,7 +979,7 @@ def rehome_after_stall() -> Dict[str, Any]:
     distribution while any incident is active — never commands the chute out from
     under the homing move. Only proceeds when such a hold is active, which
     guarantees the coordinator is already parked."""
-    _ensure_not_homing("re-home the chute")
+    hardware_needs.needIdle()
 
     gc = shared_state.gc_ref
     runtime_stats = getattr(gc, "runtime_stats", None) if gc is not None else None
@@ -994,9 +995,7 @@ def rehome_after_stall() -> Dict[str, Any]:
             detail="No stall or needs-homing hold is active; nothing to re-home.",
         )
 
-    irl = shared_state.getActiveIRL()
-    if irl is None:
-        raise HTTPException(status_code=503, detail="Hardware not initialized.")
+    irl = hardware_needs.needStarted()
     chute = getattr(irl, "chute", None)
     if chute is None or not hasattr(chute, "home"):
         raise HTTPException(status_code=503, detail="Chute subsystem unavailable.")

@@ -58,7 +58,7 @@
 		<LayerBins {base} fixedBottom={doors.fixed_layer !== null} onsaved={load} />
 		<DoorsSetup>
 			{#snippet notready()}
-				Start it from the menu at the top right (the three dots): Initialize without homing starts
+				Start it from the menu at the top right (the three dots): Start without homing starts
 				the hardware without moving anything.
 			{/snippet}
 		</DoorsSetup>

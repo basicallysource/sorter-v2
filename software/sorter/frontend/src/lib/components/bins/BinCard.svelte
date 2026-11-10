@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Component } from 'svelte';
+	import type { Component, Snippet } from 'svelte';
 	import ArchiveX from '@lucide/svelte/icons/archive-x';
 	import Trash from '@lucide/svelte/icons/trash';
 	import Crosshair from '@lucide/svelte/icons/crosshair';
@@ -37,6 +37,7 @@
 		searchState = 'off',
 		discardChoosable = false,
 		onToggleDiscard = () => {},
+		notice,
 		onOpenDetails,
 		onMoveTo,
 		onEmpty,
@@ -62,6 +63,9 @@
 		// The machine's chute drops nothing out of the bottom, so a bin can be its discard bin.
 		discardChoosable?: boolean;
 		onToggleDiscard?: () => void;
+		// Shown under the bin's name: what came of an action on this bin, such
+		// as a move the machine refused.
+		notice?: Snippet<[BinInfo]>;
 		onOpenDetails: () => void;
 		onMoveTo: () => void;
 		onEmpty: () => void;
@@ -195,6 +199,7 @@
 			</Menu>
 		</div>
 	</div>
+	{@render notice?.(bin)}
 	{#if maxPiecesPerBin && maxPiecesPerBin > 0}
 		{@const fillCount = contents?.piece_count ?? 0}
 		{@const isFull = fillCount >= maxPiecesPerBin}

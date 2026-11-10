@@ -1,4 +1,4 @@
-"""Router for stepper motion and TMC driver settings, and the hardware-busy guards other routers share."""
+"""Router for stepper motion and TMC driver settings."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from hardware_settings.steppers import (
     readStepperSettings,
     saveStepperSettings,
 )
-from server import shared_state
+from server import hardware_needs, shared_state
 import stallguard_tuner
 from stepper_stall_monitor import CHUTE_NEEDS_HOMING_INCIDENT_KIND, STEPPER_STALL_INCIDENT_KIND
 
@@ -94,11 +94,14 @@ class TmcSettingsRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _stepper_mapping() -> Dict[str, Any]:
-    irl = shared_state.getActiveIRL()
-    if irl is None:
-        raise HTTPException(status_code=503, detail="Hardware not initialized. Start or home the system first.")
+def _steppers_of(irl: Any) -> Dict[str, Any]:
     return {name: getattr(irl, motorNamed(name).attr, None) for name in apiNames()}
+
+
+def _stepper_mapping() -> Dict[str, Any]:
+    """Every stepper of the live hardware, in whatever state it is in: stopping
+    one must work while the machine homes and after an error."""
+    return _steppers_of(hardware_needs.hardwareToStop())
 
 
 def _motor(name: str) -> Motor:
@@ -138,8 +141,9 @@ def save_stepper_settings(motor: Motor, changes: Dict[str, Any]) -> tuple[Steppe
     return saved, stepper is not None and bool(changes)
 
 
-def _resolve_stepper(stepper_name: str) -> Any:
-    mapping = _stepper_mapping()
+def _resolve_stepper(stepper_name: str, *, to_stop: bool = False) -> Any:
+    """The named stepper, on started hardware; with `to_stop`, on any live hardware."""
+    mapping = _stepper_mapping() if to_stop else _steppers_of(hardware_needs.needStarted())
 
     if stepper_name not in mapping:
         raise HTTPException(status_code=400, detail=f"Unknown stepper '{stepper_name}'")
@@ -150,25 +154,10 @@ def _resolve_stepper(stepper_name: str) -> Any:
     return stepper
 
 
-def _ensure_not_homing(action: str) -> None:
-    worker = shared_state.hardware_worker_thread
-    if (
-        (worker is not None and worker.is_alive())
-        or shared_state.hardware_state in {"homing", "initializing"}
-    ):
-        raise HTTPException(
-            status_code=409,
-            detail=f"Cannot {action} while hardware is {shared_state.hardware_state}.",
-        )
-
-
-def _ensure_runtime_ready(action: str) -> None:
-    _ensure_not_homing(action)
-    if shared_state.hardware_state != "ready":
-        raise HTTPException(
-            status_code=409,
-            detail=f"Cannot {action} while hardware is {shared_state.hardware_state}; run Safe Home first.",
-        )
+def _ensure_not_homing(_action: str = "") -> None:
+    """Kept for the routers that still import it; new code calls
+    hardware_needs.needIdle() itself."""
+    hardware_needs.needIdle()
 
 
 def _ensure_no_blocking_fault(action: str) -> None:
@@ -197,7 +186,7 @@ def _ensure_manual_motion_allowed(action: str) -> None:
             status_code=409,
             detail=f"Cannot {action} while power stress is active.",
         )
-    _ensure_not_homing(action)
+    hardware_needs.needIdle()
 
 
 def _halt_stepper(stepper: Any, *, force: bool = False) -> None:
@@ -458,7 +447,7 @@ def pause() -> CommandResponse:
 
 @router.post("/resume", response_model=CommandResponse)
 def resume() -> CommandResponse:
-    _ensure_runtime_ready("resume the sorter")
+    hardware_needs.needHomed()
     _ensure_no_blocking_fault("resume the sorter")
     if shared_state.command_queue is None:
         raise HTTPException(status_code=500, detail="Command queue not initialized")
@@ -720,7 +709,7 @@ def move_stepper_degrees(
 
 @router.post("/stepper/stop", response_model=StepperStopResponse)
 def stop_stepper(stepper: str) -> StepperStopResponse:
-    target = _resolve_stepper(stepper)
+    target = _resolve_stepper(stepper, to_stop=True)
 
     try:
         _halt_stepper(target, force=True)

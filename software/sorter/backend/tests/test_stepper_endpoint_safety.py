@@ -34,7 +34,8 @@ class _RejectingStepper:
 def _reset_motion_state(monkeypatch):
     old_state = shared_state.hardware_state
     old_worker = shared_state.hardware_worker_thread
-    shared_state.hardware_state = "standby"
+    # Started, not homed: a jog needs no more.
+    shared_state.hardware_state = "initialized"
     shared_state.hardware_worker_thread = None
     shared_state.pulse_locks.clear()
     yield

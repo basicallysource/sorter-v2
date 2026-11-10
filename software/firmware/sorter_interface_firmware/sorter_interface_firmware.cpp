@@ -1129,39 +1129,17 @@ void CMDH_servo_bus_stop(const BusMessage *msg, BusMessage *resp) {
 }
 #endif
 
-const uint32_t STEP_POLL_PERIOD_US = 1000000 / STEP_POLL_RATE_HZ;
-// A step due sooner than this is waited for here: arming the alarm again would
-// take about as long.
-const uint32_t STEP_WAIT_IN_PLACE_US = 6;
+const uint32_t STEP_TICK_PERIOD_US = 1000000 / STEP_TICK_RATE_HZ;
 const uint32_t MOTION_UPDATE_PERIOD_US = 1000000 / STEP_MOTION_UPDATE_RATE_HZ;
 
 void core1_stepgen_isr(uint alarm_num) {
     TRACE_HIGH();
-    // Core 1 step generator interrupt service routine. It makes the steps that are
-    // due and arms itself for the moment the next one is, or for one poll period,
-    // whichever is sooner: steps land on their own time, not on a fixed tick.
-    for (int pass = 0; pass < 8; pass++) {
-        const uint64_t now = time_us_64();
-        uint32_t wait = STEP_POLL_PERIOD_US;
-        for (int i = 0; i < STEPPER_COUNT; i++) {
-            const uint32_t stepper_wait = steppers[i].stepgen_service((uint32_t)now);
-            if (stepper_wait < wait) {
-                wait = stepper_wait;
-            }
-        }
-        if (wait <= STEP_WAIT_IN_PLACE_US) {
-            busy_wait_us_32(wait);
-            continue;
-        }
-        // True means that moment has already gone by: look again at once.
-        if (!hardware_alarm_set_target(alarm_num, now + wait)) {
-            TRACE_LOW();
-            return;
-        }
+    // Core 1 step generator interrupt service routine, called at STEP_TICK_RATE_HZ
+    hardware_alarm_set_target(alarm_num, time_us_64() + STEP_TICK_PERIOD_US);
+
+    for (int i = 0; i < STEPPER_COUNT; i++) {
+        steppers[i].stepgen_tick();
     }
-    // Steps are coming due faster than they can be made. Give the rest of the
-    // program a turn and carry on from the next poll.
-    hardware_alarm_set_target(alarm_num, time_us_64() + STEP_POLL_PERIOD_US);
     TRACE_LOW();
 }
 
@@ -1183,7 +1161,7 @@ void core1_entry() {
     TRACE_INIT();
     // Setup step generator timer interrupt
     hardware_alarm_claim(0);
-    hardware_alarm_set_target(0, time_us_64() + STEP_POLL_PERIOD_US);
+    hardware_alarm_set_target(0, time_us_64() + STEP_TICK_PERIOD_US);
     hardware_alarm_set_callback(0, core1_stepgen_isr);
     // Setup motion update timer interrupt
     hardware_alarm_claim(1);

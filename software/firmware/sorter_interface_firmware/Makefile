@@ -12,7 +12,7 @@ ifneq ($(wildcard $(HOMEBREW_LLVM)/clang),)
 	HOST_CXX := $(HOMEBREW_LLVM)/clang++
 endif
 
-.PHONY: setup build test-servo-guard test-step-clock \
+.PHONY: setup build test-servo-guard \
         build-feeder-v1-1 build-distribution-v1-1 flash-feeder-v1-1 flash-distribution-v1-1 \
         build-feeder-v1-2 build-distribution-v1-2 flash-feeder-v1-2 flash-distribution-v1-2 \
         build-feeder-v1-5 build-distribution-v1-5 flash-feeder-v1-5 flash-distribution-v1-5 \
@@ -32,12 +32,6 @@ test-servo-guard:
 	@mkdir -p build-test
 	$(HOST_CXX) -std=c++17 -Wall -Wextra -O1 -o build-test/servo_guard_test test/servo_guard_test.cpp ServoGuard.cpp
 	./build-test/servo_guard_test
-
-# The step clock's timing, on this computer: no board.
-test-step-clock:
-	@mkdir -p build-test
-	$(HOST_CXX) -std=c++17 -Wall -Wextra -O1 -o build-test/step_clock_test test/step_clock_test.cpp
-	./build-test/step_clock_test
 
 build-feeder-v1-1: setup
 	@mkdir -p build-feeder-v1-1

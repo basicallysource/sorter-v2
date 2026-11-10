@@ -45,10 +45,9 @@ from irl.bin_layout import (
     applyNotInInventory,
     notInInventoryMatchesLayout,
 )
-from server import shared_state
+from server import hardware_needs, shared_state
 from machine_platform.doors import catchingLayer, setDoorsFor
 from server.routers.chute import _chute_move, _chute_settings_from_config, _virtual_bin_angle
-from server.routers.steppers import _ensure_not_homing
 from sorting_profile import MISC_CATEGORY, categoryResolver
 from subsystems.distribution.chute import BinAddress
 from toml_config import getBinAssignmentConfig, setBinAssignmentConfig
@@ -609,19 +608,22 @@ def get_bins_layout() -> Dict[str, Any]:
     current_angle = None
     active_layer = None
     runtime_overlay_applied = False
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        chute = getattr(shared_state.controller_ref.irl, "chute", None)
-        if chute is not None:
+    # Where the chute points and which door is shut, from the live hardware,
+    # homed or only started (a started machine can aim a chute homed on its own).
+    live_irl = shared_state.getActiveIRL()
+    if live_irl is not None:
+        chute = getattr(live_irl, "chute", None)
+        if chute is not None and (shared_state.controller_ref is not None or getattr(chute, "homed", False)):
             try:
                 current_angle = round(float(chute.current_angle), 2)
             except Exception:
                 pass
         # The layer a piece dropped now would land on: the first shut door.
         try:
-            active_layer = catchingLayer(list(getattr(shared_state.controller_ref.irl, "servos", [])))
+            active_layer = catchingLayer(list(getattr(live_irl, "servos", [])))
         except Exception:
             pass
-
+    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
         # Read category assignments from the live distribution layout
         dist_layout = getattr(shared_state.controller_ref.irl, "distribution_layout", None)
         if dist_layout is not None:
@@ -689,16 +691,20 @@ def set_bins_settings(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {"ok": True, **merged}
 
 
+def _aimable_chute() -> tuple[Any, Any]:
+    """The live hardware and its chute, when the chute knows where it is."""
+    irl = shared_state.getActiveIRL()
+    chute = getattr(irl, "chute", None) if irl is not None else None
+    hardware_needs.needChuteHomed(chute)
+    if chute is None:
+        raise HTTPException(status_code=503, detail="Chute subsystem not available.")
+    return irl, chute
+
+
 @router.post("/api/bins/move-to")
 def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
     """Point the chute at a bin and set the doors so a piece dropped lands in it."""
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
-        raise HTTPException(status_code=503, detail="Hardware controller not initialized.")
-
-    irl = shared_state.controller_ref.irl
-    chute = getattr(irl, "chute", None)
-    if chute is None:
-        raise HTTPException(status_code=503, detail="Chute subsystem not available.")
+    irl, chute = _aimable_chute()
 
     servos = list(getattr(irl, "servos", []))
     if payload.layer_index < 0 or payload.layer_index >= len(servos):
@@ -734,12 +740,7 @@ def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
 @router.post("/api/bins/move-to-section")
 def move_to_section(payload: MoveToSectionPayload) -> Dict[str, Any]:
     """Point the chute at the center of a section without opening any servo."""
-    _ensure_not_homing("point at a section")
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
-        raise HTTPException(status_code=503, detail="Hardware controller not initialized.")
-    chute = getattr(shared_state.controller_ref.irl, "chute", None)
-    if chute is None:
-        raise HTTPException(status_code=503, detail="Chute subsystem not available.")
+    _irl, chute = _aimable_chute()
     if payload.section_index < 0:
         raise HTTPException(status_code=400, detail="section_index must be >= 0.")
 

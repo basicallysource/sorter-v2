@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from defs.sorter_controller import SorterLifecycle
-from server import shared_state
+from server import hardware_needs, shared_state
 from subsystems.power_stress import (
     DEFAULT_CHUTE_MAX_DEG,
     DEFAULT_CHUTE_SPEED,
@@ -40,21 +40,8 @@ class PowerStressRunsResponse(BaseModel):
     runs: list[dict[str, Any]]
 
 
-def _hardwareWorkerAlive() -> bool:
-    worker = shared_state.hardware_worker_thread
-    return bool(worker is not None and worker.is_alive())
-
-
 def _ensureReady() -> Any:
-    if _hardwareWorkerAlive() or shared_state.hardware_state != "ready":
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                f"Cannot run power stress test while hardware is "
-                f"{shared_state.hardware_state}; run Safe Home first."
-            ),
-        )
-    controller = shared_state.controller_ref
+    controller = hardware_needs.needHomed()
     state = getattr(controller, "state", None)
     if state != SorterLifecycle.PAUSED:
         state_value = getattr(state, "value", "unavailable")

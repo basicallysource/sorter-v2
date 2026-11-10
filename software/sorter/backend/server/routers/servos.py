@@ -14,8 +14,7 @@ from hardware.waveshare_bus_service import get_waveshare_bus_service
 from hardware_settings.servos import SPEEDS, ServoSpeeds, applyServoSpeeds, readServoSpeeds, saveServoSpeeds
 from bin_layout_store import set_servo_channel_angle
 from irl.bin_layout import channelIdForLayer, getBinLayout
-from server import shared_state
-from server.routers.steppers import _ensure_not_homing
+from server import hardware_needs, shared_state
 from server.waveshare_inventory import (
     _active_waveshare_service,
     _configured_waveshare_port,
@@ -144,10 +143,7 @@ def _waveshare_available_servo_ids(config: Dict[str, Any]) -> List[int]:
 
 
 def _live_servo_for_layer(layer_index: int) -> Any:
-    active_irl = shared_state.getActiveIRL()
-    if active_irl is None:
-        raise HTTPException(status_code=503, detail="Servo controller not initialized.")
-
+    active_irl = hardware_needs.needStarted()
     servos = list(getattr(active_irl, "servos", []))
     if layer_index < 0:
         raise HTTPException(status_code=404, detail=f"Unknown storage layer {layer_index + 1}.")
@@ -447,7 +443,6 @@ def save_servo_speeds(payload: ServoSpeedSettingsPayload) -> Dict[str, Any]:
 
 @router.post("/api/hardware-config/servo/layers/{layer_index}/nudge")
 def nudge_layer_servo(layer_index: int, payload: ServoNudgePayload) -> Dict[str, Any]:
-    _ensure_not_homing("nudge a servo")
     servo = _live_servo_for_layer(layer_index)
 
     if not hasattr(servo, "move_to") or not hasattr(servo, "position"):
@@ -491,7 +486,6 @@ def nudge_layer_servo(layer_index: int, payload: ServoNudgePayload) -> Dict[str,
 
 @router.post("/api/hardware-config/servo/layers/{layer_index}/move-to")
 def move_to_layer_servo(layer_index: int, payload: ServoLayerMovePayload) -> Dict[str, Any]:
-    _ensure_not_homing("move a servo")
     servo = _live_servo_for_layer(layer_index)
     if not hasattr(servo, "move_to"):
         raise HTTPException(status_code=500, detail="Servo does not support position-based movement.")
@@ -524,7 +518,6 @@ def _servo_calibration_state(servo: Any) -> Dict[str, Any]:
 
 @router.post("/api/hardware-config/servo/layers/{layer_index}/lock")
 def lock_layer_servo_angle(layer_index: int, payload: ServoLayerLockPayload) -> Dict[str, Any]:
-    _ensure_not_homing("lock a servo angle")
     if payload.which not in {"open", "closed"}:
         raise HTTPException(status_code=400, detail="which must be 'open' or 'closed'.")
     servo = _live_servo_for_layer(layer_index)
@@ -575,7 +568,6 @@ def lock_layer_servo_angle(layer_index: int, payload: ServoLayerLockPayload) -> 
 
 @router.post("/api/hardware-config/servo/layers/{layer_index}/clear")
 def clear_layer_servo_angle(layer_index: int, payload: ServoLayerClearPayload) -> Dict[str, Any]:
-    _ensure_not_homing("clear a servo angle")
     if payload.which not in {"open", "closed", "both"}:
         raise HTTPException(status_code=400, detail="which must be 'open', 'closed' or 'both'.")
     servo = _live_servo_for_layer(layer_index)
@@ -657,14 +649,14 @@ def get_waveshare_inventory_status(port: str | None = None) -> Dict[str, Any]:
 
 @router.post("/api/hardware-config/waveshare/rescan")
 def rescan_waveshare_inventory(port: str | None = None) -> Dict[str, Any]:
-    _ensure_not_homing("scan Waveshare servos")
+    hardware_needs.needIdle()
     return _waveshare_inventory_status(port=port, refresh=True)
 
 
 @router.post("/api/hardware-config/waveshare/servos/{servo_id}/set-id")
 def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[str, Any]:
     """Change a servo's ID on the bus."""
-    _ensure_not_homing("change a Waveshare servo ID")
+    hardware_needs.needIdle()
     new_id = payload.new_id
     if new_id < 1 or new_id > 253:
         raise HTTPException(status_code=400, detail="New ID must be between 1 and 253.")
@@ -713,7 +705,7 @@ def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[st
 @router.post("/api/hardware-config/waveshare/servos/{servo_id}/calibrate")
 def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
     """Auto-calibrate the open/close range of a single servo on the bus."""
-    _ensure_not_homing("calibrate a Waveshare servo")
+    hardware_needs.needIdle()
     if servo_id < 1 or servo_id > 253:
         raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
 
@@ -752,7 +744,7 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
 @router.post("/api/hardware-config/waveshare/servos/{servo_id}/move")
 def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, Any]:
     """Move a single servo to its open/close/center position based on EEPROM limits."""
-    _ensure_not_homing("move a Waveshare servo")
+    hardware_needs.needIdle()
     if servo_id < 1 or servo_id > 253:
         raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
 
@@ -811,7 +803,7 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
 
 @router.post("/api/hardware-config/waveshare/servos/{servo_id}/nudge")
 def nudge_waveshare_servo(servo_id: int, payload: ServoNudgePayload) -> Dict[str, Any]:
-    _ensure_not_homing("nudge a Waveshare servo")
+    hardware_needs.needIdle()
     if servo_id < 1 or servo_id > 253:
         raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
 

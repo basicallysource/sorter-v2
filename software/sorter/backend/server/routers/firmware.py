@@ -15,6 +15,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 import server.shared_state as shared_state
+from server import hardware_needs
 from hardware import firmware_flash
 from hardware.bus import BaseCommandCode, MCUBus, MCUDevice, header_uarts, usb_port_of
 from hardware.firmware_flash import FlashCancelled, FlashError
@@ -143,15 +144,6 @@ def _activeFlashJob() -> Optional[FlashJob]:
     return None
 
 
-def _hardwareBusyReason() -> Optional[str]:
-    worker = shared_state.hardware_worker_thread
-    if worker is not None and worker.is_alive():
-        return f"hardware worker is active ({shared_state.hardware_state})"
-    if shared_state.hardware_state in {"homing", "initializing"}:
-        return f"hardware is {shared_state.hardware_state}"
-    return None
-
-
 def _steppersInfo(interface: Any) -> List[Dict[str, Any]]:
     steppers = []
     for stepper in getattr(interface, "steppers", ()):
@@ -264,17 +256,18 @@ def get_firmware_boards(refresh: bool = False) -> Dict[str, Any]:
             "hardware_state": shared_state.hardware_state,
             "bootloader_present": firmware_flash.bootloaderPresent(),
             "flash_allowed": False,
-            "flash_blocked_reason": "Hardware is initialized. Reset to standby before flashing.",
+            # The running hardware holds the boards, whatever its state.
+            "flash_blocked_reason": hardware_needs.RUNNING,
         }
 
-    busy = _hardwareBusyReason()
+    busy = hardware_needs.refusalFor(hardware_needs.IDLE)
     if busy is not None:
         return {
             "boards": [],
             "hardware_state": shared_state.hardware_state,
             "bootloader_present": False,
             "flash_allowed": False,
-            "flash_blocked_reason": f"Cannot probe boards: {busy}.",
+            "flash_blocked_reason": busy.detail,
         }
 
     active_job = _activeFlashJob()
@@ -605,17 +598,7 @@ def _registerJob(job: FlashJob) -> None:
 
 def _startFlash(gc: Any, request: FlashRequest) -> FlashJob:
     with shared_state.hardware_lifecycle_lock:
-        busy = _hardwareBusyReason()
-        if busy is not None:
-            raise HTTPException(status_code=409, detail=f"Cannot flash: {busy}.")
-        if shared_state.hardware_state not in {"standby", "error"}:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    f"Cannot flash while hardware is '{shared_state.hardware_state}'. "
-                    "Reset the system to standby first."
-                ),
-            )
+        hardware_needs.needStopped()
         if not _flash_lock.acquire(blocking=False):
             raise HTTPException(status_code=409, detail="A flash is already in progress.")
 

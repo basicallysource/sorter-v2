@@ -36,6 +36,7 @@ def test_no_live_hardware_reports_no_live_servos(monkeypatch) -> None:
 def test_moving_a_layer_added_since_start_says_to_restart(monkeypatch) -> None:
     # The layout is read once per backend start (main.py's mkIRLConfig), so
     # homing does not give a new layer its servo; a restart does.
+    monkeypatch.setattr(servos.shared_state, "hardware_state", "initialized")
     monkeypatch.setattr(servos.shared_state, "getActiveIRL", lambda: _irl(0, 1, 2, 3))
 
     with pytest.raises(HTTPException) as exc:

@@ -25,12 +25,11 @@ from machine_platform import door_setup
 from machine_platform.door_setup import DoorSetupError
 from machine_platform.doors import releaseAll
 from machine_platform.servo_controller import BoardBusServoController
-from server import shared_state
-from server.routers.steppers import _ensure_not_homing
+from server import hardware_needs, shared_state
 
 router = APIRouter()
 
-NOT_STARTED = "Start the hardware first: the door servos are reached through the control board."
+NO_BUS = "This machine's doors are not on its control board's servo cable."
 
 
 class DoorServoPayload(BaseModel):
@@ -90,10 +89,10 @@ def _controller() -> BoardBusServoController | None:
 
 def _link() -> ServoLink:
     """The live servo bus, or the reason there is none, as an HTTP error."""
-    _ensure_not_homing("set up the doors")
+    hardware_needs.needStarted()
     controller = _controller()
     if controller is None:
-        raise HTTPException(status_code=409, detail=NOT_STARTED)
+        raise HTTPException(status_code=409, detail=NO_BUS)
     if controller.firmware_too_old or controller.link is None:
         raise HTTPException(
             status_code=409,
@@ -195,7 +194,10 @@ def _state() -> Dict[str, Any]:
         layers.append(layer)
     reason = None
     if controller is None:
-        reason = NOT_STARTED
+        # The door servos are reached through the control board, so the hardware
+        # has to be started; said in the words every other refusal uses.
+        refusal = hardware_needs.refusalFor(hardware_needs.STARTED)
+        reason = refusal.detail if refusal is not None else NO_BUS
     elif controller.firmware_too_old:
         reason = "The control board's firmware is too old to move serial servos safely. Update it first."
     servos = [

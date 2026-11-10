@@ -154,10 +154,6 @@ def _resolve_stepper(stepper_name: str, *, to_stop: bool = False) -> Any:
     return stepper
 
 
-def _ensure_not_homing(_action: str = "") -> None:
-    """Kept for the routers that still import it; new code calls
-    hardware_needs.needIdle() itself."""
-    hardware_needs.needIdle()
 
 
 def _ensure_no_blocking_fault(action: str) -> None:

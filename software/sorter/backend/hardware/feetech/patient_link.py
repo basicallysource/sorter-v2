@@ -14,6 +14,7 @@ good the cable to it is.
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from collections import deque
@@ -29,6 +30,8 @@ PING_ATTEMPTS = 2
 PAUSE_S = 0.003
 
 T = TypeVar("T")
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -67,10 +70,14 @@ class PatientLink(ServoLink):
 
     def _missed(self, servo_id: int, what: str, attempt: int, exc: Exception) -> None:
         with self._lock:
-            if servo_id in self._counts:
+            known = servo_id in self._counts
+            if known:
                 self._misses.append(
                     {"at": time.time(), "servo_id": servo_id, "what": what, "attempt": attempt, "error": type(exc).__name__}
                 )
+        if known:
+            # Never silent: a servo that needs asking twice is a fault to find.
+            log.warning("Servo %d did not answer (%s, attempt %d): %s", servo_id, what, attempt, exc)
 
     def misses(self) -> list[dict]:
         with self._lock:

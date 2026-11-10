@@ -26,8 +26,14 @@
 #define STEPPER_H
 
 #include <stdint.h>
+#include "StepClock.h"
 
-#define STEP_TICK_RATE_HZ 10000 // Stepper tick rate in Hz
+// The step generator is looked at at least this often, and besides that at the
+// moment each step is due. It is how soon a home switch and a motor that has
+// just been started are seen.
+#define STEP_POLL_RATE_HZ 10000
+// Steps one look may make. More than one is owed only when the look came late.
+#define STEP_MAX_BURST 4
 #define STEP_MOTION_UPDATE_RATE_HZ 1000 // How often to update motion parameters
 #define STEPPER_MAX_SPEED 60000 // Max stepper speed in steps per second
 
@@ -43,7 +49,10 @@ class Stepper {
 public:
     Stepper(int step_pin, int dir_pin);
     void initialize();
-    void stepgen_tick(); // Must be called at STEP_TICK_RATE_HZ
+    // Makes the steps that are due at `now_us` and returns in how many
+    // microseconds the next one is, or StepClock::NEVER. Must be called at least
+    // at STEP_POLL_RATE_HZ, and at the time it returns.
+    uint32_t stepgen_service(uint32_t now_us);
     void motion_update_tick(); // Must be called at STEP_MOTION_UPDATE_RATE_HZ
     void setSpeedLimits(uint32_t min_speed, uint32_t max_speed);
     void setAcceleration(uint32_t acceleration);
@@ -100,7 +109,9 @@ private:
     std::atomic<bool> _mc_home_pin_polarity; // Home switch polarity, true if active high, false if active low
 
     // Internal state
-    std::atomic<int32_t> _steps_moved, _steps_frac; // How many steps have we moved in the current move, counted towards the _move_direction (if moving backwards we go negative)
+    std::atomic<int32_t> _steps_moved; // How many steps have we moved in the current move, counted towards the _move_direction (if moving backwards we go negative)
+    // When the next step is due. Only the step generator's interrupt touches it.
+    StepClock _step_clock;
     std::atomic<int32_t> _brake_distance; // Distance required to brake to a stop from current speed, decision point for braking
     std::atomic<int32_t> _current_speed;
     std::atomic<int32_t> _current_speed_frac;

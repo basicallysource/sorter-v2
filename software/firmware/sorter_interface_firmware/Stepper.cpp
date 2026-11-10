@@ -30,7 +30,7 @@ Stepper::Stepper(int step_pin, int dir_pin)
       _accel(10000), _max_speed(2000), _min_speed(16),
     _state(STEPPER_STOPPED), _mc_distance(-1), _mc_speed(-1),
       _mc_dir(1), _mc_home_pin(-1),
-    _steps_moved(0), _steps_frac(0), _brake_distance(0),
+    _steps_moved(0), _brake_distance(0),
     _current_speed(0), _current_speed_frac(0), _current_dir(1),
     _jitter_active(false), _jitter_amplitude(0), _jitter_strokes_remaining(0), _jitter_dir(1) {
 }
@@ -72,7 +72,6 @@ void Stepper::cancel() {
     _mc_speed.store(0);
     _mc_home_pin.store(-1);
     _steps_moved.store(0);
-    _steps_frac.store(0);
     _brake_distance.store(0);
     _current_speed.store(0);
     _current_speed_frac.store(0);
@@ -92,7 +91,6 @@ bool Stepper::moveSteps(int32_t distance) {
     _current_speed_frac = 0;
     _current_dir.store(_mc_dir.load());
     _steps_moved = 0;
-    _steps_frac = 0;
     _brake_distance = _mc_distance / 2; // Initially set braking point to half way (true if we never reach max speed)
     _state = STEPPER_ACCELERATING;
     return true;
@@ -111,7 +109,6 @@ bool Stepper::moveAtSpeed(int32_t speed) {
         _mc_home_pin.store(-1);
         _mc_dir.store(_current_dir.load());
         _steps_moved = 0;
-        _steps_frac = 0;
         if (_state == STEPPER_STOPPED) {
             _current_speed = 0;
             _current_speed_frac = 0;
@@ -151,7 +148,6 @@ bool Stepper::moveAtSpeed(int32_t speed) {
     }
     // Reset Step couter for this new move
     _steps_moved = 0;
-    _steps_frac = 0;
     return true;
 }
 
@@ -197,7 +193,6 @@ void Stepper::beginJitterStroke() {
     _current_speed_frac = 0;
     _current_dir.store(dir);
     _steps_moved = 0;
-    _steps_frac = 0;
     _brake_distance = amp / 2;
     _state = STEPPER_ACCELERATING;
 }
@@ -208,17 +203,25 @@ void Stepper::home(int32_t home_speed, int home_pin, bool home_pin_polarity) {
     _mc_home_pin_polarity.store(home_pin_polarity);
 }
 
-/*! \brief Step generator tick
+/*! \brief Step generator
  *
- *  This function should be called at a fixed rate defined by STEP_TICK_RATE_HZ.
- *  It generates step pulses based on the current speed of the stepper. 
- *  Will stop the motor if the target position is reached.
- * 
- *  Due to the high calling frequency, this function should return as quickly as possible.
+ *  Makes the steps that are due now and says when the next one is. Each step
+ *  is placed at its own time (StepClock), not on a fixed tick, so a steady
+ *  speed gives evenly spaced steps whatever the speed is. Stops the motor when
+ *  the target position is reached or its home switch reads.
+ *
+ *  Called from an interrupt at least STEP_POLL_RATE_HZ times a second, so it
+ *  returns as quickly as it can.
+ *
+ *  \param now_us The time now, in microseconds.
+ *  \return Microseconds until this motor's next step, or StepClock::NEVER.
  */
-void Stepper::stepgen_tick() {
-    if (_state == STEPPER_STOPPED) return; // Return fast if stopped
-    // Check home switch at 10kHz - catches narrow optical endstops
+uint32_t Stepper::stepgen_service(uint32_t now_us) {
+    if (_state == STEPPER_STOPPED) {
+        _step_clock.stop();
+        return StepClock::NEVER;
+    }
+    // The home switch is read at every look, which catches a narrow optical endstop
     int home_pin = _mc_home_pin.load();
     if (home_pin >= 0) {
         if (gpio_get(home_pin) == _mc_home_pin_polarity.load()) {
@@ -226,26 +229,27 @@ void Stepper::stepgen_tick() {
             _current_speed = 0;
             _absolute_position = 0;
             _mc_home_pin.store(-1);
-            return;
+            _step_clock.stop();
+            return StepClock::NEVER;
         }
     }
     // Set direction pin
     gpio_put(_dir_pin, (_current_dir > 0) ? 1 : 0);
-    // Advance step counter by fractional steps
-    _steps_frac += _current_speed;
-    // If one or more steps ready, issue them
-    while (_steps_frac >= STEP_TICK_RATE_HZ || _steps_frac <= -STEP_TICK_RATE_HZ) {
+    const int32_t signed_speed = _current_speed.load();
+    const uint32_t speed = signed_speed > 0 ? (uint32_t)signed_speed : 0;
+    _step_clock.advance(now_us, speed);
+    for (int made = 0; _step_clock.due(); made++) {
+        if (made == STEP_MAX_BURST) {
+            // This look came late. The motor falls behind rather than jumping.
+            _step_clock.dropBacklog();
+            break;
+        }
         // Step
         gpio_put(_step_pin, 1);
         busy_wait_at_least_cycles(25); // Minimum pulse width is 100ns, 1 cycle is 8ns at 125MHz, 25 cycles is 200ns
         gpio_put(_step_pin, 0);
         busy_wait_at_least_cycles(25); // Minimum pulse spacing is 100ns, use 200ns for safety
-        // Update fractional step counter and total steps moved
-        if (_steps_frac >= STEP_TICK_RATE_HZ) {
-            _steps_frac -= STEP_TICK_RATE_HZ;
-        } else if (_steps_frac <= -STEP_TICK_RATE_HZ) {
-            _steps_frac += STEP_TICK_RATE_HZ;
-        }
+        _step_clock.stepped();
         // And the move counter
         _steps_moved += _current_dir * _mc_dir.load();
         // Update absolute position
@@ -256,10 +260,12 @@ void Stepper::stepgen_tick() {
                 // Move complete
                 _state = STEPPER_STOPPED;
                 _current_speed = 0;
-                break;
+                _step_clock.stop();
+                return StepClock::NEVER;
             }
         }
     }
+    return _step_clock.waitUs(speed);
 }
 
 
@@ -362,7 +368,6 @@ void Stepper::motion_update_tick() {
                 if ((_mc_speed > 0) && (_current_dir != _mc_dir.load())) {
                     // Reached zero speed, now reverse direction
                     _current_dir.store(_mc_dir.load());
-                    _steps_frac = -_steps_frac; // Invert fractional step counter to match new direction
                     _state = STEPPER_ACCELERATING;
                 } else if (_mc_speed == 0) {
                     // Zero speed move and reached minimum speed, stop now

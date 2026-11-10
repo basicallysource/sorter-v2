@@ -225,7 +225,27 @@ def _state() -> Dict[str, Any]:
         "shared_ids": [servo["servo_id"] for servo in servos if servo["state"] == "shared"],
         "watching": _watch is not None,
         "search": _searchPayload(),
+        "bus": _busCounts(controller),
+        "bus_misses": _busMisses(controller),
     }
+
+
+def _busCounts(controller: Any) -> list[Dict[str, Any]]:
+    """How well each servo that has ever answered hears and is heard: how often
+    it was asked, how often it had to be asked again, how often it never answered."""
+    counts = getattr(getattr(controller, "link", None), "counts", None)
+    if not callable(counts):
+        return []
+    return [
+        {"servo_id": servo_id, "asked": count.asked, "repeated": count.repeated, "unanswered": count.unanswered}
+        for servo_id, count in sorted(counts().items())
+    ]
+
+
+def _busMisses(controller: Any) -> list[Dict[str, Any]]:
+    """The last questions to a servo that went unanswered at some attempt."""
+    misses = getattr(getattr(controller, "link", None), "misses", None)
+    return misses() if callable(misses) else []
 
 
 def _ok(message: str | None = None) -> Dict[str, Any]:

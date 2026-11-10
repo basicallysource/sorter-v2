@@ -170,7 +170,8 @@ class GuardReport:
 
 class ServoLink(ABC):
     """One servo bus. Every method raises a ServoLinkError when no good answer
-    comes; none of them is retried here."""
+    comes. A link to real servos is wrapped in a PatientLink, which asks again
+    before it passes that on."""
 
     #: What a person would call the thing this bus hangs off, for messages.
     label: str = "servo bus"

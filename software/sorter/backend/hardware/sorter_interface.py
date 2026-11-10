@@ -1007,7 +1007,7 @@ class SorterInterface(MCUDevice):
         self.servos = tuple(ServoMotor(self, ch, gc) for ch in servo_channels)
         # Read the device name from the board info, or use a default name based on the address if not provided
         self._name = self._board_info.get("device_name", f"SorterInterface_{address}")
-        self._servo_link: "BoardServoLink | None" = None
+        self._servo_link: "PatientLink | None" = None
 
     @property
     def hw_id(self) -> str:
@@ -1033,14 +1033,15 @@ class SorterInterface(MCUDevice):
         return bool(self._observability().get("servo_guard"))
 
     @property
-    def servo_link(self) -> "BoardServoLink | None":
+    def servo_link(self) -> "PatientLink | None":
         """This board's servo bus, or None if it has none."""
         if not self.has_servo_bus:
             return None
         if self._servo_link is None:
             from hardware.feetech.board_link import BoardServoLink
+            from hardware.feetech.patient_link import PatientLink
 
-            self._servo_link = BoardServoLink(self)
+            self._servo_link = PatientLink(BoardServoLink(self))
         return self._servo_link
 
     def _observability(self) -> dict:

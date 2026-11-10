@@ -40,6 +40,12 @@ _REFUSALS: tuple[tuple[str, type[ServoLinkError]], ...] = (
 )
 
 
+def _sentence(text: str) -> str:
+    """The board's refusal as a sentence: it sends them without a full stop."""
+    text = text.strip()
+    return text if text.endswith((".", "!", "?")) else f"{text}."
+
+
 class BoardServoLink(ServoLink):
     label = "control board"
 
@@ -52,8 +58,8 @@ class BoardServoLink(ServoLink):
         except MCUDeviceError as exc:
             for prefix, error in _REFUSALS:
                 if exc.detail.startswith(prefix):
-                    raise error(exc.detail) from None
-            raise ServoLinkError(exc.detail) from None
+                    raise error(_sentence(exc.detail)) from None
+            raise ServoLinkError(_sentence(exc.detail)) from None
         except MCUBusError as exc:
             raise LinkDown(f"The control board did not answer: {exc}") from exc
 

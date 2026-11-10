@@ -65,6 +65,9 @@ export type Doors = {
 	scanned: boolean;
 	watching: boolean;
 	search: DoorSearch | null;
+	// For every servo that has ever answered: how often it was asked, how often it
+	// had to be asked again, and how often it never answered.
+	bus: { servo_id: number; asked: number; repeated: number; unanswered: number }[];
 };
 
 export type DoorsAnswer = { ok: true; message: string | null; doors: Doors };

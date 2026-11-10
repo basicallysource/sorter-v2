@@ -37,6 +37,10 @@ in [`agent-docs/`](agent-docs/):
   page and the request-timing middleware behind it: each route's latency over
   the last hour in fixed memory, the slow-request log line, and the job queue,
   workers, database and disk figures beside it.
+- [`agent-docs/load-shedding.md`](agent-docs/load-shedding.md) — sorters'
+  file uploads answered 429 while the web process is overloaded: which
+  routes, what trips it, what a sorter does with it, and the log lines and
+  operator alert it sends.
 - [`agent-docs/labeling-queue.md`](agent-docs/labeling-queue.md) — the review
   queues of Piece samples and Channel samples: one queue module and one machine
   filter for both, the labeling queue and its worker, sort segments and cursor

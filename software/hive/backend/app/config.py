@@ -171,6 +171,21 @@ class Settings(BaseSettings):
     # aggregate analytics an admin sees on the all-machines page. Empty disables
     # the endpoint (503).
     PUBLIC_STATS_API_KEY: str = ""
+    # Where operator alerts go (app/services/admin_alert.py): the whole URL of
+    # a notification endpoint and its bearer token. Either empty: alerts are
+    # only logged.
+    ADMIN_ALERT_URL: str = ""
+    ADMIN_ALERT_TOKEN: str = ""
+    # Turning sorters' file uploads away while this process is overloaded
+    # (app/middleware/load_shed.py): too many uploads or requests in flight,
+    # or the container's memory past this fraction of its limit (0 turns the
+    # memory check off). A refusal is a 429 with this Retry-After; refusals
+    # continue until LOAD_SHED_HOLD_S passes with nothing tripping.
+    LOAD_SHED_MAX_UPLOADS_IN_FLIGHT: int = 16
+    LOAD_SHED_MAX_REQUESTS_IN_FLIGHT: int = 80
+    LOAD_SHED_MEMORY_FRACTION: float = 0.8
+    LOAD_SHED_HOLD_S: float = 60.0
+    LOAD_SHED_RETRY_AFTER_S: int = 60
     MAX_MODEL_FILE_SIZE: int = 2 * 1024 * 1024 * 1024
     ALLOWED_MODEL_RUNTIMES: tuple[str, ...] = ("onnx", "ncnn", "hailo", "pytorch", "rknn")
 

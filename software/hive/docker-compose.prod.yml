@@ -45,6 +45,18 @@ x-hive-backend-environment: &hive-backend-environment
   DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
   PUBLIC_STATS_API_KEY: ${PUBLIC_STATS_API_KEY}
   BLA_API_KEY: ${BLA_API_KEY}
+  # Operator alerts (app/services/admin_alert.py): the whole URL, path
+  # included, and its token. Unset, alerts are only logged.
+  ADMIN_ALERT_URL: ${ADMIN_ALERT_URL:-}
+  ADMIN_ALERT_TOKEN: ${ADMIN_ALERT_TOKEN:-}
+
+# Docker keeps a container's log forever by default; the backend's grew to
+# 1.8 GB on a box whose disk also holds the database and its nightly dump.
+x-hive-logging: &hive-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
 
 x-hive-backend-volumes: &hive-backend-volumes
   - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/uploads:${UPLOAD_DIR}
@@ -118,6 +130,7 @@ services:
     image: ${HIVE_BACKEND_IMAGE:?HIVE_BACKEND_IMAGE not set - deploy via hive_release_agent.py}
     container_name: hive-backend
     restart: unless-stopped
+    logging: *hive-logging
     # This process leaked. On 2026-08-20 it reached 2.2 GB, pushed the 3.9 GB box
     # 2 GB into swap, and served 502/524s for six hours until someone restarted
     # it by hand (it then also ran every background worker; they have their
@@ -181,6 +194,7 @@ services:
     image: ${HIVE_BACKEND_IMAGE:?HIVE_BACKEND_IMAGE not set - deploy via hive_release_agent.py}
     container_name: hive-worker
     restart: unless-stopped
+    logging: *hive-logging
     command: ["python", "-m", "app.worker"]
     # Its own ceiling, for the same reason as the backend's: a worker that
     # grows is OOM-killed and restarted rather than pushing the box into swap

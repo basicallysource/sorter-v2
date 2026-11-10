@@ -44,6 +44,7 @@ outermost middleware and its time is the whole of the request.
 | At a glance | Requests, p90, 5xx, slow requests, CPU, database connections, cache hit, disk free |
 | Requests | The window above, one row per route, ordered by total time, p90 or count |
 | This process | pid and `HIVE_ROLE`, uptime, CPU, the threadpool sync endpoints run on (busy, waiting), this process's database connections, requests still running, load |
+| Load shedding | `load_shed` in the API only (no panel yet): whether sorter uploads are being turned away, why, how many this episode, uploads and requests in flight ([load-shedding.md](load-shedding.md)) |
 | Disk and memory | `shutil.disk_usage` of `/` (in a container, the host disk Docker keeps its data on) and of the upload folder when storage is local; `/proc/meminfo` and the process's RSS |
 | Job queue | `job_queue.summary` plus what finished and failed in the last hour, what is running and in which process, the latest failures. From the jobs table, so it is right whichever process runs the jobs. |
 | Background workers | Each worker's own status as this process knows it. A process that runs no background work shows them as not running. |

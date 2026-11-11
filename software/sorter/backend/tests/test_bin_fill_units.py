@@ -17,6 +17,10 @@ from bin_contents import (
 from irl.bin_layout import getBinLayout, saveBinLayout
 from bin_layout_store import set_bin_layout
 
+# The reference bbox volume of a 2x4 brick: 32 x 16 x 11.2 mm == 1.0 unit.
+_REF_DIMS = {"bbox_x_mm": 32.0, "bbox_y_mm": 16.0, "bbox_z_mm": 11.2}
+_DOUBLE_DIMS = {"bbox_x_mm": 64.0, "bbox_y_mm": 16.0, "bbox_z_mm": 11.2}
+
 
 def _distribute(uuid: str, destination_bin: list[int], part_id: str | None = None) -> None:
     record_piece_distribution(
@@ -110,6 +114,88 @@ class BinFillComputationTests(unittest.TestCase):
         _distribute("piece-a", [0, 0, 0], part_id="3001")
         start_new_sorting_session(reason="test")
         self.assertAlmostEqual(1.0, get_current_bin_fill_units()[(0, 0, 0)])
+
+
+class BinFillLearningTests(unittest.TestCase):
+    def setUp(self) -> None:
+        tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmpdir.cleanup)
+        env = patch.dict(os.environ, {"LOCAL_STATE_DB_PATH": os.path.join(tmpdir.name, "local_state.sqlite")})
+        env.start()
+        self.addCleanup(env.stop)
+        bin_fill_store.cache_invalidate()
+
+    def _distribute_measured(
+        self,
+        uuid: str,
+        part_id: str | None,
+        dims: dict | None,
+        destination_bin: list[int] | None = None,
+    ) -> None:
+        piece = {
+            "uuid": uuid,
+            "destination_bin": destination_bin or [0, 0, 0],
+            "distributed_at": 1.0,
+            "part_id": part_id,
+        }
+        if dims is not None:
+            piece["piece_metadata"] = {"dimensions": dims}
+        record_piece_distribution(piece)
+
+    def test_learned_volume_becomes_the_parts_fill_units(self) -> None:
+        start_new_sorting_session(reason="test")
+        self._distribute_measured("piece-a", "3005", _REF_DIMS)
+        self.assertAlmostEqual(1.0, bin_fill_store.part_volume("3005"))
+        self._distribute_measured("piece-b", "9300", _DOUBLE_DIMS)
+        self.assertAlmostEqual(2.0, bin_fill_store.part_volume("9300"))
+        # The bin's fill uses the learned units right away.
+        self.assertAlmostEqual(3.0, get_current_bin_fill_units()[(0, 0, 0)])
+        snapshot = get_current_bin_contents_snapshot()
+        self.assertAlmostEqual(3.0, snapshot["bins"][0]["fill_units"])
+
+    def test_measurements_average_into_a_running_mean(self) -> None:
+        start_new_sorting_session(reason="test")
+        self._distribute_measured("piece-a", "2412", _REF_DIMS)
+        self._distribute_measured("piece-b", "2412", _DOUBLE_DIMS)
+        # (1.0 + 2.0) / 2
+        self.assertAlmostEqual(1.5, bin_fill_store.part_volume("2412"))
+
+    def test_incomplete_dimensions_are_ignored(self) -> None:
+        start_new_sorting_session(reason="test")
+        self._distribute_measured("piece-a", "3004", {"bbox_x_mm": 22.0, "bbox_y_mm": 16.0})
+        self._distribute_measured("piece-b", "3004", {"bbox_x_mm": -1.0, "bbox_y_mm": 16.0, "bbox_z_mm": 11.2})
+        self._distribute_measured("piece-c", None, _REF_DIMS)
+        self.assertEqual({}, bin_fill_store.get_fill_config()["learned"])
+        self.assertAlmostEqual(1.0, bin_fill_store.part_volume("3004"))
+
+    def test_manual_entry_beats_a_learned_one(self) -> None:
+        start_new_sorting_session(reason="test")
+        self._distribute_measured("piece-a", "3005", _DOUBLE_DIMS)
+        self.assertAlmostEqual(2.0, bin_fill_store.part_volume("3005"))
+        bin_fill_store.set_fill_config(parts={"3005": 0.5})
+        self.assertAlmostEqual(0.5, bin_fill_store.part_volume("3005"))
+
+    def test_learned_entries_survive_a_manual_save_and_a_reload(self) -> None:
+        start_new_sorting_session(reason="test")
+        self._distribute_measured("piece-a", "3005", _REF_DIMS)
+        bin_fill_store.flush_learned()
+        bin_fill_store.set_fill_config(default_units=2.0)
+        bin_fill_store.cache_invalidate()
+        config = bin_fill_store.get_fill_config()
+        self.assertEqual(2.0, config["default_units"])
+        self.assertIn("3005", config["learned"])
+        self.assertEqual(1, config["learned"]["3005"]["samples"])
+        self.assertAlmostEqual(1.0, bin_fill_store.part_volume("3005"))
+
+    def test_learned_parts_change_existing_bins_on_refresh(self) -> None:
+        start_new_sorting_session(reason="test")
+        self._distribute_measured("piece-a", "3005", None)  # no dims yet -> default 1.0
+        self.assertAlmostEqual(1.0, get_current_bin_fill_units()[(0, 0, 0)])
+        self._distribute_measured("piece-b", "3005", _DOUBLE_DIMS, destination_bin=[1, 0, 2])
+        refresh_bin_state_caches()
+        # The already-stored piece is re-valued with what the machine learned.
+        self.assertAlmostEqual(2.0, get_current_bin_fill_units()[(0, 0, 0)])
+        self.assertAlmostEqual(2.0, get_current_bin_fill_units()[(1, 0, 2)])
 
 
 class BinLayoutFillLimitTests(unittest.TestCase):

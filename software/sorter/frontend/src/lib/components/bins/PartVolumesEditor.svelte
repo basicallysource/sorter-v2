@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Plus from '@lucide/svelte/icons/plus';
+	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Field from '$lib/components/ui/Field.svelte';
@@ -12,9 +14,12 @@
 
 	// Per-piece fill units for volume-aware bin limits: 1.0 is the reference
 	// piece (a 2x4 brick). Parts without an entry count as the default, so the
-	// table only needs the parts whose size differs from it.
+	// table only needs the parts whose size differs from it. The machine fills
+	// in measured values by itself (catalog bbox per distributed part); a
+	// manual entry always wins over a measured one.
 
 	type VolumeRow = { partId: string; units: string; saved: boolean };
+	type LearnedRow = { partId: string; units: number; samples: number };
 
 	const manager = getMachinesContext();
 
@@ -25,6 +30,7 @@
 	let statusMsg = $state('');
 	let defaultUnits = $state('1');
 	let rows = $state<VolumeRow[]>([]);
+	let learnedRows = $state<LearnedRow[]>([]);
 
 	function currentBackendBaseUrl(): string {
 		return (
@@ -55,6 +61,15 @@
 				units: String(units),
 				saved: true
 			}));
+			const learned: Record<string, { units: number; samples: number }> = payload.learned ?? {};
+			learnedRows = Object.entries(learned)
+				.map(([partId, entry]) => ({
+					partId,
+					units: Number(entry?.units),
+					samples: Number(entry?.samples ?? 0)
+				}))
+				.filter((row) => Number.isFinite(row.units) && !(row.partId in parts))
+				.sort((a, b) => a.partId.localeCompare(b.partId));
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Failed to load the piece volumes';
 		} finally {
@@ -62,8 +77,8 @@
 		}
 	}
 
-	function addRow() {
-		rows = [...rows, { partId: '', units: '1', saved: false }];
+	function addRow(partId = '', units = '1') {
+		rows = [...rows, { partId, units, saved: false }];
 	}
 
 	function removeRow(index: number) {
@@ -125,13 +140,16 @@
 
 <Panel title="Piece volumes" description="How much space one piece takes in a bin, in relative fill units (a 2x4 brick is 1).">
 	{#snippet actions()}
-		<Button size="sm" icon={Plus} disabled={loading || saving} onclick={addRow}>Add a part</Button>
+		<Button size="sm" icon={Plus} disabled={loading || saving} onclick={() => addRow()}>
+			Add a part
+		</Button>
 	{/snippet}
 
 	<p class="text-sm text-ink-muted">
 		Bins track their contents by volume once a layer has a fill limit: a bin full of 2x1 plates
 		holds far more pieces than one full of big panels. Every part not listed here counts as the
-		default. Only the ratios matter — tune them as you watch the bins fill.
+		default — unless the machine has measured it (below). Only the ratios matter — tune them as
+		you watch the bins fill.
 	</p>
 
 	{#if loading && rows.length === 0}
@@ -196,6 +214,30 @@
 					</div>
 				{/each}
 			</div>
+			{#if learnedRows.length > 0}
+				<div class="flex flex-col gap-1.5 rounded-item bg-well p-3">
+					<span class="text-sm font-medium text-ink">Measured by the machine</span>
+					<span class="text-sm text-ink-muted">
+						These values are learned from the parts running through the machine (their catalog
+						dimensions). A manual entry above replaces a measured one.
+					</span>
+					{#each learnedRows as row (row.partId)}
+						<div class="flex flex-wrap items-center gap-2">
+							<span class="num w-40 truncate text-sm text-ink" title={row.partId}>{row.partId}</span>
+							<span class="num w-24 text-sm text-ink">{row.units}</span>
+							<Badge tone="info">{row.samples} measured</Badge>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon={Pencil}
+								label="Override the measured value for {row.partId}"
+								disabled={loading || saving}
+								onclick={() => addRow(row.partId, String(row.units))}
+							/>
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{/if}
 

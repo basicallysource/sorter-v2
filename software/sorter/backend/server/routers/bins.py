@@ -677,9 +677,24 @@ def get_bins_layout() -> Dict[str, Any]:
 @router.get("/api/bins/fill-config")
 def get_bins_fill_config() -> Dict[str, Any]:
     """Volume-aware bin limits: the per-part fill units and the default.
-    1.0 unit is the reference piece (a 2x4 brick); only the ratios matter."""
+    1.0 unit is the reference piece (a 2x4 brick); only the ratios matter.
+    `parts` is the operator's manual map, `learned` the machine's own
+    measurements (catalog bbox per part); a manual entry beats a learned one."""
+    bin_fill_store.flush_learned()
     config = bin_fill_store.get_fill_config()
-    return {"ok": True, "default_units": config["default_units"], "parts": config["parts"]}
+    learned = {
+        part_id: {
+            "units": round(bin_fill_store.learned_units(entry), 2),
+            "samples": int(entry["samples"]),
+        }
+        for part_id, entry in config["learned"].items()
+    }
+    return {
+        "ok": True,
+        "default_units": config["default_units"],
+        "parts": config["parts"],
+        "learned": learned,
+    }
 
 
 class FillConfigPayload(BaseModel):

@@ -482,6 +482,10 @@ def record_piece_distribution(piece: dict[str, Any]) -> None:
             (unique_count, float(distributed_at), time.time(), session_id, layer_index, section_index, bin_index),
         )
         conn.commit()
+        # Volume learning rides the same path: this piece's catalog bbox feeds
+        # the learned per-part fill units (manual entries always win). It runs
+        # before the refresh so the piece itself is valued with its own volume.
+        bin_fill_store.learn_from_piece(piece)
         _refresh_bin_piece_counts(conn)
 
 

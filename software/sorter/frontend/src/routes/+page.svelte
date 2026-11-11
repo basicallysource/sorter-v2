@@ -21,6 +21,7 @@
 	import TrainingPanel from '$lib/components/training/TrainingPanel.svelte';
 	import { getTraining, type TrainingState } from '$lib/training/api';
 	import RuntimeStats, { RUNTIME_SPANS, type RuntimeSpan } from '$lib/components/RuntimeStats.svelte';
+	import PassedPieces from '$lib/components/PassedPieces.svelte';
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import House from '@lucide/svelte/icons/house';
 	import Plug from '@lucide/svelte/icons/plug';
@@ -289,6 +290,7 @@
 						{#snippet actions()}
 							<SegmentedControl bind:value={runtimeSpan} options={RUNTIME_SPANS} label="Time span" size="sm" />
 						{/snippet}
+						<PassedPieces />
 						<RuntimeStats span={runtimeSpan} />
 					</CollapsibleSection>
 				</div>

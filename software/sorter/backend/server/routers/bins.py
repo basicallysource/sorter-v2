@@ -16,6 +16,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 import machine_toml
+import bin_fill_store
 from bin_contents import (
     clear_current_session_bins,
     get_bin_snapshot,
@@ -25,6 +26,7 @@ from bin_contents import (
     get_current_bin_pieces,
     get_distributed_part_keys_since,
     list_bin_snapshots,
+    refresh_bin_state_caches,
 )
 from bin_layout_store import (
     get_bin_categories,
@@ -575,6 +577,7 @@ def get_bins_layout() -> Dict[str, Any]:
                 })
                 global_bin += 1
         max_per_bin = getattr(layer, "max_pieces_per_bin", None)
+        max_fill_units = getattr(layer, "max_fill_units", None)
         max_dimension = getattr(layer, "max_dimension_mm", None)
         section_enabled = list(getattr(layer, "section_enabled", None) or [True] * len(sections))
         if len(section_enabled) < len(sections):
@@ -586,6 +589,11 @@ def get_bins_layout() -> Dict[str, Any]:
             "section_enabled": section_enabled,
             "bin_count": global_bin,
             "max_pieces_per_bin": max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
+            "max_fill_units": (
+                float(max_fill_units)
+                if isinstance(max_fill_units, (int, float)) and not isinstance(max_fill_units, bool) and max_fill_units > 0
+                else None
+            ),
             "max_dimension_mm": (
                 float(max_dimension)
                 if isinstance(max_dimension, (int, float)) and not isinstance(max_dimension, bool) and max_dimension > 0
@@ -664,6 +672,34 @@ def get_bins_layout() -> Dict[str, Any]:
         "current_angle": current_angle,
         "active_layer": active_layer,
     }
+
+
+@router.get("/api/bins/fill-config")
+def get_bins_fill_config() -> Dict[str, Any]:
+    """Volume-aware bin limits: the per-part fill units and the default.
+    1.0 unit is the reference piece (a 2x4 brick); only the ratios matter."""
+    config = bin_fill_store.get_fill_config()
+    return {"ok": True, "default_units": config["default_units"], "parts": config["parts"]}
+
+
+class FillConfigPayload(BaseModel):
+    # Both optional; passing parts replaces the whole per-part map.
+    default_units: Optional[float] = None
+    parts: Optional[Dict[str, float]] = None
+
+
+@router.post("/api/bins/fill-config")
+def set_bins_fill_config(payload: FillConfigPayload) -> Dict[str, Any]:
+    try:
+        config = bin_fill_store.set_fill_config(
+            default_units=payload.default_units,
+            parts=payload.parts,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    # Existing bins are valued with the new units immediately.
+    refresh_bin_state_caches()
+    return {"ok": True, "default_units": config["default_units"], "parts": config["parts"]}
 
 
 @router.get("/api/bins/settings")

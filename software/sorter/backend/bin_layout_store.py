@@ -67,6 +67,7 @@ def _layout_snapshot(layers: Any, bin_categories: Any, not_in_inventory_bins: An
                 "enabled": layer.get("enabled", True),
                 "servo_channel_id": layer.get("servo_channel_id"),
                 "max_pieces_per_bin": layer.get("max_pieces_per_bin"),
+                "max_fill_units": layer.get("max_fill_units"),
                 "max_dimension_mm": layer.get("max_dimension_mm"),
                 "section_enabled": layer.get("section_enabled"),
             }

@@ -598,7 +598,8 @@
 			const payloadLayers = layers.map((layer) => ({
 				bin_count: layer.bin_count,
 				enabled: layer.layer_index === layerIndex ? enabled : layer.enabled,
-				max_pieces_per_bin: layer.max_pieces_per_bin
+				max_pieces_per_bin: layer.max_pieces_per_bin,
+				max_fill_units: layer.max_fill_units
 			}));
 			const res = await fetch(`${baseUrl()}/api/hardware-config/storage-layers`, {
 				method: 'POST',

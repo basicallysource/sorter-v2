@@ -166,6 +166,7 @@
 							{bin}
 							layerEnabled={layer.enabled}
 							maxPiecesPerBin={layer.max_pieces_per_bin}
+							maxFillUnits={layer.max_fill_units}
 							isCurrent={isCurrentBin(bin)}
 							isMoving={isMovingBin(bin)}
 							isClearing={clearing}

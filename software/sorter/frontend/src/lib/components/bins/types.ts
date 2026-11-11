@@ -15,6 +15,7 @@ export type LayerInfo = {
 	section_enabled?: boolean[];
 	bin_count: number;
 	max_pieces_per_bin: number | null;
+	max_fill_units: number | null;
 	bins: BinInfo[];
 };
 
@@ -43,6 +44,7 @@ export type BinContents = {
 	bin_index: number;
 	piece_count: number;
 	unique_item_count: number;
+	fill_units?: number;
 	last_distributed_at?: number | null;
 	items: BinContentItem[];
 	recent_pieces: BinContentItem[];

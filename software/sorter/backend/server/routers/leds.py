@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from irl.leds import assignChannelLed
 from local_state import LED_CHANNEL_KEYS, get_led_state
-from server import shared_state
+from server import hardware_needs, shared_state
 
 router = APIRouter()
 
@@ -31,9 +31,19 @@ def _status(state: dict[str, Any]) -> dict[str, Any]:
     # No outputs means no hardware exposing LED GPIOs (or none discovered yet);
     # the UI grays its card out on exactly that.
     controller = _ledController()
+    outputs = controller.outputs if controller is not None else []
+    # Why there are none: the boards are only asked for their LED outputs when
+    # the hardware starts. Said in the words every other refusal uses.
+    reason = None
+    if controller is None:
+        refusal = hardware_needs.refusalFor(hardware_needs.STARTED)
+        reason = refusal.detail if refusal is not None else None
+    if reason is None and not outputs:
+        reason = "The control board has no LED outputs."
     return {
         "channels": list(LED_CHANNEL_KEYS),
-        "outputs": controller.outputs if controller is not None else [],
+        "outputs": outputs,
+        "reason": reason,
         **state,
     }
 

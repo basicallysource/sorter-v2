@@ -26,6 +26,8 @@
 	const machine = getMachineContext();
 
 	let outputs = $state<LedOutput[]>([]);
+	// Why there are no outputs to choose from, as the machine says it.
+	let reason = $state<string | null>(null);
 	let assignments = $state<Record<string, string | null>>({});
 	let brightness = $state<Record<string, number>>({});
 	let loading = $state(true);
@@ -59,6 +61,7 @@
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
 			outputs = payload?.outputs ?? [];
+			reason = typeof payload?.reason === 'string' ? payload.reason : null;
 			assignments = payload?.assignments ?? {};
 			brightness = payload?.brightness ?? {};
 			errorMsg = null;
@@ -97,7 +100,7 @@
 	{#if errorMsg}
 		<Alert tone="danger">{errorMsg}</Alert>
 	{:else if !loading && outputs.length === 0}
-		<Alert tone="info">No LED outputs are free to assign right now.</Alert>
+		<Alert tone="info">{reason ?? 'The machine has no LED outputs to choose from.'}</Alert>
 	{/if}
 	<Field
 		label="Output"

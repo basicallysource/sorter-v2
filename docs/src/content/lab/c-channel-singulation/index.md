@@ -4,7 +4,7 @@ type: explanation
 audience: contributor understanding the core mechanical innovation
 applies_to: hardware-v2
 owner: lab
-last_verified: 2026-04-14
+last_verified: 2026-11-12
 section: lab
 slug: lab-c-channel-singulation
 kicker: Design and research — Research Area
@@ -35,14 +35,14 @@ The key insight: **the drops between stages are the primary separation mechanism
 | Stages | 3 in series (2 likely sufficient; 3 is safety margin) |
 | Cameras | 3× OV9732 100° wide-angle, one centered above each channel |
 | Calibration | ArUco 4×4 tags (3D-printable, two-color) define center, exit, and bulk boundary |
-| Piece tracking | OpenCV MOG2 background subtraction — no training data needed |
+| Piece detection | Trained detection model per channel, downloaded from the Hive and run on the NPU |
 | Anti-jam | 5-level escalating algorithm: progressively stronger back-and-forth shaking |
 | Color calibration | CIELAB comparison with reference card, UVC control adjustments |
 | Lighting | 50mm COB PCB LED in vertical post at center of each channel, side-mounted |
 
 ### Control loop
 
-1. Camera detects pieces via MOG2 pixel-diff tracking.
+1. Camera detects pieces with the channel's detection model.
 2. Rotor advances until pieces reach the exit zone.
 3. If a clump is detected (multiple contours too close), rotor reverses briefly.
 4. Anti-jam escalation kicks in if reversal fails — five levels of increasingly aggressive shaking.
@@ -64,7 +64,7 @@ The key insight: **the drops between stages are the primary separation mechanism
 - **C-channels vs V-channels** — V-channels use vibration for natural agitation but are loud. C-channels are quieter and more controllable via software, but require more physical length (3 stages) to achieve equivalent separation confidence.
 - **Circular vs linear** — Circular motion gives a smaller footprint and simpler overhead camera geometry (no perspective skew). Linear paths would need longer travel distance.
 - **2 vs 3 stages** — Two stages likely suffice for most loads. The third stage is a safety margin that the team kept because the cost (one more rotor + camera) is low relative to the confidence gain.
-- **MOG2 vs YOLO for tracking** — MOG2 background subtraction is faster, needs no training data, and works well for the fixed-camera setup. YOLO would be overkill for binary piece-present detection.
+- **Detection model vs background subtraction** — The first prototypes tracked pieces with OpenCV MOG2 background subtraction, which needs no training data. It was removed in September 2026: it only sees motion, so it fails on a channel that is not rotating. A trained detector finds pieces whether or not they move.
 
 ## What this is not
 

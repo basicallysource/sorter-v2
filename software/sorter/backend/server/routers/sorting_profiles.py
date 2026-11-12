@@ -461,6 +461,21 @@ def route_piece(part_id: str, color_id: str | None = None) -> dict[str, Any]:
 
         profile = JsonSortingProfile(shared_state.gc_ref)
     category_id = profile.getCategoryIdForPart(part_id.strip(), (color_id or "").strip() or "any_color")
+    # Reflect the dynamic part+color split the distributor applies, so the
+    # route check answers what the machine would actually do.
+    try:
+        from sorting_profile import applyDynamicColorSplit
+        from toml_config import getBinAssignmentConfig
+
+        category_id = applyDynamicColorSplit(
+            profile,
+            category_id,
+            part_id.strip(),
+            color_id,
+            bool(getBinAssignmentConfig().get("dynamic_color_split", False)),
+        )
+    except Exception:
+        pass
     categories: dict[str, Any] = {}
     if path and os.path.exists(path):
         try:

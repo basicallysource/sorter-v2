@@ -348,10 +348,8 @@ def test_staging_stops_before_pushing_the_waiting_piece_off() -> None:
 # ------------------------------------------------------------- pause / resume
 
 
-def test_the_head_goes_alone_when_a_straddling_piece_keeps_the_gate_shut() -> None:
-    """A piece left across the drop zone's edge makes the zone read occupied,
-    so the feeder's gate never opens and no next piece comes; the waiting head
-    goes out on its own instead of sitting until the stall watchdog sweeps."""
+def test_the_head_goes_alone_after_three_seconds_when_the_drop_zone_is_clear() -> None:
+    """A ready head goes out on its own when no piece is waiting to be staged."""
     ch, _ = _channel()
     now = time.monotonic()
     obj = _classified()
@@ -361,7 +359,7 @@ def test_the_head_goes_alone_when_a_straddling_piece_keeps_the_gate_shut() -> No
     obj.stage = PieceStage.distributing
     ch.shared.distribution_ready = True
     ch._ready_since = None
-    ch._phase_started_at = now - two_piece._HEAD_ALONE_AFTER_S - 1.0
+    ch._phase_started_at = now - 3.1
     ch._maybeStartRotation()
     assert ch._phase == _Phase.EJECTING and ch._eject_target is head
 

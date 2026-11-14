@@ -72,13 +72,18 @@ def _channel(*, stopped: bool = True) -> TwoPieceClassificationChannel:
 
 
 def _piece(
-    track_id: int, *, zone: int = NONE, box_in_drop: bool = True
+    track_id: int,
+    *,
+    zone: int = NONE,
+    box_in_drop: bool = True,
+    gap: float = 210.0,
+    x: int = 1000,
 ) -> PieceObservation:
     return PieceObservation(
-        com_forward_to_exit_deg=210.0,
+        com_forward_to_exit_deg=gap,
         com_section=0,
         zone_code=zone,
-        bbox=(1000, 500, 1100, 600),
+        bbox=(x, 500, x + 100, 600),
         sv_bt_track_id=track_id,
         box_in_drop=box_in_drop,
     )
@@ -202,6 +207,23 @@ def test_edge_landed_status_clears_after_waiting_and_does_not_return() -> None:
     ch._observe(_frame(waiting_at, _piece(52)), waiting_at, stopped=True)
     assert not tp.edge_landed
     assert tp.zone == NONE
+
+
+def test_side_by_side_edge_landings_are_a_double_feed() -> None:
+    ch = _channel()
+    now = time.monotonic()
+    state = _frame(
+        now,
+        _piece(53, gap=210.0, x=1000),
+        _piece(54, gap=208.0, x=1130),
+    )
+
+    ch._observe(state, now, stopped=True)
+
+    left, right = ch._pieces[53], ch._pieces[54]
+    assert left.edge_landed and right.edge_landed
+    assert left.double_feed and right.double_feed
+    assert left.multi_drop_group == right.multi_drop_group
 
 
 def test_a_bbox_outside_the_drop_zone_does_not_override_its_center_zone() -> None:

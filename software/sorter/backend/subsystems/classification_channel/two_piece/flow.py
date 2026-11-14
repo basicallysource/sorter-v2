@@ -942,7 +942,14 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         drop = [
             po
             for po in getattr(state, "pieces", ())
-            if int(po.zone_code) == _ZONE_DROP and po.com_forward_to_exit_deg is not None
+            if (
+                int(po.zone_code) == _ZONE_DROP
+                or (
+                    po.sv_bt_track_id in self._pieces
+                    and self._pieces[po.sv_bt_track_id].edge_landed
+                )
+            )
+            and po.com_forward_to_exit_deg is not None
         ]
         pair = _closePair(drop)
         if pair is not None:

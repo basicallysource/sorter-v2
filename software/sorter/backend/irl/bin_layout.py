@@ -12,6 +12,11 @@ class LayerConfig:
     servo_open_angle: int | None = None
     servo_closed_angle: int | None = None
     max_pieces_per_bin: int | None = None
+    # Volume-aware sibling of max_pieces_per_bin, in relative fill units
+    # (1.0 = the reference 2x4 brick; per-part units live in bin_fill_store).
+    # A bin counts as full when EITHER limit is reached. None disables the
+    # check for the layer and the machine behaves exactly as without it.
+    max_fill_units: float | None = None
     # Largest piece (max single physical dimension, mm) this layer will accept.
     # None disables the check for the layer — pieces of any size may be sent
     # here. A piece exceeding this is rerouted to the misc bottom bin.
@@ -74,6 +79,14 @@ def _parseMaxDimension(raw: object, sections: List[List[str]]) -> float | None:
     return None
 
 
+def _parseMaxFillUnits(raw: object) -> float | None:
+    # Missing key (legacy layout) or explicit null -> no fill limit. A positive
+    # number -> that limit in fill units.
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool) and raw > 0:
+        return float(raw)
+    return None
+
+
 @dataclass
 class BinLayoutConfig:
     layers: List[LayerConfig]
@@ -106,6 +119,7 @@ class Layer:
     sections: List[BinSection] = field(default_factory=list)
     enabled: bool = True
     max_pieces_per_bin: int | None = None
+    max_fill_units: float | None = None
     max_dimension_mm: float | None = None
 
 
@@ -201,6 +215,7 @@ def _parseLayersDict(data: dict) -> BinLayoutConfig | None:
         servo_close = layer_data.get("servo_closed_angle")
         servo_channel = layer_data.get("servo_channel_id")
         max_per_bin = layer_data.get("max_pieces_per_bin")
+        max_fill_units = _parseMaxFillUnits(layer_data.get("max_fill_units"))
         max_dimension = _parseMaxDimension(layer_data.get("max_dimension_mm", _MISSING), sections)
         section_enabled_raw = layer_data.get("section_enabled")
         section_enabled = (
@@ -215,6 +230,7 @@ def _parseLayersDict(data: dict) -> BinLayoutConfig | None:
             servo_closed_angle=servo_close if isinstance(servo_close, int) else None,
             servo_channel_id=servo_channel if isinstance(servo_channel, int) else None,
             max_pieces_per_bin=max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
+            max_fill_units=max_fill_units,
             max_dimension_mm=max_dimension,
             section_enabled=section_enabled,
         ))
@@ -308,6 +324,7 @@ def saveBinLayout(config: BinLayoutConfig) -> None:
                 "servo_closed_angle": layer.servo_closed_angle,
                 "servo_channel_id": layer.servo_channel_id,
                 "max_pieces_per_bin": layer.max_pieces_per_bin,
+                "max_fill_units": layer.max_fill_units,
                 "max_dimension_mm": layer.max_dimension_mm,
                 "section_enabled": layer.section_enabled,
             }
@@ -362,6 +379,7 @@ def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
             sections=sections,
             enabled=layer_config.enabled,
             max_pieces_per_bin=layer_config.max_pieces_per_bin,
+            max_fill_units=layer_config.max_fill_units,
             max_dimension_mm=layer_config.max_dimension_mm,
         ))
     return DistributionLayout(layers=layers)

@@ -10,6 +10,7 @@ from typing import Any
 
 import db
 import local_state
+import bin_fill_store
 
 # What is in each bin. A sorting session (sorting_sessions) holds the current
 # contents: a count per bin (bin_state_current), a count per distinct item in
@@ -30,9 +31,12 @@ _META_KEY_OPEN_BIN_SNAPSHOT_ID = "open_bin_snapshot_id"
 # The control loop picks a bin for every piece by its current count, so it
 # reads the counts from memory. Every write to bin_state_current holds
 # _bin_state_write_lock and refreshes the copy after its commit, so the copy
-# always matches the last commit.
+# always matches the last commit. A parallel copy tracks each bin's fill units
+# (per-piece volumes from bin_fill_store, folded over bin_item_aggregates) for
+# volume-aware bin limits; both copies refresh together.
 _bin_state_write_lock = threading.RLock()
 _bin_piece_counts: tuple[Path, dict[tuple[int, int, int], int]] | None = None
+_bin_fill_units: tuple[Path, dict[tuple[int, int, int], float]] | None = None
 
 # The columns of a piece listing: the piece's event and its session's profile.
 _PIECE_COLUMNS = (
@@ -478,6 +482,10 @@ def record_piece_distribution(piece: dict[str, Any]) -> None:
             (unique_count, float(distributed_at), time.time(), session_id, layer_index, section_index, bin_index),
         )
         conn.commit()
+        # Volume learning rides the same path: this piece's catalog bbox feeds
+        # the learned per-part fill units (manual entries always win). It runs
+        # before the refresh so the piece itself is valued with its own volume.
+        bin_fill_store.learn_from_piece(piece)
         _refresh_bin_piece_counts(conn)
 
 
@@ -690,9 +698,28 @@ def get_current_bin_piece_counts() -> dict[tuple[int, int, int], int]:
     return dict(cached[1])
 
 
+def get_current_bin_fill_units() -> dict[tuple[int, int, int], float]:
+    """Each bin's fill in relative units (see bin_fill_store). Same refresh
+    contract as the piece counts: always read from the in-memory copy."""
+    cached = _bin_fill_units
+    if cached is None or cached[0] != db.local_state_db_path():
+        with _bin_state_write_lock, _connection() as conn:
+            _refresh_bin_piece_counts(conn)
+        cached = _bin_fill_units
+    return dict(cached[1])
+
+
+def refresh_bin_state_caches() -> None:
+    """Recompute both in-memory copies from the database. Call after anything
+    changes how existing contents are valued — e.g. edited part volumes."""
+    with _bin_state_write_lock, _connection() as conn:
+        _refresh_bin_piece_counts(conn)
+
+
 def _refresh_bin_piece_counts(conn: sqlite3.Connection) -> None:
-    global _bin_piece_counts
+    global _bin_piece_counts, _bin_fill_units
     counts: dict[tuple[int, int, int], int] = {}
+    fills: dict[tuple[int, int, int], float] = {}
     active_session_id = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID)
     if active_session_id:
         rows = conn.execute(
@@ -703,7 +730,18 @@ def _refresh_bin_piece_counts(conn: sqlite3.Connection) -> None:
             (int(row["layer_index"]), int(row["section_index"]), int(row["bin_index"])): int(row["piece_count"] or 0)
             for row in rows
         }
+        aggregate_rows = conn.execute(
+            "SELECT layer_index, section_index, bin_index, part_id, SUM(count) AS total "
+            "FROM bin_item_aggregates WHERE session_id = ? "
+            "GROUP BY layer_index, section_index, bin_index, part_id",
+            (active_session_id,),
+        ).fetchall()
+        for row in aggregate_rows:
+            key = (int(row["layer_index"]), int(row["section_index"]), int(row["bin_index"]))
+            units = bin_fill_store.part_volume(row["part_id"]) * int(row["total"] or 0)
+            fills[key] = fills.get(key, 0.0) + units
     _bin_piece_counts = (db.local_state_db_path(), counts)
+    _bin_fill_units = (db.local_state_db_path(), fills)
 
 
 def get_current_bin_contents_snapshot() -> dict[str, Any]:
@@ -754,6 +792,10 @@ def get_current_bin_contents_snapshot() -> dict[str, Any]:
                     (active_session_id, li, si, bi, epoch),
                 ).fetchall()
             ]
+            fill_units = sum(
+                bin_fill_store.part_volume(item["part_id"]) * int(item["count"] or 0)
+                for item in items
+            )
             bins.append(
                 {
                     "bin_key": f"{li}:{si}:{bi}",
@@ -762,6 +804,7 @@ def get_current_bin_contents_snapshot() -> dict[str, Any]:
                     "bin_index": bi,
                     "piece_count": int(row["piece_count"]),
                     "unique_item_count": int(row["unique_item_count"]),
+                    "fill_units": round(fill_units, 2),
                     "last_distributed_at": row["last_distributed_at"],
                     "items": items,
                     "recent_pieces": recent_pieces,

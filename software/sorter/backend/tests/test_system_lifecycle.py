@@ -240,6 +240,40 @@ class SystemLifecycleTests(unittest.TestCase):
         assert worker is not None
         worker.join(timeout=1.0)
 
+    def test_home_pressed_while_the_backend_loads_waits_then_homes(self) -> None:
+        homed = threading.Event()
+
+        response = system.recover_system()
+        self.assertTrue(response["ok"])
+        self.assertEqual("homing", response["hardware_state"])
+        self.assertEqual(system.LOADING_STEP, response["message"])
+        self.assertEqual(system.LOADING_STEP, shared_state.hardware_homing_step)
+        worker = shared_state.hardware_worker_thread
+        assert worker is not None
+        self.assertTrue(worker.is_alive())
+
+        shared_state.setHardwareStartFn(homed.set)
+        worker.join(timeout=1.0)
+
+        self.assertTrue(homed.is_set())
+        self.assertEqual("ready", shared_state.hardware_state)
+        self.assertIsNone(shared_state.hardware_error)
+
+    def test_a_backend_that_never_finishes_loading_ends_in_an_error(self) -> None:
+        saved_wait = system.LOADING_WAIT_S
+        system.LOADING_WAIT_S = 0.05
+        try:
+            self.assertTrue(system.initialize_system()["ok"])
+            worker = shared_state.hardware_worker_thread
+            assert worker is not None
+            worker.join(timeout=1.0)
+        finally:
+            system.LOADING_WAIT_S = saved_wait
+
+        self.assertEqual("error", shared_state.hardware_state)
+        assert shared_state.hardware_error is not None
+        self.assertEqual("The backend did not finish loading", shared_state.hardware_error["title"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -56,6 +56,10 @@ hardware_homing_step: Optional[str] = None  # Current homing phase description
 _hardware_start_fn: Optional[Any] = None  # Callable set by main.py
 _hardware_initialize_fn: Optional[Any] = None  # Callable set by main.py
 _hardware_reset_fn: Optional[Any] = None  # Callable set by main.py
+# Notified when main.py registers the start or initialize function. The API is
+# up before they are (main.py loads cameras and the rest first), so a Home or
+# Start pressed in that time waits on this (routers/system.py).
+hardware_fn_registered = threading.Condition()
 hardware_runtime_irl: Optional[Any] = None  # Active IRL during homing before controller exists
 hardware_worker_thread: Optional[threading.Thread] = None
 hardware_lifecycle_lock = threading.RLock()
@@ -87,12 +91,16 @@ def setController(c: Any) -> None:
 
 def setHardwareStartFn(fn: Any) -> None:
     global _hardware_start_fn
-    _hardware_start_fn = fn
+    with hardware_fn_registered:
+        _hardware_start_fn = fn
+        hardware_fn_registered.notify_all()
 
 
 def setHardwareInitializeFn(fn: Any) -> None:
     global _hardware_initialize_fn
-    _hardware_initialize_fn = fn
+    with hardware_fn_registered:
+        _hardware_initialize_fn = fn
+        hardware_fn_registered.notify_all()
 
 
 def setHardwareResetFn(fn: Any) -> None:

@@ -74,18 +74,44 @@ def home_system() -> Dict[str, Any]:
     return recover_system()
 
 
+# The API is up before main.py has loaded the cameras and the rest and
+# registered the start functions. A Home or Start pressed in that time is
+# taken, and waits this long for the backend to finish loading.
+LOADING_WAIT_S = 180.0
+LOADING_STEP = "Waiting for the backend to finish loading..."
+
+
+def _awaitRegistered(registered: Callable[[], Callable[[], None] | None]) -> Callable[[], None]:
+    with shared_state.hardware_fn_registered:
+        shared_state.hardware_fn_registered.wait_for(
+            lambda: registered() is not None, timeout=LOADING_WAIT_S
+        )
+    fn = registered()
+    if fn is None:
+        raise HardwareFault(
+            "The backend did not finish loading",
+            f"The backend had not finished loading after {LOADING_WAIT_S / 60:.0f} minutes, "
+            "so the hardware was not started. Restart the backend from the menu.",
+        )
+    return fn
+
+
 def _start_hardware_worker(
     *,
     state: str,
     step: str,
     success_state: str,
-    fn: Callable[[], None] | None,
+    registered: Callable[[], Callable[[], None] | None],
     busy_message: str,
-    missing_fn_message: str,
     started_message: str,
 ) -> Dict[str, Any]:
     def _run() -> None:
         try:
+            fn = registered()
+            if fn is None:
+                fn = _awaitRegistered(registered)
+                with shared_state.hardware_lifecycle_lock:
+                    shared_state.setHardwareStatus(homing_step=step)
             fn()
         except Exception as exc:
             with shared_state.hardware_lifecycle_lock:
@@ -124,22 +150,20 @@ def _start_hardware_worker(
                 "message": "Another hardware operation is already in progress.",
             }
 
-        if fn is None:
-            return {
-                "ok": False,
-                "hardware_state": shared_state.hardware_state,
-                "message": missing_fn_message,
-            }
-
+        loading = registered() is None
         shared_state.setHardwareStatus(
             state=state,
             clear_error=True,
-            homing_step=step,
+            homing_step=LOADING_STEP if loading else step,
         )
         shared_state.hardware_worker_thread = thread
 
     thread.start()
-    return {"ok": True, "hardware_state": state, "message": started_message}
+    return {
+        "ok": True,
+        "hardware_state": state,
+        "message": LOADING_STEP if loading else started_message,
+    }
 
 
 @router.post("/api/system/recover")
@@ -148,9 +172,8 @@ def recover_system() -> Dict[str, Any]:
         state="homing",
         step="Starting safe recovery...",
         success_state="ready",
-        fn=shared_state._hardware_start_fn,
+        registered=lambda: shared_state._hardware_start_fn,
         busy_message="Already recovering hardware.",
-        missing_fn_message="No hardware recovery function registered.",
         started_message="Safe hardware recovery started.",
     )
 
@@ -166,9 +189,8 @@ def initialize_system() -> Dict[str, Any]:
         state="initializing",
         step="Starting...",
         success_state="initialized",
-        fn=shared_state._hardware_initialize_fn,
+        registered=lambda: shared_state._hardware_initialize_fn,
         busy_message="Already initializing hardware.",
-        missing_fn_message="No hardware initialize function registered.",
         started_message="Hardware initialization started.",
     )
 

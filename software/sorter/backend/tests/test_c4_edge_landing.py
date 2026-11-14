@@ -212,3 +212,34 @@ def test_ready_head_waits_2_5_seconds_then_ejects_alone_at_3_1_seconds(caplog) -
     assert ch._phase == _Phase.EJECTING
     assert ch._eject_target is head
     assert any("alone" in record.message for record in caplog.records)
+
+
+def test_blocked_drop_zone_uses_12_second_head_alone_fallback(caplog) -> None:
+    caplog.set_level(logging.INFO, logger=_LOGGER.name)
+    ch = _channel()
+    obj = KnownObject(part_id="3001", color_id="5")
+    obj.stage = PieceStage.distributing
+    obj.classification_status = ClassificationStatus.classified
+    head = two_piece._TrackedPiece(49, _Worker(), time.monotonic())
+    head.zone = two_piece._ZONE_PRECISE
+    head.gap_to_exit = 40.0
+    head.placed = True
+    head.result_applied = True
+    head.worker.ctx.known_object = obj
+    ch._pieces[head.track_id] = head
+    ch.shared.distribution_ready = True
+    state = SimpleNamespace(in_drop=True)
+
+    assert ch._dropPiece() is None
+    ch._ready_since = time.monotonic() - 3.1
+    ch._maybeStartRotation(state)
+    assert ch._phase == _Phase.WAITING
+
+    ch._ready_since = time.monotonic() - 12.1
+    ch._maybeStartRotation(state)
+
+    assert ch._phase == _Phase.EJECTING
+    assert ch._eject_target is head
+    assert any(
+        "(no next piece for 12 s)" in record.message for record in caplog.records
+    )

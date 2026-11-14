@@ -119,6 +119,11 @@ _BUCKET_HOLD_EJECTS = 2
 # channel into the bucket.
 _HEAD_ALONE_AFTER_S = 3.0
 
+# The drop zone reads occupied, but nothing there is being photographed, for
+# example a box the tracker never gave an id. Twelve seconds leaves any capture
+# in progress time to finish.
+_HEAD_ALONE_BLOCKED_AFTER_S = 12.0
+
 # A piece that does not fall off the exit (a tire's rubber grips the platter)
 # rides on around the channel, past the camera, and comes back into the drop
 # zone, where it is photographed and classified again: one piece, two records.
@@ -1360,12 +1365,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             )
 
     def _maybeEjectHeadAlone(self, state=None) -> None:
-        # The drop zone is clear when this fires, so ejecting the ready head alone
-        # cannot disturb another piece.
-        if self._dropPiece() is not None or getattr(state, "in_drop", False):
-            return
         since = self._ready_since if self._ready_since is not None else self._phase_started_at
-        if time.monotonic() - since < _HEAD_ALONE_AFTER_S:
+        drop_zone_blocked = getattr(state, "in_drop", False) or self._dropPiece() is not None
+        delay = _HEAD_ALONE_BLOCKED_AFTER_S if drop_zone_blocked else _HEAD_ALONE_AFTER_S
+        if time.monotonic() - since < delay:
             return
         head = self._headPiece()
         if head is None or not self._headReady(head):
@@ -1375,7 +1378,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._enterPhase(_Phase.EJECTING)
         self.logger.info(
             f"{LOG_TAG} ROTATE: eject track={head.track_id} alone "
-            f"(no next piece for {_HEAD_ALONE_AFTER_S:.0f} s)"
+            f"(no next piece for {delay:.0f} s)"
         )
 
     def _ejecting(self, state, stopped: bool, now: float) -> None:

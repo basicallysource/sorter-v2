@@ -685,8 +685,11 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 self.logger.info(
                     f"{LOG_TAG} track={tid} landed on the drop zone edge; photographing it there"
                 )
-            if tp.edge_landed and self._phase == _Phase.WAITING and not tp.capture_done:
-                tp.zone = _ZONE_DROP
+            if tp.edge_landed:
+                if self._phase == _Phase.WAITING:
+                    tp.zone = _ZONE_DROP
+                else:
+                    tp.edge_landed = False
             b = po.bbox
             tp.bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
             tp.boxes = merged.get(tp.bbox, (tp.bbox,))

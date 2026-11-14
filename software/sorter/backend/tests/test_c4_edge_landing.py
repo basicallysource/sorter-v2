@@ -147,6 +147,63 @@ def test_ready_head_is_not_ejected_while_an_edge_piece_is_uncaptured() -> None:
     assert ch._dropPiece() is ch._pieces[48]
 
 
+def test_captured_edge_piece_is_staged_with_the_ready_head() -> None:
+    ch = _channel()
+    now = time.monotonic()
+    head = two_piece._TrackedPiece(50, _Worker(), now)
+    head.zone = two_piece._ZONE_PRECISE
+    head.gap_to_exit = 40.0
+    ch._pieces[head.track_id] = head
+    state = _frame(now, _piece(51))
+
+    ch._observe(state, now, stopped=True)
+    edge = ch._pieces[51]
+    edge.worker.burstCaptureComplete = lambda ctx, current: (True, "done")
+    ch._cropBurstFrame = lambda worker, bbox, frame: None
+    perception = SimpleNamespace(read_bboxes_and_frame=lambda channel: ([], object()))
+    ch._captureDropPieces(perception, now)
+
+    assert edge.capture_done
+    assert edge.edge_landed
+    assert edge.zone == DROP
+    ch._maybeStartRotation(state)
+    assert ch._phase == _Phase.WAITING
+
+    obj = KnownObject(part_id="3001", color_id="5")
+    obj.stage = PieceStage.distributing
+    obj.classification_status = ClassificationStatus.classified
+    head.worker.ctx.known_object = obj
+    head.placed = True
+    head.result_applied = True
+    ch.shared.distribution_ready = True
+    ch._maybeStartRotation(state)
+
+    assert ch._phase == _Phase.EJECTING
+    assert ch._eject_target is head
+    assert ch._stage_target is edge
+
+
+def test_edge_landed_status_clears_after_waiting_and_does_not_return() -> None:
+    ch = _channel()
+    created_at = time.monotonic()
+    ch._observe(_frame(created_at, _piece(52)), created_at, stopped=True)
+    tp = ch._pieces[52]
+    assert tp.edge_landed and tp.zone == DROP
+
+    staging_at = created_at + 0.1
+    ch._phase = _Phase.STAGING
+    ch._observe(_frame(staging_at, _piece(52)), staging_at, stopped=True)
+    assert not tp.edge_landed
+    assert tp.zone == NONE
+
+    waiting_at = created_at + 0.2
+    ch._phase = _Phase.WAITING
+    ch._phase_started_at = waiting_at
+    ch._observe(_frame(waiting_at, _piece(52)), waiting_at, stopped=True)
+    assert not tp.edge_landed
+    assert tp.zone == NONE
+
+
 def test_a_bbox_outside_the_drop_zone_does_not_override_its_center_zone() -> None:
     ch = _channel()
     now = time.monotonic()

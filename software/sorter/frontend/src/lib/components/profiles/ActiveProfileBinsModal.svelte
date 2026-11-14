@@ -13,12 +13,19 @@
 		metadata: SortingProfileMetadata | null;
 		loading: boolean;
 		error: string | null;
+		title?: string;
 	};
 
-	let { open = $bindable(), metadata, loading, error }: Props = $props();
+	let {
+		open = $bindable(),
+		metadata,
+		loading,
+		error,
+		title = 'What this machine sorts into'
+	}: Props = $props();
 </script>
 
-<Modal bind:open title="What this machine sorts into" size="lg">
+<Modal bind:open {title} size="lg">
 	<div class="flex flex-col gap-6">
 		{#if metadata}
 			<div>

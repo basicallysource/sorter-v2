@@ -124,3 +124,11 @@ classification_channel = 2
 
 [stepper_direction_inverts]
 carousel = true
+
+[bins]
+# What a bin is named by: any of "category", "part" and "color". Category alone
+# is the default. A mix sorts several things in one run, e.g. ["part", "color"]
+# gives one bin per part and color. Sort in passes (category, then part, then
+# color) by changing this between runs and resetting the bins.
+# sort_by = ["category"]
+# allow_multiple_categories_per_bin = false

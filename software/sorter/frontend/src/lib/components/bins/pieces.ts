@@ -1,4 +1,7 @@
+import { findLegoColor } from '$lib/pieces/colors';
 import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
+import { BIN_KEY_LABELS, parseBinKey, type BinKeyComponent } from './binKey';
+import { partName } from './partNames.svelte';
 import type { BinContentItem } from './types';
 
 export function previewUrl(item: Pick<BinContentItem, 'part_id' | 'brickognize_preview_url' | 'thumbnail' | 'top_image' | 'bottom_image'> | null): string | null {
@@ -25,8 +28,26 @@ export function itemSecondaryText(item: BinContentItem): string {
 	return bits.join(' · ') || 'Unrecognized item';
 }
 
+function binKeyPartLabel(component: BinKeyComponent, value: string): string {
+	if (component === 'category') return formatCategoryName(value);
+	if (component === 'color') {
+		if (value === 'any_color') return 'Any color';
+		return findLegoColor(value, null)?.name ?? `${BIN_KEY_LABELS.color} ${value}`;
+	}
+	const name = partName(value);
+	return name ? `${name} (${value})` : `${BIN_KEY_LABELS.part} ${value}`;
+}
+
+// A bin is named by a profile category, a part, a color or a mix of them
+// (see binKey.ts): "Bricks", "Part 3001", "Red", "Bricks · Red".
 export function formatCategoryName(categoryId: string | null | undefined): string {
 	if (!categoryId) return '';
+	const key = parseBinKey(categoryId);
+	if (key) {
+		return (Object.entries(key) as [BinKeyComponent, string][])
+			.map(([component, value]) => binKeyPartLabel(component, value))
+			.join(' · ');
+	}
 	const mapped = sortingProfileStore.getCategoryName(categoryId);
 	const value = mapped ?? categoryId;
 	if (value.toLowerCase() === 'misc') return 'Misc';

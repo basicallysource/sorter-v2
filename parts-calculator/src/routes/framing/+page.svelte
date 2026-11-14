@@ -128,6 +128,11 @@
 				cuts to size. Ask them to confirm the slot is 6 mm wide before you order.
 			</li>
 			<li>
+				<b class="text-text">Australia:</b>
+				<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://aluminiumprofile.com.au/">Profilium</a> sells plain and black anodised Alusic
+				T-slot extrusion, cut to the lengths you give them.
+			</li>
+			<li>
 				<b class="text-text">Several regions:</b>
 				<a class="text-primary hover:text-primary-hover" target="_blank" rel="noopener" href="https://www.motedis.com/">Motedis</a> cuts to length and cuts M6 threads. Pick your
 				country in the shop: it covers most of Europe, the UK, Mexico and the United States.

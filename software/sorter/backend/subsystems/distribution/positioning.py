@@ -206,9 +206,25 @@ class Positioning(BaseState):
                 return DistributionState.READY
 
             address = self._trainingBinAddress()
+            if (
+                address is None
+                and category_id != MISC_CATEGORY
+                and self._pieceOutgrowsEveryLayer(piece, route_not_in_inventory)
+            ):
+                # Bigger than every layer that could take it: no bin can hold
+                # it, so do not claim one. It would only be rejected after the
+                # claim and leave a key assigned to a bin it never fills.
+                self.logger.info(
+                    f"Positioning: piece {piece.uuid} ({piece.max_dimension_mm}mm) is bigger "
+                    f"than every usable layer, passthrough to misc bottom bin"
+                )
+                self._passThroughTooBigForLayer(piece, None)
+                return DistributionState.READY
             if address is None:
                 address, _ = self._findOrAssignBinForCategory(
-                    category_id, not_in_inventory=route_not_in_inventory
+                    category_id,
+                    not_in_inventory=route_not_in_inventory,
+                    piece_size_mm=piece.max_dimension_mm,
                 )
             if address is None and self._servo_bus_pause_enqueued:
                 # Fatal: the servo bus is offline, so every layer is
@@ -257,18 +273,7 @@ class Positioning(BaseState):
                     f"Positioning: piece {piece.uuid} ({piece.max_dimension_mm}mm) exceeds "
                     f"layer {address.layer_index} limit ({layer_max}mm) — passthrough to misc bottom bin"
                 )
-                self._openAllDoorsForPassthrough()
-                piece.stage = PieceStage.distributing
-                piece.distributing_at = time.time()
-                piece.distribution_target_selected_at = piece.distributing_at
-                piece.category_id = MISC_CATEGORY
-                piece.destination_bin = None
-                piece.too_big_for_layer = True
-                piece.intended_layer_index = address.layer_index
-                piece.updated_at = time.time()
-                self._piece = piece
-                self.event_queue.put(knownObjectToEvent(piece))
-                self._setOccupancyState("positioning.passthrough_too_big_for_layer")
+                self._passThroughTooBigForLayer(piece, address.layer_index)
                 return DistributionState.READY
 
             self.logger.info(
@@ -427,6 +432,54 @@ class Positioning(BaseState):
         if not isinstance(piece_max, (int, float)):
             return False
         return float(piece_max) > layer_max
+
+    def _layerTakesSize(self, layer_index: int, size_mm: Optional[float]) -> bool:
+        layer_max = self._layerMaxDimensionMm(layer_index)
+        if layer_max is None or not isinstance(size_mm, (int, float)):
+            return True
+        return float(size_mm) <= layer_max
+
+    def _pieceOutgrowsEveryLayer(self, piece, not_in_inventory: bool) -> bool:
+        """True when the piece is bigger than the limit of every layer it could use.
+
+        Only enabled, usable layers that hold bins of the piece's pool count. A
+        layer without a limit takes any size, and an unknown piece size is never
+        held against a layer, so both answer False.
+        """
+        piece_max = piece.max_dimension_mm
+        if not isinstance(piece_max, (int, float)) or isinstance(piece_max, bool):
+            return False
+        limits: list[float] = []
+        for layer_idx, layer in enumerate(self.layout.layers):
+            if not getattr(layer, "enabled", True):
+                continue
+            has_pool_bin = any(
+                getattr(section, "enabled", True)
+                and any(bool(b.not_in_inventory) == not_in_inventory for b in section.bins)
+                for section in layer.sections
+            )
+            if not has_pool_bin or not self._isLayerUsable(layer_idx):
+                continue
+            layer_max = self._layerMaxDimensionMm(layer_idx)
+            if layer_max is None:
+                return False
+            limits.append(layer_max)
+        return bool(limits) and float(piece_max) > max(limits)
+
+    def _passThroughTooBigForLayer(self, piece, intended_layer_index: Optional[int]) -> None:
+        # Center-of-chute passthrough to the misc bottom bin, marked with why.
+        self._openAllDoorsForPassthrough()
+        piece.stage = PieceStage.distributing
+        piece.distributing_at = time.time()
+        piece.distribution_target_selected_at = piece.distributing_at
+        piece.category_id = MISC_CATEGORY
+        piece.destination_bin = None
+        piece.too_big_for_layer = True
+        piece.intended_layer_index = intended_layer_index
+        piece.updated_at = time.time()
+        self._piece = piece
+        self.event_queue.put(knownObjectToEvent(piece))
+        self._setOccupancyState("positioning.passthrough_too_big_for_layer")
 
     def _isLayerUsable(self, layer_index: int) -> bool:
         """Check whether this layer is currently usable for a sort move.
@@ -815,7 +868,10 @@ class Positioning(BaseState):
         return address
 
     def _findOrAssignBinForCategory(
-        self, category_id: str, not_in_inventory: bool = False
+        self,
+        category_id: str,
+        not_in_inventory: bool = False,
+        piece_size_mm: Optional[float] = None,
     ) -> tuple[Optional[BinAddress], bool]:
         # ``not_in_inventory`` selects which bin pool to search. Pieces absent
         # from the active .bsx route only among bins flagged not-in-inventory;
@@ -832,6 +888,7 @@ class Positioning(BaseState):
         # the whole scan; the pick happens after the loop.
         matching_candidates: list[BinAddress] = []
         first_unassigned: Optional[tuple[BinAddress, "Bin"]] = None
+        first_unassigned_rank = float("inf")
         # Least-loaded shared-bin candidate, used only when every bin is
         # already assigned and multi-category bins are enabled: (num_categories,
         # piece_count, address, bin). Picking the bin with the fewest categories
@@ -883,8 +940,19 @@ class Positioning(BaseState):
                         bins_with_cats += 1
                     if is_full:
                         full_bins += 1
-                    if not b.category_ids and first_unassigned is None:
-                        first_unassigned = (address, b)
+                    if not b.category_ids and self._layerTakesSize(layer_idx, piece_size_mm):
+                        # A new key only takes a free bin in a layer that fits
+                        # the piece, and of those the one with the smallest
+                        # limit (no limit counts as the largest). Without a
+                        # known size the first free bin wins as before.
+                        layer_limit = self._layerMaxDimensionMm(layer_idx)
+                        rank = float("inf") if layer_limit is None else layer_limit
+                        if first_unassigned is None or (
+                            isinstance(piece_size_mm, (int, float))
+                            and rank < first_unassigned_rank
+                        ):
+                            first_unassigned = (address, b)
+                            first_unassigned_rank = rank
                     if (
                         category_id != MISC_CATEGORY
                         and b.category_ids

@@ -1,14 +1,23 @@
 import path from 'node:path';
-import { openAsBlob } from 'node:fs';
+import { openAsBlob, readdirSync, statSync } from 'node:fs';
 import { locateMarkerRegionInFile, patchImageFile } from '../src/lib/img-patch.ts';
 
-const DEFAULT_IMAGE_PATH = path.resolve(
-    process.cwd(),
-    '../build/out/sorteros-v3-2026-05-17.img'
-);
+const OUT_DIR = path.resolve(process.cwd(), '../build/out');
+
+// The newest sorteros-v<version>-<date>.img in build/out.
+function newestImage(): string {
+    const images = readdirSync(OUT_DIR)
+        .filter((name) => name.startsWith('sorteros-v') && name.endsWith('.img'))
+        .map((name) => path.join(OUT_DIR, name))
+        .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+    if (images.length === 0) {
+        throw new Error(`no sorteros-v*.img in ${OUT_DIR}; pass an image path as the argument`);
+    }
+    return images[0];
+}
 
 async function main() {
-    const image_path = process.argv[2] || DEFAULT_IMAGE_PATH;
+    const image_path = process.argv[2] || newestImage();
     const blob = await openAsBlob(image_path);
     const region = await locateMarkerRegionInFile(blob);
 

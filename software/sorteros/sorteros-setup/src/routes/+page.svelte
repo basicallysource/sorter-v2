@@ -10,6 +10,8 @@
     import Input from '$lib/components/Input.svelte';
     import Panel from '$lib/components/Panel.svelte';
     import ProgressBar from '$lib/components/ProgressBar.svelte';
+    import RadioGroup from '$lib/components/RadioGroup.svelte';
+    import { BOARDS, DEFAULT_BOARD } from '$lib/boards';
     import Textarea from '$lib/components/Textarea.svelte';
     import {
         patchImageFile,
@@ -23,6 +25,8 @@
     const REMEMBER_PASSWORD_STORAGE_KEY = 'sorteros_setup_remember_password';
 
     let file: File | null = $state(null);
+    let board = $state(DEFAULT_BOARD);
+    const selectedBoard = $derived(BOARDS.find((b) => b.id === board));
     let hostname = $state('sorter');
     let remember_hostname = $state(false);
     let ssid = $state('');
@@ -91,6 +95,7 @@
 
     function buildConfig(): SorterosConfig {
         return {
+            board,
             hostname,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
             wifi: ssid ? { ssid, password } : undefined,
@@ -266,6 +271,20 @@
             {:else}
                 <span class="text-ink-muted">Drop a <span class="font-mono">.img</span> file here, or</span>
                 <Button size="sm" onclick={openFilePicker}>Browse</Button>
+            {/if}
+        </div>
+    </Panel>
+
+    <Panel title="Orange Pi model" description="Pick the model your image was built for. This does not change the image; it is written into the settings so the machine can check it against the board it runs on.">
+        <div class="flex flex-col gap-3">
+            <RadioGroup
+                bind:value={board}
+                name="board"
+                label="Orange Pi model"
+                options={BOARDS.map((b) => ({ value: b.id, label: b.label, help: b.help }))}
+            />
+            {#if selectedBoard}
+                <p class="text-sm text-ink-muted">{selectedBoard.wifi}</p>
             {/if}
         </div>
     </Panel>

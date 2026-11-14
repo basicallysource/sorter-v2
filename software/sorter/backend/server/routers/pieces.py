@@ -296,6 +296,34 @@ def getPiecesOverview() -> PiecesOverviewResponse:
     return PiecesOverviewResponse(**piece_records.getOverview())
 
 
+@router.get("/api/pieces/counter")
+def getPiecesCounter() -> Dict[str, Any]:
+    import piece_records
+    import pieces_counter_store
+
+    baseline = pieces_counter_store.getBaseline()
+    total = int(piece_records.getOverview()["total_pieces"])
+    return {
+        "total_since_reset": max(0, total - int(baseline["total_at_reset"])),
+        "total_all_time": total,
+        "reset_at": baseline["reset_at"],
+    }
+
+
+@router.post("/api/pieces/counter/reset")
+def resetPiecesCounter() -> Dict[str, Any]:
+    import piece_records
+    import pieces_counter_store
+
+    total = int(piece_records.getOverview()["total_pieces"])
+    baseline = pieces_counter_store.setBaseline(total)
+    return {
+        "total_since_reset": 0,
+        "total_all_time": total,
+        "reset_at": baseline["reset_at"],
+    }
+
+
 @router.get("/api/pieces/value")
 def getPiecesValue() -> Dict[str, Any]:
     import piece_records

@@ -1,4 +1,5 @@
 import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
+import { currentPalette } from '$lib/pieces/palette.svelte';
 import type { BinContentItem } from './types';
 
 export function previewUrl(item: Pick<BinContentItem, 'part_id' | 'brickognize_preview_url' | 'thumbnail' | 'top_image' | 'bottom_image'> | null): string | null {
@@ -28,9 +29,20 @@ export function itemSecondaryText(item: BinContentItem): string {
 export function formatCategoryName(categoryId: string | null | undefined): string {
 	if (!categoryId) return '';
 	const mapped = sortingProfileStore.getCategoryName(categoryId);
-	const value = mapped ?? categoryId;
-	if (value.toLowerCase() === 'misc') return 'Misc';
-	return value;
+	if (mapped) {
+		if (mapped.toLowerCase() === 'misc') return 'Misc';
+		return mapped;
+	}
+	// A dynamic part+color category ("3001:15"): the base category's name plus
+	// the BrickLink color's name, once the palette is loaded.
+	const split = categoryId.match(/^(.*):(\d+)$/);
+	if (split) {
+		const baseName = sortingProfileStore.getCategoryName(split[1]) ?? split[1];
+		const colorName = currentPalette().find((c) => String(c.id) === split[2])?.name;
+		if (colorName) return `${baseName} · ${colorName}`;
+	}
+	if (categoryId.toLowerCase() === 'misc') return 'Misc';
+	return categoryId;
 }
 
 export function categoryLabel(categoryIds: string[]): string {

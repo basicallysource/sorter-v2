@@ -148,6 +148,41 @@ class TestVariants:
         assert router.route("3001", "5") == "kit"
 
 
+class TestPartFallback:
+    """``fallback.by = "part"`` gives every part its own category; the
+    distribution seeds the next free bin from it (dynamic binning)."""
+
+    def test_each_part_takes_its_own_category(self):
+        router = ProfileRouter({**PROGRAM, "fallback": {"by": "part"}})
+        assert router.route("3010", "5") == "part_3010"
+        # the color does not matter: a red and a blue 3010 share a bin
+        assert router.route("3010", "7") == "part_3010"
+        assert router.route("4477", "5") == "part_4477"
+
+    def test_a_variant_takes_its_base_parts_category(self):
+        router = ProfileRouter({**PROGRAM, "fallback": {"by": "part"}})
+        assert router.route("3010pb176R", "5") == "part_3010"
+        assert router.route("122c01assy2", "7") == "part_122"
+
+    def test_multi_suffix_variants_take_the_root_base_part(self):
+        router = ProfileRouter({**PROGRAM, "fallback": {"by": "part"}})
+        assert router.route("3010pb176c01", "5") == "part_3010"
+        assert router.route("30374pb02c01", "5") == "part_30374"
+        # A variant and the plain form of its multi-suffix id must share a bin.
+        assert router.route("122c01assy2", "7") == router.route("122c01", "7")
+        assert router.route("3010pb176c01", "5") == router.route("3010", "5")
+
+    def test_rules_still_come_first(self):
+        router = ProfileRouter({**PROGRAM, "fallback": {"by": "part"}})
+        assert router.route("3003", "5") == "red-bricks"
+        assert router.route("3003", "7") == "bricks"
+        assert router.route("3001", "5") == "kit"
+
+    def test_an_empty_part_id_falls_to_the_default(self):
+        router = ProfileRouter({**PROGRAM, "fallback": {"by": "part"}})
+        assert router.route("", "5") == "misc"
+
+
 def test_the_summary_leaves_the_program_out(tmp_path):
     path = tmp_path / "profile.json"
     path.write_text(json.dumps({"name": "P", "program": PROGRAM, "stats": {"matched": 42}}))

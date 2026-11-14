@@ -5,7 +5,7 @@ type: explanation
 section: lab
 slug: lab-abandoned-chute-assembly-chute-core
 kicker: Design and research — Abandoned ideas — Chute
-lede: The chute assembly. Build one per layer.
+lede: The chute. Build one per layer.
 permalink: /lab/variants/abandoned/chute/chute-core/
 author: spencer
 contributors: [barthel]

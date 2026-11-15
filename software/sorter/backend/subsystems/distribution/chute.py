@@ -57,6 +57,10 @@ class BinAddress:
 
 
 class Chute:
+    # Why the last home failed, in words for the person at the machine; None
+    # after a home that worked.
+    home_failure: str | None = None
+
     def __init__(
         self,
         gc: GlobalConfig,
@@ -370,7 +374,10 @@ class Chute:
     def home(self) -> bool:
         """Find home the way this kind of chute does (chute_homing.py)."""
         find_home = homeOnMagnet if self.variant.home_on == HOME_ON_MAGNET else homeOnSwitch
+        self.home_failure = None
         if not find_home(self):
+            if self.home_failure is None:
+                self.home_failure = "The chute did not find its home."
             return False
         self.logger.info("Chute: homed successfully")
         self._homed = True

@@ -41,6 +41,14 @@ START_GRACE_S = 0.3
 POLL_S = 0.005
 
 
+def _fail(chute: "Chute", reason: str) -> bool:
+    """Log why homing stopped and keep it for the person who asked for it
+    (Chute.home_failure)."""
+    chute.logger.error(f"Chute: {reason}")
+    chute.home_failure = reason
+    return False
+
+
 def homeOnSwitch(chute: "Chute") -> bool:
     chute.logger.info("Chute: homing on its switch")
     pos_before = chute.current_angle
@@ -60,6 +68,10 @@ def homeOnSwitch(chute: "Chute") -> bool:
                 f"(polls={polls}, moved={chute.current_angle - pos_before:.2f}°, "
                 f"endstop raw={chute.raw_endstop_active} triggered={chute.endstop_triggered})"
             )
+            chute.home_failure = (
+                f"The chute turned for {HOME_TIMEOUT_MS / 1000:g} s without reaching its home switch. "
+                "Check the switch and its wiring."
+            )
             return False
         time.sleep(0.01)
     elapsed_ms = (time.monotonic() - start) * 1000
@@ -73,8 +85,15 @@ def homeOnSwitch(chute: "Chute") -> bool:
             "polls<=1 / moved~0 means the firmware reported stopped before motion began (race); "
             "large moved means it travelled without the switch ever firing."
         )
+        chute.home_failure = (
+            "The chute stopped before its home switch was pressed. The switch may not be making good "
+            "contact with the chute: try moving it closer."
+        )
         return False
-    return chute.backoffToFirstBin()
+    if not chute.backoffToFirstBin():
+        chute.home_failure = "The chute found its home switch but did not turn back to bin 1."
+        return False
+    return True
 
 
 def homeOnMagnet(chute: "Chute") -> bool:
@@ -83,27 +102,33 @@ def homeOnMagnet(chute: "Chute") -> bool:
         # Already inside the window: the firmware would stop at once, somewhere
         # in it. Leave the way a search arrives, then clear it.
         if not _runUntil(chute, -MAGNET_SEEK_SPEED, active=False, within_deg=MAGNET_WINDOW_MAX_DEG):
-            chute.logger.error(
-                "Chute: the home sensor reads active however far the chute turns. "
-                "Check the sensor's wiring and its polarity setting."
+            return _fail(
+                chute,
+                "The home sensor reads the magnet all the time, even with the chute turned a quarter "
+                "turn away. Turn its pot down until its light is on only over the magnet, and check its wiring.",
             )
-            return False
         if not _moveBy(chute, MAGNET_CLEARANCE_DEG):
             return False
     if not _runUntil(chute, MAGNET_SEEK_SPEED, active=True, within_deg=MAGNET_SEARCH_DEG):
-        chute.logger.error(
-            "Chute: no magnet passed the home sensor in more than a full turn. "
-            "Check that the sensor is plugged in, that the magnet is fitted and that the chute turns."
+        return _fail(
+            chute,
+            "No magnet passed the home sensor in more than a full turn. "
+            "Check that the sensor is plugged in, that the magnet is fitted and that the chute turns.",
         )
-        return False
     if not _runUntil(chute, -MAGNET_CRAWL_SPEED, active=False, within_deg=MAGNET_WINDOW_MAX_DEG):
-        chute.logger.error("Chute: could not back out of the magnet after finding it.")
-        return False
+        return _fail(
+            chute,
+            "The home sensor found the magnet, then still read it with the chute backed a quarter "
+            "turn away. Turn its pot down until its light is on only over the magnet, and check its wiring.",
+        )
     if not _moveBy(chute, MAGNET_CLEARANCE_DEG):
         return False
     if not _runUntil(chute, MAGNET_CRAWL_SPEED, active=True, within_deg=MAGNET_CLEARANCE_DEG * 4):
-        chute.logger.error("Chute: lost the magnet on the slow approach.")
-        return False
+        return _fail(
+            chute,
+            "The home sensor lost the magnet on the slow last approach. Check that the sensor is "
+            "held firmly and its wiring.",
+        )
     return True
 
 
@@ -232,6 +257,5 @@ def _moveBy(chute: "Chute", chute_degrees: float) -> bool:
         motor_degrees, max_speed=chute.operating_speed_microsteps_per_second
     ) + 1500
     if not chute.stepper.move_degrees_blocking(motor_degrees, timeout_ms=timeout_ms):
-        chute.logger.error(f"Chute: a {chute_degrees:g}° move while homing did not finish")
-        return False
+        return _fail(chute, f"A {chute_degrees:g}° move while homing did not finish.")
     return True

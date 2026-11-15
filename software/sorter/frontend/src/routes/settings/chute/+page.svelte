@@ -9,7 +9,8 @@
 	import MeasureTurn from '$lib/components/setup/MeasureTurn.svelte';
 	import StepperPanel from '$lib/components/settings/StepperPanel.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import { getChute, type ChuteSettings } from '$lib/api/chute';
+	import { getChute, markFirstSectionCenter, type ChuteSettings } from '$lib/api/chute';
+	import Crosshair from '@lucide/svelte/icons/crosshair';
 	import { errorMessage } from '$lib/api/http';
 	import { chutePictures } from '$lib/chute/pictures';
 	import { getMachineContext } from '$lib/machines/context';
@@ -21,6 +22,23 @@
 	let chute = $state<ChuteSettings | null>(null);
 	let error = $state<string | null>(null);
 	let pictureFailed = $state(false);
+	let marking = $state(false);
+	let markMessage = $state<string | null>(null);
+	let markError = $state<string | null>(null);
+
+	async function markCenter() {
+		marking = true;
+		markMessage = null;
+		markError = null;
+		try {
+			markMessage = (await markFirstSectionCenter(base)).message;
+			await load();
+		} catch (e) {
+			markError = errorMessage(e, 'The place was not saved.');
+		} finally {
+			marking = false;
+		}
+	}
 
 	async function load() {
 		error = null;
@@ -97,7 +115,29 @@
 	{/if}
 {/if}
 
+{#if chute}
+	<Panel title="Where the bins are">
+		<p class="text-sm text-ink-muted">
+			Home the chute, turn it with the arrow keys or the buttons below until it points at the
+			middle of section 1, then mark it. Every bin moves with it, and it is kept through homing.
+		</p>
+		{#if markMessage}<p class="mt-2 text-sm text-ink">{markMessage}</p>{/if}
+		{#if markError}<p class="mt-2 text-sm text-danger-ink">{markError}</p>{/if}
+		{#snippet actions()}
+			<Button
+				size="sm"
+				icon={Crosshair}
+				disabled={marking || hardwareState !== 'ready'}
+				onclick={() => void markCenter()}
+			>
+				Section 1's center is here
+			</Button>
+		{/snippet}
+	</Panel>
+{/if}
+
 <StepperPanel
+	keyboardShortcuts
 	stepperKey="chute"
 	label="Chute stepper"
 	endstop={{

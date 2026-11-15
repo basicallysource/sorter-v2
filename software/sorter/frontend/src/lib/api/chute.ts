@@ -111,6 +111,11 @@ export function findChuteHome(base: string): Promise<{ ok: true; message: string
 }
 
 // Stops every motor.
+// Keep where the chute points now as the middle of section 1 (it must be homed).
+export function markFirstSectionCenter(base: string): Promise<{ ok: true; message: string }> {
+	return postJson(base, '/api/hardware-config/chute/aiming/first-section-center-here');
+}
+
 export function stopChute(base: string): Promise<{ ok: true; message: string }> {
 	return postJson(base, '/api/hardware-config/chute/calibrate/cancel');
 }

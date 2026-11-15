@@ -42,7 +42,7 @@ from irl.config import (
 from vision import VisionManager
 from process_guard import acquire_backend_process_guard, ProcessGuardError
 from hardware.bus import MCUBusError
-from hardware.fault import HardwareFault
+from hardware.fault import HardwareFault, NotHomed
 from hardware.waveshare_bus_service import close_all_waveshare_bus_services
 from server.waveshare_inventory import get_waveshare_inventory_manager
 import uvicorn
@@ -758,10 +758,13 @@ def main() -> None:
                 if chute.home():
                     gc.logger.info("Chute homed successfully.")
                 else:
-                    raise RuntimeError("Chute homing failed.")
+                    raise NotHomed("The chute did not find home", chute.home_failure or "Homing stopped.")
+            except NotHomed:
+                next_controller.coordinator.cleanup()
+                raise
             except Exception as e:
                 next_controller.coordinator.cleanup()
-                raise RuntimeError(f"Chute homing failed: {e}") from e
+                raise NotHomed("The chute did not find home", str(e)) from e
         elif chute is not None and gc.disable_chute and not _noPowerModeActive(gc):
             gc.logger.info("Skipping chute homing: the chute is disabled.")
         elif chute is not None:

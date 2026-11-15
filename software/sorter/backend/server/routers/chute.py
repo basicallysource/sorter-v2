@@ -359,7 +359,10 @@ def calibrate_chute_measure_turn() -> Dict[str, Any]:
         )
     try:
         if not chute.homed and not chute.home():
-            raise HTTPException(status_code=409, detail="The chute could not find its home, so its turn was not measured.")
+            raise HTTPException(
+                status_code=409,
+                detail=f"The chute could not find its home, so its turn was not measured. {chute.home_failure or ''}".strip(),
+            )
         ratio = measureTurn(chute)
     except HTTPException:
         raise
@@ -392,12 +395,7 @@ def calibrate_chute_find_endstop() -> Dict[str, Any]:
     if not homed:
         raise HTTPException(
             status_code=409,
-            detail=(
-                "The chute turned a full turn and its home sensor never saw the magnet. Check that the "
-                "sensor is plugged in, that the magnet is fitted, and that the chute turns."
-                if on_magnet
-                else "Chute homing stopped before the endstop triggered. It's possible that the switch is not making good contact with the chute. Try moving it closer to the chute."
-            ),
+            detail=chute.home_failure or "The chute did not find its home.",
         )
 
     return {
@@ -559,6 +557,36 @@ def save_chute_aiming_config(payload: ChuteAimingSettingsPayload) -> Dict[str, A
         if result["applied_live"]
         else "Chute aiming saved."
     )
+    return result
+
+
+@router.post("/api/hardware-config/chute/aiming/first-section-center-here")
+def mark_first_section_center_here() -> Dict[str, Any]:
+    """Keep where the chute points now as the middle of the first section, for
+    placing the bins by eye: jog the chute there, then mark it. Every bin moves
+    with it, and it is kept through homing."""
+    chute = getattr(hardware_needs.needStarted(), "chute", None)
+    if chute is None:
+        raise HTTPException(status_code=503, detail="Chute subsystem unavailable.")
+    if not chute.homed:
+        raise HTTPException(
+            status_code=409,
+            detail="Home the chute first: where it points is counted from home.",
+        )
+    angle = float(chute.current_angle)
+    if chute.variant.turns_freely and angle > 180.0:
+        angle -= 360.0
+    result, settings = _persist_and_apply_chute_aiming(
+        {"first_section_offset_deg": angle - chute.section_width_deg / 2.0}
+    )
+    _record_calibration_instance(
+        label="First section's center marked by hand",
+        num_sections=settings.num_sections,
+        section_width_deg=settings.section_width_deg,
+        first_section_offset_deg=settings.first_section_offset_deg,
+    )
+    result["calibrations"] = _calibrations_payload()
+    result["message"] = f"Section 1's center is {angle:+.1f}° from home. Every bin moves with it."
     return result
 
 

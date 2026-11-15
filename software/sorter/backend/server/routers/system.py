@@ -11,7 +11,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 import server.shared_state as shared_state
-from hardware.fault import HardwareFault
+from hardware.fault import HardwareFault, NotHomed
 
 router = APIRouter()
 
@@ -113,6 +113,15 @@ def _start_hardware_worker(
                 with shared_state.hardware_lifecycle_lock:
                     shared_state.setHardwareStatus(homing_step=step)
             fn()
+        except NotHomed as exc:
+            # Started, but something did not home: it stays started, the reason
+            # shown, so it can be moved, checked and homed again.
+            with shared_state.hardware_lifecycle_lock:
+                shared_state.setHardwareStatus(
+                    state="initialized",
+                    error=exc,
+                    clear_homing_step=True,
+                )
         except Exception as exc:
             with shared_state.hardware_lifecycle_lock:
                 shared_state.setHardwareStatus(

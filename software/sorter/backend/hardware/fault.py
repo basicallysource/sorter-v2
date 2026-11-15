@@ -19,3 +19,9 @@ class HardwareFault(Exception):
 
     def data(self) -> dict[str, str]:
         return {"title": self.title, "message": self.message}
+
+
+class NotHomed(HardwareFault):
+    """The hardware started, but something did not find home. The machine stays
+    started and not homed, with this as the reason, so the part can be moved
+    and checked and homing tried again; nothing else is held up."""

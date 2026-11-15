@@ -16,11 +16,11 @@ from typing import Any, Callable, Optional
 
 from .motors import ChannelMotor
 from .procedures import PROCEDURES, Procedure
-from .profiles import SHAKES, ShakeProfile, shakeProfile
+from .profiles import SHAKES, TUNED_GEAR_RATIO, ShakeProfile, shakeProfile
 from .runner import FREED, GAVE_UP, RUNNING, STOPPED, Judge, Recovery
 
 __all__ = [
-    "ChannelMotor", "FREED", "GAVE_UP", "PROCEDURES", "Procedure", "RUNNING", "SHAKES",
+    "ChannelMotor", "FREED", "GAVE_UP", "PROCEDURES", "Procedure", "RUNNING", "SHAKES", "TUNED_GEAR_RATIO",
     "STOPPED", "ShakeProfile", "current", "running", "shakeProfile", "start", "step", "stop",
 ]
 

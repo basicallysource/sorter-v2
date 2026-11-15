@@ -72,8 +72,9 @@ SLIP_RING = ChuteVariant(
     home_on=HOME_ON_MAGNET,
     falls_through=False,
     fixed_bottom_door=True,
-    # Quarters at the top, two layers of thirds, halves, and whole bins at the bottom.
-    layer_bins=(24, 18, 18, 12, 6),
+    # The Sorter V3's four layers: quarters at the top, then thirds, halves,
+    # and whole bins at the bottom.
+    layer_bins=(24, 18, 12, 6),
 )
 
 VARIANTS: dict[str, ChuteVariant] = {variant.key: variant for variant in (CABLE_CAGE, SLIP_RING)}

@@ -32,10 +32,22 @@ def shake(stepper: str, profile: str) -> dict[str, Any]:
         chosen = recovery.shakeProfile(profile)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    motor = recovery.ChannelMotor(stepper, _resolve_stepper(stepper), lambda deg: 0)
+    motor = recovery.ChannelMotor(stepper, _resolve_stepper(stepper), lambda deg: 0, gear_ratio=_gearRatio(stepper))
     if not motor.idle():
         raise HTTPException(status_code=409, detail="That channel is still moving.")
     seconds = motor.shake(chosen)
     if seconds is None:
         raise HTTPException(status_code=409, detail="The motor did not take the shake; it may still be shaking.")
     return {"ok": True, "stepper": stepper, "profile": chosen.key, "seconds": round(seconds, 1)}
+
+
+def _gearRatio(stepper: str) -> float:
+    """Motor turns per channel turn: the feeder's motors follow its drive."""
+    import recovery
+    from hardware_settings.feeder import FEEDER_MOTORS, feederDrive
+    from hardware_settings.motors import motorNamed
+
+    motor = motorNamed(stepper)
+    if motor is not None and motor.name in FEEDER_MOTORS:
+        return feederDrive().gear_ratio
+    return recovery.TUNED_GEAR_RATIO

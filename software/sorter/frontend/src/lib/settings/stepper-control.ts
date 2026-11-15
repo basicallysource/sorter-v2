@@ -1,4 +1,5 @@
 import { getChute } from '$lib/api/chute';
+import { getFeeder } from '$lib/api/feeder';
 import type { StepperKey } from '$lib/settings/stations';
 
 // The two ways a stepper turns, in words.
@@ -20,23 +21,36 @@ const DEFAULT_STEPPER_PULSE_SETTINGS: StoredStepperPulseSettings = {
 	pulseDegrees: 90
 };
 
+// The feeder's motors. Their gearing depends on the machine's feeder (geared or
+// direct drive), so it is asked of the machine (stepperGearRatio).
+export const FEEDER_STEPPERS = ['c_channel_1', 'c_channel_2', 'c_channel_3'] as const;
+export type FeederStepperKey = (typeof FEEDER_STEPPERS)[number];
+
+export function isFeederStepper(stepperKey: StepperKey): stepperKey is FeederStepperKey {
+	return (FEEDER_STEPPERS as readonly string[]).includes(stepperKey);
+}
+
 // Motor turns for one turn of what the motor drives, for the motors geared the same on
-// every machine. The chute is not here: its gearing depends on the kind of chute the
-// machine has, and a machine can have measured its own, so it is asked of the machine
-// (stepperGearRatio).
-export const STEPPER_GEAR_RATIOS: Record<Exclude<StepperKey, 'chute'>, number> = {
-	c_channel_1: 130 / 12,
-	c_channel_2: 130 / 12,
-	c_channel_3: 130 / 12,
+// every machine. The chute is not here either: its gearing depends on the kind of chute
+// the machine has, and a machine can have measured its own.
+export const STEPPER_GEAR_RATIOS: Record<Exclude<StepperKey, 'chute' | FeederStepperKey>, number> = {
 	c_channel_4: 130 / 12,
 	carousel: 130 / 12
 };
 
 export async function stepperGearRatio(baseUrl: string, stepperKey: StepperKey): Promise<number> {
-	if (stepperKey !== 'chute') return STEPPER_GEAR_RATIOS[stepperKey];
-	const ratio = Number((await getChute(baseUrl)).gear_ratio);
+	if (stepperKey === 'chute') {
+		return checkedRatio(Number((await getChute(baseUrl)).gear_ratio), "the chute's");
+	}
+	if (isFeederStepper(stepperKey)) {
+		return checkedRatio(Number((await getFeeder(baseUrl)).gear_ratio), "the feeder's");
+	}
+	return STEPPER_GEAR_RATIOS[stepperKey];
+}
+
+function checkedRatio(ratio: number, whose: string): number {
 	if (!(Number.isFinite(ratio) && ratio > 0)) {
-		throw new Error("The machine did not say the chute's gear ratio.");
+		throw new Error(`The machine did not say ${whose} gear ratio.`);
 	}
 	return ratio;
 }

@@ -21,7 +21,7 @@ from toml_config import (
 )
 from classification.providers import COLOR_PROVIDER_SPECS, MOLD_PROVIDER_SPECS
 from subsystems.classification_channel.two_piece.rev01_config import FIELD_META
-from subsystems.feeder.pulse_perception.config import FIELD_META as PULSE_PERCEPTION_FIELD_META
+from subsystems.feeder.pulse_perception.config import fieldMeta as pulsePerceptionFieldMeta
 from perception.tracker_config import TRACKER_SPECS
 
 router = APIRouter()
@@ -48,7 +48,7 @@ def set_cc_rev01_config(body: dict[str, Any]) -> dict[str, Any]:
 def get_pulse_perception_config() -> dict[str, Any]:
     return {
         "config": getPulsePerceptionConfig(),
-        "fields": PULSE_PERCEPTION_FIELD_META,
+        "fields": pulsePerceptionFieldMeta(),
     }
 
 

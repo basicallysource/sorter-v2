@@ -8,6 +8,7 @@ from subsystems.bus import StationId
 from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig
 from vision import VisionManager
+from hardware_settings.feeder import GEARED_RATIO
 
 from .config import (
     PulsePerceptionConfig,
@@ -41,10 +42,6 @@ from .held import FreeTurn, HeldAtLanding, HeldPieces
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
 
-# Motor-shaft to channel-output gear ratio. One output (LEGO wheel) degree
-# requires this many motor degrees. Matches the go-to-angle flow's constant.
-CHANNEL_OUTPUT_GEAR_RATIO = 130.0 / 12.0
-
 # Minimum stepper speed floor for pulse moves. MUST stay > 0: a min_speed of 0
 # wedges the firmware on a distance move — braking clamps _current_speed to 0
 # before the step target is reached, the move never transitions back to STOPPED,
@@ -73,6 +70,9 @@ class PulsePerceptionFeeding(BaseState):
         self.vision = vision
         self._busy_until: dict[str, float] = {}
         self._config: PulsePerceptionConfig = PulsePerceptionConfig()
+        # Motor degrees per channel (output) degree: the feeder drive's gear
+        # ratio, re-read with the config.
+        self._gear_ratio: float = GEARED_RATIO
         self._config_loaded_at: float = 0.0
         # One piece per hand-off: C2 into C3, C3 into the classification channel.
         self._gates: dict[int, DispenseGate] = {2: DispenseGate(), 3: DispenseGate()}
@@ -96,9 +96,11 @@ class PulsePerceptionFeeding(BaseState):
         now = time.monotonic()
         if now - self._config_loaded_at >= _CONFIG_TTL_S:
             try:
+                from hardware_settings.feeder import feederDrive
                 from toml_config import getPulsePerceptionConfig
                 from .config import configFromDict
                 self._config = configFromDict(getPulsePerceptionConfig())
+                self._gear_ratio = feederDrive().gear_ratio
             except Exception as exc:
                 self.gc.logger.warning(f"PulsePerception: config load failed: {exc}")
             self._config_loaded_at = now
@@ -131,7 +133,7 @@ class PulsePerceptionFeeding(BaseState):
         sign = 1 if cfg.forward_direction_sign >= 0 else -1
         if backwards:
             sign = -sign
-        motor_deg = sign * output_deg * CHANNEL_OUTPUT_GEAR_RATIO
+        motor_deg = sign * output_deg * self._gear_ratio
         # Set the move speed and tell the motor to move to the angle — that's it.
         # We NEVER set acceleration here; the motor keeps whatever acceleration it
         # already has.
@@ -369,8 +371,9 @@ class PulsePerceptionFeeding(BaseState):
         return ChannelMotor(
             f"C{channel}",
             stepper,
-            gearedMicrosteps(stepper, CHANNEL_OUTPUT_GEAR_RATIO, sign),
+            gearedMicrosteps(stepper, self._gear_ratio, sign),
             speed=channelMoveSpeed(cfg, channel),
+            gear_ratio=self._gear_ratio,
         )
 
     def _hasRoom(self, channel: int, state, most: int) -> bool:

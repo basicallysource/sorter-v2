@@ -26,6 +26,22 @@ TUNABLE_PARAMS: list[dict[str, Any]] = [
 ]
 
 _TUNABLE_BY_KEY = {meta["key"]: meta for meta in TUNABLE_PARAMS}
+# The speed bounds above are the geared feeder's; another drive's are scaled
+# to the same channel speeds (tunableParams).
+_SPEED_KEYS = ("ch1_move_speed_usteps_per_s", "ch2_move_speed_usteps_per_s", "ch3_move_speed_usteps_per_s")
+
+
+def tunableParams() -> list[dict[str, Any]]:
+    """TUNABLE_PARAMS with the speed bounds of the machine's feeder drive."""
+    from hardware_settings.feeder import feederDrive
+
+    drive = feederDrive()
+    return [
+        {**meta, "min": drive.motorRate(meta["min"]), "max": drive.motorRate(meta["max"])}
+        if meta["key"] in _SPEED_KEYS
+        else meta
+        for meta in TUNABLE_PARAMS
+    ]
 
 # Scoring is a constrained objective, not a weighted blend: a trial whose
 # double-drop rate (events per delivered piece) exceeds max_double_drop_rate is
@@ -183,8 +199,9 @@ def sampleCandidate(
 ) -> tuple[str, dict[str, Any]]:
     explore = best_params is None or rng.random() < explore_probability
     params: dict[str, Any] = {}
+    tunable = {meta["key"]: meta for meta in tunableParams()}
     for key in param_keys:
-        meta = _TUNABLE_BY_KEY[key]
+        meta = tunable[key]
         lo, hi = float(meta["min"]), float(meta["max"])
         if explore or best_params is None:
             value = rng.uniform(lo, hi)
@@ -367,7 +384,7 @@ class FeederAutoTuner:
             "current_trial": live,
             "best_trial": best,
             "trials": trials,
-            "tunable_params": TUNABLE_PARAMS,
+            "tunable_params": tunableParams(),
             "background": {
                 "enabled": bool(background and background.get("enabled")),
                 "enabled_at": background.get("enabled_at") if background else None,

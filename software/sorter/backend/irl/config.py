@@ -40,6 +40,7 @@ from .parse_user_toml import (
     loadWaveshareServoConfig,
 )
 from hardware_settings.chute import boardDefaults, readChuteSettings, saveChuteSettings
+from hardware_settings.feeder import FeederDrive, driveSaved, feederDrive, saveFeederDrive
 from hardware_settings.motors import MOTORS, Motor, motorSockets
 from hardware_settings.servos import applyServoSpeeds, readServoSpeeds
 from hardware_settings.steppers import StepperSettings, applyStepperSettings, readStepperSettings
@@ -796,6 +797,25 @@ def mkStepperConfig(default_steps_per_second: int = 2000) -> StepperConfig:
     return StepperConfig(default_steps_per_second)
 
 
+# The feeder motors' speed limit until a move sets its own, as tuned on the
+# geared feeder.
+FEEDER_MOTOR_DEFAULT_STEPS_PER_SECOND = 4000
+
+
+def setFeederStepperConfigs(irl_config: "IRLConfig", drive: FeederDrive) -> None:
+    """The feeder motors' speed limit and acceleration for the feeder's drive:
+    the geared feeder's, scaled to turn the channels as fast."""
+    for attr in ("c_channel_1_rotor_stepper", "c_channel_2_rotor_stepper", "c_channel_3_rotor_stepper"):
+        setattr(
+            irl_config,
+            attr,
+            StepperConfig(
+                drive.motorRate(FEEDER_MOTOR_DEFAULT_STEPS_PER_SECOND),
+                drive.motorRate(FIRMWARE_DEFAULT_ACCELERATION_MICROSTEPS_PER_SECOND_SQ),
+            ),
+        )
+
+
 def cameraSourceForRole(cameras: object, role: str) -> int | str | None:
     if not isinstance(cameras, dict):
         return None
@@ -919,9 +939,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=4000)
     irl_config.c_channel_4_rotor_stepper = irl_config.carousel_stepper
     irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=3000)
-    irl_config.c_channel_1_rotor_stepper = mkStepperConfig(default_steps_per_second=4000)
-    irl_config.c_channel_2_rotor_stepper = mkStepperConfig(default_steps_per_second=4000)
-    irl_config.c_channel_3_rotor_stepper = mkStepperConfig(default_steps_per_second=4000)
+    setFeederStepperConfigs(irl_config, feederDrive(raw_toml))
 
     irl_config.bin_layout_config = getBinLayout()
     return irl_config
@@ -1021,6 +1039,16 @@ def _bindHardware(irl_interface: IRLInterface, config: IRLConfig, gc: GlobalConf
     gc.logger.info(
         f"Global actuator inventory: steppers={[name for name, _, _, _ in stepper_entries]}"
     )
+
+    board_drive = getattr(distribution_board, "feeder_drive", None)
+    if board_drive is not None and not driveSaved(machine_specific_params):
+        # The motors' defaults and the feeder's speeds follow the drive, and the
+        # feeder reads it while no board is at hand: write down what this board
+        # is made for before any motor is set up.
+        drive = saveFeederDrive(board_drive)
+        machine_specific_params = loadMachineSpecificParams(gc)
+        setFeederStepperConfigs(config, drive)
+        gc.logger.info(f"Feeder: this board is made for the {drive.name} feeder; saved")
 
     available_stepper_names = {name for name, _, _, _ in stepper_entries}
     for stepper_name in required_stepper_names:

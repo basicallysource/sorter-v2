@@ -43,6 +43,14 @@
 # gear_ratio = 6.0
 # discard_bin = [4, 0, 0]
 
+# How the feeder's motors turn C-channels 1 to 3: "geared" (130:12, the default)
+# or "direct". A direct-drive feeder's motors get more current, C1 turns the
+# other way, and the feeder's built-in speeds and shakes are scaled so the
+# channels move as fast as on the geared one. The Sorter V3's board writes
+# "direct" here the first time the hardware starts on it.
+# [feeder]
+# drive = "direct"
+
 # Each entry in sections is one layer's bin layout (top to bottom).
 # servo_open_angles / servo_closed_angles set the PCA9685 servo open/closed
 # angles per layer index. A layer is only "calibrated" (and driven on home)

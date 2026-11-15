@@ -290,9 +290,9 @@ class ControlDataCollector:
         except Exception:
             pass
         try:
-            from subsystems.feeder.pulse_perception.flow import CHANNEL_OUTPUT_GEAR_RATIO
+            from hardware_settings.feeder import feederDrive
 
-            meta["channel_output_gear_ratio"] = CHANNEL_OUTPUT_GEAR_RATIO
+            meta["channel_output_gear_ratio"] = feederDrive().gear_ratio
         except Exception:
             pass
         try:

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from .profiles import ShakeProfile, shakeSeconds
+from .profiles import TUNED_GEAR_RATIO, ShakeProfile, forGearing, shakeSeconds
 
 MIN_SPEED = 16
 TURN_SPEED = 1500
@@ -19,11 +19,14 @@ class ChannelMotor:
         stepper: Any,
         to_microsteps: Callable[[float], int],
         speed: int = TURN_SPEED,
+        gear_ratio: float = TUNED_GEAR_RATIO,
     ) -> None:
         self.label = label
         self.stepper = stepper
         self._to_microsteps = to_microsteps
         self.speed = speed
+        # Motor turns per channel turn: a shake moves the channel the same on any gear.
+        self.gear_ratio = gear_ratio
 
     def turn(self, output_deg: float) -> float | None:
         """Turn the channel (negative: backwards). Returns about how long it
@@ -42,6 +45,7 @@ class ChannelMotor:
     def shake(self, profile: ShakeProfile) -> float | None:
         """Shake the channel with ``profile``. Returns about how long it takes,
         or None when the motor refused (it is still shaking, say)."""
+        profile = forGearing(profile, self.gear_ratio)
         if not self.stepper.jitter_degrees(
             profile.amplitude_deg, profile.cycles, profile.speed, profile.acceleration
         ):

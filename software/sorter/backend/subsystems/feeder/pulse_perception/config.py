@@ -1,4 +1,8 @@
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from hardware_settings.feeder import FeederDrive
 
 
 @dataclass
@@ -6,7 +10,9 @@ class PulsePerceptionConfig:
     # +1 carries pieces toward the exit (camera-clockwise = forward motor
     # direction). Flip to -1 if a channel's stepper is wired the other way.
     forward_direction_sign: int = 1
-    # Move speed per channel. Each channel drives a different mass — C1 pushes a
+    # Move speed per channel, in motor microsteps a second, as tuned on the
+    # geared feeder; another drive's are scaled to match (defaultConfig).
+    # Each channel drives a different mass — C1 pushes a
     # whole bulk hopper, C3 meters single pieces into classification — so they
     # want different speeds. These are independent: nothing phase-locks the
     # channels to each other (each channel's pulse cooldown is keyed on its own
@@ -214,8 +220,26 @@ def migrateLegacyKeys(section: dict) -> dict:
     return migrated
 
 
-def configFromDict(d: dict) -> PulsePerceptionConfig:
+def defaultConfig(drive: "FeederDrive | None" = None) -> PulsePerceptionConfig:
+    """The built-in tuning for the machine's feeder drive: the move speeds,
+    tuned on the geared feeder, scaled to turn the channels as fast on another."""
+    from hardware_settings.feeder import feederDrive
+
+    drive = drive or feederDrive()
     cfg = PulsePerceptionConfig()
+    for key in CHANNEL_MOVE_SPEED_KEYS.values():
+        setattr(cfg, key, drive.motorRate(getattr(cfg, key)))
+    return cfg
+
+
+def fieldMeta(drive: "FeederDrive | None" = None) -> list[dict]:
+    """FIELD_META with each default the machine's feeder drive takes."""
+    defaults = configToDict(defaultConfig(drive))
+    return [{**meta, "default": defaults[meta["key"]]} for meta in FIELD_META]
+
+
+def configFromDict(d: dict) -> PulsePerceptionConfig:
+    cfg = defaultConfig()
     d = migrateLegacyKeys(d)
     for meta in FIELD_META:
         k = meta["key"]

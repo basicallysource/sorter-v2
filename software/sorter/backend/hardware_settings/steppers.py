@@ -8,7 +8,8 @@ route changes some, so what a driver runs on is what was saved.
 
 A setting that is not saved takes its default: the primary Hive's where it
 holds one (hive_defaults, `steppers.*` for every motor and `steppers.<motor>`),
-else the code's, the more specific winning (defaultSettings).
+else the code's, the more specific winning, and last the feeder drive's for the
+feeder's motors (defaultSettings).
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from typing import Any, Callable, Iterable, Mapping
 import machine_toml
 from hardware.sorter_interface import DISABLE_STALLGUARD
 
+from .feeder import FEEDER_MOTORS, feederDrive
 from .motors import SPARE_SOCKETS, Motor, motorSockets
 
 CURRENTS = "stepper_current_overrides"
@@ -87,7 +89,8 @@ FIELDS: dict[str, Field] = {
 }
 
 # Built-in values that differ by motor; the rest are FIELDS' defaults. The
-# C-channel rotors run cool, and the chute and the carousel come with
+# C-channel rotors run cool through their gears (a direct-drive feeder raises
+# their current: feeder.DRIVES), and the chute and the carousel come with
 # StallGuard tuned on the first machines.
 MOTOR_DEFAULTS: dict[str, dict[str, Any]] = {
     "c_channel_1": {"irun": 4, "ihold": 1},
@@ -134,11 +137,13 @@ class StepperSettings:
         )
 
 
-def defaultSettings(motor: Motor) -> dict[str, Any]:
+def defaultSettings(motor: Motor, config: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """The motor's settings where nothing is saved, from the least specific to
     the most: FIELDS, the primary Hive's for every motor, MOTOR_DEFAULTS, the
-    primary Hive's for this motor. A Hive value that is not a valid setting is
-    ignored."""
+    primary Hive's for this motor, and for a feeder motor its drive's (a Hive's
+    are tuned on the geared feeder). A Hive value that is not a valid setting
+    is ignored. Only the drive sets a direction: it follows how the motor is
+    built in."""
     import hive_defaults
 
     hive = hive_defaults.namespace("steppers")
@@ -150,6 +155,9 @@ def defaultSettings(motor: Motor) -> dict[str, Any]:
             field = FIELDS.get(name)
             if field is not None and field.table != DIRECTIONS and field.valid(value):
                 values[name] = value
+    if motor.name in FEEDER_MOTORS:
+        for name, value in feederDrive(config).stepper_defaults.get(motor.name, {}).items():
+            values[name] = value
     return values
 
 
@@ -161,7 +169,7 @@ def readStepperSettings(
     """The motor's settings: what machine.toml holds, built-in defaults for the rest."""
     if config is None:
         config = machine_toml.read()
-    values = defaultSettings(motor)
+    values = defaultSettings(motor, config)
     saved: set[str] = set()
     for table in (CURRENTS, DRIVER, STALLGUARD):
         entry = _entry(config, table, motor)

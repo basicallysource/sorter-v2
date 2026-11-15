@@ -9,6 +9,7 @@ from global_config import GlobalConfig
 from hardware.bus import MCUBus
 from hardware.fault import HardwareFault
 from hardware.sorter_interface import DigitalInputPin, ServoMotor, SorterInterface, StepperMotor
+from hardware_settings.feeder import DIRECT
 from subsystems.distribution.chute_variants import SLIP_RING
 
 
@@ -40,6 +41,10 @@ class BoardProfile:
     # The kind of chute this board is made for (a key of chute_variants.VARIANTS),
     # when it is made for one. machine.toml still wins.
     chute_variant: str | None = None
+    # How the feeder this board is made for turns its channels (a key of
+    # hardware_settings.feeder.DRIVES), when it is made for one. machine.toml
+    # still wins.
+    feeder_drive: str | None = None
 
 
 SKR_PICO_FEEDER_PROFILE = BoardProfile(
@@ -106,8 +111,9 @@ BASICALLY_V1_2_DISTRIBUTION_PROFILE = BoardProfile(
 )
 
 # One board for the whole machine: five steppers, serial bus servos on its own
-# bus and no PWM servos. It sits on the host's header and is made for the chute
-# that turns without limit, whose home is a magnet on a hall sensor.
+# bus and no PWM servos. It sits on the host's header and is the Sorter V3's
+# board: made for the chute that turns without limit, whose home is a magnet on
+# a hall sensor, and for the direct-drive feeder.
 BASICALLY_V1_5_HW_ID = "basically_v1_5"
 BASICALLY_V1_5_DISTRIBUTION_PROFILE = BoardProfile(
     family="basically_rp2040",
@@ -122,6 +128,7 @@ BASICALLY_V1_5_DISTRIBUTION_PROFILE = BoardProfile(
     input_aliases={"chute_home": 0},  # GPIO3, the hall sensor's plug
     chute_home_active_high=True,  # the sensor reads high over the magnet
     chute_variant=SLIP_RING.key,
+    feeder_drive=DIRECT,
 )
 
 GENERIC_PROFILE = BoardProfile(
@@ -167,6 +174,10 @@ class ControlBoard(ABC):
 
     @property
     def chute_variant(self) -> str | None:
+        return None
+
+    @property
+    def feeder_drive(self) -> str | None:
         return None
 
     @abstractmethod
@@ -246,6 +257,10 @@ class SorterInterfaceControlBoard(ControlBoard):
     @property
     def chute_variant(self) -> str | None:
         return self._profile.chute_variant
+
+    @property
+    def feeder_drive(self) -> str | None:
+        return self._profile.feeder_drive
 
     def iter_steppers(self) -> tuple[DiscoveredStepper, ...]:
         return self._discovered_steppers

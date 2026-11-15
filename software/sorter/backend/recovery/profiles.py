@@ -8,7 +8,7 @@ shake on its own and returns to the start; it cannot be cut short.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass(frozen=True)
@@ -16,12 +16,15 @@ class ShakeProfile:
     key: str
     label: str
     blurb: str
-    # Each stroke, in motor degrees (before the channel's gearing).
+    # Each stroke, in motor degrees, on a channel geared TUNED_GEAR_RATIO.
     amplitude_deg: float
     cycles: int
     speed: int  # microsteps a second
     acceleration: int  # microsteps a second squared
 
+
+# The channels' gear the shakes were tuned on: motor turns per channel turn.
+TUNED_GEAR_RATIO = 130.0 / 12.0
 
 # Gentlest to strongest. Tried on the jitter test page; "Heavy stuck" is the
 # one that freed most stuck pieces there.
@@ -41,6 +44,21 @@ def shakeProfile(key: str) -> ShakeProfile:
         return _BY_KEY[key]
     except KeyError:
         raise ValueError(f"No shake called {key!r}.") from None
+
+
+def forGearing(profile: ShakeProfile, gear_ratio: float) -> ShakeProfile:
+    """The shake for a channel geared ``gear_ratio`` (motor turns per channel
+    turn, 1 for a direct drive): the channel moves as it does on the gear the
+    shakes were tuned on."""
+    scale = gear_ratio / TUNED_GEAR_RATIO
+    if scale == 1.0:
+        return profile
+    return replace(
+        profile,
+        amplitude_deg=profile.amplitude_deg * scale,
+        speed=max(1, round(profile.speed * scale)),
+        acceleration=max(1, round(profile.acceleration * scale)),
+    )
 
 
 def shakeSeconds(profile: ShakeProfile, microsteps: int) -> float:

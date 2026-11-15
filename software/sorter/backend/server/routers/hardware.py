@@ -163,6 +163,16 @@ def get_hardware_config() -> Dict[str, Any]:
     }
 
 
+@router.get("/api/hardware-config/feeder")
+def get_feeder_config() -> Dict[str, Any]:
+    """How the feeder's motors turn their channels. Set in machine.toml by hand
+    ([feeder] drive), not here."""
+    from hardware_settings.feeder import feederDrive
+
+    drive = feederDrive()
+    return {"drive": drive.name, "gear_ratio": drive.gear_ratio}
+
+
 @router.post("/api/hardware-config/storage-layers")
 def save_storage_layer_hardware_config(
     payload: StorageLayerSettingsPayload,

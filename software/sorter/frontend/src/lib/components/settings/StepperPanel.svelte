@@ -14,6 +14,8 @@
 	import {
 		DIRECTION_WORDS,
 		STEPPER_GEAR_RATIOS,
+		isFeederStepper,
+		stepperGearRatio,
 		loadStoredStepperPulseSetting,
 		persistStoredStepperPulseSetting
 	} from '$lib/settings/stepper-control';
@@ -122,10 +124,17 @@
 	});
 
 	// The chute's gearing depends on the kind of chute, so it is read from the machine
-	// with the chute's settings; null until then.
+	// with the chute's settings, and the feeder motors' on the machine's feeder drive;
+	// null until then.
 	let chuteGearRatio = $state<number | null>(null);
+	let feederGearRatio = $state<number | null>(null);
 	const gearRatio = $derived(
-		gearRatioOverride ?? (stepperKey === 'chute' ? chuteGearRatio : STEPPER_GEAR_RATIOS[stepperKey])
+		gearRatioOverride ??
+			(stepperKey === 'chute'
+				? chuteGearRatio
+				: isFeederStepper(stepperKey)
+					? feederGearRatio
+					: STEPPER_GEAR_RATIOS[stepperKey])
 	);
 
 	// --- Endstop settings ---
@@ -311,6 +320,9 @@
 					payload?.stepper_direction_inverted ?? stepperDirectionInverted
 				);
 				void loadLiveStatus();
+			}
+			if (isFeederStepper(stepperKey)) {
+				feederGearRatio = await stepperGearRatio(currentBackendBaseUrl(), stepperKey);
 			}
 			await loadStepperDirection();
 		} catch (e: any) {

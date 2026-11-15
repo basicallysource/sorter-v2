@@ -48,6 +48,11 @@ class ChuteVariant:
     # The motor's speed for moves between bins, in microsteps a second, until
     # the machine saves its own ([chute] operating_speed_microsteps_per_second).
     operating_speed_microsteps_per_second: int
+    # Home is the middle of the first section, as built: the sections sit
+    # half a section either side of it. Otherwise the first section starts a
+    # pillar's width past home, until the machine saves its own measure
+    # ([chute] first_section_offset_deg).
+    home_at_first_section_center: bool
 
     @property
     def turns_freely(self) -> bool:
@@ -65,6 +70,7 @@ CABLE_CAGE = ChuteVariant(
     fixed_bottom_door=False,
     layer_bins=(12, 12, 12, 12),
     operating_speed_microsteps_per_second=3000,
+    home_at_first_section_center=False,
 )
 
 SLIP_RING = ChuteVariant(
@@ -80,6 +86,8 @@ SLIP_RING = ChuteVariant(
     # and whole bins at the bottom.
     layer_bins=(24, 18, 12, 6),
     operating_speed_microsteps_per_second=2000,
+    # The magnet sits at the middle of the first section (the V3 CAD).
+    home_at_first_section_center=True,
 )
 
 VARIANTS: dict[str, ChuteVariant] = {variant.key: variant for variant in (CABLE_CAGE, SLIP_RING)}

@@ -150,7 +150,6 @@ def readChuteSettings(
         "pillar_width_deg", DEFAULT_PILLAR_WIDTH_DEG,
         lambda value: _isNumber(value) and 0 <= value < pitch, f"0 to under {pitch:g}°",
     ))
-    first_bin_center = float(read("first_bin_center", DEFAULT_FIRST_SECTION_OFFSET_DEG, _isNumber, "a number"))
     fallback_width = min(DEFAULT_SECTION_WIDTH_DEG, pitch - 0.01)
     if "section_width_deg" in raw:
         section_width = float(read(
@@ -163,6 +162,11 @@ def readChuteSettings(
             saved.add("section_width_deg")
     else:
         section_width = fallback_width
+    variant = variantFor(read("variant", variant_key, _isVariant, f"one of {', '.join(VARIANTS)}"))
+    # Where the first section starts, from home. first_bin_center is its
+    # older name.
+    built_offset = -section_width / 2.0 if variant.home_at_first_section_center else DEFAULT_FIRST_SECTION_OFFSET_DEG
+    first_bin_center = float(read("first_bin_center", built_offset, _isNumber, "a number"))
     if "first_section_offset_deg" in raw:
         offset = float(read("first_section_offset_deg", first_bin_center, _isNumber, "a number"))
     else:
@@ -170,7 +174,6 @@ def readChuteSettings(
         if "first_bin_center" in saved:
             saved.add("first_section_offset_deg")
     saved -= set(LEGACY_GEOMETRY)
-    variant = variantFor(read("variant", variant_key, _isVariant, f"one of {', '.join(VARIANTS)}"))
     return ChuteSettings(
         num_sections=num_sections,
         section_width_deg=section_width,

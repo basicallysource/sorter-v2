@@ -226,3 +226,33 @@ def test_a_slip_ring_chutes_turn_can_be_measured():
     assert ratio == pytest.approx(5.2, abs=0.002)
     assert chute.gear_ratio == SLIP_RING.gear_ratio  # measuring changes nothing: saving it does
     assert not chute.homed  # it must be homed again before it is used
+
+
+def test_the_slip_ring_chutes_home_is_the_middle_of_the_first_section():
+    from hardware_settings.chute import readChuteSettings
+
+    settings = readChuteSettings({"chute": {"variant": "slip_ring"}})
+    assert settings.first_section_offset_deg == pytest.approx(-settings.section_width_deg / 2)
+    chute = _chute(
+        _World(gear_ratio=SLIP_RING.gear_ratio, angle=0.0),
+        SLIP_RING,
+        section_width_deg=settings.section_width_deg,
+        first_section_offset_deg=settings.first_section_offset_deg,
+    )
+    # A whole bin in the first section is at home; the next section's a sixth of a turn on.
+    assert chute.angleForVirtualBin(0, 0, 1) == pytest.approx(0.0)
+    assert chute.angleForVirtualBin(1, 0, 1) == pytest.approx(60.0)
+    # The first of three bins sits just before home, the long way round in angle,
+    # and the chute turns the short way to it.
+    first_of_three = chute.angleForVirtualBin(0, 0, 3)
+    assert first_of_three == pytest.approx(360.0 - settings.section_width_deg / 3)
+    assert chute.travelTo(first_of_three) == pytest.approx(-settings.section_width_deg / 3)
+
+
+def test_a_cable_cage_chutes_first_section_still_starts_past_home():
+    from hardware_settings.chute import DEFAULT_FIRST_SECTION_OFFSET_DEG, readChuteSettings
+
+    settings = readChuteSettings({"chute": {"variant": "cable_cage"}})
+    assert settings.first_section_offset_deg == DEFAULT_FIRST_SECTION_OFFSET_DEG
+    saved = readChuteSettings({"chute": {"variant": "slip_ring", "first_section_offset_deg": 12.0}})
+    assert saved.first_section_offset_deg == 12.0

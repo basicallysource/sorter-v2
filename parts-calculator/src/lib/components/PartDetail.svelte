@@ -16,6 +16,7 @@
 	import RequiredColorBadge from '$lib/components/RequiredColorBadge.svelte';
 	import SupportBadge from '$lib/components/SupportBadge.svelte';
 	import PrintOrientationBadge from '$lib/components/PrintOrientationBadge.svelte';
+	import NoVersionIdBadge from '$lib/components/NoVersionIdBadge.svelte';
 	import { getBambuColor } from '$lib/bambu-colors';
 	import { SITE_URL } from '$lib/seo';
 	import { copyText } from '$lib/clipboard';
@@ -140,6 +141,7 @@
 					{/if}
 					<RequiredColorBadge {part} />
 					<PrintOrientationBadge {part} />
+					{#if isCurrent && !candidate}<NoVersionIdBadge {part} />{/if}
 					<SupportBadge {part} />
 					{#if pillAttributes(part).length}
 						<div class="flex flex-wrap gap-1.5">

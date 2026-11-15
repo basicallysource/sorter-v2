@@ -150,3 +150,12 @@ def test_a_board_writes_down_its_drive_once(machine) -> None:
 
 def test_the_sorter_v3_has_four_layers() -> None:
     assert SLIP_RING.layer_bins == (24, 18, 12, 6)
+
+
+def test_the_sorter_v3s_chute_moves_at_2000_unless_the_machine_saved_a_speed() -> None:
+    from hardware_settings.chute import readChuteSettings
+
+    assert readChuteSettings({"chute": {"variant": "slip_ring"}}).operating_speed_microsteps_per_second == 2000
+    assert readChuteSettings({"chute": {"variant": "cable_cage"}}).operating_speed_microsteps_per_second == 3000
+    saved = {"chute": {"variant": "slip_ring", "operating_speed_microsteps_per_second": 4000}}
+    assert readChuteSettings(saved).operating_speed_microsteps_per_second == 4000

@@ -178,7 +178,7 @@ def readChuteSettings(
         endstop_active_high=read("endstop_active_high", endstop_active_high, _isBool, "true or false"),
         home_pin_channel=read("home_pin_channel", home_pin_channel, _nonNegativeInt, "an input number"),
         operating_speed_microsteps_per_second=read(
-            "operating_speed_microsteps_per_second", DEFAULT_OPERATING_SPEED_MICROSTEPS_PER_SEC,
+            "operating_speed_microsteps_per_second", variant.operating_speed_microsteps_per_second,
             _positiveInt, "a whole number of µsteps/s above 0",
         ),
         # A chute that turns without limit never comes back to a stop, so

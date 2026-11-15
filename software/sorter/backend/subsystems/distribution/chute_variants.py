@@ -45,6 +45,9 @@ class ChuteVariant:
     # The bins on each layer of a machine built with this chute, the top layer
     # first: what a machine starts with until its own layout is saved.
     layer_bins: tuple[int, ...]
+    # The motor's speed for moves between bins, in microsteps a second, until
+    # the machine saves its own ([chute] operating_speed_microsteps_per_second).
+    operating_speed_microsteps_per_second: int
 
     @property
     def turns_freely(self) -> bool:
@@ -61,6 +64,7 @@ CABLE_CAGE = ChuteVariant(
     falls_through=True,
     fixed_bottom_door=False,
     layer_bins=(12, 12, 12, 12),
+    operating_speed_microsteps_per_second=3000,
 )
 
 SLIP_RING = ChuteVariant(
@@ -75,6 +79,7 @@ SLIP_RING = ChuteVariant(
     # The Sorter V3's four layers: quarters at the top, then thirds, halves,
     # and whole bins at the bottom.
     layer_bins=(24, 18, 12, 6),
+    operating_speed_microsteps_per_second=2000,
 )
 
 VARIANTS: dict[str, ChuteVariant] = {variant.key: variant for variant in (CABLE_CAGE, SLIP_RING)}

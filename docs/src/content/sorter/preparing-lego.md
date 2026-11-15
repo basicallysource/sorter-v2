@@ -85,7 +85,13 @@ Chewed, cracked, glued, painted, mouldy or badly faded pieces. Anything damp.
 
 A piece is identified from a photograph of it, so dirt and damage change what the machine sees and it files the piece wrongly. Damp pieces stick to each other and to the rotor. The tub goes in dry.
 
-Washed your LEGO first? Spread it out and let it dry completely before it goes in the bulk bucket. Do not sort wet bricks.
+Washed your LEGO first? Spread it out and let it dry completely before it goes in the bulk bucket. Do not sort wet bricks:
+
+<ul class="bulleted-list">
+  <li>Water's surface tension makes pieces stick together.</li>
+  <li>It changes the shine of the parts.</li>
+  <li>The machine's 3D-printed parts trap moisture in their layer lines and pores, and can grow mould or bacteria.</li>
+</ul>
 
 ## What to leave in
 

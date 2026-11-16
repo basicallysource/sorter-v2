@@ -104,6 +104,88 @@ def openAllLayerDoors(gc: Any, irl: Any, label: str = LOG_TAG, settle_timeout_s:
     )
 
 
+def _waitDoors(gc: Any, servos: list, label: str, deadline: float) -> None:
+    while time.monotonic() < deadline:
+        try:
+            if all(bool(getattr(servo, "stopped", True)) for servo in servos):
+                return
+        except Exception:
+            return
+        time.sleep(0.02)
+    gc.logger.warning(f"{label} channel clear: layer doors still moving — sweeping anyway")
+
+
+def _doorsFor(gc: Any, irl: Any, target_layer: int, label: str, settle_timeout_s: float = 2.0) -> bool:
+    """Every door above `target_layer` open and its own shut, as sorting sets
+    them for a bin on that layer. False when the target's door would not shut."""
+    if getattr(gc, "disable_servos", False):
+        return True
+    servos = list(getattr(irl, "servos", []) or [])
+    if target_layer >= len(servos):
+        return False
+    deadline = time.monotonic() + max(0.0, settle_timeout_s)
+    for i, servo in enumerate(servos):
+        try:
+            while not servo.stopped and time.monotonic() < deadline:
+                time.sleep(0.02)
+            if i == target_layer:
+                if hasattr(servo, "apply_close_speed"):
+                    servo.apply_close_speed()
+                if servo.close() is False:
+                    gc.logger.warning(f"{label} channel clear: layer {i} door refused to shut")
+                    return False
+            elif getattr(servo, "can_open", True):
+                if hasattr(servo, "apply_open_speed"):
+                    servo.apply_open_speed()
+                servo.open()
+        except Exception as exc:
+            gc.logger.warning(f"{label} channel clear: could not set layer {i} door: {exc}")
+            if i == target_layer:
+                return False
+    _waitDoors(gc, servos, label, deadline)
+    return True
+
+
+def routeSweep(gc: Any, irl: Any, label: str = LOG_TAG) -> None:
+    """Send what a forced sweep carries off the channel where the machine sends
+    the pieces no bin wants: the tray under a chute they fall through (every
+    door open), else the discard bin (the chute aimed at it and its layer's
+    door shut, as for any piece sent there). The chute is homed first if it is
+    not, as during the hardware's own homing."""
+    chute = getattr(irl, "chute", None)
+    variant = getattr(chute, "variant", None)
+    if chute is None or variant is None or variant.falls_through:
+        openAllLayerDoors(gc, irl, label)
+        return
+    address = getattr(chute, "discard_bin", None)
+    if address is None:
+        gc.logger.warning(
+            f"{label} channel clear: no discard bin is set, so the sweep lands wherever the chute "
+            "points. Choose a discard bin."
+        )
+        openAllLayerDoors(gc, irl, label)
+        return
+    if not getattr(gc, "disable_chute", False):
+        if not chute.homed and not chute.home():
+            gc.logger.warning(
+                f"{label} channel clear: the chute did not home, so the sweep lands wherever it points"
+            )
+            openAllLayerDoors(gc, irl, label)
+            return
+        target = chute.getAngleForBin(address)
+        if target is None or chute.moveToAngleBlocking(target, timeout_buffer_ms=1500) is None:
+            gc.logger.warning(f"{label} channel clear: could not aim the chute at the discard bin")
+            openAllLayerDoors(gc, irl, label)
+            return
+    if not _doorsFor(gc, irl, address.layer_index, label):
+        openAllLayerDoors(gc, irl, label)
+        return
+    gc.logger.info(
+        f"{label} channel clear: the sweep goes to the discard bin "
+        f"(layer {address.layer_index + 1}, section {address.section_index + 1}, bin {address.bin_index + 1})"
+    )
+
+
 def _advanceOneStep(stepper: Any, step_microsteps: int, speed_usteps_per_s: int) -> bool:
     # Blocking so the occupancy re-check happens only after the carousel has
     # actually settled, never mid-move.
@@ -158,7 +240,11 @@ def clearChannelByAdvancing(
         C4_TRAVEL_SIGN * abs(step_output_deg)
     )
 
-    openAllLayerDoors(gc, irl, label)
+    try:
+        routeSweep(gc, irl, label)
+    except Exception as exc:
+        gc.logger.warning(f"{label} channel clear: routing the sweep failed ({exc}); opening every door")
+        openAllLayerDoors(gc, irl, label)
 
     if occupied is None:
         gc.logger.info(

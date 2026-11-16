@@ -72,8 +72,6 @@ _START_GRACE_S = 0.15
 _NEW_FRAMES = 3
 # Two boxes this close are one piece drawn twice, not two pieces.
 _SAME_PIECE_DEG = 8.0
-# A piece the tracker gave a new id is found this close to where it was.
-_RELINK_DEG = 25.0
 # A piece stuck at the hole this many cycles running stops the cycling: the
 # channel's stall watchdog takes over (it sweeps the channel, or asks for help).
 _STUCK_CYCLES_MAX = 2
@@ -395,15 +393,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             gap = float(po.com_forward_to_exit_deg)
             # The tracker gave a piece a new id: the record in this pocket that
             # is not in the frame takes it.
-            lost = next(
-                (
-                    tp
-                    for tp in pocket
-                    if id(tp) not in matched
-                    and (tp.gap_to_exit is None or abs(float(tp.gap_to_exit) - gap) <= _RELINK_DEG)
-                ),
-                None,
-            )
+            # (Wherever in the pocket: the turn that brought it here moved it, and
+            # the tracker often renames a piece it saw move that far.)
+            lost = next((tp for tp in pocket if id(tp) not in matched), None)
             if lost is not None:
                 self.logger.info(f"{LOG_TAG} track={lost.track_id} is now track={po.sv_bt_track_id}")
                 lost.track_id = int(po.sv_bt_track_id)
@@ -767,6 +759,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         for index, pocket in enumerate(self._pockets):
             for tp in pocket:
                 tp.zone = _ZONE_DROP if index == 0 else _ZONE_PRECISE
+                if tp.gap_to_exit is not None:
+                    tp.gap_to_exit = float(tp.gap_to_exit) - self._pitch_deg  # Until it is seen again
         rest = getattr(self.irl, "c4_fin_rest_microsteps", None)
         if rest is not None:
             self.irl.c4_fin_rest_microsteps = int(rest) + int(C4_TRAVEL_SIGN) * self._pitch_us

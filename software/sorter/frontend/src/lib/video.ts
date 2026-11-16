@@ -28,7 +28,7 @@ export type FeedZones = {
 export type FeedLayout = { zones: FeedZones | null };
 
 export type FeedBox = {
-	kind: 'piece' | 'merged' | 'margin' | 'scenery';
+	kind: 'piece' | 'merged' | 'margin';
 	box: [number, number, number, number];
 	id?: number;
 };

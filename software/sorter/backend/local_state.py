@@ -24,8 +24,6 @@ _STATE_KEY_SET_PROGRESS = "set_progress"
 _STATE_KEY_UI_THEME_COLOR_ID = "ui_theme_color_id"
 _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
 _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
-# What each channel's detector boxes that is not a piece (perception/scenery.py).
-_STATE_KEY_PERCEPTION_SCENERY = "perception_scenery"
 _STATE_KEY_TRAINING_MODE = "training_mode"
 _STATE_KEY_HIVE_LIMITS = "hive_limits"
 _STATE_KEY_SHARING = "sharing"
@@ -229,14 +227,6 @@ def set_channel_zones_blob(blob: dict[str, Any]) -> None:
     global _channel_zones_revision
     _write_state(_STATE_KEY_CHANNEL_ZONES, dict(blob))
     _channel_zones_revision += 1
-
-
-def get_perception_scenery() -> dict[str, Any] | None:
-    return _read_dict(_STATE_KEY_PERCEPTION_SCENERY)
-
-
-def set_perception_scenery(blob: dict[str, Any]) -> None:
-    _write_state(_STATE_KEY_PERCEPTION_SCENERY, dict(blob))
 
 
 def get_sample_collection_state() -> dict[str, Any] | None:

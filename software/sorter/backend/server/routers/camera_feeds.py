@@ -259,9 +259,6 @@ class _RoleFeed(_Feed):
         # Originals (what the model drew); on C4 the merged boxes go over them.
         for b in cycle.get("pre_merge_bboxes") or cycle.get("on_channel_bboxes") or []:
             boxes.append(box("piece", b, track_ids.get(tuple(int(v) for v in b[:4]))))
-        # What was dropped as the channel's scenery, grey.
-        for b in cycle.get("scenery_bboxes") or []:
-            boxes.append(box("scenery", b))
         merged_ids = cycle.get("merged_track_ids") or []
         for i, b in enumerate(cycle.get("merged_bboxes") or []):
             boxes.append(box("merged", b, merged_ids[i] if i < len(merged_ids) else None))

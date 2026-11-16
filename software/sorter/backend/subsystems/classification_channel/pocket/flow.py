@@ -19,9 +19,10 @@ pocket is emptied before anything else moves:
   TURN     one fin pitch forward, with the chute on the piece entering EXIT.
   LOOK     at rest again, the camera looks at the EXIT pocket. Empty: the
            piece fell, and the cycle is done.
-  PUSH     only for a piece still seen there: it is pushed into the opening by
-           turning forward a little more, never so far that the piece in the
-           pocket behind could reach the opening.
+  PUSH     only for a piece still seen there. One on the ledge is pushed into
+           the opening by turning forward a little more, never so far that
+           the piece in the pocket behind could reach the opening; one over
+           the opening that has not fallen is shaken where it is.
   BACK     back to REST, a little past it and forward again, so the rotor's
            play on its shaft is always taken up the same way.
   CONFIRM  the EXIT pocket must look empty; if it does not, push again, and if
@@ -69,16 +70,16 @@ _NEXT_MARGIN_DEG = 10.0
 _LOOK_S = 0.3
 _PCHECK_S = 0.2
 # The motor turns this far back past where it is going and comes forward again,
-# so every return to rest ends turning forward: the rotor has play on its
-# shaft, and without this it stands short of where the motor is after a reverse.
+# so every return to rest ends turning forward: any play between the motor and
+# the rotor is then always taken up the same way.
 _TAKEUP_DEG = 25.0
 # A pocket that still looks occupied after the push is pushed this many times.
 _SWEEP_TRIES = 3
-# A shake (the stepper's jitter) is not used: the rotor has more play on its
-# shaft than a shake's throw, so the motor shakes and the rotor stands still.
-# A piece that will not fall is pushed again instead.
+# The shake for a piece over the opening that has not fallen, at the rotor, and
+# how often it is tried before the pocket is pushed out again.
 _SHAKE_OUTPUT_DEG = 3.0
 _SHAKE_CYCLES = 4
+_SHAKE_TRIES = 3
 # A piece is counted as gone when nothing is seen at the hole for this long
 # after the turn. One still seen there is shaken.
 _CONFIRM_S = 0.3
@@ -655,8 +656,14 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             # Nothing there: it fell as its pocket turned into the opening.
             self._exitGone(now)
             return
-        where = "over the opening" if (self._exit_gap is not None and self._exit_gap < -3.0) else "on the ledge"
-        self.logger.info(f"{LOG_TAG} a piece is still {where}: pushing the exit pocket out")
+        if self._exit_gap is not None and self._exit_gap < -3.0:
+            # Over the opening and not falling: shaken where it is, no push.
+            self.logger.warning(f"{LOG_TAG} a piece is over the opening and has not fallen: shaking")
+            self._push_us = 0
+            self._shake_tries = 1
+            self._startShake(stepper, now)
+            return
+        self.logger.info(f"{LOG_TAG} a piece waits on the ledge: pushing it into the opening")
         self._planPush(stepper, now)
 
     def _exitGapSeen(self, state) -> Optional[float]:
@@ -726,6 +733,11 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 for po in getattr(state, "pieces", ())
             )
             self._stuck_frames = self._stuck_frames + 1 if ahead else 0
+        if self._stuck_frames >= 2 and self._shake_tries < _SHAKE_TRIES:
+            self._shake_tries += 1
+            self.logger.warning(f"{LOG_TAG} a piece is still at the opening: shaking ({self._shake_tries} of {_SHAKE_TRIES})")
+            self._startShake(stepper, now)
+            return
         if self._stuck_frames < 2 and (now - self._pcheck_from) < _PCHECK_S:
             return
         if self._push_us <= 0:

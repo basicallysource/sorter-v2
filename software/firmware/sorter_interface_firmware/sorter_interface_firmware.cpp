@@ -23,6 +23,10 @@
 
 #include "hardware/pwm.h"
 #include "hardware/timer.h"
+#include "hardware/watchdog.h"
+#if PICO_RP2040
+#include "hardware/structs/vreg_and_chip_reset.h"
+#endif
 #include "pico/multicore.h"
 #include "pico/unique_id.h"
 #include "pico/stdlib.h"
@@ -381,6 +385,34 @@ static int append_stepper_diag_pins_json(char *buf, size_t buf_size) {
     return written + n;
 }
 
+// The board restarts itself when its main loop or its step generator stops for
+// this long, so a freeze (a hang, or a supply dip that leaves the chip running
+// nonsense) never needs a hand on the power switch. Longer than any one command
+// takes; shorter than the host keeps looking for a board when it homes.
+const uint32_t WATCHDOG_TIMEOUT_MS = 3000;
+// Counted by core 1's motion update; core 0 feeds the watchdog only while it moves.
+volatile uint32_t core1_heartbeat = 0;
+// Why the board last started, for the host: "watchdog" (it froze and restarted
+// itself), "reboot" (it was asked to, as after a firmware update), "run_pin" (its
+// reset button), "debugger", or "power" (power came on, or dipped low enough to
+// reset the chip).
+const char *last_reset_reason = "power";
+
+static const char *read_reset_reason() {
+    if (watchdog_enable_caused_reboot())
+        return "watchdog";
+    if (watchdog_caused_reboot())
+        return "reboot";
+#if PICO_RP2040
+    const uint32_t chip_reset = vreg_and_chip_reset_hw->chip_reset;
+    if (chip_reset & VREG_AND_CHIP_RESET_CHIP_RESET_HAD_PSM_RESTART_BITS)
+        return "debugger";
+    if (chip_reset & VREG_AND_CHIP_RESET_CHIP_RESET_HAD_RUN_BITS)
+        return "run_pin";
+#endif
+    return "power";
+}
+
 int dump_observability(char *buf, size_t buf_size) {
     if (buf_size == 0) {
         return 0;
@@ -410,11 +442,14 @@ int dump_observability(char *buf, size_t buf_size) {
     int n_bytes = snprintf(
         buf,
         buf_size,
-        "{\"hw\":\"%s\",\"uid\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s" OBSERVABILITY_SERVO_BUS "}",
+        "{\"hw\":\"%s\",\"uid\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s" OBSERVABILITY_SERVO_BUS
+        ",\"watchdog\":true,\"reset\":\"%s\",\"uptime_s\":%lu}",
         HW_ID,
         uid,
         diag_pins_len > 0 ? diag_pins_buf : "[]",
-        led_gpios_buf);
+        led_gpios_buf,
+        last_reset_reason,
+        (unsigned long)(time_us_64() / 1000000));
 
     if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
         return n_bytes;
@@ -648,6 +683,8 @@ void CMDH_ping(const BusMessage *msg, BusMessage *resp) {
 
 void CMDH_reboot_bootloader(const BusMessage *msg, BusMessage *resp) {
     resp->payload_length = 0;
+    // The bootloader takes the new firmware with nothing feeding the watchdog.
+    watchdog_disable();
     reset_usb_boot(0, 0);
 }
 
@@ -1151,6 +1188,7 @@ void core1_motion_update_isr(uint alarm_num) {
     for (int i = 0; i < STEPPER_COUNT; i++) {
         steppers[i].motion_update_tick();
     }
+    core1_heartbeat = core1_heartbeat + 1;
     TRACE_LOW();
 }
 
@@ -1186,6 +1224,8 @@ void core1_entry() {
 }
 
 int main() {
+    // Read before watchdog_enable, which marks its own reboots for the next start.
+    last_reset_reason = read_reset_reason();
     stdio_init_all();
     initialize_hardware();
     // Initialize Core 1
@@ -1201,8 +1241,16 @@ int main() {
         host_link.write(data, length);
     });
 #endif
+    watchdog_enable(WATCHDOG_TIMEOUT_MS, true);
+    uint32_t fed_heartbeat = core1_heartbeat;
     // Main loop, this deals with communications and high level command processing
     while (true) {
+        // Fed only while both cores run: this loop, and core 1's motion updates.
+        const uint32_t heartbeat = core1_heartbeat;
+        if (heartbeat != fed_heartbeat) {
+            fed_heartbeat = heartbeat;
+            watchdog_update();
+        }
         // Read characters from USB if available and feed to the message processor
         while (true) {
             int c = stdio_getchar_timeout_us(0);

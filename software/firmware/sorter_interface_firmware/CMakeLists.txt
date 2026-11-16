@@ -166,6 +166,7 @@ target_link_libraries(sorter_interface_firmware
         hardware_pio
         hardware_timer
         hardware_pwm
+        hardware_watchdog
         )
 
 pico_add_extra_outputs(sorter_interface_firmware)

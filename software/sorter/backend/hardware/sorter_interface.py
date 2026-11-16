@@ -1033,6 +1033,20 @@ class SorterInterface(MCUDevice):
         return bool(self._observability().get("servo_guard"))
 
     @property
+    def restarts_itself(self) -> bool:
+        """Whether its firmware restarts the board when it freezes (a watchdog).
+        One that does not stays frozen until its power goes off."""
+        return bool(self._observability().get("watchdog"))
+
+    @property
+    def reset_reason(self) -> str | None:
+        """Why the board last started, as its firmware says: "watchdog" (it froze
+        and restarted itself), "reboot", "run_pin", "debugger" or "power" (power
+        came on, or dipped low enough to reset it). None from an older firmware."""
+        reason = self._observability().get("reset")
+        return str(reason) if reason else None
+
+    @property
     def servo_link(self) -> "PatientLink | None":
         """This board's servo bus, or None if it has none."""
         if not self.has_servo_bus:

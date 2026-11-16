@@ -129,7 +129,9 @@ def _parkAfterLinkFailure(gc: GlobalConfig, controller, exc: MCUBusError) -> Non
         shared_state.setHardwareStatus(
             state="error",
             error=HardwareFault(
-                "Control board link lost", f"{exc}. Home the machine to reconnect."
+                "Control board stopped answering",
+                f"{exc}. Its firmware restarts it within a few seconds: press Home. If Home "
+                "cannot find it, turn the machine's power off and on, then press Home.",
             ),
         )
 

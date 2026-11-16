@@ -298,7 +298,7 @@ class Firmware:
         leds = json.dumps(list(DIGITAL_OUTPUT_PINS), separators=(",", ":"))
         return (
             f'{{"hw":"{HW_ID}","uid":"{UID}","diag_pins":{diag},"led_gpios":{leds},'
-            '"servo_bus":true,"servo_guard":true}'
+            '"servo_bus":true,"servo_guard":true,"watchdog":true,"reset":"power","uptime_s":0}'
         )
 
     def version_json(self) -> str:

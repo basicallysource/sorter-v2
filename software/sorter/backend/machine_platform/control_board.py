@@ -281,8 +281,32 @@ class SorterInterfaceControlBoard(ControlBoard):
 BOARDS_NOT_FOUND = "Control boards not found"
 _CHECK_BOARDS = (
     "Check that the control boards are powered and their USB cables are connected, "
-    "then home again."
+    "then home again. A board that froze on a firmware that does not restart it "
+    "answers again only after its power goes off and on."
 )
+
+
+def _logBoardStart(gc: GlobalConfig, sorter_interface: SorterInterface, port: str) -> None:
+    """Say why a board found last started, and whether it restarts itself when it
+    freezes: after a lost link, "watchdog" means its firmware hung, and "power"
+    that its supply dropped."""
+    try:
+        reason = sorter_interface.reset_reason
+        restarts_itself = sorter_interface.restarts_itself
+    except Exception:
+        return
+    if not restarts_itself:
+        gc.logger.warning(
+            f"The control board on {port} runs a firmware that does not restart it when it "
+            "freezes: update its firmware."
+        )
+        return
+    if reason == "watchdog":
+        gc.logger.warning(
+            f"The control board on {port} froze and restarted itself (its watchdog) before this start."
+        )
+    else:
+        gc.logger.info(f"The control board on {port} last started from: {reason}.")
 
 
 def discover_control_boards(
@@ -347,6 +371,7 @@ def discover_control_boards(
                         f"{board.identity.device_name} family={board.identity.family} "
                         f"role={board.identity.role} steppers={list(board.logical_stepper_names)}"
                     )
+                    _logBoardStart(gc, sorter_interface, port)
                 except Exception as exc:
                     gc.logger.warning(
                         f"Failed to initialize SorterInterface on {port} addr {address}: {exc}"

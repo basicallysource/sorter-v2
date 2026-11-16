@@ -44,10 +44,13 @@ FRESH_S = 2.0
 # How often the rotor's fin count is read from the settings again.
 SETTINGS_EVERY_S = 5.0
 # The picture has changed (the rotor turns, or something moves on it) when more
-# than this share of its pixels, sampled every MOTION_STRIDE th, differ by more
-# than MOTION_LEVELS of 255 from the frame before.
-MOTION_STRIDE = 16
-MOTION_LEVELS = 25
+# than this share of it differs by more than MOTION_LEVELS of 255 from the
+# frame before. It is compared small: every MOTION_STRIDE th pixel, averaged
+# in blocks of MOTION_BLOCK, so the camera's noise, pixel by pixel large
+# enough to pass for change, averages out.
+MOTION_STRIDE = 4
+MOTION_BLOCK = 4
+MOTION_LEVELS = 20
 MOTION_SHARE = 0.003
 
 
@@ -132,8 +135,7 @@ class FinWatch:
                 now = time.time()
                 if stamp != last_frame_at:
                     last_frame_at = stamp
-                    sample = raw[::MOTION_STRIDE, ::MOTION_STRIDE]
-                    sample = (sample[..., 1] if sample.ndim == 3 else sample).astype(np.int16)
+                    sample = _small(raw)
                     changed = (
                         last_sample is not None
                         and last_sample.shape == sample.shape
@@ -216,6 +218,16 @@ class FinWatch:
             logger.warning(message)
         except Exception:
             pass
+
+
+def _small(raw: np.ndarray) -> np.ndarray:
+    """The frame's green channel, small and smoothed, to compare with the next."""
+    import cv2
+
+    picked = raw[::MOTION_STRIDE, ::MOTION_STRIDE]
+    picked = np.ascontiguousarray(picked[..., 1] if picked.ndim == 3 else picked)
+    size = (max(1, picked.shape[1] // MOTION_BLOCK), max(1, picked.shape[0] // MOTION_BLOCK))
+    return cv2.resize(picked, size, interpolation=cv2.INTER_AREA).astype(np.int16)
 
 
 def _finCount() -> int:

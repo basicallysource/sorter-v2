@@ -92,7 +92,7 @@
 	let liveRequestInFlight = false;
 
 	// --- Stepper control (persisted per stepper) ---
-	type PulseMode = 'duration' | 'degrees';
+	type PulseMode = 'duration' | 'degrees' | 'continuous';
 
 	let pulseMode = $state<PulseMode>('duration');
 	let pulseDuration = $state(0.25);
@@ -360,6 +360,9 @@
 		if (pulseMode === 'degrees') {
 			return moveDegrees(direction);
 		}
+		if (pulseMode === 'continuous') {
+			return runUntilStopped(direction);
+		}
 		const key = `${stepperKey}:${direction}`;
 		if (pulsing[key]) return;
 		pulsing = { ...pulsing, [key]: true };
@@ -385,6 +388,35 @@
 			errorMsg = `The ${DIRECTION_WORDS[direction]} request failed.`;
 		} finally {
 			pulsing = { ...pulsing, [key]: false };
+		}
+	}
+
+	// Turning until Stop: the direction's button stays lit while it turns.
+	async function runUntilStopped(direction: 'cw' | 'ccw') {
+		scope = 'motor';
+		statusMsg = '';
+		errorMsg = null;
+		try {
+			const params = new URLSearchParams({
+				stepper: stepperKey,
+				direction,
+				speed: String(pulseSpeed)
+			});
+			const res = await fetch(`${currentBackendBaseUrl()}/stepper/run?${params.toString()}`, {
+				method: 'POST'
+			});
+			if (!res.ok) {
+				errorMsg = await readErrorMessage(res);
+				return;
+			}
+			pulsing = {
+				...pulsing,
+				[`${stepperKey}:cw`]: direction === 'cw',
+				[`${stepperKey}:ccw`]: direction === 'ccw'
+			};
+			statusMsg = `Turning ${DIRECTION_WORDS[direction]} until Stop.`;
+		} catch {
+			errorMsg = `The ${DIRECTION_WORDS[direction]} request failed.`;
 		}
 	}
 
@@ -439,6 +471,7 @@
 				errorMsg = await readErrorMessage(res);
 				return;
 			}
+			pulsing = { ...pulsing, [`${stepperKey}:cw`]: false, [`${stepperKey}:ccw`]: false };
 			statusMsg = 'Stopped.';
 		} catch {
 			errorMsg = 'Stop request failed.';

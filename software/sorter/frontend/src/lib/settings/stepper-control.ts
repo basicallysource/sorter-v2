@@ -5,7 +5,8 @@ import type { StepperKey } from '$lib/settings/stations';
 // The two ways a stepper turns, in words.
 export const DIRECTION_WORDS = { cw: 'clockwise', ccw: 'counterclockwise' } as const;
 
-export type StepperPulseMode = 'duration' | 'degrees';
+// A press moves a set angle, runs a set time, or runs until Stop.
+export type StepperPulseMode = 'duration' | 'degrees' | 'continuous';
 
 export type StoredStepperPulseSettings = {
 	pulseMode: StepperPulseMode;

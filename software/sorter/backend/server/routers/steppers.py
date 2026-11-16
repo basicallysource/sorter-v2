@@ -36,6 +36,11 @@ from stepper_stall_monitor import CHUTE_NEEDS_HOMING_INCIDENT_KIND, STEPPER_STAL
 router = APIRouter()
 
 MAX_STEPPER_PULSE_DURATION_S = 120.0
+# A stepper set turning until it is stopped is stopped anyway after this long:
+# the page that started it may be gone.
+STEPPER_RUN_LIMIT_S = 600.0
+# The steppers turning until stopped, each with what ends its run.
+_runs: dict[str, threading.Event] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -57,6 +62,14 @@ class StepperPulseResponse(BaseModel):
     direction: str
     duration_s: float
     speed: int
+
+
+class StepperRunResponse(BaseModel):
+    success: bool
+    stepper: str
+    direction: str
+    speed: int
+    stops_after_s: float
 
 
 class StepperMoveDegreesResponse(BaseModel):
@@ -508,6 +521,45 @@ def pulse_stepper(
     )
 
 
+def _stop_run_at_limit(name: str, stepper: Any, ended: threading.Event) -> None:
+    if ended.wait(STEPPER_RUN_LIMIT_S):
+        return  # stopped, or set turning again
+    if _runs.get(name) is ended:
+        _runs.pop(name, None)
+        with contextlib.suppress(Exception):
+            _halt_stepper(stepper, force=True)
+
+
+@router.post("/stepper/run", response_model=StepperRunResponse)
+def run_stepper(stepper: str, direction: str, speed: int = 800) -> StepperRunResponse:
+    """Set a stepper turning until it is stopped (POST /stepper/stop), for
+    STEPPER_RUN_LIMIT_S at the most. Asked again while it turns, it takes the
+    new direction and speed."""
+    _ensure_manual_motion_allowed("run a stepper")
+    if speed <= 0:
+        raise HTTPException(status_code=400, detail="speed must be > 0")
+    if direction not in ("cw", "ccw"):
+        raise HTTPException(status_code=400, detail="direction must be 'cw' or 'ccw'")
+
+    target = _resolve_stepper(stepper)
+    previous = _runs.pop(stepper, None)
+    if previous is not None:
+        previous.set()
+    try:
+        target.enable_force(True)
+        if not bool(target.move_at_speed(speed if direction == "cw" else -speed, force=True)):
+            raise RuntimeError("move_at_speed was not acknowledged")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Run start failed: {e}")
+
+    ended = threading.Event()
+    _runs[stepper] = ended
+    threading.Thread(target=_stop_run_at_limit, args=(stepper, target, ended), daemon=True).start()
+    return StepperRunResponse(
+        success=True, stepper=stepper, direction=direction, speed=speed, stops_after_s=STEPPER_RUN_LIMIT_S
+    )
+
+
 class _JitterBusy(Exception):
     """Raised when the firmware refuses a jitter because one is still in flight."""
 
@@ -722,6 +774,9 @@ def move_stepper_degrees(
 @router.post("/stepper/stop", response_model=StepperStopResponse)
 def stop_stepper(stepper: str) -> StepperStopResponse:
     target = _resolve_stepper(stepper, to_stop=True)
+    run = _runs.pop(stepper, None)
+    if run is not None:
+        run.set()
 
     try:
         _halt_stepper(target, force=True)

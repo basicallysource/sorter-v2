@@ -7,7 +7,7 @@
 
 	const MAX_PULSE_DURATION_S = 120;
 
-	type PulseMode = 'duration' | 'degrees';
+	type PulseMode = 'duration' | 'degrees' | 'continuous';
 
 	let {
 		stepperKey,
@@ -86,19 +86,25 @@
 
 		<div class="flex flex-col gap-3">
 			<div class="flex items-center justify-between gap-3">
-				<span class="text-sm font-medium text-ink">Each press moves</span>
+				<span class="text-sm font-medium text-ink">
+					{pulseMode === 'continuous' ? 'Each press runs until Stop' : 'Each press moves'}
+				</span>
 				<SegmentedControl
 					label="Move by"
 					size="sm"
 					bind:value={pulseMode}
 					options={[
 						{ value: 'degrees', label: 'Degrees' },
-						{ value: 'duration', label: 'Time' }
+						{ value: 'duration', label: 'Time' },
+						{ value: 'continuous', label: 'Continuous' }
 					]}
 				/>
 			</div>
 			<div class="grid grid-cols-2 gap-3">
-				{#if pulseMode === 'duration'}
+				{#if pulseMode === 'continuous'}
+					<!-- Nothing to set but the speed: it turns until Stop, ten minutes at the most. -->
+					<p class="self-center text-sm text-ink-muted">Stops by itself after 10 minutes.</p>
+				{:else if pulseMode === 'duration'}
 					<Input
 						type="number"
 						min={0.05}

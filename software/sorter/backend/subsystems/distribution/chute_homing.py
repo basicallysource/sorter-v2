@@ -8,15 +8,25 @@ an input reads a given level, stops it at once and makes that step 0
 until it trips, then back away to the first bin.
 
 **On a magnet** (a chute that turns without limit): the magnet passes a sensor
-once a turn and reads active over a window some degrees wide, so home is one
-edge of that window, always found from the same side and slowly. A fast pass
-finds the magnet; the chute backs out of it and comes back at a crawl, and that
-stop is 0. It is the same edge a position check finds (position_check.py),
-which approaches it the same way.
+once a turn, and the sensor reads it over a stretch of turning, not at one
+point. How wide that stretch is depends on the sensor: a hall sensor board with
+a pot reads a magnet from further off the more sensitive it is set, and even a
+finely set one reads it for a while. Home is the middle of the stretch, which is
+where the magnet is however the sensor is set, so the bins are where the
+machine's design puts them.
+
+Each edge is found slowly and from outside the stretch, so both are read the
+same way. A fast pass finds the magnet; the chute backs out and crawls onto its
+upper edge, which the board makes step 0. Then it runs on through and out the
+far side, and crawls back onto the lower edge, counting the steps from the
+upper one. Home is halfway between. A position check (position_check.py)
+finds the upper edge again the same way; Chute.home_edge_steps says where it is
+from home.
 """
 
 from __future__ import annotations
 
+import math
 import time
 from typing import TYPE_CHECKING
 
@@ -30,10 +40,17 @@ HOME_TIMEOUT_MS = 15000
 # On a magnet: the fast pass and the crawl, in the same direction.
 MAGNET_SEEK_SPEED = -2000
 MAGNET_CRAWL_SPEED = -300
-# How far to back out of the magnet's window before the crawl, in chute degrees.
+# How far to back out of the stretch the sensor reads the magnet over before
+# each crawl, in chute degrees.
 MAGNET_CLEARANCE_DEG = 6.0
-# The widest a magnet's window can be: leaving it takes no longer than this.
-MAGNET_WINDOW_MAX_DEG = 90.0
+# The widest that stretch can be. A sensitive sensor reads the magnet over tens
+# of degrees, and homing takes its middle all the same; one that reads it over
+# most of a turn is not reading the magnet.
+MAGNET_WINDOW_MAX_DEG = 240.0
+MAGNET_TOO_WIDE = (
+    "The home sensor reads the magnet over more than two thirds of a turn, so it cannot say where the "
+    "magnet is. Check its wiring, and that its light goes off with the magnet away."
+)
 # A magnet not found in this much turning is not there.
 MAGNET_SEARCH_DEG = 450.0
 # The firmware can report "stopped" before a run it was just given starts.
@@ -97,16 +114,48 @@ def homeOnSwitch(chute: "Chute") -> bool:
 
 
 def homeOnMagnet(chute: "Chute") -> bool:
-    chute.logger.info("Chute: homing on its magnet")
+    """Make the middle of the stretch the sensor reads the magnet over home,
+    and turn the chute there."""
+    chute.logger.info("Chute: homing on the middle of its magnet")
+    if not _findUpperEdge(chute):
+        return False
+    if not _runOutOfMagnet(chute, MAGNET_SEEK_SPEED):
+        return _fail(chute, MAGNET_TOO_WIDE)
+    if not _moveBy(chute, -MAGNET_CLEARANCE_DEG):
+        return False
+    # The edge is somewhere between here and the upper one, where the count is 0.
+    stepper = chute.stepper
+    back_to_upper_deg = stepper.degrees_for_microsteps(abs(stepper.position)) / chute.gear_ratio
+    lower_edge = _crawlOntoEdge(chute, -MAGNET_CRAWL_SPEED, within_deg=back_to_upper_deg + MAGNET_CLEARANCE_DEG)
+    if lower_edge is None:
+        return _fail(
+            chute,
+            "The home sensor lost the magnet on the slow approach from its far side. Check that the "
+            "sensor is held firmly and its wiring.",
+        )
+    # The count ran from the upper edge until the board zeroed it on the lower
+    # one, where the chute now stands. Home is halfway back up.
+    width = abs(lower_edge)
+    half = int(round(width / 2))
+    stepper.position = stepper.position - half
+    chute.home_edge_steps = half
+    width_deg = stepper.degrees_for_microsteps(width) / chute.gear_ratio
+    chute.magnet_window_deg = round(width_deg, 2)
+    chute.logger.info(
+        f"Chute: the home sensor reads the magnet over {width_deg:.2f}° ({width} µsteps); home is its middle"
+    )
+    if chute.moveToAngleBlocking(0.0, timeout_buffer_ms=1500) is None:
+        return _fail(chute, "The chute found its magnet but did not turn to its middle.")
+    return True
+
+
+def _findUpperEdge(chute: "Chute") -> bool:
+    """Crawl onto the magnet's upper edge from above, and stand there as step 0."""
     if chute.endstop_triggered:
-        # Already inside the window: the firmware would stop at once, somewhere
-        # in it. Leave the way a search arrives, then clear it.
+        # Already on the magnet: the firmware would stop at once, somewhere on
+        # it. Leave the way a search arrives, then clear it.
         if not _runUntil(chute, -MAGNET_SEEK_SPEED, active=False, within_deg=MAGNET_WINDOW_MAX_DEG):
-            return _fail(
-                chute,
-                "The home sensor reads the magnet all the time, even with the chute turned a quarter "
-                "turn away. Turn its pot down until its light is on only over the magnet, and check its wiring.",
-            )
+            return _fail(chute, MAGNET_TOO_WIDE)
         if not _moveBy(chute, MAGNET_CLEARANCE_DEG):
             return False
     if not _runUntil(chute, MAGNET_SEEK_SPEED, active=True, within_deg=MAGNET_SEARCH_DEG):
@@ -116,11 +165,7 @@ def homeOnMagnet(chute: "Chute") -> bool:
             "Check that the sensor is plugged in, that the magnet is fitted and that the chute turns.",
         )
     if not _runUntil(chute, -MAGNET_CRAWL_SPEED, active=False, within_deg=MAGNET_WINDOW_MAX_DEG):
-        return _fail(
-            chute,
-            "The home sensor found the magnet, then still read it with the chute backed a quarter "
-            "turn away. Turn its pot down until its light is on only over the magnet, and check its wiring.",
-        )
+        return _fail(chute, MAGNET_TOO_WIDE)
     if not _moveBy(chute, MAGNET_CLEARANCE_DEG):
         return False
     if not _runUntil(chute, MAGNET_CRAWL_SPEED, active=True, within_deg=MAGNET_CLEARANCE_DEG * 4):
@@ -133,9 +178,9 @@ def homeOnMagnet(chute: "Chute") -> bool:
 
 
 def measureTurn(chute: "Chute") -> float | None:
-    """How many motor turns one turn of this chute takes, from the magnet's edge
-    round to the same edge. The chute must be homed on its magnet and is left
-    needing a home. None if the magnet did not come round.
+    """How many motor turns one turn of this chute takes, from the magnet's
+    upper edge round to the same edge. The chute is left needing a home. None
+    if the magnet did not come round.
 
     A chute that never unwinds adds up whatever its ratio is off by, turn after
     turn, so this is read to a microstep or two. A first pass at speed gives the
@@ -149,9 +194,9 @@ def measureTurn(chute: "Chute") -> float | None:
     as_built = chute.gear_ratio
     chute.setGearRatio(rough)
     try:
-        if not homeOnMagnet(chute):
+        if not _findUpperEdge(chute):
             return None
-        # Homing runs toward lower angles: on through the window and round, to
+        # Homing runs toward lower angles: on through the magnet and round, to
         # stop a little short of the edge it started from.
         if not _moveBy(chute, -(360.0 - 2 * MAGNET_CLEARANCE_DEG)):
             return None
@@ -162,6 +207,7 @@ def measureTurn(chute: "Chute") -> float | None:
     if steps is None:
         chute.logger.error("Chute: lost the magnet while measuring a turn.")
         return None
+    steps = abs(steps)
     ratio = steps / chute.stepper.total_steps_per_rev
     chute.logger.info(f"Chute: one turn is {steps} µsteps, {ratio:.4f} motor turns")
     return ratio
@@ -195,14 +241,17 @@ def _roughTurn(chute: "Chute") -> float | None:
     return abs(edges[1] - edges[0]) / stepper.total_steps_per_rev
 
 
-def _crawlOntoEdge(chute: "Chute") -> int | None:
-    """Crawl onto the magnet's edge the way homing does, and return the step
-    count the chute had when it got there: the firmware zeroes it at the edge,
-    so it is the last one read before that."""
+def _crawlOntoEdge(
+    chute: "Chute", speed: int = MAGNET_CRAWL_SPEED, within_deg: float = MAGNET_CLEARANCE_DEG * 6
+) -> int | None:
+    """Crawl at `speed` onto the magnet's edge the way homing does, and return
+    the step count the chute had when it got there: the firmware zeroes it at
+    the edge, so it is the last one read before that, carried on by the
+    distance the chute goes between two readings."""
     stepper = chute.stepper
-    stepper.home(MAGNET_CRAWL_SPEED, chute.home_pin, home_pin_active_high=chute.endstop_active_high)
+    stepper.home(speed, chute.home_pin, home_pin_active_high=chute.endstop_active_high)
     started = time.monotonic()
-    give_up_after = _secondsFor(chute, MAGNET_CLEARANCE_DEG * 6, MAGNET_CRAWL_SPEED) + 1.0
+    give_up_after = _secondsFor(chute, within_deg, speed) + 1.0
     last: int | None = None
     reads = 0
     while True:
@@ -219,10 +268,10 @@ def _crawlOntoEdge(chute: "Chute") -> int | None:
     if last is None or not chute.endstop_triggered:
         return None
     # The chute went on for part of a reading's interval after the last one
-    # read: half of it, on average.
+    # read: half of it, on average, in the direction it crawled.
     crawled_s = time.monotonic() - started
-    between_reads = abs(MAGNET_CRAWL_SPEED) * crawled_s / reads
-    return int(round(abs(last) + between_reads / 2))
+    between_reads = abs(speed) * crawled_s / reads
+    return int(round(last + math.copysign(between_reads / 2, speed)))
 
 
 def _secondsFor(chute: "Chute", chute_degrees: float, speed: int) -> float:
@@ -247,6 +296,29 @@ def _runUntil(chute: "Chute", speed: int, *, active: bool, within_deg: float) ->
             return False
         time.sleep(POLL_S)
     return chute.endstop_triggered == active
+
+
+def _runOutOfMagnet(chute: "Chute", speed: int) -> bool:
+    """Run at `speed` until the home sensor stops reading the magnet, then stop.
+    Unlike the board's homing this keeps the step count, so the edge the chute
+    comes back onto is counted from the one it set out from. False if the
+    sensor still reads the magnet after MAGNET_WINDOW_MAX_DEG of turning."""
+    stepper = chute.stepper
+    chute.setSpeed(abs(speed))
+    give_up_at = time.monotonic() + _secondsFor(chute, MAGNET_WINDOW_MAX_DEG, speed) + 1.0
+    if not stepper.move_at_speed(speed):
+        return False
+    try:
+        while chute.endstop_triggered:
+            if time.monotonic() > give_up_at:
+                return False
+            time.sleep(POLL_S)
+    finally:
+        stepper.move_at_speed(0, force=True)
+        stopping_until = time.monotonic() + 3.0
+        while not stepper.stopped and time.monotonic() < stopping_until:
+            time.sleep(POLL_S)
+    return True
 
 
 def _moveBy(chute: "Chute", chute_degrees: float) -> bool:

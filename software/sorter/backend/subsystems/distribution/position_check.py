@@ -1,8 +1,10 @@
 """The chute's position check: every so many pieces, the chute goes up to its
 home switch the way homing does and sees where it finds it.
 
-Homing makes the switch's edge step 0, so the step count where the switch
-triggers now is how far the chute has drifted since: steps it lost, or gained.
+Homing leaves the switch's edge at a known count (step 0 for a switch; for a
+magnet, its upper edge, Chute.home_edge_steps above home), so the step count
+where the switch triggers now, less that, is how far the chute has drifted
+since: steps it lost, or gained.
 StallGuard can't see steps skipped while the chute speeds up or slows down, or
 skipping that never loads the motor much. This sees all of them, after the
 fact, so the pieces since the last check may have gone to the wrong bins.
@@ -79,7 +81,11 @@ def checkPosition(chute: "Chute") -> PositionCheck:
         chute.markUnhomed(f"position check: {error}")
         return PositionCheck(time.time(), False, duration_s=time.monotonic() - started, error=error)
 
-    if chute.moveToAngleBlocking(CHECK_FROM_DEG, timeout_buffer_ms=1500) is None:
+    def chuteDeg(steps: float) -> float:
+        return stepper.degrees_for_microsteps(steps) / gear_ratio
+
+    edge = chute.home_edge_steps
+    if chute.moveToAngleBlocking(chuteDeg(edge) + CHECK_FROM_DEG, timeout_buffer_ms=1500) is None:
         return failed("the move up to the switch did not finish")
     speed = int(math.copysign(CHECK_SPEED, HOME_SPEED_MICROSTEPS_PER_SEC))
     stepper.home(speed, chute.home_pin, home_pin_active_high=chute.endstop_active_high)
@@ -101,9 +107,11 @@ def checkPosition(chute: "Chute") -> PositionCheck:
     homing_s = time.monotonic() - homing_from
     if not chute.endstop_triggered:
         return failed("it stopped before the switch")
-
-    def chuteDeg(steps: float) -> float:
-        return stepper.degrees_for_microsteps(steps) / gear_ratio
+    # The firmware zeroed the count on the edge; put home back where it was.
+    if edge:
+        stepper.position = stepper.position + edge
+    if last is not None:
+        last -= edge
 
     if last is not None and chute.variant.turns_freely:
         # A chute that turns without limit has counted its turns too: the drift

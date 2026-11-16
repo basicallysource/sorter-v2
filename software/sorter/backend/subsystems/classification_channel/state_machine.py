@@ -56,7 +56,20 @@ class ClassificationChannelStateMachine:
             SimpleStateMachineRev01Context,
         )
 
-        self._two_piece = TwoPieceClassificationChannel(
+        # A rotor that rests with a fin over the exit makes fixed pockets, and
+        # runs the pocket flow; every other rotor runs the two-piece flow.
+        flow_class = TwoPieceClassificationChannel
+        try:
+            from subsystems.classification_channel.two_piece.rev01_config import configFromDict
+            from toml_config import getClassificationChannelRev01Config
+
+            if configFromDict(getClassificationChannelRev01Config()).fin_at_exit:
+                from subsystems.classification_channel.pocket import PocketClassificationChannel
+
+                flow_class = PocketClassificationChannel
+        except Exception as exc:
+            gc.logger.warning(f"ClassificationChannel: could not read the rotor settings ({exc}); using the two-piece flow")
+        self._two_piece = flow_class(
             irl,
             irl_config,
             gc,

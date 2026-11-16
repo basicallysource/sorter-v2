@@ -1082,7 +1082,12 @@ def _bindHardware(irl_interface: IRLInterface, config: IRLConfig, gc: GlobalConf
     )
 
     board_drive = getattr(distribution_board, "feeder_drive", None)
-    if board_drive is not None and not driveSaved(machine_specific_params):
+    if (
+        board_drive is not None
+        and not driveSaved(machine_specific_params)
+        # A machine whose generation already says this drive needs nothing saved.
+        and feederDrive(machine_specific_params).name != board_drive
+    ):
         # The motors' defaults and the feeder's speeds follow the drive, and the
         # feeder reads it while no board is at hand: write down what this board
         # is made for before any motor is set up.
@@ -1175,7 +1180,12 @@ def _bindHardware(irl_interface: IRLInterface, config: IRLConfig, gc: GlobalConf
         distribution_board.chute_variant,
     )
     chute_settings = readChuteSettings(machine_specific_params, **chute_board_defaults, logger=gc.logger)
-    if distribution_board.chute_variant is not None and "variant" not in chute_settings.saved:
+    if (
+        distribution_board.chute_variant is not None
+        and "variant" not in chute_settings.saved
+        # A machine whose generation already says this chute needs nothing saved.
+        and readChuteSettings(machine_specific_params).variant_key != distribution_board.chute_variant
+    ):
         # Which chute a machine has is asked for before the hardware starts too
         # (the bins, the setup pages), where no board is at hand to say: write
         # down what this board is made for.

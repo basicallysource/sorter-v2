@@ -476,3 +476,47 @@ def report_client_error(payload: ClientErrorPayload) -> Dict[str, Any]:
         import logging
         logging.getLogger(__name__).error(full)
     return {"ok": True}
+
+
+# --- The machine's generation ---------------------------------------------
+
+
+class GenerationPayload(BaseModel):
+    generation: str
+
+
+def _generation_payload() -> Dict[str, Any]:
+    from hardware_settings.generation import GENERATIONS, generationSaved, machineGeneration
+
+    return {
+        "generation": machineGeneration().key,
+        "saved": generationSaved(),
+        "generations": [generation.describe() for generation in GENERATIONS.values()],
+    }
+
+
+@router.get("/api/system/generation")
+def get_machine_generation() -> Dict[str, Any]:
+    """Which Sorter this machine is (hardware_settings/generation.py): where the
+    built-in defaults of every setting that differs between them come from."""
+    return _generation_payload()
+
+
+@router.post("/api/system/generation")
+def save_machine_generation(payload: GenerationPayload) -> Dict[str, Any]:
+    """Save the machine's generation. Settings saved on their own keep their
+    values; the defaults of the others change at the next start."""
+    from fastapi import HTTPException
+
+    import machine_toml
+    from hardware_settings.generation import saveMachineGeneration
+
+    try:
+        saveMachineGeneration(payload.generation)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except machine_toml.MachineTomlError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    result = _generation_payload()
+    result["message"] = "Saved. Restart the machine's software for every default to follow it."
+    return result

@@ -8,7 +8,8 @@ set by hand, not from the UI:
     [feeder]
     drive = "direct"
 
-No [feeder] table is the geared feeder. A board made for one feeder (the
+No [feeder] table is the drive the machine's generation is built with
+(hardware_settings/generation.py): the geared feeder on a Sorter V2. A board made for one feeder (the
 Sorter V3's, machine_platform/control_board.py) writes its drive down the
 first time the hardware starts on it, as it does its kind of chute.
 
@@ -26,6 +27,8 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 import machine_toml
+
+from .generation import machineGeneration
 
 FEEDER = "feeder"
 GEARED = "geared"
@@ -99,11 +102,13 @@ def saveFeederDrive(name: str) -> FeederDrive:
 
 
 def feederDrive(config: Mapping[str, Any] | None = None, logger: Any = None) -> FeederDrive:
-    """The machine's feeder drive. An unknown one is taken as geared, with a warning."""
+    """The machine's feeder drive: the one saved, else its generation's. An
+    unknown one is taken as geared, with a warning."""
     if config is None:
         config = machine_toml.read()
     table = config.get(FEEDER)
-    name = table.get("drive", GEARED) if isinstance(table, dict) else GEARED
+    built_with = machineGeneration(config).feeder_drive
+    name = table.get("drive", built_with) if isinstance(table, dict) else built_with
     drive = DRIVES.get(name) if isinstance(name, str) else None
     if drive is None:
         if logger is not None:

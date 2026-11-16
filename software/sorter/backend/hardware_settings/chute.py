@@ -22,6 +22,8 @@ from typing import Any, Mapping
 import machine_toml
 from subsystems.distribution.chute_variants import DEFAULT_VARIANT, VARIANTS, ChuteVariant, variantFor
 
+from .generation import machineGeneration
+
 CHUTE = "chute"
 
 DEFAULT_NUM_SECTIONS = 6
@@ -103,13 +105,15 @@ def boardDefaults(
     variant_key: str | None = None,
 ) -> dict[str, Any]:
     """The home input and polarity a distribution board comes with, and the kind
-    of chute it is made for if it is made for one, as readChuteSettings takes them."""
+    of chute it is made for if it is made for one (else the machine's
+    generation's), as readChuteSettings takes them."""
     return {
         "home_pin_channel": input_aliases.get("chute_home", DEFAULT_HOME_PIN_CHANNEL),
         "endstop_active_high": (
             DEFAULT_ENDSTOP_ACTIVE_HIGH if endstop_active_high is None else endstop_active_high
         ),
-        "variant_key": variant_key or DEFAULT_VARIANT.key,
+        # None: the kind of chute the machine's generation is built with.
+        "variant_key": variant_key,
     }
 
 
@@ -118,14 +122,17 @@ def readChuteSettings(
     *,
     home_pin_channel: int = DEFAULT_HOME_PIN_CHANNEL,
     endstop_active_high: bool = DEFAULT_ENDSTOP_ACTIVE_HIGH,
-    variant_key: str = DEFAULT_VARIANT.key,
+    variant_key: str | None = None,
     logger: Any = None,
 ) -> ChuteSettings:
     """The chute's settings. `home_pin_channel`, `endstop_active_high` and
     `variant_key` are the distribution board's own, used unless machine.toml
-    sets them."""
+    sets them. With no board's kind of chute given, it is the one the
+    machine's generation is built with (hardware_settings/generation.py)."""
     if config is None:
         config = machine_toml.read()
+    if variant_key is None:
+        variant_key = machineGeneration(config).chute_variant
     raw = config.get(CHUTE)
     if raw is None:
         raw = {}
@@ -204,7 +211,7 @@ def saveChuteSettings(
     *,
     home_pin_channel: int = DEFAULT_HOME_PIN_CHANNEL,
     endstop_active_high: bool = DEFAULT_ENDSTOP_ACTIVE_HIGH,
-    variant_key: str = DEFAULT_VARIANT.key,
+    variant_key: str | None = None,
 ) -> ChuteSettings:
     """Save some of the chute's settings; raises ValueError naming a bad one,
     saving none. The geometry can be given the aiming way (GEOMETRY) or the

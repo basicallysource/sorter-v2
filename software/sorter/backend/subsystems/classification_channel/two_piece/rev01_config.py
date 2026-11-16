@@ -176,15 +176,22 @@ _MOTOR_DEGREES = ("jitter_amplitude_motor_deg",)
 def defaultConfig(drive=None) -> Rev01Config:
     """The built-in tuning for the machine's C-channel drive: the motor speeds,
     accelerations and throws, tuned through the gear, scaled to move the
-    platter the same on another."""
+    platter the same on another. The rotor and how the channel is run are the
+    machine's generation's (hardware_settings/generation.py)."""
+    import machine_toml
     from hardware_settings.feeder import feederDrive
+    from hardware_settings.generation import machineGeneration
 
-    drive = drive or feederDrive()
+    config = machine_toml.read()
+    drive = drive or feederDrive(config)
     cfg = Rev01Config()
     for key in _MOTOR_RATES:
         setattr(cfg, key, drive.motorRate(getattr(cfg, key)))
     for key in _MOTOR_DEGREES:
         setattr(cfg, key, drive.motorDegrees(getattr(cfg, key)))
+    for key, value in machineGeneration(config).classification_channel.items():
+        if hasattr(cfg, key):
+            setattr(cfg, key, value)
     return cfg
 
 

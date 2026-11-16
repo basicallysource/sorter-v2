@@ -469,7 +469,9 @@ def _keepBoardsChuteVariant(boards: list[dict[str, Any]]) -> None:
     """Write down the kind of chute a found board is made for, unless one is
     saved already: later pages ask which chute this is with no board at hand."""
     variant = next((board["chute_variant"] for board in boards if board.get("chute_variant")), None)
-    if variant is None or "variant" in readChuteSettings().saved:
+    settings = readChuteSettings()
+    # Saved already, or what the machine's generation says anyway.
+    if variant is None or "variant" in settings.saved or settings.variant_key == variant:
         return
     try:
         saveChuteSettings({"variant": variant})

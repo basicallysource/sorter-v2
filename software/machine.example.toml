@@ -3,6 +3,14 @@
 # MACHINE_SPECIFIC_PARAMS_PATH, if set, points it at a different file instead.
 # This file is for parameters that vary between machines and local setups.
 
+# Which Sorter this is. It sets no hardware by itself: it is where the built-in
+# defaults of everything that differs between the Sorters come from (the kind
+# of chute and how it homes, the C-channels' drive, the classification
+# channel's rotor and how it is run). Anything saved further down still wins
+# over its default. Leave it out for a Sorter V2.
+# [machine]
+# generation = "v3"  # "v2" (the default) or "v3"
+
 [servo]
 # For PCA9685 (default):
 # backend = "pca9685"

@@ -767,6 +767,11 @@ def build(
     # it the moment a frame arrives.
     _wait_for_frame_shapes(camera_service, timeout_s=15.0, gc=gc)
 
+    # The classification rotor's fins as read off its camera, for the live view.
+    from .fins import fins
+
+    fins.start(camera_service, getattr(gc, "logger", None))
+
     service = PerceptionService(
         channels={}, captures={}, runtimes={}, slots={}, workers={},
         context=ctx, fingerprints={},

@@ -15,7 +15,10 @@ hidden without a new stream and is never out of date in the picture itself:
   perception worked with, as shapes. Coordinates are 0..1 across and down.
 - ``{"detections": key, "ts": t, "boxes": [...]}`` comes just before a frame
   perception inferred on, with what it found there. A frame with none is the
-  camera's own, from before perception started or while it is behind.
+  camera's own, from before perception started or while it is behind. On the
+  classification channel it also carries ``"fins": [[x1, y1, x2, y2], ...]``
+  while the rotor stands still: its fins as the machine reads them
+  (perception/fins.py), each a line from the hub's edge to the rim.
 
 A view that cannot be served gets one text message, ``{"view": key, "error":
 "..."}``, and a socket with nothing to send for a while sends ``{}``.
@@ -45,6 +48,7 @@ from starlette.concurrency import run_in_threadpool
 
 import machine_toml
 from zones.store import revision as zones_revision
+from perception.fins import ROLES as FIN_ROLES, fins as fin_watch
 from perception.overlay import feedZoneShapes
 from server import shared_state
 from server.routers.cameras import _camera_source_for_role, _open_camera_for_probe
@@ -75,6 +79,10 @@ KEEPALIVE_S = 2.0
 # stalled perception never freezes the picture.
 PERCEPTION_BEHIND_S = 1.0
 
+# The rotor's fins are drawn on a frame taken within this long of when they
+# were read: they are read about once a second while the picture is still.
+FIN_NEAR_S = 1.5
+
 
 @dataclass(frozen=True)
 class _Shot:
@@ -91,13 +99,15 @@ class _Shot:
 @dataclass(frozen=True)
 class _Frame:
     """An encoded frame as the writers send it: ``boxes`` when perception
-    inferred on it, and the layout it is drawn with, as ``(seq, layout)``."""
+    inferred on it, the layout it is drawn with, as ``(seq, layout)``, and
+    ``fins`` when the classification rotor's fins are read."""
 
     seq: int
     ts: float
     jpeg: bytes
     boxes: list | None
     layout: tuple[int, dict] | None
+    fins: list | None = None
 
 
 class _Feed:
@@ -141,10 +151,13 @@ class _Feed:
     def _layout(self, shot: _Shot) -> tuple[int, dict] | None:
         return None
 
+    def _fins(self, shot: _Shot) -> list | None:
+        return None
+
     def _release(self) -> None:
         """Let go of whatever the stopped producer held. Worker thread."""
 
-    def _render(self) -> tuple[float, bytes, list | None, tuple[int, dict] | None] | None:
+    def _render(self) -> tuple[float, bytes, list | None, tuple[int, dict] | None, list | None] | None:
         """The newest frame encoded, with what is drawn over it, or None when
         nothing is new. Worker thread."""
         shot = self._newest()
@@ -160,7 +173,7 @@ class _Feed:
         shared_state.observePerfMs(f"preview.{self.name}.frame_age_ms", (time.time() - shot.ts) * 1000.0)
         shared_state.observePerfMs(f"preview.{self.name}.encode_ms", (time.perf_counter() - started) * 1000.0)
         shared_state.observePerfMs(f"preview.{self.name}.viewers", float(len(self.watchers)))
-        return shot.ts, jpeg.tobytes(), self._boxes(shot), self._layout(shot)
+        return shot.ts, jpeg.tobytes(), self._boxes(shot), self._layout(shot), self._fins(shot)
 
     async def _produce(self) -> None:
         loop = asyncio.get_running_loop()
@@ -276,6 +289,16 @@ class _RoleFeed(_Feed):
             self.layout = ((self.layout[0] + 1) if self.layout else 1, layout)
             self.layout_for = built_for
         return self.layout
+
+    def _fins(self, shot: _Shot) -> list | None:
+        """The classification rotor's fins as last read, when this frame is
+        from about then."""
+        if self.role not in FIN_ROLES:
+            return None
+        reading = fin_watch.reading()
+        if reading is None or abs(shot.ts - reading.read_at) > FIN_NEAR_S:
+            return None
+        return reading.lines()
 
     def _release(self) -> None:
         self.layout_for = None
@@ -470,8 +493,11 @@ class _Viewer:
                     if frame.layout is not None and self.sent_layout.get(key) != frame.layout[0]:
                         self.sent_layout[key] = frame.layout[0]
                         await self._send(json.dumps({"layout": key, **frame.layout[1]}))
-                    if frame.boxes is not None:
-                        await self._send(json.dumps({"detections": key, "ts": frame.ts, "boxes": frame.boxes}))
+                    if frame.boxes is not None or frame.fins is not None:
+                        found: dict[str, Any] = {"detections": key, "ts": frame.ts, "boxes": frame.boxes or []}
+                        if frame.fins is not None:
+                            found["fins"] = frame.fins
+                        await self._send(json.dumps(found))
                     await self._send(_frame_message(key, frame.ts, frame.jpeg))
                     shared_state.observePerfMs(f"preview.{feed.name}.send_ms", (time.perf_counter() - started) * 1000.0)
                     shared_state.observePerfMs(f"preview.{feed.name}.skipped", float(skipped))

@@ -12,7 +12,8 @@
 // (backend server/routers/camera_feeds.py): {"layout"} with a role view's
 // zones before its first frame and whenever they change, and
 // {"detections"} with the boxes of a frame perception inferred on, just
-// before that frame. CameraPicture draws them.
+// before that frame, and on the classification channel the rotor's fins as
+// the machine reads them while it stands still. CameraPicture draws them.
 
 /** A ring of points as a flat [x0, y0, x1, y1, ...], 0..1 across and down. */
 export type Ring = number[];
@@ -33,9 +34,17 @@ export type FeedBox = {
 	id?: number;
 };
 
-/** A frame: its JPEG, its capture time, and what perception found on it,
- * or null when it is the camera's own. */
-export type FeedFrame = { jpeg: Blob; ts: number; boxes: FeedBox[] | null };
+/** A line as a flat [x1, y1, x2, y2], 0..1 across and down. */
+export type FeedLine = [number, number, number, number];
+
+/** A frame: its JPEG, its capture time, what perception found on it (null
+ * when it is the camera's own), and the rotor's fins as read, when they are. */
+export type FeedFrame = {
+	jpeg: Blob;
+	ts: number;
+	boxes: FeedBox[] | null;
+	fins: FeedLine[] | null;
+};
 
 export type FeedListener = {
 	frame: (frame: FeedFrame) => void;
@@ -93,7 +102,7 @@ class VideoSocket {
 	// The newest layout of each view, for a listener that comes after it.
 	private layouts = new Map<string, FeedLayout>();
 	// Detections waiting for their frame, which comes next.
-	private detections = new Map<string, { ts: number; boxes: FeedBox[] }>();
+	private detections = new Map<string, { ts: number; boxes: FeedBox[]; fins: FeedLine[] | null }>();
 	private retryMs = RETRY_MIN_MS;
 	private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	private closeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -175,6 +184,7 @@ class VideoSocket {
 				detections?: string;
 				ts?: number;
 				boxes?: FeedBox[];
+				fins?: FeedLine[];
 				zones?: FeedZones | null;
 			};
 			if (note.layout) {
@@ -184,7 +194,11 @@ class VideoSocket {
 				return;
 			}
 			if (note.detections) {
-				this.detections.set(note.detections, { ts: note.ts ?? 0, boxes: note.boxes ?? [] });
+				this.detections.set(note.detections, {
+					ts: note.ts ?? 0,
+					boxes: note.boxes ?? [],
+					fins: note.fins ?? null
+				});
 				return;
 			}
 			if (!note.view) return;
@@ -208,7 +222,8 @@ class VideoSocket {
 		const frame = {
 			jpeg: new Blob([new Uint8Array(data, 10 + keyLength)], { type: 'image/jpeg' }),
 			ts,
-			boxes: found && found.ts === ts ? found.boxes : null
+			boxes: found && found.ts === ts ? found.boxes : null,
+			fins: found && found.ts === ts ? found.fins : null
 		};
 		for (const listener of listeners) listener.frame(frame);
 	}

@@ -14,6 +14,7 @@
 		type FeedBox,
 		type FeedFrame,
 		type FeedLayout,
+		type FeedLine,
 		type FeedZones,
 		type Ring
 	} from '$lib/video';
@@ -33,6 +34,8 @@
 		merged: 'rgb(128 0 255)',
 		margin: 'rgb(160 160 160)'
 	};
+	// The rotor's fins as the machine reads them: there, but quiet.
+	const FIN_LINE = 'rgb(255 255 255 / 0.35)';
 	const LABEL_PX = 11;
 
 	type Size = { width: number; height: number };
@@ -75,6 +78,7 @@
 	// come meanwhile are skipped.
 	let bitmap: ImageBitmap | null = null;
 	let found: FeedBox[] | null = null;
+	let fins: FeedLine[] | null = null;
 	let layout: FeedLayout | null = null;
 	let decoding = false;
 	let next: FeedFrame | null = null;
@@ -99,6 +103,7 @@
 			bitmap?.close();
 			bitmap = decoded;
 			found = frame.boxes;
+			fins = frame.fins;
 			draw();
 			onframe?.({ width: decoded.width, height: decoded.height });
 		} catch {
@@ -230,6 +235,23 @@
 		}
 	}
 
+	function drawFins(
+		g: CanvasRenderingContext2D,
+		lines: FeedLine[],
+		width: number,
+		height: number,
+		px: number
+	) {
+		g.lineWidth = px;
+		g.strokeStyle = FIN_LINE;
+		g.beginPath();
+		for (const [x1, y1, x2, y2] of lines) {
+			g.moveTo(x1 * width, y1 * height);
+			g.lineTo(x2 * width, y2 * height);
+		}
+		g.stroke();
+	}
+
 	function draw() {
 		if (!canvas || !bitmap) return;
 		const [width, height] = [bitmap.width, bitmap.height];
@@ -256,6 +278,7 @@
 		const px = 1 / cssScale;
 		g.drawImage(bitmap, 0, 0, width, height);
 		if (zones && layout?.zones) drawZones(g, layout.zones, width, height, px);
+		if (boxes && fins) drawFins(g, fins, width, height, px);
 		if (boxes && found) drawBoxes(g, found, width, height, px);
 	}
 </script>

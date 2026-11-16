@@ -59,7 +59,15 @@ _LOOK_S = 0.3
 _LOOK_FRAMES = 3
 # A piece carried round this many times will not fall: the channel stops for
 # the stall watchdog (it sweeps the channel, or asks for help).
-_CARRY_MAX = 3
+_CARRY_MAX = 4
+# A piece that was carried round sticks to the rotor (a tire's rubber grips
+# it). The next time its pocket is swept across the opening, the sweep is made
+# in this many parts with a shake before each, so the piece is shaken while it
+# is over the opening wherever in the pocket it lies. The shake's throw is at
+# the rotor; each time the piece comes round again the shake is longer.
+_SHAKE_PARTS = 3
+_SHAKE_ROTOR_DEG = 6.0
+_SHAKE_CYCLES = 8
 # The firmware can report "stopped" before a move it was just given starts.
 _START_GRACE_S = 0.15
 # A piece drawn as several fused boxes in half its frames at rest, of at least
@@ -135,6 +143,10 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._look_wall = 0.0
         self._look_frames = 0
         self._carry_frames = 0
+        # A sweep made in parts: what is left of it ("shake", or microsteps to turn).
+        self._sweep_steps: list = []
+        self._shaking = False
+        self._shake_cycles = _SHAKE_CYCLES
         self._aim_target: Optional[_TrackedPiece] = None
         self._after_aim_us = 0
         self._after_aim_back = False
@@ -320,6 +332,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._ready_since = None
         self.last_progress_at = now
         self._new_seen = {}
+        self._sweep_steps = []
+        self._shaking = False
         if not self._started:
             self._started = True
             self._paused_mid_cycle = False
@@ -550,7 +564,16 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._cycles.rotated(time.time(), ejecting=bool(exit_))
         except Exception:
             pass
-        self._move(stepper, self._pitch_us, self.ctx.config.rotate_speed_usteps_per_s, now, "turn")
+        laps = max((getattr(tp, "carried", 0) for tp in exit_), default=0)
+        if laps:
+            part = self._pitch_us // _SHAKE_PARTS
+            self._sweep_steps = []
+            for index in range(_SHAKE_PARTS):
+                self._sweep_steps += ["shake", part if index < _SHAKE_PARTS - 1 else self._pitch_us - part * (_SHAKE_PARTS - 1)]
+            self._shake_cycles = _SHAKE_CYCLES * laps
+            self.logger.info(f"{LOG_TAG} the piece at the exit stuck to the rotor before: sweeping it out with shakes")
+        else:
+            self._sweep_steps = [self._pitch_us]
         self._enter(_P.TURN)
 
     # -------------------------------------------------------------------- moves
@@ -571,8 +594,35 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
 
     # --------------------------------------------------------------- TURN, LOOK
 
+    def _startShake(self, stepper, now: float) -> None:
+        cfg = self.ctx.config
+        amplitude = max(1, int(round(_SHAKE_ROTOR_DEG * self._per_deg)))
+        self.logger.info(f"{LOG_TAG} shake: {_SHAKE_ROTOR_DEG:g}° at the rotor, {self._shake_cycles} times")
+        try:
+            stepper.jitter(
+                amplitude, self._shake_cycles, int(cfg.jitter_speed_usteps_per_s), int(cfg.jitter_accel_usteps_per_s2)
+            )
+        except Exception as exc:
+            self.logger.warning(f"{LOG_TAG} shake failed: {exc}")
+        self._shaking = True
+        self._move_cmd_at = now
+
     def _turn(self, state, perception_service, stepper, now: float, moving: bool) -> None:
         if moving:
+            return
+        if self._shaking:
+            try:
+                if bool(stepper.is_jittering()):
+                    return
+            except Exception:
+                pass
+            self._shaking = False
+        if self._sweep_steps:
+            step = self._sweep_steps.pop(0)
+            if step == "shake":
+                self._startShake(stepper, now)
+            else:
+                self._move(stepper, int(step), self.ctx.config.rotate_speed_usteps_per_s, now, "turn")
             return
         # One pocket on. The EXIT pocket was swept across the whole opening.
         self._swept = self._pockets[-1]
@@ -628,20 +678,20 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._finishCycle(now)
 
     def _carriedRound(self, now: float) -> None:
-        """The swept pocket's piece did not fall: it is in the RECEIVE pocket,
-        and goes round again. To the discard this time: the same look cannot
-        tell it from a piece that landed late, and no bin is right for that."""
+        """The swept pocket's piece did not fall: it is in the RECEIVE pocket
+        (it stuck to the rotor) and goes round again as the piece it is. Its
+        next sweep is made with shakes."""
         swept, self._swept = self._swept, []
         for tp in swept:
             tp.carried = getattr(tp, "carried", 0) + 1
             if tp.placed and not tp.ejected:
                 self.transport.clearPieceForDistribution(tp.known_object)
                 self._unplace(tp)
-            self._toDiscard(
-                tp,
+            notePieceProblem(
+                tp.known_object,
                 "did_not_fall",
-                "It was still on the classification channel after the turn that sweeps the exit, so it "
-                "went round again, to the discard.",
+                "It was still on the classification channel after the turn that sweeps the exit (it "
+                f"stuck to the rotor), so it went round again (time {tp.carried}).",
             )
             tp.zone = _ZONE_DROP
         self.logger.warning(

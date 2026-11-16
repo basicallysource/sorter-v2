@@ -20,7 +20,7 @@ from toml_config import (
     setLinkMatchingConfig,
 )
 from classification.providers import COLOR_PROVIDER_SPECS, MOLD_PROVIDER_SPECS
-from subsystems.classification_channel.two_piece.rev01_config import FIELD_META
+from subsystems.classification_channel.two_piece.rev01_config import fieldMeta as rev01FieldMeta
 from subsystems.feeder.pulse_perception.config import fieldMeta as pulsePerceptionFieldMeta
 from perception.tracker_config import TRACKER_SPECS
 
@@ -31,7 +31,7 @@ router = APIRouter()
 def get_cc_rev01_config() -> dict[str, Any]:
     return {
         "config": getClassificationChannelRev01Config(),
-        "fields": FIELD_META,
+        "fields": rev01FieldMeta(),
     }
 
 

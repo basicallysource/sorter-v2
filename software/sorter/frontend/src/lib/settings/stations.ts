@@ -17,10 +17,7 @@ import Wifi from '@lucide/svelte/icons/wifi';
 import Thermometer from '@lucide/svelte/icons/thermometer';
 import Wrench from '@lucide/svelte/icons/wrench';
 import Zap from '@lucide/svelte/icons/zap';
-import {
-	CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO,
-	CLASSIFICATION_CHANNEL_STEPPER_LABEL
-} from '$lib/settings/stepper-control';
+import { CLASSIFICATION_CHANNEL_STEPPER_LABEL } from '$lib/settings/stepper-control';
 
 export type CameraRole =
 	| 'c_channel_2'
@@ -259,8 +256,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 		stepperKeys: ['c_channel_4'],
 		stepperDisplay: {
 			c_channel_4: {
-				label: CLASSIFICATION_CHANNEL_STEPPER_LABEL,
-				gearRatio: CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO
+				label: CLASSIFICATION_CHANNEL_STEPPER_LABEL
 			}
 		}
 	}

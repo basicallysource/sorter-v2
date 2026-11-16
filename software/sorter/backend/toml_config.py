@@ -19,12 +19,13 @@ import machine_toml
 
 
 def getClassificationChannelRev01Config() -> dict[str, Any]:
+    from hardware_settings.feeder import feederDrive
     from subsystems.classification_channel.two_piece.rev01_config import (
-        Rev01Config, configToDict,
+        configToDict, defaultConfig,
     )
     config = machine_toml.read()
     section = config.get("classification_channel_rev01")
-    defaults = configToDict(Rev01Config())
+    defaults = configToDict(defaultConfig(feederDrive(config)))
     if isinstance(section, dict):
         merged = {**defaults, **{k: v for k, v in section.items() if k in defaults}}
         return merged

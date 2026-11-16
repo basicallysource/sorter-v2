@@ -21,31 +21,20 @@ const DEFAULT_STEPPER_PULSE_SETTINGS: StoredStepperPulseSettings = {
 	pulseDegrees: 90
 };
 
-// The feeder's motors. Their gearing depends on the machine's feeder (geared or
-// direct drive), so it is asked of the machine (stepperGearRatio).
-export const FEEDER_STEPPERS = ['c_channel_1', 'c_channel_2', 'c_channel_3'] as const;
-export type FeederStepperKey = (typeof FEEDER_STEPPERS)[number];
+// Every motor but the chute's turns a C-channel. Their gearing depends on the
+// machine (geared or direct drive), and the chute's on its kind of chute, so
+// each ratio is asked of the machine (stepperGearRatio).
+export type CChannelStepperKey = Exclude<StepperKey, 'chute'>;
 
-export function isFeederStepper(stepperKey: StepperKey): stepperKey is FeederStepperKey {
-	return (FEEDER_STEPPERS as readonly string[]).includes(stepperKey);
+export function isFeederStepper(stepperKey: StepperKey): stepperKey is CChannelStepperKey {
+	return stepperKey !== 'chute';
 }
-
-// Motor turns for one turn of what the motor drives, for the motors geared the same on
-// every machine. The chute is not here either: its gearing depends on the kind of chute
-// the machine has, and a machine can have measured its own.
-export const STEPPER_GEAR_RATIOS: Record<Exclude<StepperKey, 'chute' | FeederStepperKey>, number> = {
-	c_channel_4: 130 / 12,
-	carousel: 130 / 12
-};
 
 export async function stepperGearRatio(baseUrl: string, stepperKey: StepperKey): Promise<number> {
 	if (stepperKey === 'chute') {
 		return checkedRatio(Number((await getChute(baseUrl)).gear_ratio), "the chute's");
 	}
-	if (isFeederStepper(stepperKey)) {
-		return checkedRatio(Number((await getFeeder(baseUrl)).gear_ratio), "the feeder's");
-	}
-	return STEPPER_GEAR_RATIOS[stepperKey];
+	return checkedRatio(Number((await getFeeder(baseUrl)).gear_ratio), "the C-channels'");
 }
 
 function checkedRatio(ratio: number, whose: string): number {
@@ -56,7 +45,6 @@ function checkedRatio(ratio: number, whose: string): number {
 }
 
 export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification C-channel (C4)';
-export const CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO = STEPPER_GEAR_RATIOS.c_channel_4;
 
 export function stepperPulseStorageKey(stepperKey: StepperKey, field: string): string {
 	return `stepper:${stepperKey}:${field}`;

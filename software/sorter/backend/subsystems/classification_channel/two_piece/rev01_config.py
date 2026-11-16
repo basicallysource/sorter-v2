@@ -150,8 +150,40 @@ FIELD_META: list[dict] = [
 ]
 
 
-def configFromDict(d: dict) -> Rev01Config:
+# Tuned through C4's 130:12 gear, in motor units: scaled for another drive.
+_MOTOR_RATES = (
+    "rotate_speed_usteps_per_s",
+    "precise_converge_speed_usteps_per_s",
+    "discharge_speed_usteps_per_s",
+    "jitter_speed_usteps_per_s",
+    "jitter_accel_usteps_per_s2",
+)
+_MOTOR_DEGREES = ("jitter_amplitude_motor_deg",)
+
+
+def defaultConfig(drive=None) -> Rev01Config:
+    """The built-in tuning for the machine's C-channel drive: the motor speeds,
+    accelerations and throws, tuned through the gear, scaled to move the
+    platter the same on another."""
+    from hardware_settings.feeder import feederDrive
+
+    drive = drive or feederDrive()
     cfg = Rev01Config()
+    for key in _MOTOR_RATES:
+        setattr(cfg, key, drive.motorRate(getattr(cfg, key)))
+    for key in _MOTOR_DEGREES:
+        setattr(cfg, key, drive.motorDegrees(getattr(cfg, key)))
+    return cfg
+
+
+def fieldMeta(drive=None) -> list[dict]:
+    """FIELD_META with each default the machine's drive takes."""
+    defaults = configToDict(defaultConfig(drive))
+    return [{**meta, "default": defaults[meta["key"]]} for meta in FIELD_META]
+
+
+def configFromDict(d: dict) -> Rev01Config:
+    cfg = defaultConfig()
     for meta in FIELD_META:
         k = meta["key"]
         if k not in d:

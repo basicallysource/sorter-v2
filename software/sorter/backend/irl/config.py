@@ -814,6 +814,49 @@ def setFeederStepperConfigs(irl_config: "IRLConfig", drive: FeederDrive) -> None
                 drive.motorRate(FIRMWARE_DEFAULT_ACCELERATION_MICROSTEPS_PER_SECOND_SQ),
             ),
         )
+    setClassificationChannelDrive(irl_config, drive)
+
+
+# The classification channel's (C4's) motor speed limit until a move sets its
+# own, as tuned through the 130:12 gear.
+C4_MOTOR_DEFAULT_STEPS_PER_SECOND = 4000
+
+
+def setClassificationChannelDrive(irl_config: "IRLConfig", drive: FeederDrive) -> None:
+    """C4's gear ratio, and its speeds, accelerations and motor-degree throws
+    for the drive: the geared ones, scaled to turn the platter the same."""
+    import dataclasses
+
+    irl_config.carousel_stepper = StepperConfig(
+        drive.motorRate(C4_MOTOR_DEFAULT_STEPS_PER_SECOND),
+        drive.motorRate(FIRMWARE_DEFAULT_ACCELERATION_MICROSTEPS_PER_SECOND_SQ),
+    )
+    irl_config.c_channel_4_rotor_stepper = irl_config.carousel_stepper
+    geared_eject = FeederConfig().classification_channel_eject
+    irl_config.feeder_config.classification_channel_eject = RotorPulseConfig(
+        steps=geared_eject.steps_per_pulse,
+        microsteps_per_second=drive.motorRate(geared_eject.microsteps_per_second),
+        delay_between_ms=geared_eject.delay_between_pulse_ms,
+        acceleration_microsteps_per_second_sq=drive.motorRate(geared_eject.acceleration_microsteps_per_second_sq),
+    )
+    geared = ClassificationChannelConfig()
+    channel = irl_config.classification_channel_config
+    channel.c4_gear_ratio = drive.gear_ratio
+    channel.exit_release_shimmy_stepper_per_output_deg = drive.gear_ratio
+    channel.exit_release_shimmy_microsteps_per_second = drive.motorRate(
+        geared.exit_release_shimmy_microsteps_per_second
+    )
+    channel.exit_release_shimmy_acceleration_microsteps_per_second_sq = drive.motorRate(
+        geared.exit_release_shimmy_acceleration_microsteps_per_second_sq
+    )
+    channel.exit_release_shimmy_stages = tuple(
+        dataclasses.replace(
+            stage,
+            microsteps_per_second=drive.motorRate(stage.microsteps_per_second),
+            acceleration_microsteps_per_second_sq=drive.motorRate(stage.acceleration_microsteps_per_second_sq),
+        )
+        for stage in geared.exit_release_shimmy_stages
+    )
 
 
 def cameraSourceForRole(cameras: object, role: str) -> int | str | None:
@@ -936,8 +979,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             device_settings=_device_settings(aux_camera_role),
         )
 
-    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=4000)
-    irl_config.c_channel_4_rotor_stepper = irl_config.carousel_stepper
     irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=3000)
     setFeederStepperConfigs(irl_config, feederDrive(raw_toml))
 

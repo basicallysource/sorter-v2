@@ -42,12 +42,12 @@ def shake(stepper: str, profile: str) -> dict[str, Any]:
 
 
 def _gearRatio(stepper: str) -> float:
-    """Motor turns per channel turn: the feeder's motors follow its drive."""
+    """Motor turns per channel turn: the C-channels' motors follow their drive."""
     import recovery
-    from hardware_settings.feeder import FEEDER_MOTORS, feederDrive
+    from hardware_settings.feeder import C_CHANNEL_MOTORS, feederDrive
     from hardware_settings.motors import motorNamed
 
     motor = motorNamed(stepper)
-    if motor is not None and motor.name in FEEDER_MOTORS:
+    if motor is not None and motor.name in C_CHANNEL_MOTORS:
         return feederDrive().gear_ratio
     return recovery.TUNED_GEAR_RATIO

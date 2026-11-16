@@ -1,7 +1,8 @@
-"""How the feeder's motors (C-channels 1 to 3) turn their channels.
+"""How the C-channels' motors (1 to 3, the feeder, and 4, the classification
+channel) turn their channels.
 
-A geared feeder turns each channel through a 130:12 gear. A direct-drive
-feeder has each motor turn its channel itself. machine.toml says which; it is
+A geared machine turns each C-channel through a 130:12 gear. A direct-drive
+one has each motor turn its channel itself. machine.toml says which; it is
 set by hand, not from the UI:
 
     [feeder]
@@ -11,7 +12,7 @@ No [feeder] table is the geared feeder. A board made for one feeder (the
 Sorter V3's, machine_platform/control_board.py) writes its drive down the
 first time the hardware starts on it, as it does its kind of chute.
 
-The feeder's motor speeds and accelerations were tuned on the geared feeder,
+The C-channels' motor speeds and accelerations were tuned on the geared ones,
 in motor microsteps. On another drive their built-in defaults are scaled so the
 channels turn just as fast (`FeederDrive.motorRate`), and the drive can give
 its motors other built-in settings, current and direction (`stepper_defaults`,
@@ -32,8 +33,10 @@ DIRECT = "direct"
 # Motor turns per channel turn on the geared feeder, the one every built-in
 # feeder speed was tuned on.
 GEARED_RATIO = 130.0 / 12.0
-# The motors (hardware_settings.motors names) that turn the feeder's channels.
+# The motors (hardware_settings.motors names) that turn the feeder's channels,
+# and with the classification channel's (C4, named carousel) every C-channel.
 FEEDER_MOTORS = ("c_channel_1", "c_channel_2", "c_channel_3")
+C_CHANNEL_MOTORS = (*FEEDER_MOTORS, "carousel")
 
 
 @dataclass(frozen=True)
@@ -51,6 +54,11 @@ class FeederDrive:
         drive: the one that turns the channel as fast."""
         return max(1, round(geared_rate * self.gear_ratio / GEARED_RATIO))
 
+    def motorDegrees(self, geared_motor_deg: float) -> float:
+        """A motor angle tuned on the geared channels, for this drive: the one
+        that turns the channel as far."""
+        return geared_motor_deg * self.gear_ratio / GEARED_RATIO
+
 
 DRIVES: dict[str, FeederDrive] = {
     GEARED: FeederDrive(GEARED, GEARED_RATIO),
@@ -63,6 +71,7 @@ DRIVES: dict[str, FeederDrive] = {
             "c_channel_1": {"irun": 16, "inverted": True},
             "c_channel_2": {"irun": 16},
             "c_channel_3": {"irun": 16},
+            "carousel": {"irun": 16},
         },
     ),
 }

@@ -13,7 +13,6 @@
 	import type { EndstopConfig } from '$lib/settings/stations';
 	import {
 		DIRECTION_WORDS,
-		STEPPER_GEAR_RATIOS,
 		isFeederStepper,
 		stepperGearRatio,
 		loadStoredStepperPulseSetting,
@@ -132,9 +131,7 @@
 		gearRatioOverride ??
 			(stepperKey === 'chute'
 				? chuteGearRatio
-				: isFeederStepper(stepperKey)
-					? feederGearRatio
-					: STEPPER_GEAR_RATIOS[stepperKey])
+				: feederGearRatio)
 	);
 
 	// --- Endstop settings ---

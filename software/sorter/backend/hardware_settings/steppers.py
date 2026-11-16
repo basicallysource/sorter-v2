@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterable, Mapping
 import machine_toml
 from hardware.sorter_interface import DISABLE_STALLGUARD
 
-from .feeder import FEEDER_MOTORS, feederDrive
+from .feeder import feederDrive
 from .motors import SPARE_SOCKETS, Motor, motorSockets
 
 CURRENTS = "stepper_current_overrides"
@@ -155,9 +155,8 @@ def defaultSettings(motor: Motor, config: Mapping[str, Any] | None = None) -> di
             field = FIELDS.get(name)
             if field is not None and field.table != DIRECTIONS and field.valid(value):
                 values[name] = value
-    if motor.name in FEEDER_MOTORS:
-        for name, value in feederDrive(config).stepper_defaults.get(motor.name, {}).items():
-            values[name] = value
+    for name, value in feederDrive(config).stepper_defaults.get(motor.name, {}).items():
+        values[name] = value
     return values
 
 

@@ -22,9 +22,11 @@ all of the exit, so the flow does not look there. It needs two things instead:
   a look at the RECEIVE pocket right after the sweep. The swept pocket's piece
   can only be gone or have been carried round past the opening into RECEIVE,
   where the camera sees well and the feeder has had no chance to add one. Empty
-  means it fell, and only then is it counted as dropped.
+  means it fell, and only then is it counted as dropped. A piece that is
+  still there stuck to the rotor: its pocket goes straight back over the
+  opening and across it again with shakes, with the chute still on its bin.
 
-Every move is one fin pitch forward. The chute is aimed for a piece before the
+Every other move is one fin pitch forward. The chute is aimed for a piece before the
 turn that takes it into the EXIT pocket and stays on it until it is counted as
 dropped. Which pocket holds which piece is the flow's own record, moved one
 pocket per turn; the camera adds pieces to it and is evidence, never the truth.
@@ -46,6 +48,8 @@ from subsystems.classification_channel.two_piece.channel_clear import (
     ChannelClearResult,
     _advanceOneStep,
     channelOccupied,
+    openAllLayerDoors,
+    routeSweep,
 )
 from subsystems.classification_channel.two_piece.constants import C4_TRAVEL_SIGN
 from subsystems.classification_channel.two_piece.flow import (
@@ -61,14 +65,14 @@ LOG_TAG = "[C4-POCKET]"
 # a swept piece was carried round into the RECEIVE pocket.
 _LOOK_S = 0.3
 _LOOK_FRAMES = 3
-# A piece carried round this many times will not fall: the channel stops for
-# the stall watchdog (it sweeps the channel, or asks for help).
+# A piece that is still on the channel after its pocket crossed the opening
+# sticks to the rotor (a tire's rubber grips it). At once its pocket is turned
+# back and swept across the opening again, in _SHAKE_PARTS parts with a shake
+# before each, so the piece is shaken while it is over the opening wherever in
+# the pocket it lies. The shake's throw is at the rotor; each try shakes
+# longer. After this many tries the channel stops for the stall watchdog, which
+# clears the whole channel with shakes or asks for help.
 _CARRY_MAX = 4
-# A piece that was carried round sticks to the rotor (a tire's rubber grips
-# it). The next time its pocket is swept across the opening, the sweep is made
-# in this many parts with a shake before each, so the piece is shaken while it
-# is over the opening wherever in the pocket it lies. The shake's throw is at
-# the rotor; each time the piece comes round again the shake is longer.
 _SHAKE_PARTS = 3
 _SHAKE_ROTOR_DEG = 6.0
 _SHAKE_CYCLES = 8
@@ -99,9 +103,9 @@ _AIM_TIMEOUT_S = 8.0
 # With pieces on the channel and nothing happening for this long, the channel
 # is cleared (the stall watchdog's own wait is for the other flows).
 STALL_AFTER_MS = 15000.0
-# Clearing the channel: every pocket goes across the opening once plainly, then
-# for this many more turns of the rotor with shakes, harder each turn. Only a
-# piece that stays through all of it is left for a person.
+# Clearing the channel: every pocket goes across the opening with shakes, for
+# this many turns of the rotor, harder each turn. Only a piece that stays
+# through all of it is left for a person.
 _CLEAR_SHAKE_LAPS = 2
 # Fin readings that keep disagreeing are given up on after this many.
 _VERIFY_READS_MAX = 4
@@ -253,16 +257,21 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
 
     def attemptStallAutoClear(self, *, max_output_deg: float) -> ChannelClearResult:
         """Clear the channel into the discard: every pocket across the opening
-        once, then, for a piece that is still there, with shakes while its
-        pocket is over the opening. A piece is only left for a person after
-        the machine has tried to shake it off."""
-        result = super().attemptStallAutoClear(max_output_deg=360.0)
-        if not result.cleared and result.reason == "budget_exhausted":
+        with shakes while it is over it, harder on each turn of the rotor. A
+        piece is only left for a person after the machine has tried to shake
+        it off."""
+        shaken_deg = 0.0
+        if channelOccupied(self.gc) is not False:
+            try:
+                routeSweep(self.gc, self.irl, LOG_TAG)
+            except Exception as exc:
+                self.logger.warning(f"{LOG_TAG} channel clear: routing the sweep failed ({exc}); opening every door")
+                openAllLayerDoors(self.gc, self.irl, LOG_TAG)
             shaken_deg = self._shakeOut()
-            after = super().attemptStallAutoClear(max_output_deg=self._pitch_deg)
-            result = ChannelClearResult(
-                after.cleared, True, result.output_deg_moved + shaken_deg + after.output_deg_moved, after.reason
-            )
+        after = super().attemptStallAutoClear(max_output_deg=self._pitch_deg)
+        result = ChannelClearResult(
+            after.cleared, after.occupied_at_start or shaken_deg > 0, shaken_deg + after.output_deg_moved, after.reason
+        )
         if result.cleared:
             self._pockets = [[] for _ in range(self._n)]
             self._swept = []
@@ -288,7 +297,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         turned = 0.0
         for lap in range(1, _CLEAR_SHAKE_LAPS + 1):
             self.logger.warning(
-                f"{LOG_TAG} channel clear: a piece is still on the channel; shaking it off (turn {lap} of {_CLEAR_SHAKE_LAPS})"
+                f"{LOG_TAG} channel clear: every pocket across the opening with shakes (turn {lap} of {_CLEAR_SHAKE_LAPS})"
             )
             for _pocket in range(self._n):
                 for microsteps in parts:
@@ -310,7 +319,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                         return turned
                     turned += microsteps / self._per_deg
                 if channelOccupied(self.gc) is False:
-                    self.logger.info(f"{LOG_TAG} channel clear: the shake got the piece off")
+                    self.logger.info(f"{LOG_TAG} channel clear: the channel is empty")
                     return turned
         return turned
 
@@ -700,6 +709,10 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             step = self._sweep_steps.pop(0)
             if step == "shake":
                 self._startShake(stepper, now)
+            elif step == "back":
+                self._move(
+                    stepper, self._pitch_us, self.ctx.config.rotate_speed_usteps_per_s, now, "back before the opening", back=True
+                )
             else:
                 self._move(stepper, int(step), self.ctx.config.rotate_speed_usteps_per_s, now, "turn")
             return
@@ -738,7 +751,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if waited < _LOOK_S or (self._look_frames < _LOOK_FRAMES and waited < 3 * _LOOK_S):
             return
         if self._carry_frames >= 2:
-            self._carriedRound(now)
+            self._didNotFall(now)
             return
         lead = self._swept[0]
         self._commitToDistribution(lead)
@@ -756,32 +769,51 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         else:
             self._finishCycle(now)
 
-    def _carriedRound(self, now: float) -> None:
-        """The swept pocket's piece did not fall: it is in the RECEIVE pocket
-        (it stuck to the rotor) and goes round again as the piece it is. Its
-        next sweep is made with shakes."""
+    def _didNotFall(self, now: float) -> None:
+        """The swept pocket's piece is still on the channel (it stuck to the
+        rotor). Its pocket goes back before the opening and across it again at
+        once, with shakes, as the piece it is: the chute stays on its bin."""
         swept, self._swept = self._swept, []
         for tp in swept:
             tp.carried = getattr(tp, "carried", 0) + 1
-            if tp.placed and not tp.ejected:
-                self._takeBack(tp)
             notePieceProblem(
                 tp.known_object,
                 "did_not_fall",
-                "It was still on the classification channel after the turn that sweeps the exit (it "
-                f"stuck to the rotor), so it went round again (time {tp.carried}).",
+                "It was still on the classification channel after its pocket crossed the exit (it stuck "
+                f"to the rotor), so the machine turned it back and shook it over the opening (try {tp.carried}).",
             )
-            tp.zone = _ZONE_DROP
-        self.logger.warning(
-            f"{LOG_TAG} track={'+'.join(str(tp.track_id) for tp in swept)} did not fall: carried round into the receive pocket"
-        )
-        self._pockets[0] = swept + self._pockets[0]
-        if any(getattr(tp, "carried", 0) >= _CARRY_MAX for tp in swept):
+        tries = max(getattr(tp, "carried", 0) for tp in swept)
+        names = "+".join(str(tp.track_id) for tp in swept)
+        if tries >= _CARRY_MAX:
+            for tp in swept:
+                if tp.placed and not tp.ejected:
+                    self._takeBack(tp)
+                tp.zone = _ZONE_DROP
+            self._pockets[0] = swept + self._pockets[0]
             self.logger.error(
-                f"{LOG_TAG} a piece has gone round {_CARRY_MAX} times without falling: the channel stops until it is cleared"
+                f"{LOG_TAG} track={names} did not fall in {_CARRY_MAX} tries: the channel stops until it is cleared"
             )
             self._halted = True
-        self._finishCycle(now)
+            self._finishCycle(now)
+            return
+        self.logger.warning(f"{LOG_TAG} track={names} did not fall: back before the opening and across it with shakes (try {tries})")
+        # The turn that swept it is undone, in the pockets and in the steps.
+        self._pockets = self._pockets[1:] + [swept]
+        for index, pocket in enumerate(self._pockets):
+            for tp in pocket:
+                tp.zone = _ZONE_DROP if index == 0 else _ZONE_PRECISE
+                if tp.gap_to_exit is not None:
+                    tp.gap_to_exit = float(tp.gap_to_exit) + self._pitch_deg  # Until it is seen again
+        rest = getattr(self.irl, "c4_fin_rest_microsteps", None)
+        if rest is not None:
+            self.irl.c4_fin_rest_microsteps = int(rest) - int(C4_TRAVEL_SIGN) * self._pitch_us
+        part = self._pitch_us // _SHAKE_PARTS
+        self._sweep_steps = ["back"]
+        for index in range(_SHAKE_PARTS):
+            self._sweep_steps += ["shake", part if index < _SHAKE_PARTS - 1 else self._pitch_us - part * (_SHAKE_PARTS - 1)]
+        self._shake_cycles = _SHAKE_CYCLES * tries
+        self.noteProgress()
+        self._enter(_P.TURN)
 
     def _commit(self, state, perception_service, stepper, now: float, moving: bool) -> None:
         """The rest of a group that fell with its first piece: each is handed to

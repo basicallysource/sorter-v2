@@ -98,7 +98,12 @@ def homeOnMagnet(chute: "Chute") -> bool:
     """Have the board find the middle of the magnet and make it home, then turn
     the chute there."""
     chute.logger.info("Chute: homing on the middle of its magnet")
-    found = findMagnetMiddle(chute)
+    speed = MAGNET_HOME_SPEED
+    if chute.homed and chute.current_angle % 360.0 > 180.0:
+        # It knows where it points: it goes to the magnet the short way, not
+        # most of a turn round.
+        speed = -MAGNET_HOME_SPEED
+    found = findMagnetMiddle(chute, speed)
     if found is None:
         return False
     _, width = found
@@ -110,7 +115,7 @@ def homeOnMagnet(chute: "Chute") -> bool:
     return True
 
 
-def findMagnetMiddle(chute: "Chute") -> tuple[int, int] | None:
+def findMagnetMiddle(chute: "Chute", speed: int = MAGNET_HOME_SPEED) -> tuple[int, int] | None:
     """The board's own homing on a magnet (firmware Stepper::homeOnMagnet): it
     leaves the magnet if it starts on it, runs through it, and makes the middle
     of the stretch the sensor read it over 0. Returns where that middle was in
@@ -119,12 +124,12 @@ def findMagnetMiddle(chute: "Chute") -> tuple[int, int] | None:
     stepper = chute.stepper
     settle = abs(stepper.microsteps_for_degrees(MAGNET_SETTLE_DEG * chute.gear_ratio))
     try:
-        stepper.home_on_magnet(MAGNET_HOME_SPEED, chute.home_pin, chute.endstop_active_high, settle)
+        stepper.home_on_magnet(speed, chute.home_pin, chute.endstop_active_high, settle)
     except Exception as exc:
         _fail(chute, f"The control board could not home on the magnet ({exc}). Update its firmware.")
         return None
     started = time.monotonic()
-    give_up_at = started + _secondsFor(chute, 360.0 * MAGNET_SEARCH_TURNS, MAGNET_HOME_SPEED) + 2.0
+    give_up_at = started + _secondsFor(chute, 360.0 * MAGNET_SEARCH_TURNS, speed) + 2.0
     while True:
         found, middle, width = stepper.magnet_home_result()
         if found:

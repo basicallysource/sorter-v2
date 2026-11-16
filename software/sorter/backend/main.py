@@ -754,7 +754,11 @@ def main() -> None:
         )
 
         chute = getattr(next_controller.coordinator.distribution, "chute", None) if hasattr(next_controller, "coordinator") else None
-        if chute is not None and not _noPowerModeActive(gc) and not gc.disable_chute:
+        if chute is not None and chute.homed and not _noPowerModeActive(gc) and not gc.disable_chute:
+            # The channel clear above homes it to aim at the discard bin, and
+            # nothing has turned it since but to aim.
+            gc.logger.info("Chute already homed for the channel clear.")
+        elif chute is not None and not _noPowerModeActive(gc) and not gc.disable_chute:
             gc.logger.info("Homing chute...")
             try:
                 if chute.home():

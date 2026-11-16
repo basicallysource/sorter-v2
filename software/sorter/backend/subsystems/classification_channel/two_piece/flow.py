@@ -27,6 +27,9 @@ from .context import SimpleStateMachineRev01Context
 
 LOG_TAG = "[C4-2PIECE]"
 
+# A fin this close to resting over the exit counts as there.
+_FIN_ALIGNED_DEG = 0.5
+
 # perception.arcs._region_lookup / PieceObservation.zone_code values. The
 # classification channel is a rotating platter viewed from above; pieces travel
 # FORWARD (one way, never reversed) through these zones in this order:
@@ -1419,6 +1422,33 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                     C4_TRAVEL_SIGN * move, self.ctx.config.discharge_speed_usteps_per_s
                 )
 
+    def _alignFinOverExit(self) -> None:
+        """On a rotor that rests with a fin over the exit gap (fin_at_exit), turn
+        on, the way the channel travels, to the nearest place a fin is there,
+        once a cycle's turn is done. Not when that would bring a waiting piece
+        to the exit before its chute is aimed."""
+        cfg = self.ctx.config
+        rest = getattr(self.irl, "c4_fin_rest_microsteps", None)
+        stepper = getattr(self.irl, "carousel_stepper", None)
+        if not cfg.fin_at_exit or rest is None or stepper is None:
+            return
+        platter = C4FiveSectorPlatter.from_irl_config(self.irl_config)
+        per_deg = platter.motor_microsteps_per_output_revolution / 360.0
+        pitch = 360.0 / max(1, int(cfg.fin_count))
+        travelled = C4_TRAVEL_SIGN * (float(stepper.position) - float(rest)) / per_deg
+        move = (pitch - travelled % pitch) % pitch
+        if move < _FIN_ALIGNED_DEG or pitch - move < _FIN_ALIGNED_DEG:
+            return
+        limit = self._keepOnLimit()
+        if limit is not None and limit < move:
+            self.logger.info(
+                f"{LOG_TAG} fin not turned over the exit: {move:.1f}° on would bring a waiting "
+                f"piece to the exit before its chute is aimed"
+            )
+            return
+        self.logger.info(f"{LOG_TAG} turning {move:.1f}° on to rest with a fin over the exit")
+        self.startOutputMove(C4_TRAVEL_SIGN * move, self.ctx.config.rotate_speed_usteps_per_s)
+
     def _keepOnLimit(self, exclude: Optional[_TrackedPiece] = None) -> Optional[float]:
         """How far the channel may turn before a waiting piece comes closer than
         _KEEP_ON_MIN_GAP_DEG to the exit (None when no piece limits it). Ids on
@@ -1469,6 +1499,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         )
         if drop_clear:
             self.logger.info(f"{LOG_TAG} staged -> holding (drop clear)")
+            self._alignFinOverExit()
             if self._stage_target is not None:
                 # A head ejected alone staged nothing: the wait for the next
                 # piece goes on in the same cycle record.

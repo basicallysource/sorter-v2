@@ -110,6 +110,15 @@ class Rev01Config:
     jitter_speed_usteps_per_s: int = 4000
     jitter_accel_usteps_per_s2: int = 80000
 
+    # The rotor: how many fins it has, and whether it rests with one over the
+    # exit gap (a rotor whose fin must stand between the drop zone and the exit
+    # hole while it waits). Then a fin rests with its exit-side edge on the exit
+    # zone's far edge: homing puts one there, and after each turn the channel
+    # turns on, the way it travels, to the nearest place one is there again.
+    fin_count: int = 5
+    fin_at_exit: bool = False
+    fin_width_deg: float = 5.0
+
 
 _DEFAULTS = Rev01Config()
 
@@ -146,6 +155,9 @@ FIELD_META: list[dict] = [
     {"key": "jitter_amplitude_motor_deg", "label": "Jitter amplitude (motor deg)", "type": "float", "default": _DEFAULTS.jitter_amplitude_motor_deg, "description": "Size of each back-and-forth jitter oscillation, in motor degrees."},
     {"key": "jitter_cycles", "label": "Jitter cycles per burst", "type": "int", "default": _DEFAULTS.jitter_cycles, "description": "Back-and-forth oscillations per jitter attempt."},
     {"key": "jitter_speed_usteps_per_s", "label": "Jitter speed (\u00b5steps/s)", "type": "int", "default": _DEFAULTS.jitter_speed_usteps_per_s, "description": "Motor speed during jitter oscillations."},
+    {"key": "fin_count", "label": "Fins on the rotor", "type": "int", "default": _DEFAULTS.fin_count, "description": "How many fins the classification channel's rotor has."},
+    {"key": "fin_at_exit", "label": "Rest with a fin over the exit", "type": "bool", "default": _DEFAULTS.fin_at_exit, "description": "For a rotor whose fin must cover the gap to the exit while the channel waits: homing puts a fin's exit-side edge on the exit zone's far edge, and after each turn the channel turns on, the way it travels, to the nearest place a fin is there again."},
+    {"key": "fin_width_deg", "label": "Fin width (output deg)", "type": "float", "default": _DEFAULTS.fin_width_deg, "description": "How wide a fin is at the ring, in degrees, so its edge, not its middle, is what rests on the exit zone's far edge."},
     {"key": "jitter_accel_usteps_per_s2", "label": "Jitter accel (\u00b5steps/s\u00b2)", "type": "int", "default": _DEFAULTS.jitter_accel_usteps_per_s2, "description": "Motor acceleration during jitter oscillations — high, so the shake is sharp enough to unstick a piece."},
 ]
 

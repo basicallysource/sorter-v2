@@ -12,7 +12,6 @@ from .constants import C4_TRAVEL_SIGN, LOG_TAG
 # Forward == the same travel direction the normal classification flow uses to
 # push a piece to the fall-off (discharge applies C4_TRAVEL_SIGN), so a piece is
 # carried OUT the exit, never back toward the entry.
-_CLEAR_STEP_OUTPUT_DEG = 72.0  # one 5-sector spoke per increment
 _CLEAR_MAX_OUTPUT_DEG = 720.0  # two full revolutions before giving up
 
 
@@ -33,6 +32,17 @@ def _carouselStepper(irl: Any) -> Any:
         or getattr(irl, "classification_channel_rotor_stepper", None)
         or getattr(irl, "c_channel_4_rotor_stepper", None)
     )
+
+
+def _rev01FinCount() -> int:
+    try:
+        from toml_config import getClassificationChannelRev01Config
+
+        from .rev01_config import configFromDict
+
+        return max(1, int(configFromDict(getClassificationChannelRev01Config()).fin_count))
+    except Exception:
+        return 5
 
 
 def _rev01RotateSpeed() -> int:
@@ -214,7 +224,7 @@ def clearChannelByAdvancing(
     irl_config: Any,
     *,
     speed_usteps_per_s: Optional[int] = None,
-    step_output_deg: float = _CLEAR_STEP_OUTPUT_DEG,
+    step_output_deg: Optional[float] = None,
     max_output_deg: float = _CLEAR_MAX_OUTPUT_DEG,
     label: str = LOG_TAG,
 ) -> ChannelClearResult:
@@ -230,6 +240,8 @@ def clearChannelByAdvancing(
 
     if speed_usteps_per_s is None:
         speed_usteps_per_s = _rev01RotateSpeed()
+    if step_output_deg is None:
+        step_output_deg = 360.0 / _rev01FinCount()  # one fin per step
     try:
         stepper.set_speed_limits(16, max(16, int(speed_usteps_per_s)))
     except Exception as exc:

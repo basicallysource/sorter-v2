@@ -15,6 +15,10 @@
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ArrowUp from '@lucide/svelte/icons/arrow-up';
 	import Check from '@lucide/svelte/icons/check';
+	import Crosshair from '@lucide/svelte/icons/crosshair';
+	import StepperPanel from '$lib/components/settings/StepperPanel.svelte';
+	import { markFirstSectionCenter } from '$lib/api/chute';
+	import { errorMessage } from '$lib/api/http';
 	import BinLayoutViz from './BinLayoutViz.svelte';
 	import ErrorBanner from './ErrorBanner.svelte';
 	import { binCenterAngle, reachInfo } from '$lib/chute/geometry';
@@ -35,6 +39,12 @@
 	let firstSectionOffsetDeg = $state(DEFAULT_FIRST_SECTION_OFFSET_DEG);
 	// How far the chute turns from home; null when it turns without limit.
 	let maxAngleDeg = $state<number | null>(350);
+	// A chute homed on a magnet is aimed by marking section 1's center by eye;
+	// one homed on a switch by the calibration below.
+	let homeOn = $state<'switch' | 'magnet'>('switch');
+	let marking = $state(false);
+	let markMessage = $state<string | null>(null);
+	let markError = $state<string | null>(null);
 
 	const sectionPitchDeg = $derived(numSections > 0 ? 360 / numSections : 60);
 	const pillarWidthDeg = $derived(sectionPitchDeg - sectionWidthDeg);
@@ -128,6 +138,7 @@
 			if (Number.isFinite(c?.section_width_deg)) sectionWidthDeg = c.section_width_deg;
 			if (Number.isFinite(c?.first_section_offset_deg)) firstSectionOffsetDeg = c.first_section_offset_deg;
 			maxAngleDeg = Number.isFinite(c?.max_angle_deg) ? c.max_angle_deg : null;
+			homeOn = c?.home_on === 'magnet' ? 'magnet' : 'switch';
 			void loadCalibrations();
 			void loadLive();
 		} catch (e: any) {
@@ -224,6 +235,20 @@
 			errorMsg = e.message ?? 'Failed to home the chute';
 		} finally {
 			homingState = false;
+		}
+	}
+
+	async function markCenter() {
+		marking = true;
+		markMessage = null;
+		markError = null;
+		try {
+			markMessage = (await markFirstSectionCenter(currentBackendBaseUrl())).message;
+			await loadSettings();
+		} catch (e) {
+			markError = errorMessage(e, 'The place was not saved.');
+		} finally {
+			marking = false;
 		}
 	}
 
@@ -476,7 +501,9 @@
 <div class="flex max-w-4xl flex-col gap-(--gap-panels)">
 	<PageHeader
 		title="Chute aiming"
-		description="If the chute points at the wrong bin, run the calibration below. Otherwise the defaults are already right and you can leave this page."
+		description={homeOn === 'magnet'
+			? 'If the chute points at the wrong bin, mark where the middle of section 1 is. Every other bin follows from it.'
+			: 'If the chute points at the wrong bin, run the calibration below. Otherwise the defaults are already right and you can leave this page.'}
 	/>
 
 	{#if errorMsg}
@@ -485,6 +512,36 @@
 		<Alert tone="info">{statusMsg}</Alert>
 	{/if}
 
+	{#if homeOn === 'magnet'}
+	<Panel title="Section 1's center">
+		<p class="text-sm text-ink-muted">
+			Home the chute, turn it with the arrow keys or the buttons below until it points at the
+			middle of section 1, then mark it. Every bin moves with it, and it is kept through homing.
+		</p>
+		<p class="mt-2 text-sm text-ink-muted">
+			It is set {fmt(firstSectionOffsetDeg + sectionWidthDeg / 2, 1)}° from home, which is the middle of the magnet.
+		</p>
+		{#if markMessage}<p class="mt-2 text-sm text-ink">{markMessage}</p>{/if}
+		{#if markError}<p class="mt-2 text-sm text-danger-ink">{markError}</p>{/if}
+		{#snippet actions()}
+			<Button size="sm" icon={Crosshair} loading={marking} onclick={() => void markCenter()}>
+				Section 1's center is here
+			</Button>
+		{/snippet}
+	</Panel>
+
+	<StepperPanel
+		keyboardShortcuts
+		stepperKey="chute"
+		label="Chute stepper"
+		endstop={{
+			configEndpoint: '/api/hardware-config/chute',
+			liveEndpoint: '/api/hardware-config/chute/live',
+			homeEndpoint: '/api/hardware-config/chute/calibrate/find-endstop',
+			homeCancelEndpoint: '/api/hardware-config/chute/calibrate/cancel'
+		}}
+	/>
+	{:else}
 	<!-- The active parameters come first; editing them by hand hides until hovered. -->
 	<Panel
 		title="Active aiming parameters"
@@ -746,4 +803,5 @@
 			{/if}
 		</div>
 	</Panel>
+	{/if}
 </div>

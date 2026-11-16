@@ -142,6 +142,7 @@ private:
     std::atomic<uint8_t> _mh_state{0};
     std::atomic<int32_t> _mh_shift{0};
     std::atomic<int32_t> _mh_width{0};
+    int32_t _mh_speed = 0; // the speed and direction of the pass through the magnet
     int32_t _mh_settle = 0; // steps off the magnet that count as off it
     uint8_t _mh_phase = 0;
     int32_t _mh_mark = 0; // where the sensor last read the magnet while leaving it

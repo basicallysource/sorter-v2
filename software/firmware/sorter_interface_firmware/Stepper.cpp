@@ -211,20 +211,23 @@ void Stepper::home(int32_t home_speed, int home_pin, bool home_pin_polarity) {
 /*! \brief Home on the middle of a magnet
  *
  *  A hall sensor reads a magnet over a stretch of turning, as wide as its
- *  setting makes it, and flickers at both edges of it. Runs at `speed`, in one
- *  direction, until the sensor has read off the magnet for `settle_steps` (so a
- *  start on the magnet or at its edge leaves it first), then through the magnet
- *  from the first step it reads on to the last, until it has read off it for
- *  `settle_steps` again. Stops there, and makes the middle between the first and
- *  the last step 0. A flicker at either edge is inside the stretch, so both
- *  edges are its outer ones and the middle stays where the magnet is.
+ *  setting makes it, and flickers at both edges of it. A chute that starts on
+ *  the magnet backs off it the other way first, until the sensor has read off it
+ *  for `settle_steps`; one that starts off it runs at `speed` until it has. Then
+ *  it runs at `speed` through the magnet, from the first step the sensor reads it
+ *  to the last, until it has read off it for `settle_steps` again. It stops
+ *  there and makes the middle between the first and the last step 0. A flicker
+ *  at either edge is inside the stretch, so both edges are its outer ones and
+ *  the middle stays where the magnet is.
  *
  *  It runs until it finds the magnet: the host stops it if it takes too long.
  */
 void Stepper::homeOnMagnet(int32_t speed, int pin, bool polarity, int32_t settle_steps) {
-    moveAtSpeed(speed);
+    const bool on_magnet = gpio_get(pin) == polarity;
+    moveAtSpeed(on_magnet ? -speed : speed);
+    _mh_speed = speed;
     _mh_settle = settle_steps < 1 ? 1 : settle_steps;
-    _mh_phase = 0;
+    _mh_phase = on_magnet ? 3 : 0;
     _mh_mark = _absolute_position;
     _mh_first = _mh_last = 0;
     _mh_polarity.store(polarity);
@@ -241,10 +244,21 @@ static inline int32_t steps_apart(int32_t a, int32_t b) { return a > b ? a - b :
 bool Stepper::magnetHomeTick(int pin) {
     const bool on = gpio_get(pin) == _mh_polarity.load();
     const int32_t position = _absolute_position;
-    if (_mh_phase == 0) { // Leaving the magnet, if it started on it
+    if (_mh_phase == 0 || _mh_phase == 3) { // Off the magnet: 3 is backing off it
         if (on) {
             _mh_mark = position;
         } else if (steps_apart(position, _mh_mark) >= _mh_settle) {
+            if (_mh_phase == 3) {
+                // Stop, and set off the way the pass goes, as from a standstill.
+                const int32_t dir = _mh_speed > 0 ? 1 : -1;
+                _mc_dir.store(dir);
+                _mc_speed = _mh_speed > 0 ? _mh_speed : -_mh_speed;
+                _current_dir.store(dir);
+                _current_speed = _min_speed;
+                _current_speed_frac = 0;
+                _steps_frac = 0;
+                _state = STEPPER_ACCELERATING;
+            }
             _mh_phase = 1;
         }
         return false;

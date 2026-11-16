@@ -81,6 +81,7 @@ def buildChannelDef(
     exit_arc: tuple[float, float] | None,
     precise_arc: tuple[float, float] | None,
     arc_center: tuple[float, float] | None = None,
+    reverse: bool = False,
 ) -> ChannelDef:
     """Pure builder, in frame coordinates. ``arc_center`` is the ring's center,
     the pivot every angle is measured from; without it (tests) the polygon's
@@ -116,7 +117,7 @@ def buildChannelDef(
         drop_sections=sections(drop_arc),
         exit_sections=sections(exit_arc) | precise_sections,
         precise_sections=precise_sections,
-        reverse=channel_id in REVERSE_TRAVEL_CHANNELS,
+        reverse=reverse or channel_id in REVERSE_TRAVEL_CHANNELS,
         exit_margin_mask=(
             _exitMarginMask(mask, center, exit_arc)
             if channel_id in FEEDER_CHANNELS and exit_arc is not None
@@ -139,6 +140,7 @@ def channelDefFor(zones: ChannelZones, frame_shape: tuple[int, int]) -> ChannelD
         drop_arc=(live.drop.start, live.drop.end),
         exit_arc=(live.exit.start, live.exit.end),
         precise_arc=(precise.start, precise.end) if precise is not None else None,
+        reverse=live.reverse,
         arc_center=live.ring.center,
     )
 

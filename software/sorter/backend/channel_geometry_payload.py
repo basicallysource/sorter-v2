@@ -46,7 +46,7 @@ def channelGeometry(zones: ChannelZones, role: str) -> dict[str, Any]:
         "outer_radius": round(ring.outer_radius, 2),
         "exit_outer_radius": round(ring.exit_radius, 2),
         "section_zero_angle_deg": round(zones.reference_angle, 3),
-        "reverse": zones.channel in REVERSE_TRAVEL_CHANNELS,
+        "reverse": zones.reverse or zones.channel in REVERSE_TRAVEL_CHANNELS,
         "arc_zones": arc_zones,
     }
 

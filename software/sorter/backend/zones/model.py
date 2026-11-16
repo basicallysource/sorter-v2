@@ -146,6 +146,10 @@ class ChannelZones:
     locked: frozenset[str] = frozenset()
     source: Mapping[str, str] = field(default_factory=dict)
     updated_at: float | None = None
+    # Pieces travel counterclockwise in the picture: decreasing image angle.
+    # Spans stay in increasing angle; the precise sliver and the arc pieces
+    # ride follow the travel.
+    reverse: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "frame", (int(self.frame[0]), int(self.frame[1])))
@@ -162,11 +166,15 @@ class ChannelZones:
     def precise(self) -> Span | None:
         if self.precise_width <= 0:
             return None
+        if self.reverse:
+            return Span(self.exit.end, self.exit.end + self.precise_width)
         return Span(self.exit.start - self.precise_width, self.exit.start)
 
     @property
     def travel(self) -> Span:
-        """The arc pieces ride: from the drop's start to the exit's end."""
+        """The arc pieces ride, from the drop to the exit, in increasing angle."""
+        if self.reverse:
+            return Span(self.exit.start, self.drop.end)
         return Span(self.drop.start, self.exit.end)
 
     def zone(self, name: str) -> Span | None:
@@ -268,18 +276,26 @@ def channelPolygon(zones: ChannelZones, step_deg: float = 3.0) -> list[tuple[flo
     ring = zones.ring
     travel = zones.travel
     cut = ring.exit_radius < ring.outer_radius - 1e-6
-    exit_from = forwardDeg(travel.start, zones.exit.start)
-    if exit_from > travel.width:
-        exit_from = 0.0
+    # The exit is at the travel's end, or at its start for a channel whose
+    # pieces travel in decreasing angle.
+    if zones.reverse:
+        cut_from, cut_to = 0.0, min(zones.exit.width, travel.width)
+    else:
+        cut_from = forwardDeg(travel.start, zones.exit.start)
+        if cut_from > travel.width:
+            cut_from = 0.0
+        cut_to = travel.width
     steps = max(2, int(math.ceil(travel.width / step_deg)))
-    rels = sorted({travel.width * i / steps for i in range(steps + 1)} | ({exit_from} if cut else set()))
+    rels = sorted({travel.width * i / steps for i in range(steps + 1)} | ({cut_from, cut_to} if cut else set()))
     outer: list[tuple[float, float]] = []
     for rel in rels:
         angle = travel.start + rel
-        if cut and rel >= exit_from - 1e-6:
-            if abs(rel - exit_from) < 1e-6:
+        if cut and cut_from - 1e-6 <= rel <= cut_to + 1e-6:
+            if abs(rel - cut_from) < 1e-6 and cut_from > 1e-6:
                 outer.append(polarPoint(ring.center, ring.outer_radius, angle))
             outer.append(polarPoint(ring.center, ring.exit_radius, angle))
+            if abs(rel - cut_to) < 1e-6 and cut_to < travel.width - 1e-6:
+                outer.append(polarPoint(ring.center, ring.outer_radius, angle))
         else:
             outer.append(polarPoint(ring.center, ring.outer_radius, angle))
     inner = [innerPoint(ring, a) for a in reversed(_arcAngles(travel, step_deg))]
@@ -342,6 +358,7 @@ def toDict(zones: ChannelZones) -> dict[str, Any]:
         "drop": {"start": round(zones.drop.start, 3), "end": round(zones.drop.end, 3)},
         "exit": {"start": round(zones.exit.start, 3), "end": round(zones.exit.end, 3)},
         "precise_width": round(zones.precise_width, 3),
+        "reverse": bool(zones.reverse),
         "reference_angle": round(zones.reference_angle, 3),
         "locked": sorted(zones.locked),
         "source": dict(zones.source),
@@ -381,6 +398,7 @@ def fromDict(raw: Mapping[str, Any], channel: int | None = None) -> ChannelZones
         drop=spans["drop"],
         exit=spans["exit"],
         precise_width=_num(raw.get("precise_width")) or 0.0,
+        reverse=raw.get("reverse") is True,
         reference_angle=_num(raw.get("reference_angle")) or 0.0,
         locked=frozenset(str(p) for p in (raw.get("locked") or ()) if isinstance(p, str)),
         source={str(k): str(v) for k, v in dict(raw.get("source") or {}).items()},

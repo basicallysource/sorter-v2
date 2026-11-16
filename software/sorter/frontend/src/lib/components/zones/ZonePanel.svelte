@@ -18,6 +18,7 @@
 	import {
 		isLocked,
 		setLocked,
+		setReverse,
 		setRadius,
 		spanWidth,
 		widen,
@@ -121,6 +122,21 @@
 	{/if}
 
 	{#if zones}
+		<div class="flex items-center justify-between gap-4 border-t border-line px-(--pad-panel) py-(--pad-row)">
+			<div class="min-w-0 text-sm">
+				<p class="font-medium text-ink">Pieces travel counterclockwise</p>
+				<p class="text-ink-muted">
+					Which way pieces move in this picture. It puts the precise sliver on the side of the exit
+					pieces reach first.
+				</p>
+			</div>
+			<Switch
+				label="Pieces travel counterclockwise in this picture"
+				checked={zones.reverse === true}
+				disabled={!editing}
+				onchange={(reverse) => zones && onchange(setReverse(zones, reverse))}
+			/>
+		</div>
 		<div class="divide-y divide-line border-t border-line">
 			{#each ROWS as row (row.part)}
 				<div

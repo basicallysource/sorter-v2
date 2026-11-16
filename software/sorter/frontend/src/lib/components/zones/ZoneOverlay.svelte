@@ -194,7 +194,9 @@
 		DRAW_ORDER.flatMap((name) => {
 			const span = zoneSpan(zones, name);
 			if (!span) return [];
-			const which = name === 'precise' ? (['start'] as const) : (['start', 'end'] as const);
+			// The precise sliver's free edge is the one away from the exit.
+			const which =
+				name === 'precise' ? (zones.reverse ? (['end'] as const) : (['start'] as const)) : (['start', 'end'] as const);
 			return which.map((edge) => {
 				const angle = edge === 'start' ? span.start : span.end;
 				const outer = name === 'exit' ? zones.exit_radius : zones.outer_radius;

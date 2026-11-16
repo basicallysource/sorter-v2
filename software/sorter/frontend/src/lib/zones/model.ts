@@ -24,6 +24,10 @@ export type ChannelZones = {
 	drop: Span;
 	exit: Span;
 	precise_width: number;
+	// Pieces travel counterclockwise in the picture (decreasing angle): the
+	// precise sliver is on the exit's other side, and the channel runs from
+	// the exit to the drop in increasing angle.
+	reverse?: boolean;
 	reference_angle: number;
 	locked: Part[];
 	source: Partial<Record<Part, Source>>;
@@ -60,7 +64,19 @@ export function spanContains(span: Span, angle: number): boolean {
 
 export function precise(zones: ChannelZones): Span | null {
 	if (zones.precise_width <= 0) return null;
+	if (zones.reverse) return { start: zones.exit.end, end: normalizeAngle(zones.exit.end + zones.precise_width) };
 	return { start: normalizeAngle(zones.exit.start - zones.precise_width), end: zones.exit.start };
+}
+
+// The arc pieces ride, from the drop to the exit, in increasing angle.
+export function travelSpan(zones: ChannelZones): Span {
+	return zones.reverse
+		? { start: zones.exit.start, end: zones.drop.end }
+		: { start: zones.drop.start, end: zones.exit.end };
+}
+
+export function setReverse(zones: ChannelZones, reverse: boolean): ChannelZones {
+	return { ...zones, reverse };
 }
 
 export function zoneSpan(zones: ChannelZones, name: ZoneName): Span | null {
@@ -120,20 +136,31 @@ export function zonePolygon(zones: ChannelZones, name: ZoneName): Point[] | null
 // The channel's area: the ring from the drop's start to the exit's end, its
 // outer edge drawn in to the exit radius across the exit.
 export function channelPolygon(zones: ChannelZones): Point[] {
-	const travel: Span = { start: zones.drop.start, end: zones.exit.end };
+	const travel = travelSpan(zones);
 	const width = spanWidth(travel);
 	const cut = zones.exit_radius < zones.outer_radius - 1e-6;
-	let exitFrom = forwardDeg(travel.start, zones.exit.start);
-	if (exitFrom > width) exitFrom = 0;
+	// The exit is at the travel's end, or at its start when pieces travel in decreasing angle.
+	let cutFrom = 0;
+	let cutTo = width;
+	if (zones.reverse) {
+		cutTo = Math.min(spanWidth(zones.exit), width);
+	} else {
+		cutFrom = forwardDeg(travel.start, zones.exit.start);
+		if (cutFrom > width) cutFrom = 0;
+	}
 	const steps = Math.max(2, Math.ceil(width / 3));
 	const rels = new Set<number>(Array.from({ length: steps + 1 }, (_, i) => (width * i) / steps));
-	if (cut) rels.add(exitFrom);
+	if (cut) {
+		rels.add(cutFrom);
+		rels.add(cutTo);
+	}
 	const outer: Point[] = [];
 	for (const rel of [...rels].sort((a, b) => a - b)) {
 		const angle = travel.start + rel;
-		if (cut && rel >= exitFrom - 1e-6) {
-			if (Math.abs(rel - exitFrom) < 1e-6) outer.push(polar(zones.center, zones.outer_radius, angle));
+		if (cut && rel >= cutFrom - 1e-6 && rel <= cutTo + 1e-6) {
+			if (Math.abs(rel - cutFrom) < 1e-6 && cutFrom > 1e-6) outer.push(polar(zones.center, zones.outer_radius, angle));
 			outer.push(polar(zones.center, zones.exit_radius, angle));
+			if (Math.abs(rel - cutTo) < 1e-6 && cutTo < width - 1e-6) outer.push(polar(zones.center, zones.outer_radius, angle));
 		} else {
 			outer.push(polar(zones.center, zones.outer_radius, angle));
 		}
@@ -166,7 +193,9 @@ export function moveEdge(zones: ChannelZones, name: ZoneName, edge: 'start' | 'e
 	if (name === 'precise') {
 		// The sliver ends at the exit's start: only its start moves, and so its width.
 		// Never narrower than MIN_SPAN_DEG, so it cannot vanish under the exit.
-		const width = forwardDeg(normalizeAngle(angle), zones.exit.start);
+		const width = zones.reverse
+			? forwardDeg(zones.exit.end, normalizeAngle(angle))
+			: forwardDeg(normalizeAngle(angle), zones.exit.start);
 		return drawn({ ...zones, precise_width: Math.min(120, width > 240 ? MIN_SPAN_DEG : Math.max(MIN_SPAN_DEG, width)) }, 'precise');
 	}
 	const span = zones[name];

@@ -63,6 +63,14 @@ public:
     int32_t getPosition() { return _absolute_position; }
     void setPosition(int32_t position) { _absolute_position = position; }
     void home(int32_t home_speed, int home_pin, bool home_pin_polarity);
+    // Home on the middle of a magnet that a sensor reads over a stretch of
+    // turning, not at one point (see Stepper.cpp). The result says how it went.
+    void homeOnMagnet(int32_t speed, int pin, bool polarity, int32_t settle_steps);
+    uint8_t magnetHomeState() { return _mh_state.load(); } // MAGNET_HOME_*
+    // Where the middle was in the count before it was made 0, and how far the
+    // sensor read the magnet, in steps. Valid once the state is FOUND.
+    int32_t magnetHomeShift() { return _mh_shift.load(); }
+    int32_t magnetHomeWidth() { return _mh_width.load(); }
 
     // StallGuard / DIAG. The TMC2209 drives its DIAG output high when SG_RESULT
     // falls to/below 2*SGTHRS while running above the TCOOLTHRS velocity floor —
@@ -80,6 +88,7 @@ public:
 
 private:
     void beginJitterStroke();
+    bool magnetHomeTick(int pin);
 
     // Pins for the step generator
     int _step_pin, _dir_pin;
@@ -124,6 +133,24 @@ private:
     int _stall_pin = -1; // TMC2209 DIAG GPIO for this channel, -1 if not wired
     std::atomic<bool> _stall_enabled{false}; // whether the motion tick checks DIAG
     std::atomic<bool> _stalled{false}; // latched: DIAG fired while moving
+
+    // Homing on a magnet. homeOnMagnet() (core0) sets everything up and arms it
+    // last by storing the pin; from then on only the step tick touches the plain
+    // members, until it stores -1 again.
+    std::atomic<int32_t> _mh_pin{-1}; // sensor pin, -1 if not homing on a magnet
+    std::atomic<bool> _mh_polarity{true}; // the level the sensor reads over the magnet
+    std::atomic<uint8_t> _mh_state{0};
+    std::atomic<int32_t> _mh_shift{0};
+    std::atomic<int32_t> _mh_width{0};
+    int32_t _mh_settle = 0; // steps off the magnet that count as off it
+    uint8_t _mh_phase = 0;
+    int32_t _mh_mark = 0; // where the sensor last read the magnet while leaving it
+    int32_t _mh_first = 0; // where it first read the magnet
+    int32_t _mh_last = 0; // where it last read the magnet
 };
+
+#define MAGNET_HOME_NEVER 0
+#define MAGNET_HOME_RUNNING 1
+#define MAGNET_HOME_FOUND 2
 
 #endif // STEPPER_H

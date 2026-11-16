@@ -82,6 +82,8 @@ void CMDH_stepper_enable_stall_detection(const BusMessage *msg, BusMessage *resp
 void CMDH_stepper_get_stall_status(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_clear_stall(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_set_diag_pin(const BusMessage *msg, BusMessage *resp);
+void CMDH_stepper_home_on_magnet(const BusMessage *msg, BusMessage *resp);
+void CMDH_stepper_magnet_home_result(const BusMessage *msg, BusMessage *resp);
 bool VAL_stepper_channel(uint8_t channel);
 
 const struct CommandTable stepperCmdTable = {
@@ -107,6 +109,11 @@ const struct CommandTable stepperCmdTable = {
         // hand. Until a host sends it, a channel uses its board's STEPPER_DIAG_PINS,
         // and INIT puts those back.
         {"SET_DIAG_PIN", "b", "", 1, VAL_stepper_channel, CMDH_stepper_set_diag_pin},
+        // Home on the middle of a magnet (Stepper::homeOnMagnet): speed, input
+        // channel, the level over the magnet, and the steps off it that count as off.
+        {"HOME_ON_MAGNET", "iB?i", "", 10, VAL_stepper_channel, CMDH_stepper_home_on_magnet},
+        // How the last one went: MAGNET_HOME_*, the middle in the old count, the width.
+        {"MAGNET_HOME_RESULT", "", "Bii", 0, VAL_stepper_channel, CMDH_stepper_magnet_home_result},
     }}};
 
 const struct CommandTable stepperDrvCmdTable = {
@@ -443,7 +450,7 @@ int dump_observability(char *buf, size_t buf_size) {
         buf,
         buf_size,
         "{\"hw\":\"%s\",\"uid\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s" OBSERVABILITY_SERVO_BUS
-        ",\"watchdog\":true,\"reset\":\"%s\",\"uptime_s\":%lu}",
+        ",\"watchdog\":true,\"magnet_home\":true,\"reset\":\"%s\",\"uptime_s\":%lu}",
         HW_ID,
         uid,
         diag_pins_len > 0 ? diag_pins_buf : "[]",
@@ -823,6 +830,32 @@ void CMDH_stepper_home(const BusMessage *msg, BusMessage *resp) {
     ensure_stepper_hw_enabled(msg->channel);
     steppers[msg->channel].home(home_speed, home_pin, home_pin_polarity);
     resp->payload_length = 0;
+}
+
+void CMDH_stepper_home_on_magnet(const BusMessage *msg, BusMessage *resp) {
+    int32_t speed, settle_steps;
+    memcpy(&speed, msg->payload, sizeof(speed));
+    uint8_t pin_channel = msg->payload[4];
+    bool polarity = msg->payload[5] != 0;
+    memcpy(&settle_steps, msg->payload + 6, sizeof(settle_steps));
+    if (pin_channel >= DIGITAL_INPUT_COUNT) {
+        resp->command = msg->command | 0x80;
+        resp->payload_length = snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "Invalid home pin channel %u", pin_channel);
+        return;
+    }
+    ensure_stepper_hw_enabled(msg->channel);
+    steppers[msg->channel].homeOnMagnet(speed, digital_input_pins[pin_channel], polarity, settle_steps);
+    resp->payload_length = 0;
+}
+
+void CMDH_stepper_magnet_home_result(const BusMessage *msg, BusMessage *resp) {
+    Stepper &stepper = steppers[msg->channel];
+    const int32_t shift = stepper.magnetHomeShift();
+    const int32_t width = stepper.magnetHomeWidth();
+    resp->payload[0] = stepper.magnetHomeState();
+    memcpy(resp->payload + 1, &shift, sizeof(shift));
+    memcpy(resp->payload + 5, &width, sizeof(width));
+    resp->payload_length = 9;
 }
 
 void CMDH_stepper_jitter(const BusMessage *msg, BusMessage *resp) {

@@ -70,7 +70,7 @@ void Stepper::cancel() {
     _jitter_amplitude.store(0);
     _mc_distance.store(0);
     _mc_speed.store(0);
-    _mc_home_pin.store(-1);
+    _mc_home_pin.store(-1); _mh_pin.store(-1);
     _steps_moved.store(0);
     _steps_frac.store(0);
     _brake_distance.store(0);
@@ -86,7 +86,7 @@ bool Stepper::moveSteps(int32_t distance) {
     _mc_distance = (distance > 0) ? distance : -distance;
     _mc_dir.store((distance > 0) ? 1 : -1);
     _mc_speed = -1; // Not a speed move
-    _mc_home_pin.store(-1); // Not homing
+    _mc_home_pin.store(-1); _mh_pin.store(-1); // Not homing
     // Initialize motion state
     _current_speed = _min_speed; // Start from minimum speed
     _current_speed_frac = 0;
@@ -108,7 +108,7 @@ bool Stepper::moveAtSpeed(int32_t speed) {
     if (speed == 0) {
         _mc_speed = 0;
         _mc_distance = -1;
-        _mc_home_pin.store(-1);
+        _mc_home_pin.store(-1); _mh_pin.store(-1);
         _mc_dir.store(_current_dir.load());
         _steps_moved = 0;
         _steps_frac = 0;
@@ -129,7 +129,7 @@ bool Stepper::moveAtSpeed(int32_t speed) {
         _mc_speed = STEPPER_MAX_SPEED;
     }
     _mc_distance = -1; // Not a distance move
-    _mc_home_pin.store(-1); // Abort homing if we were homing
+    _mc_home_pin.store(-1); _mh_pin.store(-1); // Abort homing if we were homing
     // Determine if the stepper needs to reverse direction, go faster or slower
     if (_state == STEPPER_STOPPED) {
         _current_dir.store(_mc_dir.load());
@@ -192,7 +192,7 @@ void Stepper::beginJitterStroke() {
     _mc_distance = amp;
     _mc_dir.store(dir);
     _mc_speed = -1; // Not a speed move
-    _mc_home_pin.store(-1);
+    _mc_home_pin.store(-1); _mh_pin.store(-1);
     _current_speed = _min_speed;
     _current_speed_frac = 0;
     _current_dir.store(dir);
@@ -206,6 +206,72 @@ void Stepper::home(int32_t home_speed, int home_pin, bool home_pin_polarity) {
     moveAtSpeed(home_speed);
     _mc_home_pin.store(home_pin);
     _mc_home_pin_polarity.store(home_pin_polarity);
+}
+
+/*! \brief Home on the middle of a magnet
+ *
+ *  A hall sensor reads a magnet over a stretch of turning, as wide as its
+ *  setting makes it, and flickers at both edges of it. Runs at `speed`, in one
+ *  direction, until the sensor has read off the magnet for `settle_steps` (so a
+ *  start on the magnet or at its edge leaves it first), then through the magnet
+ *  from the first step it reads on to the last, until it has read off it for
+ *  `settle_steps` again. Stops there, and makes the middle between the first and
+ *  the last step 0. A flicker at either edge is inside the stretch, so both
+ *  edges are its outer ones and the middle stays where the magnet is.
+ *
+ *  It runs until it finds the magnet: the host stops it if it takes too long.
+ */
+void Stepper::homeOnMagnet(int32_t speed, int pin, bool polarity, int32_t settle_steps) {
+    moveAtSpeed(speed);
+    _mh_settle = settle_steps < 1 ? 1 : settle_steps;
+    _mh_phase = 0;
+    _mh_mark = _absolute_position;
+    _mh_first = _mh_last = 0;
+    _mh_polarity.store(polarity);
+    _mh_state.store(MAGNET_HOME_RUNNING);
+    _mh_pin.store(pin);
+}
+
+static inline int32_t steps_apart(int32_t a, int32_t b) { return a > b ? a - b : b - a; }
+
+/*! \brief One step tick of homing on a magnet
+ *
+ *  \return true if it found the middle and stopped the motor.
+ */
+bool Stepper::magnetHomeTick(int pin) {
+    const bool on = gpio_get(pin) == _mh_polarity.load();
+    const int32_t position = _absolute_position;
+    if (_mh_phase == 0) { // Leaving the magnet, if it started on it
+        if (on) {
+            _mh_mark = position;
+        } else if (steps_apart(position, _mh_mark) >= _mh_settle) {
+            _mh_phase = 1;
+        }
+        return false;
+    }
+    if (_mh_phase == 1) { // Looking for it
+        if (on) {
+            _mh_first = _mh_last = position;
+            _mh_phase = 2;
+        }
+        return false;
+    }
+    if (on) { // Through it
+        _mh_last = position;
+        return false;
+    }
+    if (steps_apart(position, _mh_last) < _mh_settle) {
+        return false;
+    }
+    const int32_t middle = _mh_first + (_mh_last - _mh_first) / 2;
+    _state = STEPPER_STOPPED;
+    _current_speed = 0;
+    _absolute_position = position - middle;
+    _mh_shift.store(middle);
+    _mh_width.store(steps_apart(_mh_last, _mh_first));
+    _mh_pin.store(-1);
+    _mh_state.store(MAGNET_HOME_FOUND);
+    return true;
 }
 
 /*! \brief Step generator tick
@@ -228,6 +294,10 @@ void Stepper::stepgen_tick() {
             _mc_home_pin.store(-1);
             return;
         }
+    }
+    int magnet_pin = _mh_pin.load();
+    if (magnet_pin >= 0 && magnetHomeTick(magnet_pin)) {
+        return;
     }
     // Set direction pin
     gpio_put(_dir_pin, (_current_dir > 0) ? 1 : 0);

@@ -10,8 +10,11 @@
 	backend from before the record, and for a motor the record does not keep,
 	there is nothing to show, so it shows nothing.
 
-	`panel` makes it a panel of its own, for a motor with a page to itself;
-	otherwise it is a section of the motor's panel, a row of its divided list.
+	It is small, and it sits inside the motor's driver settings, which are
+	closed until someone opens them (`part="graphs"`). What has to be seen
+	whatever is open, that the driver has a fault and what the machine did
+	about it, is a part of its own to put above them (`part="fault"`): it
+	shows nothing while all is well.
 -->
 <script lang="ts">
 	import { untrack } from 'svelte';
@@ -24,7 +27,6 @@
 		type DriverState
 	} from '$lib/api/drivers';
 	import Alert from '$lib/components/ui/Alert.svelte';
-	import Panel from '$lib/components/ui/Panel.svelte';
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import StepperDriverReadingChart from './StepperDriverReadingChart.svelte';
 
@@ -33,7 +35,7 @@
 		base,
 		runCurrent = null,
 		holdCurrent = null,
-		panel = false
+		part = 'graphs'
 	}: {
 		// The motor's name, as /api/stepper/{name}/tmc takes it.
 		stepperKey: string;
@@ -43,12 +45,10 @@
 		// lines on the current's graph; null until they are read.
 		runCurrent?: number | null;
 		holdCurrent?: number | null;
-		panel?: boolean;
+		part?: 'graphs' | 'fault';
 	} = $props();
 
 	const REFRESH_MS = 2000;
-	const DESCRIPTION =
-		'What the driver reports, recorded all the time, whether the motor moves or not.';
 	const WINDOWS = [
 		{ value: '60', label: '1 minute', words: 'the last minute' },
 		{ value: '600', label: '10 minutes', words: 'the last 10 minutes' },
@@ -88,7 +88,7 @@
 		loading = signal;
 		const [list, history] = await Promise.allSettled([
 			getDrivers(baseUrl, signal),
-			notKept ? null : getDriverHistory(baseUrl, name, seconds, signal)
+			notKept || part === 'fault' ? null : getDriverHistory(baseUrl, name, seconds, signal)
 		]);
 		if (loading === signal) loading = null;
 		if (signal.aborted) return;
@@ -111,6 +111,8 @@
 			const drivers = Array.isArray(list.value?.drivers) ? list.value.drivers : [];
 			driver = drivers.find((d) => d.name === name) ?? null;
 			if (driver) notKept = false;
+			// The fault alone needs no readings.
+			if (part === 'fault') status = 'on';
 		}
 		if (history.status === 'rejected') {
 			// Any other failure (the machine did not answer) keeps what is on the
@@ -326,7 +328,7 @@
      out its line again. -->
 {#snippet graphs()}
 	{@const shared = { samples, from, to, breakAfter, period, onhover: setHover }}
-	<div class="flex flex-col gap-5 rounded-control bg-well px-3 py-4">
+	<div class="flex flex-col gap-2">
 		<StepperDriverReadingChart
 			{...shared}
 			{cursor}
@@ -379,9 +381,9 @@
 			format={(v) => `${whole(v)} of 255`}
 		/>
 
-		<!-- The time axis the five share, close under the last of them, with what
-		     the driver flagged marked on it. -->
-		<div class="-mt-3 ml-14">
+		<!-- The time axis the five share, under the last of them and as wide as
+		     their graphs, with what the driver flagged marked on it. -->
+		<div class="ml-[8.75rem]">
 			{#if marks.length > 0}
 				<svg
 					viewBox="0 0 100 100"
@@ -427,58 +429,46 @@
 	</div>
 {/snippet}
 
-{#snippet content()}
-	{#if status === 'off'}
-		<p class="text-sm text-ink-muted">The driver record is switched off on this machine.</p>
-	{:else}
-		<div class="flex flex-col gap-3">
-			{#if fault && faultLook}
-				<Alert tone={faultLook.tone} title={faultLook.title}>
-					<p>{fault.detail}</p>
-					<p class="num text-ink-muted">Since {when(fault.since)}.</p>
-					{#if recoveries.length > 0}
-						<p class="mt-2 font-medium">What the machine did to recover</p>
-						<div class="mt-1">{@render recoveryList()}</div>
-					{/if}
-				</Alert>
+{#snippet faultAlert()}
+	{#if fault && faultLook}
+		<Alert tone={faultLook.tone} title={faultLook.title}>
+			<p>{fault.detail}</p>
+			<p class="num text-ink-muted">Since {when(fault.since)}.</p>
+			{#if recoveries.length > 0}
+				<p class="mt-2 font-medium">What the machine did to recover</p>
+				<div class="mt-1">{@render recoveryList()}</div>
 			{/if}
-
-			<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-				<p class="num text-sm text-ink-muted">
-					{#if cursor}
-						Readings at {clock(cursor.t)}
-					{:else if newest}
-						Newest readings, {clock(newest.t)}
-					{/if}
-				</p>
-				<SegmentedControl bind:value={chosen} options={WINDOWS} label="Time shown" size="sm" />
-			</div>
-
-			{#if samples.length === 0}
-				<div
-					class="flex h-32 items-center justify-center rounded-control bg-well px-4 text-center text-sm text-ink-muted"
-				>
-					No readings in {period}.{driver?.latest
-						? ` The newest is from ${when(driver.latest.t)}.`
-						: ''}
-				</div>
-			{:else}
-				{@render graphs()}
-			{/if}
-		</div>
+		</Alert>
 	{/if}
 {/snippet}
 
-{#if status === 'on' || status === 'off'}
-	{#if panel}
-		<Panel title="Driver readings" description={status === 'on' ? DESCRIPTION : undefined}>
-			{@render content()}
-		</Panel>
-	{:else}
-		<section class="px-(--pad-panel) py-4">
-			<h3 class="text-sm font-medium text-ink">Driver readings</h3>
-			{#if status === 'on'}<p class="mt-0.5 text-sm text-ink-muted">{DESCRIPTION}</p>{/if}
-			<div class={status === 'on' ? 'mt-3' : 'mt-0.5'}>{@render content()}</div>
-		</section>
+{#if part === 'fault'}
+	{#if status === 'on' && fault && faultLook}
+		<div class="px-(--pad-panel) py-3">{@render faultAlert()}</div>
 	{/if}
+{:else if status === 'on' || status === 'off'}
+	<section class="px-(--pad-panel) py-(--pad-row)">
+		<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+			<h3 class="text-sm font-medium text-ink">
+				Driver readings
+				{#if status === 'on'}
+					<span class="num ml-2 font-normal text-ink-muted">
+						{#if cursor}at {clock(cursor.t)}{:else if newest}newest {clock(newest.t)}{/if}
+					</span>
+				{/if}
+			</h3>
+			{#if status === 'on'}
+				<SegmentedControl bind:value={chosen} options={WINDOWS} label="Time shown" size="sm" />
+			{/if}
+		</div>
+		{#if status === 'off'}
+			<p class="mt-1 text-sm text-ink-muted">The driver record is switched off on this machine.</p>
+		{:else if samples.length === 0}
+			<p class="mt-2 text-sm text-ink-muted">
+				No readings in {period}.{driver?.latest ? ` The newest is from ${when(driver.latest.t)}.` : ''}
+			</p>
+		{:else}
+			<div class="mt-3">{@render graphs()}</div>
+		{/if}
+	</section>
 {/if}

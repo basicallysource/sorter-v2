@@ -1,7 +1,8 @@
 <!--
-	One thing a motor's driver reports, drawn over time: its name, the newest
-	reading with its unit, a sentence saying what it shows and what a bad reading
-	looks like, and a small graph. Drawn in SVG as the design system's charts are
+	One thing a motor's driver reports, drawn over time, as one short row: its
+	name, the newest reading with its unit, and a small graph. The sentence
+	saying what it shows and what a bad reading looks like is the row's hint,
+	behind the mark beside the name. Drawn in SVG as the design system's charts are
 	(docs/components.md, Data): the series is 1.5px in the primary, gridlines are
 	`line`, labels are HTML at 12px. The parent puts several on one well, over
 	one time axis and one pointer: pointing at any graph marks the same moment on
@@ -11,6 +12,7 @@
 	a gap in the record. A reading with none beside it is a dot.
 -->
 <script lang="ts">
+	import Info from '@lucide/svelte/icons/info';
 	import type { DriverSample } from '$lib/api/drivers';
 
 	let {
@@ -146,112 +148,82 @@
 		if (box.width <= 0) return;
 		onhover(Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)));
 	}
+
+	// The row's hint: what it shows, and what the lines across the graph are.
+	const hint = $derived(
+		refs.length > 0 ? `${caption} Lines: ${refs.map((ref) => ref.label).join('; ')}.` : caption
+	);
 </script>
 
-<div>
-	<div class="flex items-baseline justify-between gap-4">
-		<h4 class="text-sm font-medium text-ink">{title}</h4>
-		<p class="num min-w-0 truncate text-sm text-ink">{readout}</p>
+<div class="flex items-center gap-3">
+	<div class="w-32 shrink-0">
+		<h4 class="flex items-center gap-1 text-sm font-medium text-ink">
+			{title}
+			<span class="cursor-help text-ink-faint" title={hint} aria-label={hint} role="img">
+				<Info size={12} />
+			</span>
+		</h4>
+		<p class="num truncate text-xs text-ink-muted">{readout}</p>
 	</div>
-	<p class="mt-0.5 max-w-prose text-sm text-ink-muted">{caption}</p>
-	<div class="mt-3 flex gap-2">
-		<div class="num relative h-20 w-12 shrink-0 text-right text-xs text-ink-muted">
-			{#each levels as level (level)}
-				<span class="absolute right-0 -translate-y-1/2" style:top="{y(level)}%">
-					{level.toLocaleString()}
-				</span>
-			{/each}
-		</div>
-		<svg
-			viewBox="0 0 100 100"
-			preserveAspectRatio="none"
-			class="h-20 min-w-0 flex-1 cursor-crosshair overflow-visible"
-			role="img"
-			aria-label="{title} over {period}. Newest reading: {say(newest)}. Point at it for a moment's reading."
-			onpointermove={point}
-			onpointerdown={point}
-			onpointerleave={() => onhover(null)}
-		>
-			{#each levels as level (level)}
+	<svg
+		viewBox="0 0 100 100"
+		preserveAspectRatio="none"
+		class="h-9 min-w-0 flex-1 cursor-crosshair overflow-visible"
+		role="img"
+		aria-label="{title} over {period}. Newest reading: {say(newest)}. Point at it for a moment's reading."
+		onpointermove={point}
+		onpointerdown={point}
+		onpointerleave={() => onhover(null)}
+	>
+		<line x1="0" x2="100" y1="100" y2="100" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke" />
+		{#each refs as ref (ref.label)}
+			<line
+				x1="0"
+				x2="100"
+				y1={y(ref.value)}
+				y2={y(ref.value)}
+				stroke="var(--ink-muted)"
+				stroke-width="1"
+				stroke-dasharray={ref.dotted ? '1.5 3' : '5 3'}
+				vector-effect="non-scaling-stroke"
+			/>
+		{/each}
+		{#if drawn.line}
+			<path d={drawn.line} fill="none" stroke="var(--primary)" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+		{/if}
+		{#if drawn.dots}
+			<path
+				d={drawn.dots}
+				fill="none"
+				stroke="var(--primary)"
+				stroke-width="3"
+				stroke-linecap="round"
+				vector-effect="non-scaling-stroke"
+			/>
+		{/if}
+		{#if cursorX !== null}
+			<line
+				x1={cursorX}
+				x2={cursorX}
+				y1="0"
+				y2="100"
+				stroke="var(--ink-muted)"
+				stroke-width="1"
+				stroke-dasharray="3 3"
+				vector-effect="non-scaling-stroke"
+			/>
+			{#if cursorValue !== null}
 				<line
-					x1="0"
-					x2="100"
-					y1={y(level)}
-					y2={y(level)}
-					stroke="var(--line)"
-					stroke-width="1"
-					vector-effect="non-scaling-stroke"
-				/>
-			{/each}
-			{#each refs as ref (ref.label)}
-				<line
-					x1="0"
-					x2="100"
-					y1={y(ref.value)}
-					y2={y(ref.value)}
-					stroke="var(--ink-muted)"
-					stroke-width="1"
-					stroke-dasharray={ref.dotted ? '1.5 3' : '5 3'}
-					vector-effect="non-scaling-stroke"
-				/>
-			{/each}
-			{#if drawn.line}
-				<path
-					d={drawn.line}
-					fill="none"
+					x1={cursorX}
+					x2={cursorX}
+					y1={y(cursorValue)}
+					y2={y(cursorValue)}
 					stroke="var(--primary)"
-					stroke-width="1.5"
-					vector-effect="non-scaling-stroke"
-				/>
-			{/if}
-			{#if drawn.dots}
-				<path
-					d={drawn.dots}
-					fill="none"
-					stroke="var(--primary)"
-					stroke-width="3"
+					stroke-width="6"
 					stroke-linecap="round"
 					vector-effect="non-scaling-stroke"
 				/>
 			{/if}
-			{#if cursorX !== null}
-				<line
-					x1={cursorX}
-					x2={cursorX}
-					y1="0"
-					y2="100"
-					stroke="var(--ink-muted)"
-					stroke-width="1"
-					stroke-dasharray="3 3"
-					vector-effect="non-scaling-stroke"
-				/>
-				{#if cursorValue !== null}
-					<line
-						x1={cursorX}
-						x2={cursorX}
-						y1={y(cursorValue)}
-						y2={y(cursorValue)}
-						stroke="var(--primary)"
-						stroke-width="6"
-						stroke-linecap="round"
-						vector-effect="non-scaling-stroke"
-					/>
-				{/if}
-			{/if}
-		</svg>
-	</div>
-	{#if refs.length > 0}
-		<div class="mt-2 ml-14 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
-			{#each refs as ref (ref.label)}
-				<span class="flex items-center gap-1.5">
-					<span
-						class="h-0 w-4 border-t border-ink-muted {ref.dotted
-							? 'border-dotted'
-							: 'border-dashed'}"
-					></span>
-					{ref.label}
-				</span>
-			{/each}
-		</div>
-	{/if}
+		{/if}
+	</svg>
 </div>

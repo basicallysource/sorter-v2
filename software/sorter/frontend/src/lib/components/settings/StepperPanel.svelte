@@ -172,6 +172,8 @@
 
 	// --- Collapsible sections ---
 	let driverSettingsOpen = $state(false);
+	// The chute's driver settings are always open, so its readings fold on their own.
+	let driverReadingsOpen = $state(false);
 	let endstopSettingsOpen = $state(false);
 	// The driver settings are on the page: always on the chute's, once opened elsewhere.
 	const driverShown = $derived(isChute || driverSettingsOpen);
@@ -928,15 +930,11 @@
 
 		{#if !isChute}
 			<div class="divide-y divide-line border-t border-line">
-				<StepperDriverReadings
-					{stepperKey}
-					base={currentBackendBaseUrl()}
-					runCurrent={setIrun}
-					holdCurrent={setIhold}
-				/>
+				<!-- Nothing unless the driver has a fault, which shows whatever is open. -->
+				<StepperDriverReadings {stepperKey} base={currentBackendBaseUrl()} part="fault" />
 				<Disclosure
 					title="Driver settings"
-					help="Currents, microsteps, stall detection"
+					help="Currents, microsteps, stall detection, readings"
 					bind:open={driverSettingsOpen}
 				>
 					{@render driverSettings()}
@@ -945,6 +943,16 @@
 						{@render applyDriverButton()}
 					</div>
 					{#if tmcDrvStatus}<StepperDrvStatusGrid drvStatus={tmcDrvStatus} />{/if}
+					{#if driverSettingsOpen}
+						<div class="border-t border-line">
+							<StepperDriverReadings
+								{stepperKey}
+								base={currentBackendBaseUrl()}
+								runCurrent={setIrun}
+								holdCurrent={setIhold}
+							/>
+						</div>
+					{/if}
 				</Disclosure>
 
 				{#if hasEndstop}
@@ -961,13 +969,6 @@
 	</Panel>
 
 	{#if isChute}
-		<StepperDriverReadings
-			{stepperKey}
-			base={currentBackendBaseUrl()}
-			runCurrent={setIrun}
-			holdCurrent={setIhold}
-			panel
-		/>
 		<StepperChuteOperation
 			{loading}
 			{saving}
@@ -980,8 +981,26 @@
 		<StepperChuteStressTest operatingSpeed={chuteOperatingSpeed} />
 
 		<Panel title="Driver settings" description="Currents, microsteps, stall detection." flush>
+			<!-- Nothing unless the driver has a fault. -->
+			<StepperDriverReadings {stepperKey} base={currentBackendBaseUrl()} part="fault" />
 			{@render driverSettings()}
 			{#if tmcDrvStatus}<StepperDrvStatusGrid drvStatus={tmcDrvStatus} />{/if}
+			<div class="border-t border-line">
+				<Disclosure
+					title="Driver readings"
+					help="Load, current, speed, drive and tuning over time"
+					bind:open={driverReadingsOpen}
+				>
+					{#if driverReadingsOpen}
+						<StepperDriverReadings
+							{stepperKey}
+							base={currentBackendBaseUrl()}
+							runCurrent={setIrun}
+							holdCurrent={setIhold}
+						/>
+					{/if}
+				</Disclosure>
+			</div>
 			{#snippet footer()}
 				<div class="mr-auto min-w-0 text-sm">{@render feedback('driver')}</div>
 				{@render applyDriverButton()}

@@ -60,8 +60,11 @@ from subsystems.classification_channel.two_piece.flow import (
 
 LOG_TAG = "[C4-POCKET]"
 
-# How far past the opening's entry edge the push carries the pushing fin.
-_PUSH_PAST_EDGE_DEG = 12.0
+# How far past the line pieces fall at the push carries the pushing fin.
+_PUSH_PAST_EDGE_DEG = 10.0
+# A piece is expected to fall as its pocket turns into the exit only when it
+# lies at least this far ahead of where it would stop short of the fall line.
+_FALLS_MARGIN_DEG = 8.0
 # The push never brings the piece in the pocket behind closer than this to the
 # opening's entry edge.
 _NEXT_MARGIN_DEG = 10.0
@@ -196,7 +199,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._geometry_error_logged = False
         self._fins: list[float] = []
         self._ledge_deg = 0.0
+        self._fall_deg = 0.0
         self._push_deg = 0.0
+        self._arrive_gap: Optional[float] = None
         self._pitch_us = 0
         self._per_deg = 1.0
         self._loadGeometry()
@@ -237,10 +242,16 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             per_rev = float(platter.motor_microsteps_per_output_revolution)
             self._per_deg = per_rev / 360.0
             self._pitch_us = int(round(per_rev / self._n))
-            self._push_deg = min(max(self._ledge_deg + _PUSH_PAST_EDGE_DEG, 5.0), self._pitch_deg - 5.0)
+            # A piece falls once it is carried to the middle of the exit zone (where
+            # the two-piece flow drives a piece to drop it), not at the zone's edge.
+            self._fall_deg = float(zones.exit.width) / 2.0
+            self._push_deg = min(
+                max(self._ledge_deg + self._fall_deg + _PUSH_PAST_EDGE_DEG, 5.0), self._pitch_deg - 5.0
+            )
             self.logger.info(
                 f"{LOG_TAG} {self._n} pockets of {self._pitch_deg:.1f}°; the pushing fin rests "
-                f"{self._ledge_deg:.1f}° short of the opening; push {self._push_deg:.1f}° and back"
+                f"{self._ledge_deg:.1f}° short of the exit zone, and pieces fall {self._fall_deg:.1f}° into it; "
+                f"push {self._push_deg:.1f}° and back"
             )
             return True
         except Exception as exc:
@@ -591,6 +602,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 return
             if not self._headReady(lead):
                 return  # The chute is not on it yet
+        gaps = [float(tp.gap_to_exit) for tp in last_queue if tp.gap_to_exit is not None and (now - tp.last_seen) < 1.5]
+        self._arrive_gap = min(gaps) if last_queue and len(gaps) == len(last_queue) else None
         self._cycle_start_pos = int(stepper.position)
         self._sweeps = 0
         self._shake_tries = 0
@@ -676,18 +689,26 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if not self._pockets[-1]:
             self._finishCycle(now)
             return
-        if self._exit_seen < 2:
-            # Nothing there: it fell as its pocket turned into the opening.
+        seen = self._exit_seen >= 2
+        # Riding where it lay, it ends this far from the exit zone's edge: past
+        # the fall line means it fell on the way. The top of the ring is partly
+        # out of the camera's view, so not seeing it there is not enough alone.
+        lands = None if self._arrive_gap is None else self._arrive_gap - self._pitch_deg
+        fell_on_the_way = lands is not None and lands < -(self._fall_deg + _FALLS_MARGIN_DEG)
+        if fell_on_the_way and not seen:
             self._exitGone(now)
             return
-        if self._exit_gap is not None and self._exit_gap < -3.0:
+        if seen and self._exit_gap is not None and self._exit_gap < -(self._fall_deg + 3.0):
             # Over the opening and not falling: shaken where it is, no push.
             self.logger.warning(f"{LOG_TAG} a piece is over the opening and has not fallen: shaking")
             self._push_us = 0
             self._shake_tries = 1
             self._startShake(stepper, now)
             return
-        self.logger.info(f"{LOG_TAG} a piece waits on the ledge: pushing it into the opening")
+        self.logger.info(
+            f"{LOG_TAG} the piece is short of the fall line "
+            f"({'seen' if seen else 'not seen'}, lay to land at {'?' if lands is None else round(lands)}°): pushing it in"
+        )
         self._planPush(stepper, now)
 
     def _exitGapSeen(self, state) -> Optional[float]:
@@ -711,8 +732,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if behind:
             gaps = [float(tp.gap_to_exit) for tp in behind if tp.gap_to_exit is not None]
             nearest = min(gaps) if len(gaps) == len(behind) else self._ledge_deg  # Unknown: right behind the fin
-            push_deg = min(push_deg, nearest - _NEXT_MARGIN_DEG)
-        if push_deg < self._ledge_deg - 3.0:
+            push_deg = min(push_deg, nearest + self._fall_deg - _NEXT_MARGIN_DEG)
+        if push_deg < self._ledge_deg + self._fall_deg + 3.0:
             self._unswept(now)
             return
         self._push_us = int(round(push_deg * self._per_deg))

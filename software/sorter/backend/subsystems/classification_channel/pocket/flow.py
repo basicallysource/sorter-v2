@@ -182,6 +182,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         # A fin read short of rest once: corrected only when a second reading agrees.
         self._short_seen: Optional[float] = None
         self._over_seen: Optional[float] = None
+        self._takeup_tried = False
         self._verify_reads = 0
         self._confirm_from = 0.0
         self._confirm_wall = 0.0
@@ -740,11 +741,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if self._stuck_frames < 2 and (now - self._pcheck_from) < _PCHECK_S:
             return
         if self._push_us <= 0:
-            # Shaken in place at rest: nothing to come back from.
-            self._confirm_from = now
-            self._confirm_wall = time.time()
-            self._stuck_frames = 0
-            self._enter(_P.CONFIRM)
+            # Shaken in place at rest: nothing to come back from, but the shake
+            # leaves the rotor anywhere in its play, so that is taken up.
+            self._returnToRest(stepper, 0, now, _P.CONFIRM)
             return
         self._returnToRest(stepper, self._push_us, now, _P.CONFIRM)
 
@@ -785,6 +784,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._confirm_wall = time.time()
             self._stuck_frames = 0
             self._enter(_P.CONFIRM)
+            return
+        if self._after_settle == _P.VERIFY:
+            self._startVerify(now)
             return
         self.irl.c4_fin_rest_microsteps = int(stepper.position)
         self._toRest(now)
@@ -968,6 +970,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if short <= _ALIGN_TOL_DEG or over <= _ALIGN_TOL_DEG:
             self._short_seen = None
             self._over_seen = None
+            self._takeup_tried = False
             self._verify_reads = 0
             if getattr(self.irl, "c4_fin_rest_microsteps", None) is None:
                 self.irl.c4_fin_rest_microsteps = int(stepper.position)
@@ -996,12 +999,15 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._aimThen(lead, int(round(short * self._per_deg)), _P.CORRECT, now)
             return
         if over <= _CORRECT_MAX_DEG:
-            if self._over_seen is None or abs(self._over_seen - over) > _ALIGN_TOL_DEG:
-                self._over_seen = over  # One reading is not enough: read again
-                self._startVerify(now)
+            if not self._takeup_tried:
+                # Most often the rotor only lies forward in its play (a shake, a
+                # knock): back and forward again without moving on puts it right.
+                self._takeup_tried = True
+                self.logger.info(f"{LOG_TAG} the fins stand {over:.1f}° past rest: taking up the rotor's play")
+                self._returnToRest(stepper, 0, now, _P.VERIFY)
                 return
-            self._over_seen = None
-            self.logger.warning(f"{LOG_TAG} the fins stand {over:.1f}° past rest: turning back to it")
+            self._takeup_tried = False
+            self.logger.warning(f"{LOG_TAG} the fins still stand {over:.1f}° past rest: turning back to it")
             self._returnToRest(stepper, int(round(over * self._per_deg)), now, _P.REST)
             return
         self._over_seen = None

@@ -434,7 +434,14 @@ def maybeRunSpokeHome(
 
     # This duplicates the older wall-phase work on purpose so the rev01 spoke-home
     # path stays isolated here, matching where Spencer already understood and used it.
-    result = detectSpokeAngle(frame, annulus, params)
+    if rotor.fin_at_exit:
+        # Skip the first second: the lamp has only just come on.
+        result = readFinAngle(capture, annulus, params, newer_than=time.time() + 1.0)
+        if result is None:
+            gc.logger.warning("C4 rev01 spoke home skipped: the fins did not read the same in 3 frames running")
+            return False
+    else:
+        result = detectSpokeAngle(frame, annulus, params)
     if not result.success:
         gc.logger.warning(
             f"C4 rev01 spoke home skipped: detector failed ({result.failure_reason}, prominence={result.prominence_ratio:.2f})"
@@ -518,6 +525,71 @@ def _afterSpokeHome(stepper: Any, aligned: bool, rests_aligned: bool, learn: boo
     _scenery.setPose(moving=False, aligned=aligned, rests_aligned=rests_aligned)
     if learn:
         _scenery.channel(4).requestLearn("after homing", time.time())
+
+
+def readFinAngle(
+    capture: Any,
+    annulus: Annulus,
+    params: DetectorParams,
+    *,
+    newer_than: float,
+    reads: int = 3,
+    agree_deg: float = 2.0,
+    timeout_s: float = 4.0,
+) -> DetectorResult | None:
+    """The fins' angle, read from the camera's frames taken after
+    `newer_than` (time.time()), once `reads` frames in a row agree within
+    `agree_deg`. A frame taken while the camera's exposure is still settling
+    (just after the lamp comes on) reads a confident but wrong angle, so one
+    frame is never enough. Frames are read at half size, around the zones'
+    centre. None if they do not agree in time."""
+    pitch = params.fin_pitch_deg
+    half = Annulus(
+        center_x=annulus.center_x / 2.0,
+        center_y=annulus.center_y / 2.0,
+        inner_radius=annulus.inner_radius / 2.0,
+        outer_radius=annulus.outer_radius / 2.0,
+    )
+    fast = replace(params, center_refine_radius_frac=0.0)
+    results: list[DetectorResult] = []
+    seen_at = None
+    deadline = time.time() + float(timeout_s)
+    while time.time() < deadline:
+        frame = getattr(capture, "latest_frame", None)
+        stamp = getattr(frame, "timestamp", None)
+        raw = getattr(frame, "raw", None)
+        if raw is None or stamp is None or stamp <= newer_than or stamp == seen_at:
+            time.sleep(0.02)
+            continue
+        seen_at = stamp
+        small = cv2.resize(raw, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+        result = detectSpokeAngle(small, half, fast)
+        if not result.success:
+            results.clear()
+            continue
+        results.append(result)
+        if len(results) < reads:
+            continue
+        last = results[-reads:]
+        first = last[0].angle_deg
+        offsets = [((r.angle_deg - first + pitch / 2.0) % pitch) - pitch / 2.0 for r in last]
+        if max(offsets) - min(offsets) <= agree_deg:
+            angle = (first + sum(offsets) / len(offsets)) % pitch
+            return replace(last[-1], angle_deg=angle)
+    return None
+
+
+def finMoveToExit(angle_deg: float, rotor: Any) -> float | None:
+    """How far on, the way the channel travels, a fin at `angle_deg` (or any
+    fin, they repeat every pitch) must turn to rest over the exit; None
+    without saved zones."""
+    target = _finOverExitAngle(rotor)
+    if target is None:
+        return None
+    target_deg, reverse = target
+    pitch = 360.0 / max(1, int(rotor.fin_count))
+    ahead = (angle_deg - target_deg) if reverse else (target_deg - angle_deg)
+    return ahead % pitch
 
 
 def _finOverExitAngle(rotor: Any) -> tuple[float, bool] | None:

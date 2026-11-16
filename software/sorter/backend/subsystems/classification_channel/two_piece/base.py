@@ -160,6 +160,7 @@ class Rev01BaseState(BaseState):
         self.event_queue = event_queue
         self.ctx = context
         self.cc_config = irl_config.classification_channel_config
+        self.vision = vision
 
     def setClassificationReady(self, ready: bool, reason: str) -> None:
         setter = getattr(self.shared, "set_classification_gate", None)

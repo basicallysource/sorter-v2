@@ -1,4 +1,5 @@
 import time
+from dataclasses import replace
 from collections import Counter, deque
 from enum import Enum
 from typing import Optional
@@ -31,6 +32,8 @@ LOG_TAG = "[C4-2PIECE]"
 
 # A fin this close to resting over the exit counts as there.
 _FIN_ALIGNED_DEG = 0.5
+# The camera and the step count disagreeing by more than this is logged.
+_FIN_SEEN_DIFF_DEG = 2.0
 # A rotor stopped this close to resting with a fin over the exit looks the
 # same to the camera, for the scenery it learned there.
 _FIN_POSE_TOLERANCE_DEG = 1.5
@@ -1439,6 +1442,37 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             _scenery.setPose(moving=True, rests_aligned=bool(self.ctx.config.fin_at_exit))
         return ok
 
+    def _finToExitSeen(self) -> Optional[float]:
+        """How far on the next fin must turn to rest over the exit, read off the
+        camera now the rotor stands still (spoke_home.readFinAngle); None when
+        the frames do not agree, and the step count is used instead."""
+        from .spoke_home import DETECTOR_PARAMS, finMoveToExit, loadSpokeHomeGeometry, readFinAngle
+
+        vision = getattr(self, "vision", None)
+        capture = None
+        if vision is not None and hasattr(vision, "getCaptureThreadForRole"):
+            capture = vision.getCaptureThreadForRole("classification_channel") or vision.getCaptureThreadForRole(
+                "carousel"
+            )
+        frame = getattr(getattr(capture, "latest_frame", None), "raw", None)
+        if frame is None:
+            return None
+        geometry = loadSpokeHomeGeometry(frame.shape[:2])
+        if geometry is None:
+            return None
+        cfg = self.ctx.config
+        params = replace(DETECTOR_PARAMS, fin_count=max(1, int(cfg.fin_count)))
+        try:
+            result = readFinAngle(
+                capture, geometry[0], params, newer_than=time.time() + 0.15, reads=2, timeout_s=1.5
+            )
+        except Exception as exc:
+            self.logger.warning(f"{LOG_TAG} reading the fins off the camera failed: {exc}")
+            return None
+        if result is None:
+            return None
+        return finMoveToExit(result.angle_deg, cfg)
+
     def _finToExitDeg(self) -> Optional[tuple[float, float]]:
         """How far on, the way the channel travels, the next fin stands over
         the exit, and the fins' pitch, in output degrees; None unless this
@@ -1482,6 +1516,20 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if fin is None:
             return
         move, pitch = fin
+        seen = self._finToExitSeen()
+        if seen is not None:
+            if abs(((seen - move + pitch / 2.0) % pitch) - pitch / 2.0) > _FIN_SEEN_DIFF_DEG:
+                self.logger.info(
+                    f"{LOG_TAG} the camera puts the fin {seen:.1f}° short of the exit, the step count "
+                    f"{move:.1f}°: going by the camera"
+                )
+            move = seen
+            # Count from here on: the fin is over the exit once this turn is done.
+            stepper = getattr(self.irl, "carousel_stepper", None)
+            platter = C4FiveSectorPlatter.from_irl_config(self.irl_config)
+            self.irl.c4_fin_rest_microsteps = int(stepper.position) + int(
+                platter.output_degrees_to_motor_microsteps(C4_TRAVEL_SIGN * move)
+            )
         if move < _FIN_ALIGNED_DEG or pitch - move < _FIN_ALIGNED_DEG:
             return
         limit = self._keepOnLimit()

@@ -767,6 +767,11 @@ def build(
     # it the moment a frame arrives.
     _wait_for_frame_shapes(camera_service, timeout_s=15.0, gc=gc)
 
+    # What each channel's detector boxes that is not a piece, kept per machine.
+    from .scenery import scenery
+
+    scenery.start(getattr(gc, "logger", None))
+
     service = PerceptionService(
         channels={}, captures={}, runtimes={}, slots={}, workers={},
         context=ctx, fingerprints={},

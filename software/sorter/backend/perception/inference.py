@@ -42,6 +42,7 @@ from .capture import CaptureWorker, PerceptionFrame
 from .channel import ChannelDef
 from .detection import Detection
 from .runtime import InferenceRuntime
+from .scenery import scenery as _scenery
 from .state import ChannelState, LatestStateSlot, PieceObservation
 from .tracking import TrackerManager
 
@@ -631,6 +632,16 @@ class InferenceWorker:
                     )
                 ]
 
+                # Drop what the detector boxes that is always in view (a wall,
+                # a stuck thread, the classification rotor's fins at rest),
+                # learned per channel from moments it was empty, before boxes
+                # are merged or tracked (perception/scenery.py). Only a box
+                # matching learned scenery closely goes, never one for where
+                # it is alone.
+                bboxes, scenery_bboxes = _scenery.channel(ch_def.channel_id).process(
+                    bboxes, frame.timestamp
+                )
+
                 # Classification channel only: collapse the detector's
                 # over-segmentation (one piece drawn as several overlapping /
                 # adjacent boxes) into one box per physical piece, so tracking,
@@ -696,7 +707,9 @@ class InferenceWorker:
                 attribute_ms = _now_ms() - attribute_t0
 
                 margin = ch_def.exit_margin_mask
-                on_channel = {tuple(int(v) for v in b[:4]) for b in bboxes}
+                on_channel = {
+                    tuple(int(v) for v in b[:4]) for b in list(bboxes) + list(scenery_bboxes)
+                }
                 in_margin = margin is not None and any(
                     box not in on_channel and bboxInsideMask(box, margin)
                     for box in (tuple(int(v) for v in b[:4]) for b in raw_bboxes_full)
@@ -739,6 +752,8 @@ class InferenceWorker:
                     "pre_merge_bboxes": pre_merge_bboxes,
                     "merged_bboxes": list(merged_multi),
                     "merged_track_ids": [track_id_by_bbox.get(b) for b in merged_multi],
+                    # Boxes dropped as this channel's scenery (drawn grey).
+                    "scenery_bboxes": list(scenery_bboxes),
                     "detections": detections,
                     "crop_rect": zones.crop_rect,
                     "frame": frame,

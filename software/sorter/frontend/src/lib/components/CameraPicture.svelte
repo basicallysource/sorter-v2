@@ -31,7 +31,9 @@
 	const BOX: Record<FeedBox['kind'], string> = {
 		piece: 'rgb(0 255 0)',
 		merged: 'rgb(128 0 255)',
-		margin: 'rgb(160 160 160)'
+		margin: 'rgb(160 160 160)',
+		// Dropped as what is always in view (the channel's scenery).
+		scenery: 'rgb(110 110 110)'
 	};
 	const LABEL_PX = 11;
 

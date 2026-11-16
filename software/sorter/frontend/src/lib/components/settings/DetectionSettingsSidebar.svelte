@@ -6,6 +6,7 @@
 	import Field from '$lib/components/ui/Field.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import Switch from '$lib/components/ui/Switch.svelte';
 
 	type ModelOption = { id: string; label: string; description?: string };
 
@@ -84,6 +85,67 @@
 		loaded_url = config_url;
 		void loadConfig(config_url);
 	});
+	// What the model boxes that is always in view, learned while the channel is
+	// empty and dropped (backend perception/scenery.py).
+	type SceneryStatus = {
+		channel: number;
+		enabled: boolean;
+		learning: boolean;
+		fixed: number;
+		at_rest: number;
+		dropped: number;
+	};
+	const SCENERY_CHANNEL: Record<'c_channel_2' | 'c_channel_3' | 'carousel', number> = {
+		c_channel_2: 2,
+		c_channel_3: 3,
+		carousel: 4
+	};
+	const base = $derived(machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? getBackendHttpBase());
+	let scenery = $state<SceneryStatus | null>(null);
+	let scenery_message = $state('');
+	let scenery_busy = $state(false);
+
+	async function loadScenery(url: string, channel: number) {
+		try {
+			const response = await fetch(`${url}/api/perception/scenery`);
+			if (!response.ok) return;
+			const payload = await response.json();
+			scenery =
+				(payload.channels ?? []).find((status: SceneryStatus) => status.channel === channel) ?? null;
+		} catch {
+			// Shown as not loaded.
+		}
+	}
+
+	async function sceneryAction(action: string, body?: unknown, message = '') {
+		scenery_busy = true;
+		scenery_message = '';
+		try {
+			const response = await fetch(
+				`${base}/api/perception/scenery/${SCENERY_CHANNEL[camera]}/${action}`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: body === undefined ? undefined : JSON.stringify(body)
+				}
+			);
+			if (!response.ok) throw new Error(await response.text());
+			scenery = await response.json();
+			scenery_message = message;
+		} catch (error) {
+			scenery_message = String(error);
+		} finally {
+			scenery_busy = false;
+		}
+	}
+
+	$effect(() => {
+		const url = base;
+		const channel = SCENERY_CHANNEL[camera];
+		void loadScenery(url, channel);
+		const timer = setInterval(() => void loadScenery(url, channel), 3000);
+		return () => clearInterval(timer);
+	});
 	const modelOptions = $derived([
 		...(models.some((model) => model.id === algorithm)
 			? []
@@ -112,6 +174,47 @@
 		</Field>
 		{#if error_message}<p class="text-danger-ink">{error_message}</p>{/if}
 		{#if status_message}<p class="text-success-ink">{status_message}</p>{/if}
+		<div class="flex flex-col gap-2 border-t border-line pt-4">
+			<div class="flex items-center justify-between gap-3">
+				<p class="font-medium text-ink">Ignore what is always in view</p>
+				<Switch
+					label="Ignore what is always in view"
+					checked={scenery?.enabled ?? true}
+					disabled={!scenery || scenery_busy}
+					onchange={(on) => void sceneryAction('enabled', { enabled: on })}
+				/>
+			</div>
+			<p class="text-ink-muted">
+				Boxes the model draws on what never changes, like a wall or a thread{camera === 'carousel'
+					? ", and the rotor's fins while it rests"
+					: ''}, are learned while the channel is empty and then dropped. The live view shows them grey.
+			</p>
+			{#if scenery}
+				<p class="text-ink-muted">
+					{scenery.learning
+						? 'Learning now. Keep the channel empty.'
+						: `${scenery.fixed + scenery.at_rest} learned${camera === 'carousel' ? ` (${scenery.at_rest} on the rotor at rest)` : ''}, ${scenery.dropped} dropped since the last start.`}
+				</p>
+			{/if}
+			<div class="flex flex-wrap gap-2">
+				<Button
+					size="sm"
+					disabled={scenery_busy || !scenery || scenery.learning}
+					onclick={() => void sceneryAction('learn', undefined, 'Learning for a few seconds. Keep the channel empty.')}
+				>
+					Learn the empty scene
+				</Button>
+				<Button
+					size="sm"
+					variant="ghost"
+					disabled={scenery_busy || !scenery || scenery.fixed + scenery.at_rest === 0}
+					onclick={() => void sceneryAction('forget', undefined, 'Forgotten.')}
+				>
+					Forget
+				</Button>
+			</div>
+			{#if scenery_message}<p class="text-ink-muted">{scenery_message}</p>{/if}
+		</div>
 		<a href="/perception-debug" class="font-medium text-primary-ink hover:underline">
 			See the live detection results
 		</a>

@@ -1,4 +1,6 @@
 import math
+import threading
+import time
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -6,6 +8,8 @@ import cv2
 import numpy as np
 
 from subsystems.classification_channel.five_sector_platter import C4FiveSectorPlatter
+
+from perception.scenery import scenery as _scenery
 
 from .constants import C4_TRAVEL_SIGN
 
@@ -377,14 +381,14 @@ def clearPiecesFromChannel(
     gc: Any,
     irl: Any,
     irl_config: Any,
-) -> None:
+) -> Any:
     # Closed-loop pre-home purge: advance the carousel forward (same travel
     # direction as the normal classification flow) until the channel reads clear,
     # using the shared routine the C4 stuck-incident auto-resolve also uses so
     # both agree on direction and on when the channel is actually empty.
     from .channel_clear import clearChannelByAdvancing
 
-    clearChannelByAdvancing(
+    return clearChannelByAdvancing(
         gc, irl, irl_config, label="C4 rev01 spoke home pre-purge"
     )
 
@@ -395,7 +399,7 @@ def maybeRunSpokeHome(
     irl_config: Any,
     vision: Any,
 ) -> bool:
-    clearPiecesFromChannel(gc, irl, irl_config)
+    cleared = clearPiecesFromChannel(gc, irl, irl_config)
     # Where a fin rests over the exit, in motor microsteps, once homing has put
     # it there (read by the classification flow); None until then.
     irl.c4_fin_rest_microsteps = None
@@ -483,9 +487,37 @@ def maybeRunSpokeHome(
     )
     if fin_target is not None:
         irl.c4_fin_rest_microsteps = int(stepper.position) + int(motor_microsteps)
-    if motor_microsteps == 0:
-        return True
-    return bool(stepper.move_steps(int(motor_microsteps)))
+    moved = True
+    _scenery.setPose(moving=True, rests_aligned=bool(rotor.fin_at_exit))
+    if motor_microsteps != 0:
+        moved = bool(stepper.move_steps(int(motor_microsteps)))
+    # The sweep above left the channel empty: once the rotor stands still,
+    # what the detector boxes is the channel itself, its scenery
+    # (perception/scenery.py). Watched on the side, so homing goes on.
+    learn = getattr(cleared, "reason", None) in ("already_clear", "cleared", "budget_exhausted")
+    threading.Thread(
+        target=_afterSpokeHome,
+        args=(stepper, moved and fin_target is not None, bool(rotor.fin_at_exit), learn),
+        daemon=True,
+        name="c4-spoke-home-scenery",
+    ).start()
+    return moved
+
+
+def _afterSpokeHome(stepper: Any, aligned: bool, rests_aligned: bool, learn: bool) -> None:
+    deadline = time.monotonic() + 30.0
+    while time.monotonic() < deadline:
+        try:
+            if bool(stepper.stopped):
+                break
+        except Exception:
+            return
+        time.sleep(0.05)
+    else:
+        return
+    _scenery.setPose(moving=False, aligned=aligned, rests_aligned=rests_aligned)
+    if learn:
+        _scenery.channel(4).requestLearn("after homing", time.time())
 
 
 def _finOverExitAngle(rotor: Any) -> tuple[float, bool] | None:

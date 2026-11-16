@@ -22,6 +22,8 @@ from .channel_clear import (
     ChannelClearResult,
     clearChannelByAdvancing,
 )
+from perception.scenery import scenery as _scenery
+
 from .constants import C4_TRAVEL_SIGN
 from .context import SimpleStateMachineRev01Context
 
@@ -29,6 +31,9 @@ LOG_TAG = "[C4-2PIECE]"
 
 # A fin this close to resting over the exit counts as there.
 _FIN_ALIGNED_DEG = 0.5
+# A rotor stopped this close to resting with a fin over the exit looks the
+# same to the camera, for the scenery it learned there.
+_FIN_POSE_TOLERANCE_DEG = 1.5
 
 # perception.arcs._region_lookup / PieceObservation.zone_code values. The
 # classification channel is a rotating platter viewed from above; pieces travel
@@ -426,6 +431,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # the platter was seen turning.
         self._last_step_at: Optional[float] = None
         self._turned_at = 0.0
+        # The rotor pose last told to perception's scenery memory (None: not yet).
+        self._pose_stopped: Optional[bool] = None
         # When the current turn (eject and/or stage) began: a late arrival is
         # an id that appeared after it (see _flagLateArrivals).
         self._rotation_started_at = 0.0
@@ -572,6 +579,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._last_step_at = now
         if not stopped:
             self._turned_at = now
+        self._publishRotorPose(stopped)
 
         self._observe(state, now)
 
@@ -1422,21 +1430,58 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                     C4_TRAVEL_SIGN * move, self.ctx.config.discharge_speed_usteps_per_s
                 )
 
+    def startOutputMove(self, output_degrees: float, speed_usteps_per_s: int) -> bool:
+        ok = super().startOutputMove(output_degrees, speed_usteps_per_s)
+        if ok:
+            # Turning from now, before a step sees it: the frames taken while it
+            # turns must not be read as the rotor at rest.
+            self._pose_stopped = False
+            _scenery.setPose(moving=True, rests_aligned=bool(self.ctx.config.fin_at_exit))
+        return ok
+
+    def _finToExitDeg(self) -> Optional[tuple[float, float]]:
+        """How far on, the way the channel travels, the next fin stands over
+        the exit, and the fins' pitch, in output degrees; None unless this
+        rotor rests with a fin there and homing has put one there."""
+        cfg = self.ctx.config
+        rest = getattr(self.irl, "c4_fin_rest_microsteps", None)
+        stepper = getattr(self.irl, "carousel_stepper", None)
+        if not cfg.fin_at_exit or rest is None or stepper is None:
+            return None
+        platter = C4FiveSectorPlatter.from_irl_config(self.irl_config)
+        per_deg = platter.motor_microsteps_per_output_revolution / 360.0
+        pitch = 360.0 / max(1, int(cfg.fin_count))
+        travelled = C4_TRAVEL_SIGN * (float(stepper.position) - float(rest)) / per_deg
+        return (pitch - travelled % pitch) % pitch, pitch
+
+    def _publishRotorPose(self, stopped: bool) -> None:
+        """Tell perception's scenery memory (perception/scenery.py) when the
+        rotor turns or stops, and whether it stopped with a fin over the exit,
+        so the fins it learned at rest are dropped only while they are there."""
+        if self._pose_stopped is stopped:
+            return
+        self._pose_stopped = stopped
+        cfg = self.ctx.config
+        aligned = False
+        if stopped:
+            try:
+                fin = self._finToExitDeg()
+            except Exception:
+                fin = None
+            if fin is not None:
+                move, pitch = fin
+                aligned = min(move, pitch - move) < _FIN_POSE_TOLERANCE_DEG
+        _scenery.setPose(moving=not stopped, aligned=aligned, rests_aligned=bool(cfg.fin_at_exit))
+
     def _alignFinOverExit(self) -> None:
         """On a rotor that rests with a fin over the exit gap (fin_at_exit), turn
         on, the way the channel travels, to the nearest place a fin is there,
         once a cycle's turn is done. Not when that would bring a waiting piece
         to the exit before its chute is aimed."""
-        cfg = self.ctx.config
-        rest = getattr(self.irl, "c4_fin_rest_microsteps", None)
-        stepper = getattr(self.irl, "carousel_stepper", None)
-        if not cfg.fin_at_exit or rest is None or stepper is None:
+        fin = self._finToExitDeg()
+        if fin is None:
             return
-        platter = C4FiveSectorPlatter.from_irl_config(self.irl_config)
-        per_deg = platter.motor_microsteps_per_output_revolution / 360.0
-        pitch = 360.0 / max(1, int(cfg.fin_count))
-        travelled = C4_TRAVEL_SIGN * (float(stepper.position) - float(rest)) / per_deg
-        move = (pitch - travelled % pitch) % pitch
+        move, pitch = fin
         if move < _FIN_ALIGNED_DEG or pitch - move < _FIN_ALIGNED_DEG:
             return
         limit = self._keepOnLimit()

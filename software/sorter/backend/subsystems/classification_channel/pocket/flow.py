@@ -60,6 +60,10 @@ _LOOK_FRAMES = 3
 # A piece carried round this many times will not fall: the channel stops for
 # the stall watchdog (it sweeps the channel, or asks for help).
 _CARRY_MAX = 3
+# The rotor is turned more gently than the motor's default: turning its floor
+# and fins directly, the motor slipped a few steps on about one turn in eight
+# at the default (the fin check found it 7.2 degrees short each time).
+_TURN_ACCEL_USTEPS_PER_S2 = 4000
 # The firmware can report "stopped" before a move it was just given starts.
 _START_GRACE_S = 0.15
 # A piece drawn as several fused boxes in half its frames at rest, of at least
@@ -565,7 +569,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self.logger.warning(f"{LOG_TAG} set_speed_limits failed: {exc}")
         self.logger.info(f"{LOG_TAG} {what}: {microsteps / self._per_deg:.1f}°")
         direction = -int(C4_TRAVEL_SIGN) if back else int(C4_TRAVEL_SIGN)
-        if not bool(stepper.move_steps(direction * microsteps)):
+        if not bool(stepper.move_steps(direction * microsteps, acceleration=_TURN_ACCEL_USTEPS_PER_S2)):
             self.logger.error(f"{LOG_TAG} {what} was not acknowledged")
         self._move_cmd_at = now
 

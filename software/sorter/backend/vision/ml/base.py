@@ -25,12 +25,30 @@ class Detection:
     score: float
 
 
+_smooth_shrink: bool | None = None
+
+
+def _smoothShrink() -> bool:
+    """Whether this machine shrinks pictures by averaging areas (its
+    generation's choice, hardware_settings/generation.py), read once."""
+    global _smooth_shrink
+    if _smooth_shrink is None:
+        try:
+            from hardware_settings.generation import machineGeneration
+
+            _smooth_shrink = bool(machineGeneration().smooth_shrink)
+        except Exception:
+            _smooth_shrink = False
+    return _smooth_shrink
+
+
 def letterbox(image: np.ndarray, size: int) -> tuple[np.ndarray, float, float, float]:
     height, width = image.shape[:2]
     scale = min(float(size) / float(height), float(size) / float(width))
     resized_w = int(round(width * scale))
     resized_h = int(round(height * scale))
-    resized = cv2.resize(image, (resized_w, resized_h), interpolation=cv2.INTER_LINEAR)
+    interpolation = cv2.INTER_AREA if scale < 1.0 and _smoothShrink() else cv2.INTER_LINEAR
+    resized = cv2.resize(image, (resized_w, resized_h), interpolation=interpolation)
     canvas = np.full((size, size, 3), 114, dtype=np.uint8)
     pad_x = (size - resized_w) / 2.0
     pad_y = (size - resized_h) / 2.0

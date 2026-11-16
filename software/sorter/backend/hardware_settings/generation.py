@@ -41,6 +41,11 @@ class Generation:
     # The classification channel's rotor and how the channel is run, as
     # settings of subsystems/classification_channel/two_piece/rev01_config.
     classification_channel: Mapping[str, Any] = field(default_factory=dict)
+    # Shrink the camera picture for the detector by averaging areas, the way
+    # its training pictures were made. A plain linear shrink of a large picture
+    # leaves thin bright things (a rotor's fins) as jagged bars, which a
+    # detector that never saw them boxes as pieces.
+    smooth_shrink: bool = False
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -50,6 +55,7 @@ class Generation:
             "chute_variant": self.chute_variant,
             "feeder_drive": self.feeder_drive,
             "classification_channel": dict(self.classification_channel),
+            "smooth_shrink": self.smooth_shrink,
         }
 
 
@@ -75,8 +81,9 @@ GENERATIONS: dict[str, Generation] = {
         feeder_drive="direct",
         # Four fins make four pockets; the rotor rests with a fin walling the
         # pocket that receives pieces off from the exit, and the channel is run
-        # by the pocket flow (subsystems/classification_channel/pockets).
+        # by the pocket flow (subsystems/classification_channel/pocket).
         classification_channel={"fin_count": 4, "fin_at_exit": True},
+        smooth_shrink=True,
     ),
 }
 DEFAULT_GENERATION = GENERATIONS[V2]

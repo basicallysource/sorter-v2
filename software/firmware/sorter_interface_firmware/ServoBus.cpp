@@ -215,7 +215,11 @@ int ServoBus::transact(uint8_t id, uint8_t instruction, const uint8_t *params, s
     if (params_len > MAX_PARAMS) {
         return SERVO_BUS_NO_REPLY; // Nothing was sent
     }
-    while (!time_reached(_quiet_since_us + QUIET_GAP_US)) {
+    // Time since the last exchange, not a deadline from it: after the bus sat idle
+    // longer than 2^31 us (36 minutes), that deadline read as still ahead, and this
+    // wait spun until the 32-bit clock came round, up to 36 minutes more, with the
+    // board answering nothing. An elapsed time is never more than this gap away.
+    while (time_us_32() - _quiet_since_us < QUIET_GAP_US) {
         tight_loop_contents();
     }
     uint8_t packet[PACKET_OVERHEAD + MAX_PARAMS];

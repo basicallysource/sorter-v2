@@ -147,7 +147,10 @@ class ClassificationChannelStateMachine:
             return
 
         stalled_ms = (now - self._progressAt()) * 1000.0
-        if self._stall_incident_raised or stalled_ms < _STALL_INCIDENT_MS:
+        # A flow may say how long it waits (the pocket flow knows sooner that
+        # nothing more will happen); the others keep the wait they always had.
+        stall_after_ms = float(getattr(self._two_piece, "stall_after_ms", _STALL_INCIDENT_MS))
+        if self._stall_incident_raised or stalled_ms < stall_after_ms:
             return
 
         try:

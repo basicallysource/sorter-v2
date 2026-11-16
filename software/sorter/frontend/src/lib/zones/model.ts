@@ -254,6 +254,15 @@ export function setLocked(zones: ChannelZones, part: Part, locked: boolean): Cha
 	return { ...zones, locked: locked ? [...others, part] : others };
 }
 
+// Every part locked, or none.
+export function setAllLocked(zones: ChannelZones, locked: boolean): ChannelZones {
+	return { ...zones, locked: locked ? [...PARTS] : [] };
+}
+
+export function allLocked(zones: ChannelZones): boolean {
+	return PARTS.every((part) => zones.locked.includes(part));
+}
+
 export function sameZones(a: ChannelZones | null, b: ChannelZones | null): boolean {
 	return JSON.stringify(a) === JSON.stringify(b);
 }

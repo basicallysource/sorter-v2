@@ -3,7 +3,8 @@
 	sliver before the exit where they are let off one at a time (precise), and
 	where they leave (exit). Each says how big it is, can be made wider or
 	narrower, says where it came from (drawn, found in the picture, learned from
-	the pieces) and can be locked, so Find does not move it.
+	the pieces) and can be locked: a locked part cannot be dragged or resized,
+	and Find leaves it where it is. One switch locks them all.
 -->
 <script lang="ts">
 	import Check from '@lucide/svelte/icons/check';
@@ -16,7 +17,9 @@
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import {
+		allLocked,
 		isLocked,
+		setAllLocked,
 		setLocked,
 		setReverse,
 		setRadius,
@@ -137,6 +140,20 @@
 				onchange={(reverse) => zones && onchange(setReverse(zones, reverse))}
 			/>
 		</div>
+		<div class="flex items-center justify-between gap-4 border-t border-line px-(--pad-panel) py-(--pad-row)">
+			<div class="min-w-0 text-sm">
+				<p class="font-medium text-ink">Lock all zones</p>
+				<p class="text-ink-muted">
+					A locked part stays exactly where it is: it cannot be dragged or resized, and Find leaves
+					it alone. Each part below has its own lock too.
+				</p>
+			</div>
+			<Switch
+				label="Lock all zones so nothing moves them"
+				checked={allLocked(zones)}
+				onchange={(locked) => zones && onchange(setAllLocked(zones, locked))}
+			/>
+		</div>
 		<div class="divide-y divide-line border-t border-line">
 			{#each ROWS as row (row.part)}
 				<div
@@ -178,10 +195,13 @@
 								onnudge={(side) => nudge(row.part, side)}
 							/>
 						{/if}
-						<span class="flex items-center gap-1.5 text-xs text-ink-muted">
+						<span
+							class="flex items-center gap-1.5 text-xs text-ink-muted"
+							title="Locked: the {row.name.toLowerCase()} cannot be dragged or resized, and Find leaves it where it is."
+						>
 							<span aria-hidden="true">Lock</span>
 							<Switch
-								label="Lock the {row.name.toLowerCase()} so Find does not move it"
+								label="Lock the {row.name.toLowerCase()} so it cannot be moved, by hand or by Find"
 								checked={isLocked(zones, row.part)}
 								onchange={(locked) => zones && onchange(setLocked(zones, row.part, locked))}
 							/>
@@ -198,7 +218,7 @@
 
 	{#snippet footer()}
 		<p class="mr-auto text-sm text-ink-muted">
-			{watch || 'The zones change only when someone saves them. Lock a part to keep Find from moving it.'}
+			{watch || 'The zones change only when someone saves them. Nothing moves them while the machine runs.'}
 		</p>
 	{/snippet}
 </Panel>

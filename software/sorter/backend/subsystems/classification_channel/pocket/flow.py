@@ -42,7 +42,11 @@ from typing import Optional
 from defs.known_object import ClassificationStatus, notePieceProblem
 from runtime_stats import C4_WAITING_FOR_PIECE
 from subsystems.classification_channel.five_sector_platter import C4FiveSectorPlatter
-from subsystems.classification_channel.two_piece.channel_clear import ChannelClearResult
+from subsystems.classification_channel.two_piece.channel_clear import (
+    ChannelClearResult,
+    _advanceOneStep,
+    channelOccupied,
+)
 from subsystems.classification_channel.two_piece.constants import C4_TRAVEL_SIGN
 from subsystems.classification_channel.two_piece.flow import (
     _ZONE_DROP,
@@ -82,10 +86,23 @@ _SAME_PIECE_DEG = 8.0
 _UNSEEN_DROP_S = 0.7
 # With no new piece for this long, the pieces already on the channel move on.
 _FLUSH_AFTER_S = 6.0
-# The fins within this of the rest pose are at rest; off by up to
-# _CORRECT_MAX_DEG, the rotor is turned to it (steps were lost).
+# The fins within this of the rest pose are at rest; further off, the rotor is
+# turned to it (steps were lost, or it was moved by hand).
 _ALIGN_TOL_DEG = 2.0
-_CORRECT_MAX_DEG = 30.0
+# Distribution must see its slot empty before a piece that was taken back is
+# handed to it again: handed back at once, it still reads as the piece the
+# chute is already on, and the chute never moves to where the piece goes now.
+_HAND_BACK_AFTER_S = 0.5
+# A piece handed to distribution whose chute is not on it after this long is
+# taken back and handed over again.
+_AIM_TIMEOUT_S = 8.0
+# With pieces on the channel and nothing happening for this long, the channel
+# is cleared (the stall watchdog's own wait is for the other flows).
+STALL_AFTER_MS = 15000.0
+# Clearing the channel: every pocket goes across the opening once plainly, then
+# for this many more turns of the rotor with shakes, harder each turn. Only a
+# piece that stays through all of it is left for a person.
+_CLEAR_SHAKE_LAPS = 2
 # Fin readings that keep disagreeing are given up on after this many.
 _VERIFY_READS_MAX = 4
 # A longer gap between steps means the machine was paused or held.
@@ -131,6 +148,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._pp = _P.VERIFY
         self._started = False
         self._halted = False
+        self._taken_back_at = float("-inf")
         self._serial = 0
         self._move_cmd_at = 0.0
         self._rest_since = 0.0
@@ -229,8 +247,22 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             return C4_WAITING_FOR_PIECE
         return _PHASE_NAMES[self._pp]
 
+    @property
+    def stall_after_ms(self) -> float:
+        return STALL_AFTER_MS
+
     def attemptStallAutoClear(self, *, max_output_deg: float) -> ChannelClearResult:
-        result = super().attemptStallAutoClear(max_output_deg=max_output_deg)
+        """Clear the channel into the discard: every pocket across the opening
+        once, then, for a piece that is still there, with shakes while its
+        pocket is over the opening. A piece is only left for a person after
+        the machine has tried to shake it off."""
+        result = super().attemptStallAutoClear(max_output_deg=360.0)
+        if not result.cleared and result.reason == "budget_exhausted":
+            shaken_deg = self._shakeOut()
+            after = super().attemptStallAutoClear(max_output_deg=self._pitch_deg)
+            result = ChannelClearResult(
+                after.cleared, True, result.output_deg_moved + shaken_deg + after.output_deg_moved, after.reason
+            )
         if result.cleared:
             self._pockets = [[] for _ in range(self._n)]
             self._swept = []
@@ -241,8 +273,56 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._last_step_at = None
         return result
 
+    def _shakeOut(self) -> float:
+        """Turn the rotor with a shake before each part of every pocket's sweep
+        across the opening, until the camera sees the channel empty. Blocking.
+        Returns the output degrees turned."""
+        stepper = getattr(self.irl, "carousel_stepper", None)
+        if stepper is None or not self._fins:
+            return 0.0
+        cfg = self.ctx.config
+        speed = int(cfg.rotate_speed_usteps_per_s)
+        amplitude = max(1, int(round(_SHAKE_ROTOR_DEG * self._per_deg)))
+        part = self._pitch_us // _SHAKE_PARTS
+        parts = [part] * (_SHAKE_PARTS - 1) + [self._pitch_us - part * (_SHAKE_PARTS - 1)]
+        turned = 0.0
+        for lap in range(1, _CLEAR_SHAKE_LAPS + 1):
+            self.logger.warning(
+                f"{LOG_TAG} channel clear: a piece is still on the channel; shaking it off (turn {lap} of {_CLEAR_SHAKE_LAPS})"
+            )
+            for _pocket in range(self._n):
+                for microsteps in parts:
+                    try:
+                        stepper.jitter(
+                            amplitude,
+                            _SHAKE_CYCLES * lap,
+                            int(cfg.jitter_speed_usteps_per_s),
+                            int(cfg.jitter_accel_usteps_per_s2),
+                        )
+                        deadline = time.monotonic() + 5.0
+                        time.sleep(_START_GRACE_S)
+                        while stepper.is_jittering() and time.monotonic() < deadline:
+                            time.sleep(0.02)
+                    except Exception as exc:
+                        self.logger.warning(f"{LOG_TAG} channel clear: shake failed: {exc}")
+                    if not _advanceOneStep(stepper, int(C4_TRAVEL_SIGN) * microsteps, speed):
+                        self.logger.warning(f"{LOG_TAG} channel clear: a turn was not acknowledged")
+                        return turned
+                    turned += microsteps / self._per_deg
+                if channelOccupied(self.gc) is False:
+                    self.logger.info(f"{LOG_TAG} channel clear: the shake got the piece off")
+                    return turned
+        return turned
+
+    def _takeBack(self, tp: _TrackedPiece) -> None:
+        """Take a piece back from distribution, which was aiming the chute for it."""
+        self.transport.clearPieceForDistribution(tp.known_object)
+        self._unplace(tp)
+        self._taken_back_at = time.monotonic()
+
     def pause(self) -> None:
         self.transport.clearPieceForDistribution()
+        self._taken_back_at = time.monotonic()
         for tp in self._pieces.values():
             if tp.placed and not tp.ejected:
                 self._unplace(tp)
@@ -492,8 +572,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._multi_drop_seq += 1
             group = self._multi_drop_seq
         if tp.placed and not tp.ejected:
-            self.transport.clearPieceForDistribution(tp.known_object)
-            self._unplace(tp)
+            self._takeBack(tp)
         self.logger.warning(f"{LOG_TAG} track={tp.track_id} -> discard ({kind})")
         self._markDoubleFeed(tp, group, kind, message)
 
@@ -556,7 +635,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 if self.transport.getPieceForDistributionPositioning() is None:
                     self._place(lead)
                 return
-            if not self._headReady(lead):
+            if not self._chuteOn(lead):
                 return  # The chute is not on it yet
         self._cycle_start_pos = int(stepper.position)
         self.noteProgress()
@@ -685,8 +764,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         for tp in swept:
             tp.carried = getattr(tp, "carried", 0) + 1
             if tp.placed and not tp.ejected:
-                self.transport.clearPieceForDistribution(tp.known_object)
-                self._unplace(tp)
+                self._takeBack(tp)
             notePieceProblem(
                 tp.known_object,
                 "did_not_fall",
@@ -736,7 +814,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
 
     def _place(self, tp: _TrackedPiece) -> None:
         """Hand the piece to distribution, which aims the chute for it."""
-        if tp.placed:
+        if tp.placed or time.monotonic() - self._taken_back_at < _HAND_BACK_AFTER_S:
             return
         self._ensureKnownObject(tp)
         obj = tp.known_object
@@ -749,7 +827,18 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             obj.classification_status = ClassificationStatus.unknown
         self.transport.placePieceForDistribution(obj)
         tp.placed = True
+        tp.placed_at = time.monotonic()
         self.logger.info(f"{LOG_TAG} aiming chute for track={tp.track_id} (status={obj.classification_status})")
+
+    def _chuteOn(self, tp: _TrackedPiece) -> bool:
+        """Whether the chute is on this piece. A piece handed over that the
+        chute never comes to is taken back, to be handed over again."""
+        if self._headReady(tp):
+            return True
+        if tp.placed and time.monotonic() - getattr(tp, "placed_at", time.monotonic()) > _AIM_TIMEOUT_S:
+            self.logger.warning(f"{LOG_TAG} the chute did not come to track={tp.track_id}: handing it over again")
+            self._takeBack(tp)
+        return False
 
     def _aimThen(self, tp: Optional[_TrackedPiece], microsteps: int, then: _P, now: float, back: bool = False) -> None:
         """Wait until the chute is on `tp`, then turn `microsteps` and go on to
@@ -769,7 +858,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 if self.transport.getPieceForDistributionPositioning() is None:
                     self._place(tp)
                 return
-            if not self._headReady(tp):
+            if not self._chuteOn(tp):
                 return
         self._aim_target = None
         what = "correction" if self._after_aim_phase == _P.CORRECT else "turn"
@@ -844,12 +933,6 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._verify_reads = 0
             if getattr(self.irl, "c4_fin_rest_microsteps", None) is None:
                 self.irl.c4_fin_rest_microsteps = int(stepper.position)
-            self._toRest(now)
-            return
-        empty = not any(self._pockets)
-        if not empty and abs(off) > _CORRECT_MAX_DEG:
-            self.logger.error(f"{LOG_TAG} the fins stand {abs(off):.1f}° off rest with pieces on the channel; not corrected")
-            self._off_seen = None
             self._toRest(now)
             return
         if self._off_seen is None or abs(self._off_seen - off) > _ALIGN_TOL_DEG:

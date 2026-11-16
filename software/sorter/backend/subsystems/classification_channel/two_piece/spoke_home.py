@@ -58,6 +58,9 @@ class DetectorResult:
 
 DETECTOR_PARAMS = DetectorParams()
 
+# A fin read this close past its rest pose is at rest.
+FIN_AT_REST_DEG = 2.0
+
 
 def _pointForAngle(
     center_x: float,
@@ -396,10 +399,6 @@ def maybeRunSpokeHome(
     irl_config: Any,
     vision: Any,
 ) -> bool:
-    clearPiecesFromChannel(gc, irl, irl_config)
-    # Where a fin rests over the exit, in motor microsteps, once homing has put
-    # it there (read by the classification flow); None until then.
-    irl.c4_fin_rest_microsteps = None
     try:
         from toml_config import getClassificationChannelRev01Config
         from .rev01_config import configFromDict
@@ -407,6 +406,22 @@ def maybeRunSpokeHome(
     except Exception:
         from .rev01_config import defaultConfig
         rotor = defaultConfig()
+    if rotor.fin_at_exit:
+        # On this rotor any turn can push a piece into the exit, the turn that
+        # lines the fins up included. So before it moves at all the chute is
+        # homed and aimed where the pieces no bin wants go, and the camera,
+        # whose lamp has only just come on, gets a moment to see what is there.
+        try:
+            from .channel_clear import routeSweep
+
+            routeSweep(gc, irl, "C4 rev01 spoke home")
+        except Exception as exc:
+            gc.logger.warning(f"C4 rev01 spoke home: could not aim the chute before turning the channel ({exc})")
+        time.sleep(1.0)
+    clearPiecesFromChannel(gc, irl, irl_config)
+    # Where a fin rests over the exit, in motor microsteps, once homing has put
+    # it there (read by the classification flow); None until then.
+    irl.c4_fin_rest_microsteps = None
     params = replace(DETECTOR_PARAMS, fin_count=max(1, int(rotor.fin_count)))
 
     capture = None
@@ -459,6 +474,8 @@ def maybeRunSpokeHome(
         target_deg, reverse = fin_target
         ahead = (result.angle_deg - target_deg) if reverse else (target_deg - result.angle_deg)
         delta_output_deg = ahead % params.fin_pitch_deg
+        if params.fin_pitch_deg - delta_output_deg <= FIN_AT_REST_DEG:
+            delta_output_deg = 0.0  # Already there: not a whole pocket further on
         home_offset_output_deg = 0.0
         reference_angle_deg = target_deg
         motor_microsteps = platter.output_degrees_to_motor_microsteps(C4_TRAVEL_SIGN * delta_output_deg)

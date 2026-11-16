@@ -402,8 +402,7 @@ def calibrate_chute_find_endstop() -> Dict[str, Any]:
         "ok": True,
         "status": _live_chute_status(),
         "message": (
-            f"The chute found the middle of its magnet (the sensor reads it over {chute.magnet_window_deg:g}°) "
-            "and stands at home."
+            "The chute found its magnet and stands at home."
             if on_magnet
             else "Step 1 complete. Chute moved slowly until the endstop was found and then moved to bin 1."
         ),

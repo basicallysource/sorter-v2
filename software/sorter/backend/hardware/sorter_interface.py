@@ -40,6 +40,8 @@ class InterfaceCommandCode(BaseCommandCode):
     STEPPER_GET_STALL_STATUS = 0x1B  # channel ignored; returns a per-board stall bitmask
     STEPPER_CLEAR_STALL = 0x1C
     STEPPER_SET_DIAG_PIN = 0x1D  # int8 GPIO, -1 for none; boards keep their own DIAG pins until it is sent
+    STEPPER_HOME_ON_MAGNET = 0x1E  # speed, input channel, level over the magnet, settle microsteps
+    STEPPER_MAGNET_HOME_RESULT = 0x1F  # state (2 = found), middle in the old count, width
     # Stepper driver commands
     STEPPER_DRV_SET_ENABLED = 0x20
     STEPPER_DRV_SET_MICROSTEPS = 0x21
@@ -511,6 +513,30 @@ class StepperMotor:
         self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_enabled={self._enabled}")
         payload = struct.pack("<?", self._enabled) # 1 byte, boolean
         self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_SET_ENABLED, self._channel, payload)
+
+    def home_on_magnet(self, speed: int, home_pin: DigitalInputPin, active_high: bool, settle_microsteps: int) -> None:
+        """Home on the middle of a magnet that the sensor on `home_pin` reads over
+        a stretch of turning. The board runs at `speed` off the magnet, through it,
+        and makes its middle 0 (firmware Stepper::homeOnMagnet); read the outcome
+        with magnet_home_result(). A firmware without it answers with an error."""
+        if home_pin._dev != self._dev:
+            raise ValueError("home_pin must belong to the same interface as the stepper")
+        self.enabled = True
+        physical_speed = self._logical_to_physical_steps(speed)
+        self._gc.logger.info(
+            f"Stepper '{self._name}' ch{self._channel}: home on magnet speed={physical_speed} µsteps/s, "
+            f"pin={home_pin._channel}, active_high={active_high}, settle={settle_microsteps} µsteps"
+        )
+        payload = struct.pack("<iB?i", physical_speed, home_pin._channel, bool(active_high), int(settle_microsteps))
+        self._dev.send_command(InterfaceCommandCode.STEPPER_HOME_ON_MAGNET, self._channel, payload)
+
+    def magnet_home_result(self) -> tuple[bool, int, int]:
+        """The last home on a magnet: whether the board found the middle, where
+        the middle was in the count from before it was made 0, and how far the
+        sensor read the magnet, both in microsteps."""
+        res = self._dev.send_command(InterfaceCommandCode.STEPPER_MAGNET_HOME_RESULT, self._channel, b'')
+        state, middle, width = struct.unpack("<Bii", res.payload[:9])
+        return state == 2, self._physical_to_logical_steps(middle), width
 
     def enable_force(self, value: bool):
         self._enabled = bool(value)

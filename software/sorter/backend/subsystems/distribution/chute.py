@@ -95,12 +95,8 @@ class Chute:
         self.endstop_active_high = endstop_active_high
         self.operating_speed_microsteps_per_second = operating_speed_microsteps_per_second
         self._homed: bool = False
-        # Where the edge of home that homing and the position check find lies,
-        # in microsteps from home: 0 on a switch; on a magnet, its upper edge,
-        # half the stretch the sensor reads it over above its middle.
-        self.home_edge_steps: int = 0
-        # How wide that stretch was at the last home on a magnet, in degrees.
-        self.magnet_window_deg: float | None = None
+        # How wide the home sensor read the magnet at the last home, in chute degrees.
+        self.magnet_width_deg: float | None = None
         # The position check (position_check.py): whether it runs, every how
         # many pieces, how many have gone since, and whether one is running.
         self.position_check = position_check

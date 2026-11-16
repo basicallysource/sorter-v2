@@ -1,10 +1,8 @@
 """The chute's position check: every so many pieces, the chute goes up to its
 home switch the way homing does and sees where it finds it.
 
-Homing leaves the switch's edge at a known count (step 0 for a switch; for a
-magnet, its upper edge, Chute.home_edge_steps above home), so the step count
-where the switch triggers now, less that, is how far the chute has drifted
-since: steps it lost, or gained.
+Homing makes the switch's edge step 0, so the step count where the switch
+triggers now is how far the chute has drifted since: steps it lost, or gained.
 StallGuard can't see steps skipped while the chute speeds up or slows down, or
 skipping that never loads the motor much. This sees all of them, after the
 fact, so the pieces since the last check may have gone to the wrong bins.
@@ -28,6 +26,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import db
+
+from .chute_variants import HOME_ON_MAGNET
 
 if TYPE_CHECKING:
     from .chute import Chute
@@ -81,11 +81,10 @@ def checkPosition(chute: "Chute") -> PositionCheck:
         chute.markUnhomed(f"position check: {error}")
         return PositionCheck(time.time(), False, duration_s=time.monotonic() - started, error=error)
 
-    def chuteDeg(steps: float) -> float:
-        return stepper.degrees_for_microsteps(steps) / gear_ratio
+    if chute.variant.home_on == HOME_ON_MAGNET:
+        return _checkOnMagnet(chute, started, failed)
 
-    edge = chute.home_edge_steps
-    if chute.moveToAngleBlocking(chuteDeg(edge) + CHECK_FROM_DEG, timeout_buffer_ms=1500) is None:
+    if chute.moveToAngleBlocking(CHECK_FROM_DEG, timeout_buffer_ms=1500) is None:
         return failed("the move up to the switch did not finish")
     speed = int(math.copysign(CHECK_SPEED, HOME_SPEED_MICROSTEPS_PER_SEC))
     stepper.home(speed, chute.home_pin, home_pin_active_high=chute.endstop_active_high)
@@ -107,11 +106,9 @@ def checkPosition(chute: "Chute") -> PositionCheck:
     homing_s = time.monotonic() - homing_from
     if not chute.endstop_triggered:
         return failed("it stopped before the switch")
-    # The firmware zeroed the count on the edge; put home back where it was.
-    if edge:
-        stepper.position = stepper.position + edge
-    if last is not None:
-        last -= edge
+
+    def chuteDeg(steps: float) -> float:
+        return stepper.degrees_for_microsteps(steps) / gear_ratio
 
     if last is not None and chute.variant.turns_freely:
         # A chute that turns without limit has counted its turns too: the drift
@@ -130,6 +127,29 @@ def checkPosition(chute: "Chute") -> PositionCheck:
         )
     return PositionCheck(
         time.time(), True, last, round(chuteDeg(last), 3), precision_deg=precision, duration_s=duration,
+    )
+
+
+def _checkOnMagnet(chute: "Chute", started: float, failed) -> PositionCheck:
+    """From just above the stretch the sensor reads the magnet over, the board
+    finds the magnet's middle again (chute_homing.findMagnetMiddle): where it was
+    in the count is the drift, and it is 0 again after."""
+    from .chute_homing import MAGNET_SETTLE_DEG, findMagnetMiddle
+
+    stepper = chute.stepper
+    above_deg = (chute.magnet_width_deg or 0.0) / 2 + MAGNET_SETTLE_DEG + CHECK_FROM_DEG
+    if chute.moveToAngleBlocking(above_deg, timeout_buffer_ms=1500) is None:
+        return failed("the move up to the magnet did not finish")
+    found = findMagnetMiddle(chute)
+    if found is None:
+        return failed(chute.home_failure or "the board did not find the magnet")
+    drift = found[0]
+    # The count runs on over whole turns: the drift is what is left over them.
+    turn = stepper.total_steps_per_rev * chute.gear_ratio
+    drift = int(round((drift + turn / 2) % turn - turn / 2))
+    drift_deg = stepper.degrees_for_microsteps(drift) / chute.gear_ratio
+    return PositionCheck(
+        time.time(), True, drift, round(drift_deg, 3), duration_s=round(time.monotonic() - started, 2)
     )
 
 

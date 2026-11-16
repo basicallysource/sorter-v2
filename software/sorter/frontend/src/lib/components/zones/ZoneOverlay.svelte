@@ -78,24 +78,50 @@
 		return p[0] >= 0 && p[1] >= 0 && p[0] <= zones.frame[0] && p[1] <= zones.frame[1];
 	}
 
+	// A handle sits at least this far inside the picture, so all of it shows.
+	const margin = $derived(16 * unit);
+
+	function roomy(p: Point): boolean {
+		return Math.min(p[0], p[1], zones.frame[0] - p[0], zones.frame[1] - p[1]) >= margin;
+	}
+
 	// Where an edge's handle goes: on the band, or the nearest radius between
-	// the ring's circles that is in the picture.
+	// the ring's circles where it shows whole.
 	function edgeHandle(angle: number): Point | null {
 		const radii = [band, ...[0.25, 0.75, 0.1, 0.9].map((t) => zones.inner_radius + t * (zones.exit_radius - zones.inner_radius))];
 		for (const r of radii) {
 			const p = polar(zones.center, r, angle);
-			if (inFrame(p)) return p;
+			if (roomy(p)) return p;
 		}
 		return null;
 	}
 
-	function circleHandle(around: Point, radius: number): Point | null {
-		for (let a = 0; a < 360; a += 15) {
-			const angle = (270 + a) % 360;
-			const p = polar(around, radius, angle);
-			if (inFrame(p) && !ZONES.some((z) => edgeNear(z, angle))) return p;
+	// Where a circle's handle goes: at the top while it shows whole there, else
+	// the nearest place round the circle that does, away from the zones' edges.
+	function circleHandle(around: Point, radius: number): { at: Point; angle: number } | null {
+		for (let a = 0; a <= 180; a += 5) {
+			for (const angle of a === 0 || a === 180 ? [(270 + a) % 360] : [(270 + a) % 360, (270 - a + 360) % 360]) {
+				const p = polar(around, radius, angle);
+				if (roomy(p) && !ZONES.some((z) => edgeNear(z, angle))) return { at: p, angle };
+			}
 		}
 		return null;
+	}
+
+	// A double arrow through `at` along `angle` (degrees, image angles): what a
+	// handle moves, drawn on it.
+	function arrow(at: Point, angle: number, half = 5.5): string {
+		const u = unit;
+		const dx = Math.cos((angle * Math.PI) / 180);
+		const dy = Math.sin((angle * Math.PI) / 180);
+		const a: Point = [at[0] - dx * half * u, at[1] - dy * half * u];
+		const b: Point = [at[0] + dx * half * u, at[1] + dy * half * u];
+		const head = (tip: Point, sx: number, sy: number) => {
+			const bx = tip[0] - sx * 3 * u;
+			const by = tip[1] - sy * 3 * u;
+			return `M${bx - sy * 2.5 * u} ${by + sx * 2.5 * u} L${tip[0]} ${tip[1]} L${bx + sy * 2.5 * u} ${by - sx * 2.5 * u}`;
+		};
+		return `M${a[0]} ${a[1]} L${b[0]} ${b[1]} ${head(b, dx, dy)} ${head(a, -dx, -dy)}`;
 	}
 
 	function edgeNear(name: ZoneName, angle: number): boolean {
@@ -187,8 +213,14 @@
 	const exitHandle = $derived.by(() => {
 		const span = zoneSpan(zones, 'exit');
 		if (!span) return null;
-		const p = polar(zones.center, zones.exit_radius, (span.start + ((span.end - span.start + 360) % 360) / 2) % 360);
-		return inFrame(p) ? p : null;
+		const width = (span.end - span.start + 360) % 360;
+		// The exit's middle, or the nearest place along it that shows whole.
+		for (const t of [0.5, 0.35, 0.65, 0.2, 0.8, 0.05, 0.95]) {
+			const angle = (span.start + width * t) % 360;
+			const p = polar(zones.center, zones.exit_radius, angle);
+			if (roomy(p)) return { at: p, angle };
+		}
+		return null;
 	});
 	const edges = $derived(
 		DRAW_ORDER.flatMap((name) => {
@@ -206,7 +238,8 @@
 					edge,
 					from: innerPoint(zones, angle),
 					to: polar(zones.center, outer, angle),
-					handle: edgeHandle(angle)
+					handle: edgeHandle(angle),
+					angle
 				};
 			});
 		})
@@ -264,8 +297,8 @@
 				/>
 				{#if ring.handle}
 					<circle
-						cx={ring.handle[0]}
-						cy={ring.handle[1]}
+						cx={ring.handle.at[0]}
+						cy={ring.handle.at[1]}
 						r={7 * unit}
 						fill={OUTLINE}
 						stroke="black"
@@ -277,16 +310,24 @@
 						aria-label={radiusLabel(ring.which)}
 						onpointerdown={(e) => begin(e, { kind: 'radius', which: ring.which }, 'ring')}
 					/>
+					<path
+						d={arrow(ring.handle.at, ring.handle.angle)}
+						fill="none"
+						stroke="black"
+						stroke-width={1.6 * unit}
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
 				{/if}
 			{/each}
 
 			<!-- The exit's outer edge: where the opening starts to show the next channel. -->
 			{#if exitHandle}
 				<rect
-					x={exitHandle[0] - 6 * unit}
-					y={exitHandle[1] - 6 * unit}
-					width={12 * unit}
-					height={12 * unit}
+					x={exitHandle.at[0] - 7 * unit}
+					y={exitHandle.at[1] - 7 * unit}
+					width={14 * unit}
+					height={14 * unit}
 					fill={COLOR.exit}
 					stroke="black"
 					stroke-width={1.5 * unit}
@@ -296,6 +337,14 @@
 					tabindex="-1"
 					aria-label={radiusLabel('exit_radius')}
 					onpointerdown={(e) => begin(e, { kind: 'radius', which: 'exit_radius' }, 'ring')}
+				/>
+				<path
+					d={arrow(exitHandle.at, exitHandle.angle)}
+					fill="none"
+					stroke="black"
+					stroke-width={1.6 * unit}
+					stroke-linecap="round"
+					stroke-linejoin="round"
 				/>
 			{/if}
 
@@ -323,6 +372,15 @@
 						aria-label="The {edge.name} zone's {edge.edge === 'start' ? 'first' : 'last'} edge"
 						onpointerdown={(e) => begin(e, { kind: 'edge', zone: edge.name, edge: edge.edge }, edge.name)}
 					/>
+					<!-- Round the ring: the way this edge moves. -->
+					<path
+						d={arrow(edge.handle, edge.angle + 90)}
+						fill="none"
+						stroke={COLOR[edge.name]}
+						stroke-width={1.8 * unit}
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
 				{/if}
 			{/each}
 
@@ -339,7 +397,15 @@
 						begin(e, { kind: 'hub', offset: [p[0] - h[0], p[1] - h[1]] }, 'ring');
 					}}
 				>
-					<circle cx={h[0]} cy={h[1]} r={7 * unit} fill="transparent" stroke="white" stroke-width={2 * unit} />
+					<circle cx={h[0]} cy={h[1]} r={8 * unit} fill="black" fill-opacity="0.45" stroke="white" stroke-width={1.5 * unit} />
+					<path
+						d="{arrow(h, 0, 5)} {arrow(h, 90, 5)}"
+						fill="none"
+						stroke="white"
+						stroke-width={1.5 * unit}
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
 				</g>
 			{/if}
 
@@ -356,10 +422,14 @@
 					}}
 				>
 					<circle cx={zones.center[0]} cy={zones.center[1]} r={12 * unit} fill="transparent" />
+					<circle cx={zones.center[0]} cy={zones.center[1]} r={10 * unit} fill="black" fill-opacity="0.45" />
 					<path
-						d="M{zones.center[0] - 10 * unit} {zones.center[1]} H{zones.center[0] + 10 * unit} M{zones.center[0]} {zones.center[1] - 10 * unit} V{zones.center[1] + 10 * unit}"
+						d="{arrow(zones.center, 0, 7.5)} {arrow(zones.center, 90, 7.5)}"
+						fill="none"
 						stroke="white"
-						stroke-width={2.5 * unit}
+						stroke-width={2 * unit}
+						stroke-linecap="round"
+						stroke-linejoin="round"
 					/>
 				</g>
 			{/if}

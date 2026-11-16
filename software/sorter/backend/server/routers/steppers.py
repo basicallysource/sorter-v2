@@ -29,6 +29,7 @@ from hardware_settings.steppers import (
     saveStepperSettings,
 )
 from server import hardware_needs, shared_state
+import driver_watch
 import stallguard_tuner
 from stepper_stall_monitor import CHUTE_NEEDS_HOMING_INCIDENT_KIND, STEPPER_STALL_INCIDENT_KIND
 
@@ -170,6 +171,11 @@ def _ensure_no_blocking_fault(action: str) -> None:
         raise HTTPException(
             status_code=409,
             detail=f"Cannot {action}: the chute must be re-homed after a stall first.",
+        )
+    if kind in driver_watch.HOLDS.values():
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot {action}: a motor's driver has switched itself off.",
         )
 
 

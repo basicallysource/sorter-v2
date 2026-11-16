@@ -17,7 +17,14 @@ REG_TSTEP = 0x12
 REG_SG_RESULT = 0x41
 REG_CHOPCONF = 0x6C
 REG_DRV_STATUS = 0x6F
+REG_PWMCONF = 0x70
 REG_PWM_SCALE = 0x71
+REG_PWM_AUTO = 0x72
+
+# TSTEP counts the driver's clock periods between two 1/256 microsteps, and
+# reads its largest value (the register is 20 bits) while the motor stands still.
+TMC_CLOCK_HZ = 12_000_000
+TSTEP_STANDSTILL = 0xFFFFF
 
 _MRES_TO_MICROSTEPS = {0: 256, 1: 128, 2: 64, 3: 32, 4: 16, 5: 8, 6: 4, 7: 2, 8: 1}
 
@@ -93,6 +100,33 @@ def decodePwmScale(raw: int) -> dict[str, Any]:
         "pwm_scale_sum": raw & 0xFF,
         "pwm_scale_auto": pwm_scale_auto,
     }
+
+
+def decodePwmAuto(raw: int) -> dict[str, Any]:
+    # What StealthChop's automatic tuning has learned: the PWM amplitude the
+    # motor needs standing still, and how much more per unit of speed.
+    return {
+        "pwm_ofs_auto": raw & 0xFF,
+        "pwm_grad_auto": (raw >> 16) & 0xFF,
+    }
+
+
+def decodeGstat(raw: int) -> dict[str, Any]:
+    # Latched until written as 1, except uv_cp, which follows the supply.
+    return {
+        "reset": bool(raw & (1 << 0)),
+        "drv_err": bool(raw & (1 << 1)),
+        "uv_cp": bool(raw & (1 << 2)),
+    }
+
+
+def fullStepsPerSecond(tstep: int) -> Optional[float]:
+    # The motor's speed from TSTEP, whatever its microstepping: 0 standing still.
+    if tstep >= TSTEP_STANDSTILL:
+        return 0.0
+    if tstep <= 0:
+        return None
+    return TMC_CLOCK_HZ / (tstep * 256.0)
 
 
 def readDriverSettingsSnapshot(stepper: Any) -> dict[str, Any]:

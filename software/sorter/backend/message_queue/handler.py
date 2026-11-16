@@ -1,6 +1,7 @@
 from global_config import GlobalConfig
 from defs.events import ServerToMainThreadEvent
 from sorter_controller import SorterController
+from driver_watch import HOLDS as DRIVER_HOLDS
 from stepper_stall_monitor import (
     STEPPER_STALL_INCIDENT_KIND,
     CHUTE_NEEDS_HOMING_INCIDENT_KIND,
@@ -9,6 +10,8 @@ from stepper_stall_monitor import (
 _RESUME_BLOCKING_INCIDENTS = {
     STEPPER_STALL_INCIDENT_KIND,
     CHUTE_NEEDS_HOMING_INCIDENT_KIND,
+    # A motor whose driver has switched itself off does not turn.
+    *DRIVER_HOLDS.values(),
 }
 
 
@@ -30,7 +33,7 @@ def handleServerToMainEvent(
         # A stall / lost-home is a hard fault: the machine stays parked until the
         # operator clears it (and re-homes the chute). Refuse resume here so no
         # code path — operator, queued command, or otherwise — can run onto a
-        # stalled motor or an unhomed chute.
+        # stalled motor, an unhomed chute or a driver that is switched off.
         fault = _blockingFaultKind(gc)
         if fault is not None:
             gc.logger.warning(f"Ignoring resume: blocked by active '{fault}' incident.")

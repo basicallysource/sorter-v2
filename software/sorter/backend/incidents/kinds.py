@@ -9,7 +9,8 @@ also carry that page's wording and their default handling.
 Most kinds hold the machine until they are dealt with. A kind with
 ``holds=False`` is a warning instead: the machine keeps sorting, its card
 shows beside any incident, and it goes when its condition ends (the
-computer's health, computer_health.py, raises these).
+computer's health, computer_health.py, and the stepper drivers',
+driver_watch.py, raise these).
 """
 
 from __future__ import annotations
@@ -93,6 +94,43 @@ def _computerWarnings() -> tuple[IncidentKind, ...]:
     )
 
 
+def _driverActions(incident: dict[str, Any]) -> tuple[str, ...]:
+    # While the machine is getting the driver back by itself there is nothing
+    # to press; once it has given up, the card asks for another try.
+    return ("retry_driver",) if incident.get("gave_up") else ()
+
+
+def _driverKinds() -> tuple[IncidentKind, ...]:
+    # The stepper drivers (driver_watch.py). {detail} is what the driver
+    # reports, and {doing} what is being done about it.
+    return (
+        IncidentKind(
+            "driver_shut_down",
+            title="Motor driver switched off",
+            todo="{detail} {doing}",
+            actions=_driverActions,
+        ),
+        IncidentKind(
+            "driver_overheated",
+            title="Motor driver overheated",
+            todo="{detail} {doing}",
+            actions=_driverActions,
+        ),
+        IncidentKind(
+            "driver_overheating",
+            title="Motor driver running hot",
+            todo="{detail} Check that air reaches the control board. If it gets hotter, the driver switches itself off.",
+            actions=(), holds=False,
+        ),
+        IncidentKind(
+            "driver_tuning_out_of_range",
+            title="Motor driver badly tuned",
+            todo="{detail} Resetting it did not hold. Check the motor's current in its driver settings.",
+            actions=(), holds=False,
+        ),
+    )
+
+
 KINDS: dict[str, IncidentKind] = {
     k.kind: k
     for k in (
@@ -151,6 +189,7 @@ KINDS: dict[str, IncidentKind] = {
             off_label="Leave it to the hardware alert",
         ),
         *_computerWarnings(),
+        *_driverKinds(),
         IncidentKind(
             "distribution_door_blocked",
             title="A bin door is blocked",

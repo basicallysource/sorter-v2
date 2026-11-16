@@ -32,11 +32,15 @@
 			<dt class="text-ink-muted">Standing still</dt>
 			<dd class="text-ink">{drvStatus.stst ? 'Yes' : 'No'}</dd>
 		</div>
-		<div class="flex justify-between gap-2">
-			<dt class="text-ink-muted">Current (CS_ACTUAL)</dt>
-			<dd class="num text-ink">{drvStatus.cs_actual}</dd>
+		<!-- The current is the one row with a sentence, so it and the rows after it run the full width. -->
+		<div class="col-span-2 flex flex-wrap justify-between gap-x-2">
+			<dt class="text-ink-muted" title="CS_ACTUAL">Current right now</dt>
+			<dd class="num text-ink">{drvStatus.cs_actual} of 31</dd>
+			<dd class="w-full text-ink-muted">
+				It falls from the run current to the hold current a few seconds after a move.
+			</dd>
 		</div>
-		<div class="flex justify-between gap-2">
+		<div class="col-span-2 flex justify-between gap-2">
 			<dt class="text-ink-muted">SG_RESULT</dt>
 			<dd class="num text-ink">{drvStatus.sg_result}</dd>
 		</div>

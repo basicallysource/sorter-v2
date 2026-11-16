@@ -46,6 +46,10 @@ class Generation:
     # leaves thin bright things (a rotor's fins) as jagged bars, which a
     # detector that never saw them boxes as pieces.
     smooth_shrink: bool = False
+    # Watch every stepper driver while the hardware runs (driver_watch.py):
+    # keep its readings, warn when it runs hot, and restart one that has
+    # switched itself off.
+    driver_watch: bool = False
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -56,6 +60,7 @@ class Generation:
             "feeder_drive": self.feeder_drive,
             "classification_channel": dict(self.classification_channel),
             "smooth_shrink": self.smooth_shrink,
+            "driver_watch": self.driver_watch,
         }
 
 
@@ -84,6 +89,7 @@ GENERATIONS: dict[str, Generation] = {
         # by the pocket flow (subsystems/classification_channel/pocket).
         classification_channel={"fin_count": 4, "fin_at_exit": True},
         smooth_shrink=True,
+        driver_watch=True,
     ),
 }
 DEFAULT_GENERATION = GENERATIONS[V2]

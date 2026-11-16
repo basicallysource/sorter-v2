@@ -10,10 +10,14 @@ A setting that is not saved takes its default: the primary Hive's where it
 holds one (hive_defaults, `steppers.*` for every motor and `steppers.<motor>`),
 else the code's, the more specific winning, and last the feeder drive's for the
 feeder's motors (defaultSettings).
+
+A StealthChop driver tunes itself to the current it runs at, so a new current
+starts that tuning over (resetDriverTuning).
 """
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, replace
 from typing import Any, Callable, Iterable, Mapping
 
@@ -29,9 +33,11 @@ STALLGUARD = "stepper_stallguard"
 DIRECTIONS = "stepper_direction_inverts"
 
 TMC_REG_GCONF = 0x00
+TMC_REG_GSTAT = 0x01
 TMC_REG_TCOOLTHRS = 0x14
 TMC_REG_SGTHRS = 0x40
 TMC_REG_COOLCONF = 0x42
+TMC_REG_PWMCONF = 0x70
 # PDN_DISABLE | MSTEP_REG_SELECT | MULTISTEP_FILT: the driver takes its settings,
 # microstepping included, over UART. EN_SPREADCYCLE cleared is StealthChop.
 GCONF_UART = 0x1C0
@@ -41,6 +47,14 @@ COOLCONF_COOLSTEP = 5 | (1 << 5) | (2 << 8)
 # TCOOLTHRS is the speed floor of both StallGuard's stall output and CoolStep;
 # this value means "at every speed".
 TCOOLTHRS_EVERY_SPEED = 0xFFFFF
+# PWMCONF.pwm_autoscale: the driver sets its StealthChop PWM amplitude itself,
+# from the coil current it measures.
+PWMCONF_AUTOSCALE = 1 << 18
+# GSTAT's flags (reset, drv_err, uv_cp). Each clears when written as 1.
+GSTAT_FLAGS = 0x7
+# How long a move under way gets to end before a live change of current resets
+# the driver's tuning anyway.
+TUNING_RESET_WAIT_S = 2.0
 MICROSTEP_CHOICES = (1, 2, 4, 8, 16, 32, 64, 128, 256)
 
 
@@ -232,6 +246,9 @@ def applyStepperSettings(
     A new threshold or speed floor clears the stall latch and arms detection
     again, as a person changing them expects; `rearm=False` leaves both alone,
     for the tuner, which must never clear a stall it has not seen.
+    On a machine that watches its drivers, a run or hold current other than
+    the one a StealthChop driver was last sent starts its tuning over
+    (resetDriverTuning), once a move under way has ended.
     Returns the driver register writes sent, which start-up checks against the
     driver's own count of writes it took."""
     run = run or _send
@@ -250,11 +267,17 @@ def applyStepperSettings(
         run(f"set microsteps={settings.microsteps}", lambda: stepper.set_microsteps(settings.microsteps))
         writes += 1
     if changed & {"irun", "ihold", "ihold_delay"}:
-        run(
-            f"set current IRUN={settings.irun} IHOLD={settings.ihold}",
-            lambda: stepper.set_current(settings.irun, settings.ihold, settings.ihold_delay),
-        )
-        writes += 1
+        if settings.stealthchop and _currentDiffers(stepper, settings) and _watchesDrivers():
+            _waitUntilStopped(stepper)
+            writes += resetDriverTuning(
+                stepper, (settings.irun, settings.ihold, settings.ihold_delay), settings.microsteps, run
+            )
+        else:
+            run(
+                f"set current IRUN={settings.irun} IHOLD={settings.ihold}",
+                lambda: stepper.set_current(settings.irun, settings.ihold, settings.ihold_delay),
+            )
+            writes += 1
     if "coolstep" in changed:
         write("set CoolStep", TMC_REG_COOLCONF, COOLCONF_COOLSTEP if settings.coolstep else 0)
     if changed & {"stallguard", "sgthrs"}:
@@ -277,6 +300,88 @@ def applyStepperSettings(
     if "inverted" in changed:
         stepper.set_direction_inverted(settings.inverted)
     return writes
+
+
+def resetDriverTuning(
+    stepper: Any,
+    current: tuple[int, int, int],
+    microsteps: int,
+    run: Callable[[str, Callable[[], Any]], Any] | None = None,
+    *,
+    clear_shutdown: bool = False,
+) -> int:
+    """Start the driver's automatic StealthChop tuning over, and send it
+    `current` (IRUN, IHOLD, IHOLD_DELAY) and `microsteps` again.
+
+    A StealthChop driver learns the PWM amplitude its motor needs at the
+    current it is set to (PWM_OFS_AUTO, PWM_GRAD_AUTO). Run below the current
+    it can regulate, it learns an amplitude far too high, and the first move
+    at a real current then draws enough for its short-circuit protection to
+    switch a coil off: the motor stands still while every move is answered
+    with success. Writing PWMCONF with pwm_autoscale cleared and then as it
+    was puts what it learned back to its start. The driver is off meanwhile,
+    so no coil is driven on a half-set amplitude, and is switched on again
+    only if it was on.
+
+    `clear_shutdown` is for a driver that did switch itself off: with the
+    driver off its short flags are gone, and clearing GSTAT takes drv_err
+    with them. Returns the driver register writes sent."""
+    run = run or _send
+    irun, ihold, ihold_delay = current
+    was_on = bool(getattr(stepper, "enabled", True)) and not getattr(stepper, "software_disabled", False)
+    writes = 3  # switching it off, its current and its microstepping
+    run("switch the driver off", lambda: stepper.enable_force(False))
+    try:
+        conf = run("read the driver's PWM settings", lambda: stepper.read_driver_register(TMC_REG_PWMCONF))
+        if conf & PWMCONF_AUTOSCALE:
+            run(
+                "stop the driver's tuning",
+                lambda: stepper.write_driver_register(TMC_REG_PWMCONF, conf & ~PWMCONF_AUTOSCALE),
+            )
+            run("start the driver's tuning over", lambda: stepper.write_driver_register(TMC_REG_PWMCONF, conf))
+            writes += 2
+        if clear_shutdown:
+            run("clear the driver's error flags", lambda: stepper.write_driver_register(TMC_REG_GSTAT, GSTAT_FLAGS))
+            writes += 1
+        run(f"set current IRUN={irun} IHOLD={ihold}", lambda: stepper.set_current(irun, ihold, ihold_delay))
+        run(f"set microsteps={microsteps}", lambda: stepper.set_microsteps(microsteps))
+    finally:
+        if was_on:
+            run("switch the driver on", lambda: stepper.enable_force(True))
+            writes += 1
+    return writes
+
+
+def _watchesDrivers() -> bool:
+    """Whether this machine looks after its drivers' tuning (driver_watch.py):
+    one that does not is sent a new current as it always was."""
+    try:
+        import driver_watch
+
+        return driver_watch.watchEnabled()
+    except Exception:
+        return False
+
+
+def _currentDiffers(stepper: Any, settings: StepperSettings) -> bool:
+    """Whether the driver was last sent another run or hold current. Start-up
+    has sent it none yet: it sends every setting to a driver whose tuning it
+    has no reason to doubt, and resets nothing."""
+    last = getattr(stepper, "last_set_current", None)
+    return isinstance(last, dict) and (last.get("irun"), last.get("ihold")) != (settings.irun, settings.ihold)
+
+
+def _waitUntilStopped(stepper: Any) -> None:
+    """Give a move under way the time to end: a tuning reset switches the
+    driver off for a moment, and a motor that is turning then loses steps."""
+    give_up_at = time.monotonic() + TUNING_RESET_WAIT_S
+    while time.monotonic() < give_up_at:
+        try:
+            if stepper.stopped:
+                return
+        except Exception:
+            return
+        time.sleep(0.02)
 
 
 def tcoolthrsRegister(settings: StepperSettings) -> int:

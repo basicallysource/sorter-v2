@@ -27,6 +27,12 @@ stall latch is gone but the chute is still unhomed, this monitor raises a
 follow-on blocking `chute_needs_homing` incident (a pure projection of
 `chute.homed`). It keeps the machine halted until the chute is re-homed, and
 auto-resolves the instant `chute.homed` becomes true again.
+
+A driver that switches itself off (overheated, or a short on a coil) raises the
+same DIAG line as a stall, so the firmware latches one. That is not a jam for a
+person to clear: where the driver watch runs (driver_watch.py) it takes such a
+latch over, restarts the driver, clears the latch and homes the chute again
+itself, and this monitor leaves the motor out of its stall handling meanwhile.
 """
 
 import time
@@ -43,12 +49,37 @@ CHUTE_NEEDS_HOMING_INCIDENT_KIND = "chute_needs_homing"
 STALL_POLL_INTERVAL_S = 0.25
 
 
+def requestPauseIfRunning(gc: GlobalConfig, why: str) -> None:
+    """Ask the main loop to pause the machine, if it is running. Safe to ask
+    on every poll: once the pause lands the state is no longer running."""
+    try:
+        import server.shared_state as shared_state
+
+        controller = shared_state.controller_ref
+        if controller is None:
+            return
+        if getattr(getattr(controller, "state", None), "value", None) != "running":
+            return
+        q = shared_state.command_queue
+        if q is None:
+            return
+        from defs.events import PauseCommandEvent, PauseCommandData
+
+        q.put(PauseCommandEvent(tag="pause", data=PauseCommandData()))
+        gc.logger.warning(f"{why} -> requesting machine pause.")
+    except Exception:
+        pass
+
+
 class StepperStallMonitor:
     def __init__(self, gc: GlobalConfig):
         self._gc = gc
         # Names stalled as of the previous poll, so we can act on rising edges
         # (a *newly* stalled motor) — e.g. invalidate its home reference once.
         self._prev_stalled: set[str] = set()
+        # Names whose latch is a driver that switched itself off, which the
+        # driver watch took over; each stays here until its latch clears.
+        self._driver_faults: set[str] = set()
 
     def run(self) -> None:
         import server.shared_state as shared_state
@@ -81,6 +112,7 @@ class StepperStallMonitor:
         #    keep that board's steppers at their last known state (don't falsely
         #    clear a real stall just because one UART read glitched).
         now_stalled: set[str] = set()
+        latched: dict[str, object] = {}
         for iface, steppers in groups.items():
             try:
                 mask = iface.get_stall_status()
@@ -96,6 +128,9 @@ class StepperStallMonitor:
                 stepper.stalled = bool(mask & (1 << stepper.channel))
                 if stepper.stalled:
                     now_stalled.add(stepper.name)
+                    latched[stepper.name] = stepper
+
+        now_stalled -= self._driverFaults(now_stalled, latched)
 
         # 2) Rising edges: a newly stalled motor lost steps -> drop its home ref.
         newly = now_stalled - self._prev_stalled
@@ -112,7 +147,7 @@ class StepperStallMonitor:
         # self-limits: the pause lands within a main-loop tick and then the state is
         # no longer RUNNING, so no further requests go out.
         if now_stalled:
-            self._request_pause_if_running()
+            requestPauseIfRunning(self._gc, "Stall while running")
 
         # 3) The incident is a pure projection of the latch state, plus the
         #    derived "chute lost its home reference" hold. `homed` defaults to
@@ -121,24 +156,25 @@ class StepperStallMonitor:
         chute_unhomed = chute is not None and not bool(getattr(chute, "homed", True))
         self._sync_incident(now_stalled, chute_unhomed, self._controller_live())
 
-    def _request_pause_if_running(self) -> None:
-        try:
-            import server.shared_state as shared_state
+    def _driverFaults(self, now_stalled: set[str], latched: dict[str, object]) -> set[str]:
+        """The latched names that are a driver having switched itself off, not a
+        stall. Each newly latched motor is offered to the driver watch once; one
+        it takes stays out of the stall handling until its latch clears."""
+        self._driver_faults &= now_stalled
+        offered = [name for name in latched if name not in self._prev_stalled and name not in self._driver_faults]
+        for name in offered:
+            try:
+                import driver_watch
 
-            controller = shared_state.controller_ref
-            if controller is None:
-                return
-            if getattr(getattr(controller, "state", None), "value", None) != "running":
-                return
-            q = shared_state.command_queue
-            if q is None:
-                return
-            from defs.events import PauseCommandEvent, PauseCommandData
-
-            q.put(PauseCommandEvent(tag="pause", data=PauseCommandData()))
-            self._gc.logger.warning("Stall while running -> requesting machine pause.")
-        except Exception:
-            pass
+                taken = driver_watch.claimStall(latched[name])
+            except Exception:
+                taken = False  # a stall then, as it is on a machine without the watch
+            if taken:
+                self._gc.logger.warning(
+                    f"Stall latched on {name}, whose driver switched itself off: left to the driver watch."
+                )
+                self._driver_faults.add(name)
+        return self._driver_faults
 
     def _controller_live(self) -> bool:
         # The chute is unhomed during the normal pre-home startup window too

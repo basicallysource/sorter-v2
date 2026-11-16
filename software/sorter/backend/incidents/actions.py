@@ -46,6 +46,13 @@ def _rehomeChute(gc: Any, incident: dict[str, Any]) -> None:
     stallguard.rehome_after_stall()
 
 
+def _retryDriver(gc: Any, incident: dict[str, Any]) -> None:
+    import driver_watch
+
+    if not driver_watch.retry(str(incident.get("channel") or "")):
+        raise RuntimeError("That motor's driver is not being watched.")
+
+
 def _passThrough(gc: Any, incident: dict[str, Any]) -> None:
     from server import shared_state
 
@@ -62,5 +69,6 @@ ACTIONS: dict[str, Action] = {
     "clear_c4": Action("Turn to clear", _clearC4),
     "clear_stall": Action("Done", _clearStall),
     "rehome_chute": Action("Home chute", _rehomeChute),
+    "retry_driver": Action("Try again", _retryDriver),
     "pass_through": Action("Send to bucket", _passThrough),
 }

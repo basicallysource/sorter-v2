@@ -29,6 +29,7 @@ from server.shared_state import (
 )
 from sorter_controller import SorterController
 from stepper_stall_monitor import StepperStallMonitor
+import driver_watch
 from run_recorder import RunRecorder
 from lifetime_stats import LifetimeStatsTracker
 import db
@@ -630,11 +631,24 @@ def main() -> None:
         if dropped:
             gc.logger.info(f"Dropped {dropped} queued runtime command(s) during {reason}")
 
+    def _watchDrivers() -> None:
+        # The stepper drivers' readings, alerts and restarts, on a machine that
+        # watches them (driver_watch.py): started with the hardware, before
+        # anything moves, and stopped with it.
+        try:
+            driver_watch.start(gc, irl)
+        except Exception as exc:
+            gc.logger.warning(f"Driver watch not started: {exc}")
+
     def _cleanup_runtime_hardware(reason: str) -> None:
         nonlocal irl, controller
 
         gc.logger.info(f"Cleaning up hardware runtime: {reason}")
         _drain_runtime_commands(reason)
+        try:
+            driver_watch.stop()
+        except Exception as exc:
+            gc.logger.warning(f"Failed to stop the driver watch cleanly: {exc}")
         setHardwareRuntimeIRL(None)
 
         with controller_lock:
@@ -696,6 +710,7 @@ def main() -> None:
         real_irl = mkIRLInterface(irl_config, gc)
         _replace_irl(real_irl)
         setHardwareRuntimeIRL(irl)
+        _watchDrivers()
         if _noPowerModeActive(gc):
             gc.logger.warning(
                 "NO_POWER_DEVELOPMENT_MODE=1: safe recovery will initialize runtime "
@@ -808,6 +823,7 @@ def main() -> None:
         real_irl = mkIRLInterface(irl_config, gc)
         _replace_irl(real_irl)
         setHardwareRuntimeIRL(irl)
+        _watchDrivers()
 
         if gc.disable_servos:
             gc.logger.info("Servo control disabled via --disable servos")

@@ -96,9 +96,9 @@ driving at the last reading (`exposure_time_absolute` under auto exposure).
 Schema 1 had no controls (its reader asked for controls some cameras lack and
 got nothing back).
 
-**`computer_health`** (window, schema 1) is the one kind that is **never
-sent**: it is the machine's own (`telemetry_store.LOCAL_KINDS`), kept for its
-Computer settings page, which reads its windows back after a restart. It
+**`computer_health`** (window, schema 1) is one of the two kinds that are
+**never sent**: it is the machine's own (`telemetry_store.LOCAL_KINDS`), kept
+for its Computer settings page, which reads its windows back after a restart. It
 describes the computer the backend runs on
 (`software/sorter/backend/computer_health.py`), an hour at a time whether or
 not the machine sorts, and at shutdown: `model`, `zones` (each thermal zone's
@@ -108,6 +108,16 @@ summed from each minute's share), `warnings` open at the end, and `minutes`:
 one `[minute start, hottest °C, share of readings slowed down, CPU use %,
 memory used %]` per minute, any of them null where the computer does not
 report it.
+
+**`driver_readings`** (window, schema 1) is the other kind that is never sent:
+what each stepper driver reported, on a machine that watches its drivers
+(`software/sorter/backend/driver_watch.py`), kept for the motors' pages. A
+window is written every 30 seconds at the most: `fields` names the columns and
+`drivers` holds, by motor, one `[seconds into the window, flags, CS_ACTUAL,
+SG_RESULT, TSTEP, PWM_SCALE_SUM, PWM_SCALE_AUTO, PWM_OFS_AUTO, PWM_GRAD_AUTO]`
+per reading kept (one every two seconds while the motor moves, one a minute
+while it stands still). It is the one large kind, so it keeps a day and no
+more (`telemetry_store.pruneKind`).
 
 ## Size
 

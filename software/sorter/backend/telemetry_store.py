@@ -16,8 +16,10 @@ it. Records never change once written. Three forms:
 `kind` names what the record describes and `schema` the version of its data's
 shape, so Hive can read old and new records side by side.
 
-The table stays small: a sorting hour writes a few KB. A record goes once every
-Hive has it and it is a week old, or after KEEP_DAYS whatever happened.
+The table stays small: a sorting hour writes a few KB for Hive. A record goes
+once every Hive has it and it is a week old, or after KEEP_DAYS whatever
+happened. A kind of the machine's own can keep less (pruneKind): the stepper
+drivers' readings (driver_watch.py), the one large kind, keep a day.
 """
 
 from __future__ import annotations
@@ -59,9 +61,10 @@ def _createTables(conn: sqlite3.Connection) -> None:
     )
 
 
-# Kinds kept on the machine and never sent: the computer's health is for the
-# person at the machine (its Computer settings page reads it back).
-LOCAL_KINDS = frozenset({"computer_health"})
+# Kinds kept on the machine and never sent: the computer's health and the
+# stepper drivers' readings are for the person at the machine (the pages that
+# show them read them back).
+LOCAL_KINDS = frozenset({"computer_health", "driver_readings"})
 _NOT_LOCAL = "kind NOT IN (" + ", ".join("?" for _ in LOCAL_KINDS) + ")"
 
 
@@ -159,11 +162,14 @@ def countAfter(after_id: int) -> int:
 
 
 def stats() -> dict[str, int]:
+    """What is kept for Hive: how many records, their size, and how many are
+    yet to be sent. The machine's own kinds (LOCAL_KINDS) are not counted."""
     with _connection() as conn:
         row = conn.execute(
             "SELECT COUNT(*) AS n, COALESCE(SUM(LENGTH(data)), 0) AS total, "
             "COALESCE(SUM(CASE WHEN synced_at IS NULL THEN 1 ELSE 0 END), 0) AS waiting "
-            "FROM telemetry_records"
+            f"FROM telemetry_records WHERE {_NOT_LOCAL}",
+            tuple(LOCAL_KINDS),
         ).fetchone()
     return {"count": int(row["n"]), "bytes": int(row["total"]), "waiting": int(row["waiting"])}
 
@@ -177,6 +183,18 @@ def markSyncedUpTo(max_id: int, synced_at: float) -> None:
             (float(synced_at), int(max_id)),
         )
         conn.commit()
+
+
+def pruneKind(kind: str, before: float) -> int:
+    """Delete the records of `kind` that ended before `before`, for a kind that
+    keeps less than prune() leaves it."""
+    with _connection() as conn:
+        cursor = conn.execute(
+            "DELETE FROM telemetry_records WHERE kind = ? AND ended_at < ?",
+            (kind, float(before)),
+        )
+        conn.commit()
+        return int(cursor.rowcount or 0)
 
 
 def prune(now: float) -> int:

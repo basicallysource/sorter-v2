@@ -11,6 +11,13 @@
 # [machine]
 # generation = "v3"  # "v2" (the default) or "v3"
 
+# Watch the stepper drivers while the hardware runs: keep their readings for
+# the motors' pages, warn when one runs hot, and restart one that has switched
+# itself off. A Sorter V3 does and a Sorter V2 does not, unless set here. Read
+# when the hardware starts.
+# [driver_watch]
+# enabled = true
+
 [servo]
 # For PCA9685 (default):
 # backend = "pca9685"

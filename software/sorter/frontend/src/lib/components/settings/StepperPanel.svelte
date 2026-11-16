@@ -1,9 +1,11 @@
 <!--
-	One motor on a settings page: its state, the buttons that move it by hand and
-	its driver settings. A motor under a channel's camera is one panel as wide as
-	the camera, its driver settings folded away. The chute has a page of its own,
-	so each of its jobs (operating speed, stress test, driver settings, endstop)
-	is a panel that is always shown, and homing is the two buttons at the top.
+	One motor on a settings page: its state, the buttons that move it by hand,
+	what its driver has been reporting and its driver settings. A motor under a
+	channel's camera is one panel as wide as the camera, its driver settings
+	folded away. The chute has a page of its own, so each of its jobs (operating
+	speed, stress test, driver settings, endstop) is a panel that is always
+	shown, and homing is the two buttons at the top. The driver's readings are
+	always shown, for every motor, right under the buttons that move it.
 -->
 <script lang="ts">
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
@@ -27,6 +29,7 @@
 	import { onMount } from 'svelte';
 	import StepperPulseControls from './stepper/StepperPulseControls.svelte';
 	import StepperHoming from './stepper/StepperHoming.svelte';
+	import StepperDriverReadings from './stepper/StepperDriverReadings.svelte';
 	import StepperDriverSettings from './stepper/StepperDriverSettings.svelte';
 	import StepperDrvStatusGrid from './stepper/StepperDrvStatusGrid.svelte';
 	import StepperEndstopSettings from './stepper/StepperEndstopSettings.svelte';
@@ -144,6 +147,11 @@
 	// --- TMC driver settings ---
 	let tmcIrun = $state(16);
 	let tmcIhold = $state(8);
+	// The currents the driver is set to, as last read or applied: the fields
+	// above change as they are typed in, and the driver's readings are drawn
+	// against what it runs on.
+	let setIrun = $state<number | null>(null);
+	let setIhold = $state<number | null>(null);
 	let tmcMicrosteps = $state(8);
 	let tmcStealthchop = $state(true);
 	let tmcCoolstep = $state(false);
@@ -564,6 +572,22 @@
 
 	// --- TMC driver settings ---
 
+	function noteSetCurrents(data: any) {
+		setIrun = typeof data?.irun === 'number' ? data.irun : null;
+		setIhold = typeof data?.ihold === 'number' ? data.ihold : null;
+	}
+
+	// The set currents alone, for the lines on the driver's readings while the
+	// driver settings are folded away. Opening the settings reads all of them.
+	async function loadSetCurrents() {
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/stepper/${stepperKey}/tmc`);
+			if (res.ok) noteSetCurrents(await res.json());
+		} catch {
+			// The readings are drawn without the lines.
+		}
+	}
+
 	async function loadTmcSettings() {
 		tmcLoading = true;
 		tmcReadFailed = false;
@@ -571,6 +595,7 @@
 			const res = await fetch(`${currentBackendBaseUrl()}/api/stepper/${stepperKey}/tmc`);
 			if (!res.ok) throw new Error(await res.text());
 			const data = await res.json();
+			noteSetCurrents(data);
 			if (data.irun !== null) tmcIrun = data.irun;
 			if (data.ihold !== null) tmcIhold = data.ihold;
 			if (data.microsteps !== null) tmcMicrosteps = data.microsteps;
@@ -654,6 +679,7 @@
 				return;
 			}
 			const data = await res.json();
+			noteSetCurrents(data);
 			if (data.irun !== null) tmcIrun = data.irun;
 			if (data.ihold !== null) tmcIhold = data.ihold;
 			if (data.microsteps !== null) tmcMicrosteps = data.microsteps;
@@ -706,7 +732,10 @@
 			loadedMachineKey = machineKey;
 			void loadSettings();
 			tmcLoaded = false;
+			setIrun = null;
+			setIhold = null;
 			if (driverShown) void loadTmcSettings();
+			else void loadSetCurrents();
 		}
 	});
 
@@ -899,6 +928,12 @@
 
 		{#if !isChute}
 			<div class="divide-y divide-line border-t border-line">
+				<StepperDriverReadings
+					{stepperKey}
+					base={currentBackendBaseUrl()}
+					runCurrent={setIrun}
+					holdCurrent={setIhold}
+				/>
 				<Disclosure
 					title="Driver settings"
 					help="Currents, microsteps, stall detection"
@@ -926,6 +961,13 @@
 	</Panel>
 
 	{#if isChute}
+		<StepperDriverReadings
+			{stepperKey}
+			base={currentBackendBaseUrl()}
+			runCurrent={setIrun}
+			holdCurrent={setIhold}
+			panel
+		/>
 		<StepperChuteOperation
 			{loading}
 			{saving}

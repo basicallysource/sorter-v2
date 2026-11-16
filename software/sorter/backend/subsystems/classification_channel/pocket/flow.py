@@ -8,15 +8,17 @@ EXIT, whose floor ends in the hole: the fin that pushes a piece into it rests a
 ledge short of the hole, so a piece carried in waits on the ledge and falls
 when the next turn begins.
 
-One cycle is exactly one fin pitch, always forward, in two fixed strokes:
+One cycle is exactly one fin pitch, always forward, in fixed moves:
 
   REST     the feeder may add one piece, only into an empty RECEIVE pocket; it
            is photographed there and identified while it rides the queue.
-  EJECT    a fixed stroke pushes the piece on the ledge over the hole, then a
-           short shake. The hole's lip can be outside the camera's view, so a
-           piece is only counted as gone after the stroke and the shake.
-  AIM      the chute is aimed for the piece that enters the EXIT pocket next,
-           before it can get there when it is too long to rest on the ledge.
+  EJECT    the turn that pushes the piece on the ledge across the hole. When
+           the piece arriving behind it is short enough to wait on the ledge
+           this is the whole pitch in one move, ending at REST. When it is
+           not, it is a fixed stroke that stops with the waiting piece over
+           the hole. A piece still seen at the hole afterwards is shaken.
+  AIM      after a stopped stroke only: the chute is aimed for the arriving
+           piece before it can reach the hole.
   ALIGN    the rest of the pitch, back to REST. The fins are read off the
            camera and the pose corrected if steps were lost.
 
@@ -56,14 +58,14 @@ LOG_TAG = "[C4-POCKET]"
 
 # How far past the hole's entry edge the eject stroke carries the pushing fin.
 _EJECT_PAST_EDGE_DEG = 20.0
-# The shake after an eject stroke, at the rotor, and how often it is repeated
-# for a piece still seen at the hole before the piece is given up on.
+# The shake for a piece still seen at the hole after the turn, at the rotor,
+# and how often it is tried before the piece is given up on.
 _SHAKE_OUTPUT_DEG = 3.0
 _SHAKE_CYCLES = 4
 _SHAKE_TRIES = 3
 # A piece is counted as gone when nothing is seen at the hole for this long
-# after the stroke and its shake.
-_CONFIRM_S = 0.4
+# after the turn. One still seen there is shaken.
+_CONFIRM_S = 0.3
 # The firmware can report "stopped" before a move it was just given starts.
 _START_GRACE_S = 0.15
 # A box must be in this many frames in a row to become a piece.
@@ -137,6 +139,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._new_seen: dict[tuple[int, int], int] = {}
         # This cycle: where the motor stood when it began, and what is left.
         self._cycle_start_pos: Optional[int] = None
+        self._cycle_done_us = 0
         self._members: list[_TrackedPiece] = []
         self._aim_target: Optional[_TrackedPiece] = None
         self._after_aim_us = 0
@@ -529,11 +532,22 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._cycles.rotated(time.time(), ejecting=bool(exit_))
         except Exception:
             pass
-        if exit_:
-            self._move(stepper, self._eject_us, self.ctx.config.discharge_speed_usteps_per_s, now, "eject stroke")
+        if not exit_:
+            self._cycle_done_us = 0
+            self._afterEject(stepper, now, done_us=0)
+        elif not last_queue or self._fitsLedge(last_queue):
+            # The piece arriving behind is short enough to wait on the ledge (or
+            # there is none): one whole turn. The pushing fin sweeps the waiting
+            # piece across the whole hole and ends as the fin that walls it off.
+            self._cycle_done_us = self._pitch_us
+            self._move(stepper, self._pitch_us, self.ctx.config.rotate_speed_usteps_per_s, now, "whole turn")
             self._enter(_P.EJECT)
         else:
-            self._afterEject(stepper, now, done_us=0)
+            # The arriving piece could tip into the hole when it gets there: stop
+            # once the waiting piece is over the hole, and aim for the next first.
+            self._cycle_done_us = self._eject_us
+            self._move(stepper, self._eject_us, self.ctx.config.discharge_speed_usteps_per_s, now, "eject stroke")
+            self._enter(_P.EJECT)
 
     # -------------------------------------------------------------------- moves
 
@@ -563,8 +577,12 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
     # ----------------------------------------------------- EJECT, SHAKE, CONFIRM
 
     def _eject(self, state, perception_service, stepper, now: float, moving: bool) -> None:
-        if not moving:
-            self._startShake(stepper, now)
+        if moving:
+            return
+        self._confirm_from = now
+        self._confirm_wall = time.time()
+        self._stuck_frames = 0
+        self._enter(_P.CONFIRM)
 
     def _shake(self, state, perception_service, stepper, now: float, moving: bool) -> None:
         if moving:
@@ -583,8 +601,13 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if moving:
             return
         if self._fresh(state, self._confirm_wall):
-            # Ahead of the pushing fin, which now stands past the hole's edge.
-            edge = self._ledge_deg - self._eject_us / self._per_deg - 2.0
+            # Still at the hole: ahead of the pushing fin after an eject stroke,
+            # anywhere over the hole after a whole turn (the piece that arrived
+            # behind waits on the ledge, short of the hole's edge).
+            if self._cycle_done_us >= self._pitch_us:
+                edge = -3.0
+            else:
+                edge = self._ledge_deg - self._cycle_done_us / self._per_deg - 2.0
             ahead = any(
                 po.com_forward_to_exit_deg is not None and float(po.com_forward_to_exit_deg) < edge
                 for po in getattr(state, "pieces", ())
@@ -592,8 +615,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._stuck_frames = self._stuck_frames + 1 if ahead else 0
         if self._stuck_frames >= 2:
             self._shake_tries += 1
-            if self._shake_tries < _SHAKE_TRIES:
-                self.logger.warning(f"{LOG_TAG} a piece is still at the hole: shaking again ({self._shake_tries + 1} of {_SHAKE_TRIES})")
+            if self._shake_tries <= _SHAKE_TRIES:
+                self.logger.warning(f"{LOG_TAG} a piece is still at the hole: shaking ({self._shake_tries} of {_SHAKE_TRIES})")
                 self._startShake(stepper, now)
                 return
             self._exitStuck(stepper, now)
@@ -616,7 +639,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if self._members:
             self._enter(_P.COMMIT)
         else:
-            self._afterEject(stepper, now, done_us=self._eject_us)
+            self._afterEject(stepper, now, done_us=self._cycle_done_us)
 
     def _exitStuck(self, stepper, now: float) -> None:
         """The piece will not leave the hole's lip. Nothing may land in a sorted
@@ -632,13 +655,13 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 "so it and the piece behind it went to the discard together.",
             )
         lead = self._pockets[-1][0]
-        self._aimThen(lead, self._pitch_us - self._eject_us, _P.ALIGN, now)
+        self._aimThen(lead, self._pitch_us - self._cycle_done_us, _P.ALIGN, now)
 
     def _commit(self, state, perception_service, stepper, now: float, moving: bool) -> None:
         """The rest of a group that fell with its first piece: each is handed to
         distribution in turn, so every one is recorded where it went."""
         if not self._members:
-            self._afterEject(stepper, now, done_us=self._eject_us)
+            self._afterEject(stepper, now, done_us=self._cycle_done_us)
             return
         member = self._members[0]
         if not member.placed:

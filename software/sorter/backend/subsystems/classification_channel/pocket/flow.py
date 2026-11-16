@@ -6,36 +6,29 @@ wall is open over the exit, and a piece falls when it is carried into the
 opening. The rotor only ever rests in one pose: a fin standing on the far edge
 of the opening, walling it off from the pocket pieces drop into. In travel
 order the pockets at rest are then RECEIVE (pieces land here), the QUEUE
-pockets, and EXIT, which lies over the opening but for a ledge of wall at its
-back, in front of the fin that pushes it.
+pockets, and EXIT, which lies over the opening.
 
-So a piece turned into the EXIT pocket falls on the way if it lay toward the
-front of its pocket, and waits on the ledge if it lay at the back. The EXIT
-pocket is emptied before anything else moves:
+Where in the EXIT pocket a piece falls depends on where it lay in its pocket:
+toward the front it falls as the pocket turns in, at the back it waits by the
+pushing fin and falls on the next turn, when that fin sweeps the whole pocket
+across the opening and ends as the fin that walls it off. The camera cannot see
+all of the exit, so the flow does not look there. It needs two things instead:
 
-  REST     the feeder may add one piece, only into an empty RECEIVE pocket; it
-           is photographed there and identified while it rides the queue. The
-           chute is aimed for the piece in the last QUEUE pocket.
-  TURN     one fin pitch forward, with the chute on the piece entering EXIT.
-  LOOK     at rest again, the camera looks at the EXIT pocket. Empty: the
-           piece fell, and the cycle is done.
-  PUSH     only for a piece still seen there. One on the ledge is pushed into
-           the opening by turning forward a little more, never so far that
-           the piece in the pocket behind could reach the opening; one over
-           the opening that has not fallen is shaken where it is.
-  BACK     back to REST, a little past it and forward again, so the rotor's
-           play on its shaft is always taken up the same way.
-  CONFIRM  the EXIT pocket must look empty; if it does not, push again, and if
-           that does not empty it the channel stops for the stall watchdog.
+  one piece at a time through the exit. A piece is admitted only when the
+  pocket ahead of it is empty, so pieces ride with an empty pocket between
+  them, and the pocket behind a piece is empty for the two turns it takes that
+  piece to be surely out.
 
-Which pocket holds which piece is the flow's own record, moved one pocket per
-turn. The camera adds pieces to it and is evidence, never the truth: a piece
-the detector loses for a while stays in its pocket and is ejected on schedule.
+  a look at the RECEIVE pocket right after the sweep. The swept pocket's piece
+  can only be gone or have been carried round past the opening into RECEIVE,
+  where the camera sees well and the feeder has had no chance to add one. Empty
+  means it fell, and only then is it counted as dropped.
 
-Rules kept in code: the EXIT pocket is empty at rest; the chute is aimed for a
-piece before the turn that can drop it and stays on it until the pocket has been
-pushed out and looked at; nothing is fed while the rotor is off REST or the
-RECEIVE pocket is occupied; two pieces in one pocket go to the discard together.
+Every move is one fin pitch forward. The chute is aimed for a piece before the
+turn that takes it into the EXIT pocket and stays on it until it is counted as
+dropped. Which pocket holds which piece is the flow's own record, moved one
+pocket per turn; the camera adds pieces to it and is evidence, never the truth.
+Two pieces in one pocket go to the discard together.
 """
 
 from __future__ import annotations
@@ -60,32 +53,13 @@ from subsystems.classification_channel.two_piece.flow import (
 
 LOG_TAG = "[C4-POCKET]"
 
-# How far past the line pieces fall at the push carries the pushing fin.
-_PUSH_PAST_EDGE_DEG = 10.0
-# A piece is expected to fall as its pocket turns into the exit only when it
-# lies at least this far ahead of where it would stop short of the fall line.
-_FALLS_MARGIN_DEG = 8.0
-# The push never brings the piece in the pocket behind closer than this to the
-# opening's entry edge.
-_NEXT_MARGIN_DEG = 10.0
-# After the turn the camera gets this long to place the pieces before the push,
-# and after the push this long to show a piece still at the opening.
+# After a turn the camera gets this long, and this many frames, to show whether
+# a swept piece was carried round into the RECEIVE pocket.
 _LOOK_S = 0.3
-_PCHECK_S = 0.2
-# The motor turns this far back past where it is going and comes forward again,
-# so every return to rest ends turning forward: any play between the motor and
-# the rotor is then always taken up the same way.
-_TAKEUP_DEG = 25.0
-# A pocket that still looks occupied after the push is pushed this many times.
-_SWEEP_TRIES = 3
-# The shake for a piece over the opening that has not fallen, at the rotor, and
-# how often it is tried before the pocket is pushed out again.
-_SHAKE_OUTPUT_DEG = 3.0
-_SHAKE_CYCLES = 4
-_SHAKE_TRIES = 3
-# A piece is counted as gone when nothing is seen at the hole for this long
-# after the turn. One still seen there is shaken.
-_CONFIRM_S = 0.3
+_LOOK_FRAMES = 3
+# A piece carried round this many times will not fall: the channel stops for
+# the stall watchdog (it sweeps the channel, or asks for help).
+_CARRY_MAX = 3
 # The firmware can report "stopped" before a move it was just given starts.
 _START_GRACE_S = 0.15
 # A piece drawn as several fused boxes in half its frames at rest, of at least
@@ -100,8 +74,8 @@ _SAME_PIECE_DEG = 8.0
 _UNSEEN_DROP_S = 0.7
 # With no new piece for this long, the pieces already on the channel move on.
 _FLUSH_AFTER_S = 6.0
-# The fins within this of the rest pose are at rest; a fin short of it by up
-# to _CORRECT_MAX_DEG is turned on to it (steps were lost).
+# The fins within this of the rest pose are at rest; off by up to
+# _CORRECT_MAX_DEG, the rotor is turned to it (steps were lost).
 _ALIGN_TOL_DEG = 2.0
 _CORRECT_MAX_DEG = 30.0
 # Fin readings that keep disagreeing are given up on after this many.
@@ -117,12 +91,6 @@ class _P(Enum):
     AIM = "aim"
     TURN = "turn"
     LOOK = "look"
-    PUSH = "push"
-    PCHECK = "push check"
-    SHAKE = "shake"
-    BACK = "back"
-    SETTLE = "settle"
-    CONFIRM = "confirm"
     COMMIT = "commit"
 
 
@@ -132,12 +100,6 @@ _PHASE_NAMES = {
     _P.AIM: "staging",
     _P.TURN: "ejecting",
     _P.LOOK: "ejecting",
-    _P.PUSH: "ejecting",
-    _P.PCHECK: "ejecting",
-    _P.SHAKE: "ejecting",
-    _P.BACK: "ejecting",
-    _P.SETTLE: "ejecting",
-    _P.CONFIRM: "ejecting",
     _P.COMMIT: "ejecting",
     _P.VERIFY: "staging",
     _P.CORRECT: "staging",
@@ -151,57 +113,40 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         cfg = self.ctx.config
-        self._n = max(2, int(cfg.fin_count))
+        self._n = max(3, int(cfg.fin_count))
         self._pitch_deg = 360.0 / self._n
         # pockets[0] is RECEIVE, pockets[-1] is EXIT.
         self._pockets: list[list[_TrackedPiece]] = [[] for _ in range(self._n)]
+        # The EXIT pocket's pieces after the turn that swept it, until the look.
+        self._swept: list[_TrackedPiece] = []
+        self._members: list[_TrackedPiece] = []
         self._pp = _P.VERIFY
         self._started = False
+        self._halted = False
         self._serial = 0
         self._move_cmd_at = 0.0
         self._rest_since = 0.0
         self._rest_wall = 0.0
         self._last_state_ts = -1.0
         self._new_seen: dict[tuple[int, int], int] = {}
-        # This cycle: where the motor stood when it began, and what is left.
+        self._merged: dict = {}
         self._cycle_start_pos: Optional[int] = None
-        self._push_us = 0
-        self._sweeps = 0
         self._look_from = 0.0
         self._look_wall = 0.0
         self._look_frames = 0
-        self._pcheck_from = 0.0
-        self._pcheck_wall = 0.0
-        # The EXIT pocket would not empty: no more turns until the stall watchdog acts.
-        self._halted = False
-        self._paused_phase = _P.REST
-        self._takeup_us = 0
-        self._after_settle = _P.CONFIRM
-        self._exit_seen = 0
-        self._exit_gap: Optional[float] = None
-        self._members: list[_TrackedPiece] = []
+        self._carry_frames = 0
         self._aim_target: Optional[_TrackedPiece] = None
         self._after_aim_us = 0
+        self._after_aim_back = False
         self._after_aim_phase = _P.TURN
-        self._shake_tries = 0
-        self._stuck_frames = 0
-        # A fin read short of rest once: corrected only when a second reading agrees.
-        self._short_seen: Optional[float] = None
-        self._over_seen: Optional[float] = None
-        self._takeup_tried = False
+        # A fin read off rest once: corrected only when a second reading agrees.
+        self._off_seen: Optional[float] = None
         self._verify_reads = 0
-        self._confirm_from = 0.0
-        self._confirm_wall = 0.0
         self._verify_thread: Optional[threading.Thread] = None
         self._verify_result: tuple[str, Optional[float]] = ("none", None)
         self._paused_mid_cycle = False
-        self._merged: dict = {}
         self._geometry_error_logged = False
         self._fins: list[float] = []
-        self._ledge_deg = 0.0
-        self._fall_deg = 0.0
-        self._push_deg = 0.0
-        self._arrive_gap: Optional[float] = None
         self._pitch_us = 0
         self._per_deg = 1.0
         self._loadGeometry()
@@ -210,8 +155,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
     # ---------------------------------------------------------------- geometry
 
     def _loadGeometry(self) -> bool:
-        """Where the fins rest, as gaps to the hole's entry edge (the measure the
-        camera gives every piece), and the two strokes in motor microsteps."""
+        """Where the fins rest, as gaps to the exit zone's entry edge (the measure
+        the camera gives every piece), and one pitch in motor microsteps."""
         from subsystems.classification_channel.two_piece.spoke_home import _finOverExitAngle
 
         cfg = self.ctx.config
@@ -237,21 +182,12 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                     fin_rel = (float(target[0]) - float(channel.radius1_angle_image)) % 360.0
                     block = (fin_rel - entry) % 360.0 if reverse else (entry - fin_rel) % 360.0
             self._fins = sorted((block - k * self._pitch_deg) % 360.0 for k in range(self._n))
-            self._ledge_deg = self._fins[0]
             platter = C4FiveSectorPlatter.from_irl_config(self.irl_config)
             per_rev = float(platter.motor_microsteps_per_output_revolution)
             self._per_deg = per_rev / 360.0
             self._pitch_us = int(round(per_rev / self._n))
-            # A piece falls once it is carried to the middle of the exit zone (where
-            # the two-piece flow drives a piece to drop it), not at the zone's edge.
-            self._fall_deg = float(zones.exit.width) / 2.0
-            self._push_deg = min(
-                max(self._ledge_deg + self._fall_deg + _PUSH_PAST_EDGE_DEG, 5.0), self._pitch_deg - 5.0
-            )
             self.logger.info(
-                f"{LOG_TAG} {self._n} pockets of {self._pitch_deg:.1f}°; the pushing fin rests "
-                f"{self._ledge_deg:.1f}° short of the exit zone, and pieces fall {self._fall_deg:.1f}° into it; "
-                f"push {self._push_deg:.1f}° and back"
+                f"{LOG_TAG} {self._n} pockets of {self._pitch_deg:.1f}°, one piece through the exit at a time"
             )
             return True
         except Exception as exc:
@@ -262,8 +198,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             return False
 
     def _station(self, gap: Optional[float]) -> Optional[int]:
-        """Which pocket a piece this far from the hole's entry is in, at rest:
-        0 is RECEIVE, the last is EXIT."""
+        """Which pocket a piece this far from the exit zone's entry is in, at
+        rest: 0 is RECEIVE, the last is EXIT."""
         if gap is None or not self._fins:
             return None
         gap = float(gap)
@@ -271,7 +207,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             return self._n - 1
         below = sum(1 for fin in self._fins if fin <= gap)
         if below >= self._n:
-            return self._n - 1  # Past the fin that walls the hole off: at the hole
+            return self._n - 1  # Past the fin that walls the opening off: at the opening
         return (self._n - 1) - below
 
     # ------------------------------------------------------------- watchdog API
@@ -285,6 +221,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         result = super().attemptStallAutoClear(max_output_deg=max_output_deg)
         if result.cleared:
             self._pockets = [[] for _ in range(self._n)]
+            self._swept = []
             self._members = []
             self._aim_target = None
             self._halted = False
@@ -297,8 +234,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         for tp in self._pieces.values():
             if tp.placed and not tp.ejected:
                 self._unplace(tp)
-        self._paused_mid_cycle = self._pp not in (_P.REST, _P.VERIFY, _P.CORRECT)
-        self._paused_phase = self._pp
+        self._paused_mid_cycle = self._pp in (_P.AIM, _P.TURN)
         self._cycles.drop()
         self._was_ready = False
         self._ready_since = None
@@ -307,10 +243,12 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
     def cleanup(self) -> None:
         super().cleanup()
         self._pockets = [[] for _ in range(self._n)]
+        self._swept = []
         self._members = []
         self._aim_target = None
         self._new_seen = {}
         self._started = False
+        self._halted = False
         self._paused_mid_cycle = False
         self._pp = _P.VERIFY
 
@@ -339,23 +277,27 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             _P.AIM: self._aim,
             _P.TURN: self._turn,
             _P.LOOK: self._look,
-            _P.PUSH: self._push,
-            _P.PCHECK: self._pcheck,
-            _P.SHAKE: self._shake,
-            _P.BACK: self._back,
-            _P.SETTLE: self._settle,
-            _P.CONFIRM: self._confirm,
             _P.COMMIT: self._commit,
         }[self._pp]
         handler(state, perception_service, stepper, now, moving)
 
-        ready = self._pp == _P.REST and not moving and not self._halted and self._receiveClear(state)
-        self.setClassificationReady(ready, "at rest, receive pocket empty")
+        ready = self._pp == _P.REST and not moving and self._admits(state)
+        self.setClassificationReady(ready, "at rest, room for a piece")
         if not ready:
             self._ready_since = None
         elif self._ready_since is None:
             self._ready_since = now
         self._recordCycle(perception_service, state, ready)
+
+    def _admits(self, state) -> bool:
+        """Whether the feeder may add a piece now: the RECEIVE pocket is empty,
+        so is the pocket ahead of it (pieces ride an empty pocket apart), and no
+        piece is in the EXIT pocket waiting for the turn that sweeps it."""
+        if self._halted or self._pockets[0] or self._pockets[1] or self._pockets[-1]:
+            return False
+        return not any(
+            self._station(po.com_forward_to_exit_deg) == 0 for po in getattr(state, "pieces", ())
+        )
 
     def _enter(self, phase: _P) -> None:
         if phase != self._pp:
@@ -384,37 +326,32 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._startVerify(now)
             return
         self.logger.info(f"{LOG_TAG} resumed  [{self._pocketsText()}]")
+        # Pieces swept out before the stop but not yet counted: they fell where
+        # the chute stood for them.
+        for tp in self._swept + self._members:
+            self._place(tp)
+            self._commitToDistribution(tp)
+        for tp in list(self._swept + self._members):
+            self._forget(tp)
         if not self._paused_mid_cycle:
             self._startVerify(now)
             return
-        # Stopped part way through a cycle: whether the piece being ejected fell,
-        # and where the one behind it lies, is not known. Both go to the discard,
-        # and the rotor is brought back to rest from where the motor stands.
+        # Stopped part way through a turn: whether the pieces at the exit fell,
+        # and into what, is not known. They go to the discard, and the turn is
+        # finished from where the motor stands.
         self._paused_mid_cycle = False
-        for tp in self._pockets[-1] + self._pockets[-2] + self._members:
+        for tp in self._pockets[-1] + self._pockets[-2]:
             self._toDiscard(
                 tp,
                 "interrupted",
                 "The machine stopped while the classification channel was turning it toward the "
                 "exit, so where it fell is not known; it went to the discard.",
             )
-        self._pockets[-1] = self._members + self._pockets[-1]
-        self._members = []
-        if self._paused_phase in (_P.AIM, _P.TURN):
-            # The turn was not finished (or not begun): the rest of it.
-            done = 0
-            if self._cycle_start_pos is not None:
-                done = abs(int(stepper.position) - int(self._cycle_start_pos))
-            lead = (self._pockets[-1] or self._pockets[-2] or [None])[0]
-            self._aimThen(lead, max(0, self._pitch_us - done), _P.TURN, now)
-            return
-        # Past the turn: back from wherever the push left the rotor.
-        rest = getattr(self.irl, "c4_fin_rest_microsteps", None)
-        off = int(C4_TRAVEL_SIGN) * (int(stepper.position) - int(rest)) if rest is not None else 0
-        if 0 < off < self._pitch_us:
-            self._returnToRest(stepper, off, now, _P.REST)
-        else:
-            self._startVerify(now)
+        done = 0
+        if self._cycle_start_pos is not None:
+            done = abs(int(stepper.position) - int(self._cycle_start_pos))
+        lead = (self._pockets[-1] or self._pockets[-2] or [None])[0]
+        self._aimThen(lead, max(0, self._pitch_us - done), _P.TURN, now)
 
     # ------------------------------------------------------------ what is seen
 
@@ -425,13 +362,6 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             return False
         self._last_state_ts = ts
         return True
-
-    def _receiveClear(self, state) -> bool:
-        if self._pockets[0]:
-            return False
-        return not any(
-            self._station(po.com_forward_to_exit_deg) == 0 for po in getattr(state, "pieces", ())
-        )
 
     def _observeAtRest(self, state, now: float) -> None:
         """Match the frame's boxes to the pockets' records and add the pieces
@@ -460,9 +390,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             pocket = self._pockets[station]
             gap = float(po.com_forward_to_exit_deg)
             # The tracker gave a piece a new id: the record in this pocket that
-            # is not in the frame takes it.
-            # (Wherever in the pocket: the turn that brought it here moved it, and
-            # the tracker often renames a piece it saw move that far.)
+            # is not in the frame takes it. (Wherever in the pocket: the turn
+            # that brought it here moved it, and the tracker often renames a
+            # piece it saw move that far.)
             lost = next((tp for tp in pocket if id(tp) not in matched), None)
             if lost is not None:
                 self.logger.info(f"{LOG_TAG} track={lost.track_id} is now track={po.sv_bt_track_id}")
@@ -550,14 +480,16 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if tp.placed and not tp.ejected:
             self.transport.clearPieceForDistribution(tp.known_object)
             self._unplace(tp)
+        self.logger.warning(f"{LOG_TAG} track={tp.track_id} -> discard ({kind})")
         self._markDoubleFeed(tp, group, kind, message)
 
     def _forget(self, tp: _TrackedPiece) -> None:
         for pocket in self._pockets:
             if tp in pocket:
                 pocket.remove(tp)
-        if tp in self._members:
-            self._members.remove(tp)
+        for group in (self._members, self._swept):
+            if tp in group:
+                group.remove(tp)
         for key in [key for key, value in self._pieces.items() if value is tp]:
             self._pieces.pop(key, None)
 
@@ -572,7 +504,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._maybeStartCycle(stepper, now)
 
     def _maybeStartCycle(self, stepper, now: float) -> None:
-        receive, last_queue, exit_ = self._pockets[0], self._pockets[-2], self._pockets[-1]
+        receive, ahead, last_queue, exit_ = self._pockets[0], self._pockets[1], self._pockets[-2], self._pockets[-1]
         if self._halted or not any(self._pockets):
             return
         if receive:
@@ -587,10 +519,20 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                         "The camera drew it as more than one piece lying together in the receive pocket "
                         "in most of its frames, so it went to the discard as a double drop.",
                     )
-        elif (now - self._rest_since) < _FLUSH_AFTER_S:
-            return  # The feeder gets its chance to add a piece first
-        # What this turn can drop: the last queue pocket's piece (and anything a
-        # push could not safely clear from EXIT, which went to the discard with it).
+        elif not ahead and not exit_ and (now - self._rest_since) < _FLUSH_AFTER_S:
+            return  # The feeder may add a piece: it gets its chance first
+        # Two pockets in a row at the exit would empty on the same turn: no bin
+        # is right for both, so both go to the discard. (Pieces are admitted an
+        # empty pocket apart; this is a piece that was carried round, or a stray.)
+        if exit_ and last_queue:
+            for tp in exit_ + last_queue:
+                self._toDiscard(
+                    tp,
+                    "together",
+                    "It reached the classification channel's exit right behind another piece, so the "
+                    "two fell together; both went to the discard.",
+                )
+        # The piece this turn can drop needs the chute on it first.
         going = exit_ + last_queue
         if going:
             if not all(tp.result_applied for tp in going):
@@ -602,14 +544,10 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 return
             if not self._headReady(lead):
                 return  # The chute is not on it yet
-        gaps = [float(tp.gap_to_exit) for tp in last_queue if tp.gap_to_exit is not None and (now - tp.last_seen) < 1.5]
-        self._arrive_gap = min(gaps) if last_queue and len(gaps) == len(last_queue) else None
         self._cycle_start_pos = int(stepper.position)
-        self._sweeps = 0
-        self._shake_tries = 0
         self.noteProgress()
         try:
-            self._cycles.rotated(time.time(), ejecting=bool(going))
+            self._cycles.rotated(time.time(), ejecting=bool(exit_))
         except Exception:
             pass
         self._move(stepper, self._pitch_us, self.ctx.config.rotate_speed_usteps_per_s, now, "turn")
@@ -631,29 +569,14 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self.logger.error(f"{LOG_TAG} {what} was not acknowledged")
         self._move_cmd_at = now
 
-    def _moveBack(self, stepper, microsteps: int, now: float) -> None:
-        self._move(stepper, microsteps, self.ctx.config.rotate_speed_usteps_per_s, now, "back", back=True)
-
-    def _startShake(self, stepper, now: float) -> None:
-        cfg = self.ctx.config
-        amplitude = max(1, int(round(_SHAKE_OUTPUT_DEG * self._per_deg)))
-        try:
-            stepper.jitter(amplitude, _SHAKE_CYCLES, int(cfg.jitter_speed_usteps_per_s), int(cfg.jitter_accel_usteps_per_s2))
-        except Exception as exc:
-            self.logger.warning(f"{LOG_TAG} shake failed: {exc}")
-        self._move_cmd_at = now
-        self._enter(_P.SHAKE)
-
     # --------------------------------------------------------------- TURN, LOOK
 
     def _turn(self, state, perception_service, stepper, now: float, moving: bool) -> None:
         if moving:
             return
-        # One pocket on. What a push could not clear from EXIT is joined by the
-        # pocket behind it.
-        left = self._pockets[-1]
+        # One pocket on. The EXIT pocket was swept across the whole opening.
+        self._swept = self._pockets[-1]
         self._pockets = [[]] + self._pockets[:-1]
-        self._pockets[-1] = left + self._pockets[-1]
         for index, pocket in enumerate(self._pockets):
             for tp in pocket:
                 tp.zone = _ZONE_DROP if index == 0 else _ZONE_PRECISE
@@ -666,210 +589,33 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._look_from = now
         self._look_wall = time.time()
         self._look_frames = 0
-        self._exit_seen = 0
-        self._exit_gap = None
+        self._carry_frames = 0
         self._new_seen = {}
         self._enter(_P.LOOK)
 
     def _look(self, state, perception_service, stepper, now: float, moving: bool) -> None:
-        """Back at the rest pose: let the camera place the pieces, then push the
-        EXIT pocket out if a piece was turned into it."""
+        """At rest after a turn that swept the EXIT pocket: is its piece in the
+        RECEIVE pocket? Nothing else can be there: the feeder was held."""
         if moving:
             return
-        if self._fresh(state, self._look_wall):
-            self._observeAtRest(state, now)
-            self._look_frames += 1
-            gap = self._exitGapSeen(state)
-            if gap is not None:
-                self._exit_seen += 1
-                self._exit_gap = gap
-        waited = now - self._look_from
-        if waited < _LOOK_S or (self._look_frames < 3 and waited < 3 * _LOOK_S):
-            return
-        if not self._pockets[-1]:
+        if not self._swept:
             self._finishCycle(now)
             return
-        seen = self._exit_seen >= 2
-        # Riding where it lay, it ends this far from the exit zone's edge: past
-        # the fall line means it fell on the way. The top of the ring is partly
-        # out of the camera's view, so not seeing it there is not enough alone.
-        lands = None if self._arrive_gap is None else self._arrive_gap - self._pitch_deg
-        fell_on_the_way = lands is not None and lands < -(self._fall_deg + _FALLS_MARGIN_DEG)
-        if fell_on_the_way and not seen:
-            self._exitGone(now)
+        if self._fresh(state, self._look_wall):
+            self._look_frames += 1
+            if any(self._station(po.com_forward_to_exit_deg) == 0 for po in getattr(state, "pieces", ())):
+                self._carry_frames += 1
+        waited = now - self._look_from
+        if waited < _LOOK_S or (self._look_frames < _LOOK_FRAMES and waited < 3 * _LOOK_S):
             return
-        if seen and self._exit_gap is not None and self._exit_gap < -(self._fall_deg + 3.0):
-            # Over the opening and not falling: shaken where it is, no push.
-            self.logger.warning(f"{LOG_TAG} a piece is over the opening and has not fallen: shaking")
-            self._push_us = 0
-            self._shake_tries = 1
-            self._startShake(stepper, now)
+        if self._carry_frames >= 2:
+            self._carriedRound(now)
             return
-        self.logger.info(
-            f"{LOG_TAG} the piece is short of the fall line "
-            f"({'seen' if seen else 'not seen'}, lay to land at {'?' if lands is None else round(lands)}°): pushing it in"
-        )
-        self._planPush(stepper, now)
-
-    def _exitGapSeen(self, state) -> Optional[float]:
-        """The gap of a piece this frame shows in the EXIT pocket (on the ledge,
-        or over the opening), with the rotor at rest; None when it shows none."""
-        behind_ids = {tp.track_id for tp in self._pockets[-2]}
-        gaps = [
-            float(po.com_forward_to_exit_deg)
-            for po in getattr(state, "pieces", ())
-            if po.com_forward_to_exit_deg is not None
-            and float(po.com_forward_to_exit_deg) < self._ledge_deg - 4.0
-            and po.sv_bt_track_id not in behind_ids
-        ]
-        return min(gaps) if gaps else None
-
-    def _planPush(self, stepper, now: float) -> None:
-        """Push the EXIT pocket's ledge out: as far as it takes, but never so
-        far that the piece in the pocket behind could reach the opening."""
-        push_deg = self._push_deg
-        behind = self._pockets[-2]
-        if behind:
-            gaps = [float(tp.gap_to_exit) for tp in behind if tp.gap_to_exit is not None]
-            nearest = min(gaps) if len(gaps) == len(behind) else self._ledge_deg  # Unknown: right behind the fin
-            push_deg = min(push_deg, nearest + self._fall_deg - _NEXT_MARGIN_DEG)
-        if push_deg < self._ledge_deg + self._fall_deg + 3.0:
-            self._unswept(now)
-            return
-        self._push_us = int(round(push_deg * self._per_deg))
-        self._move(stepper, self._push_us, self.ctx.config.discharge_speed_usteps_per_s, now, "push")
-        self._enter(_P.PUSH)
-
-    def _unswept(self, now: float) -> None:
-        """The piece behind lies too close to the fin for a push that clears the
-        ledge. What is on the ledge would then fall with that piece on the next
-        turn, so both go to the discard, with the chute on it before that turn."""
-        self.logger.warning(
-            f"{LOG_TAG} no room to push the ledge clear (the next piece is right behind the fin): "
-            f"the exit pocket and the next piece go to the discard"
-        )
-        for tp in self._pockets[-1] + self._pockets[-2]:
-            self._toDiscard(
-                tp,
-                "unswept",
-                "The piece behind it lay too close for the classification channel to push the exit clear, "
-                "so the two could have fallen together; both went to the discard.",
-            )
-        self._finishCycle(now)
-
-    # ------------------------------------------------- PUSH, SHAKE, BACK, CONFIRM
-
-    def _push(self, state, perception_service, stepper, now: float, moving: bool) -> None:
-        if moving:
-            return
-        self._pcheck_from = now
-        self._pcheck_wall = time.time()
-        self._stuck_frames = 0
-        self._enter(_P.PCHECK)
-
-    def _pcheck(self, state, perception_service, stepper, now: float, moving: bool) -> None:
-        """Pushed out: a piece still seen ahead of the pushing fin is shaken."""
-        if moving:
-            return
-        if self._fresh(state, self._pcheck_wall):
-            edge = (self._ledge_deg - self._push_us / self._per_deg - 2.0) if self._push_us > 0 else -3.0
-            ahead = any(
-                po.com_forward_to_exit_deg is not None and float(po.com_forward_to_exit_deg) < edge
-                for po in getattr(state, "pieces", ())
-            )
-            self._stuck_frames = self._stuck_frames + 1 if ahead else 0
-        if self._stuck_frames >= 2 and self._shake_tries < _SHAKE_TRIES:
-            self._shake_tries += 1
-            self.logger.warning(f"{LOG_TAG} a piece is still at the opening: shaking ({self._shake_tries} of {_SHAKE_TRIES})")
-            self._startShake(stepper, now)
-            return
-        if self._stuck_frames < 2 and (now - self._pcheck_from) < _PCHECK_S:
-            return
-        if self._push_us <= 0:
-            # Shaken in place at rest: nothing to come back from, but the shake
-            # leaves the rotor anywhere in its play, so that is taken up.
-            self._returnToRest(stepper, 0, now, _P.CONFIRM)
-            return
-        self._returnToRest(stepper, self._push_us, now, _P.CONFIRM)
-
-    def _shake(self, state, perception_service, stepper, now: float, moving: bool) -> None:
-        if moving:
-            return
-        try:
-            if bool(stepper.is_jittering()):
-                return
-        except Exception:
-            pass
-        self._pcheck_from = now
-        self._pcheck_wall = time.time()
-        self._stuck_frames = 0
-        self._enter(_P.PCHECK)
-
-    def _returnToRest(self, stepper, back_us: int, now: float, then: _P) -> None:
-        """Turn back `back_us` to the rest pose: a little past it, then forward
-        again, so the last move is always forward (see _TAKEUP_DEG)."""
-        self._after_settle = then
-        self._takeup_us = int(round(_TAKEUP_DEG * self._per_deg))
-        self._move(
-            stepper, int(back_us) + self._takeup_us, self.ctx.config.rotate_speed_usteps_per_s, now, "back", back=True
-        )
-        self._enter(_P.BACK)
-
-    def _back(self, state, perception_service, stepper, now: float, moving: bool) -> None:
-        if moving:
-            return
-        self._move(stepper, self._takeup_us, self.ctx.config.rotate_speed_usteps_per_s, now, "forward to rest")
-        self._enter(_P.SETTLE)
-
-    def _settle(self, state, perception_service, stepper, now: float, moving: bool) -> None:
-        if moving:
-            return
-        if self._after_settle == _P.CONFIRM:
-            self._confirm_from = now
-            self._confirm_wall = time.time()
-            self._stuck_frames = 0
-            self._enter(_P.CONFIRM)
-            return
-        if self._after_settle == _P.VERIFY:
-            self._startVerify(now)
-            return
-        self.irl.c4_fin_rest_microsteps = int(stepper.position)
-        self._toRest(now)
-
-    def _confirm(self, state, perception_service, stepper, now: float, moving: bool) -> None:
-        """At rest again: the EXIT pocket must look empty before its piece is
-        counted as gone."""
-        if moving:
-            return
-        if self._fresh(state, self._confirm_wall):
-            still = self._exitGapSeen(state) is not None
-            self._stuck_frames = self._stuck_frames + 1 if still else 0
-        if self._stuck_frames >= 2:
-            self._sweeps += 1
-            if self._sweeps < _SWEEP_TRIES:
-                self.logger.warning(f"{LOG_TAG} the exit pocket still holds a piece: pushing again")
-                self._shake_tries = 0
-                self._planPush(stepper, now)
-                return
-            self.logger.error(
-                f"{LOG_TAG} the exit pocket will not empty after {_SWEEP_TRIES} pushes: the channel stops "
-                f"until it is cleared"
-            )
-            self._halted = True
-            self._startVerify(now)
-            return
-        if (now - self._confirm_from) < _CONFIRM_S:
-            return
-        self._exitGone(now)
-
-    def _exitGone(self, now: float) -> None:
-        """The EXIT pocket is empty: its piece is counted as dropped."""
-        exit_ = self._pockets[-1]
-        lead = exit_[0]
+        lead = self._swept[0]
         self._commitToDistribution(lead)
         self.logger.info(f"{LOG_TAG} ejected track={lead.track_id}")
-        self._members = exit_[1:]
-        self._pockets[-1] = []
+        self._members = self._swept[1:]
+        self._swept = []
         self._forget(lead)
         self.noteProgress()
         try:
@@ -880,6 +626,34 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._enter(_P.COMMIT)
         else:
             self._finishCycle(now)
+
+    def _carriedRound(self, now: float) -> None:
+        """The swept pocket's piece did not fall: it is in the RECEIVE pocket,
+        and goes round again. To the discard this time: the same look cannot
+        tell it from a piece that landed late, and no bin is right for that."""
+        swept, self._swept = self._swept, []
+        for tp in swept:
+            tp.carried = getattr(tp, "carried", 0) + 1
+            if tp.placed and not tp.ejected:
+                self.transport.clearPieceForDistribution(tp.known_object)
+                self._unplace(tp)
+            self._toDiscard(
+                tp,
+                "did_not_fall",
+                "It was still on the classification channel after the turn that sweeps the exit, so it "
+                "went round again, to the discard.",
+            )
+            tp.zone = _ZONE_DROP
+        self.logger.warning(
+            f"{LOG_TAG} track={'+'.join(str(tp.track_id) for tp in swept)} did not fall: carried round into the receive pocket"
+        )
+        self._pockets[0] = swept + self._pockets[0]
+        if any(getattr(tp, "carried", 0) >= _CARRY_MAX for tp in swept):
+            self.logger.error(
+                f"{LOG_TAG} a piece has gone round {_CARRY_MAX} times without falling: the channel stops until it is cleared"
+            )
+            self._halted = True
+        self._finishCycle(now)
 
     def _commit(self, state, perception_service, stepper, now: float, moving: bool) -> None:
         """The rest of a group that fell with its first piece: each is handed to
@@ -897,7 +671,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._forget(member)
 
     def _finishCycle(self, now: float) -> None:
-        """Aim for the piece the next turn can drop, and check the fins."""
+        """Aim for the piece the next turn takes into the EXIT pocket, and check
+        the fins."""
         nxt = self._pockets[-1] or self._pockets[-2]
         if nxt and nxt[0].result_applied and self.transport.getPieceForDistributionPositioning() is None:
             self._place(nxt[0])
@@ -926,11 +701,12 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         tp.placed = True
         self.logger.info(f"{LOG_TAG} aiming chute for track={tp.track_id} (status={obj.classification_status})")
 
-    def _aimThen(self, tp: Optional[_TrackedPiece], microsteps: int, then: _P, now: float) -> None:
-        """Wait until the chute is on `tp`, then turn `microsteps` forward and go
-        on to `then`. With no piece there is nothing to wait for."""
+    def _aimThen(self, tp: Optional[_TrackedPiece], microsteps: int, then: _P, now: float, back: bool = False) -> None:
+        """Wait until the chute is on `tp`, then turn `microsteps` and go on to
+        `then`. With no piece there is nothing to wait for."""
         self._aim_target = tp
         self._after_aim_us = int(microsteps)
+        self._after_aim_back = bool(back)
         self._after_aim_phase = then
         self._enter(_P.AIM)
 
@@ -947,7 +723,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 return
         self._aim_target = None
         what = "correction" if self._after_aim_phase == _P.CORRECT else "turn"
-        self._move(stepper, self._after_aim_us, self.ctx.config.rotate_speed_usteps_per_s, now, what)
+        self._move(
+            stepper, self._after_aim_us, self.ctx.config.rotate_speed_usteps_per_s, now, what, back=self._after_aim_back
+        )
         self._enter(self._after_aim_phase)
 
     # ----------------------------------------------------------- VERIFY, CORRECT
@@ -1002,64 +780,49 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         kind, move = self._verify_result
         pitch = self._pitch_deg
         if kind != "ok" or move is None:
-            # The camera gave no steady reading: go by the step count.
-            rest = getattr(self.irl, "c4_fin_rest_microsteps", None)
-            if rest is None:
-                self.logger.warning(f"{LOG_TAG} the fins could not be read and the rotor was never homed on them; taking this pose as rest")
-                self._toRest(now)
-                return
-            past = (C4_TRAVEL_SIGN * (float(stepper.position) - float(rest)) / self._per_deg) % pitch
-            move = (pitch - past) % pitch
-            self.logger.warning(f"{LOG_TAG} the fins could not be read off the camera; going by the step count")
-        short, over = float(move), pitch - float(move)
-        if short <= _ALIGN_TOL_DEG or over <= _ALIGN_TOL_DEG:
-            self._short_seen = None
-            self._over_seen = None
-            self._takeup_tried = False
+            # The camera gave no steady reading: the step count stands.
+            self._off_seen = None
+            self._verify_reads = 0
+            if getattr(self.irl, "c4_fin_rest_microsteps", None) is None:
+                self.irl.c4_fin_rest_microsteps = int(stepper.position)
+            self._toRest(now)
+            return
+        # Signed: forward to rest when short of it, back when past it.
+        off = float(move) if float(move) <= pitch / 2.0 else float(move) - pitch
+        if abs(off) <= _ALIGN_TOL_DEG:
+            self._off_seen = None
             self._verify_reads = 0
             if getattr(self.irl, "c4_fin_rest_microsteps", None) is None:
                 self.irl.c4_fin_rest_microsteps = int(stepper.position)
             self._toRest(now)
             return
         empty = not any(self._pockets)
-        if (empty or short <= _CORRECT_MAX_DEG) and (
-            self._short_seen is None or abs(self._short_seen - short) > _ALIGN_TOL_DEG
-        ):
-            # One reading is not enough to turn the rotor on: read again.
+        if not empty and abs(off) > _CORRECT_MAX_DEG:
+            self.logger.error(f"{LOG_TAG} the fins stand {abs(off):.1f}° off rest with pieces on the channel; not corrected")
+            self._off_seen = None
+            self._toRest(now)
+            return
+        if self._off_seen is None or abs(self._off_seen - off) > _ALIGN_TOL_DEG:
+            # One reading is not enough to turn the rotor: read again.
             self._verify_reads += 1
             if self._verify_reads > _VERIFY_READS_MAX:
-                self.logger.error(f"{LOG_TAG} the fin readings do not agree ({short:.1f}° short now); leaving the rotor where it is")
-                self._short_seen = None
+                self.logger.error(f"{LOG_TAG} the fin readings do not agree ({off:+.1f}° now); leaving the rotor where it is")
+                self._off_seen = None
                 self._verify_reads = 0
                 self._toRest(now)
                 return
-            self._short_seen = short
+            self._off_seen = off
             self._startVerify(now)
             return
-        self._short_seen = None
+        self._off_seen = None
         self._verify_reads = 0
-        if empty or short <= _CORRECT_MAX_DEG:
-            self.logger.warning(f"{LOG_TAG} a fin stands {short:.1f}° short of rest (steps were lost?): turning it on")
-            lead = (self._pockets[-1] or [None])[0]
-            self._aimThen(lead, int(round(short * self._per_deg)), _P.CORRECT, now)
-            return
-        if over <= _CORRECT_MAX_DEG:
-            if not self._takeup_tried:
-                # Most often the rotor only lies forward in its play (a shake, a
-                # knock): back and forward again without moving on puts it right.
-                self._takeup_tried = True
-                self.logger.info(f"{LOG_TAG} the fins stand {over:.1f}° past rest: taking up the rotor's play")
-                self._returnToRest(stepper, 0, now, _P.VERIFY)
-                return
-            self._takeup_tried = False
-            self.logger.warning(f"{LOG_TAG} the fins still stand {over:.1f}° past rest: turning back to it")
-            self._returnToRest(stepper, int(round(over * self._per_deg)), now, _P.REST)
-            return
-        self._over_seen = None
-        self.logger.error(
-            f"{LOG_TAG} the fins stand {over:.1f}° past rest ({short:.1f}° short of the next); not corrected"
+        self.logger.warning(
+            f"{LOG_TAG} a fin stands {abs(off):.1f}° {'short of' if off > 0 else 'past'} rest (steps were lost?): turning to it"
         )
-        self._toRest(now)
+        # Forward pushes whatever is by the exit toward the opening: the chute
+        # is on that piece first.
+        lead = (self._pockets[-1] or [None])[0] if off > 0 else None
+        self._aimThen(lead, int(round(abs(off) * self._per_deg)), _P.CORRECT, now, back=off < 0)
 
     def _correct(self, state, perception_service, stepper, now: float, moving: bool) -> None:
         if moving:

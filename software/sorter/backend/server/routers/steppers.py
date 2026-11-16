@@ -545,6 +545,16 @@ def jitter_stepper(
     if acceleration <= 0:
         raise HTTPException(status_code=400, detail="acceleration must be > 0")
 
+    if stepper == "carousel" or stepper.startswith("c_channel") or stepper.startswith("classification"):
+        # The speeds and accelerations asked for are motor-level ones tuned on
+        # the geared C-channels. A channel motor on another drive gets the ones
+        # that move its channel the same: asked for as they are, a motor that
+        # turns its channel directly cannot follow them and does not move.
+        from hardware_settings.feeder import feederDrive
+
+        drive = feederDrive()
+        speed = drive.motorRate(speed)
+        acceleration = drive.motorRate(acceleration)
     target = _resolve_stepper(stepper)
     amplitude_steps = target.microsteps_for_degrees(abs(amplitude_deg))
     if amplitude_steps <= 0:

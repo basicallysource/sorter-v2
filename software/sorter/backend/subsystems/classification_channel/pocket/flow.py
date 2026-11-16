@@ -85,6 +85,9 @@ _SHAKE_TRIES = 3
 _CONFIRM_S = 0.3
 # The firmware can report "stopped" before a move it was just given starts.
 _START_GRACE_S = 0.15
+# A piece drawn as several fused boxes in half its frames at rest, of at least
+# this many, is taken for two pieces that landed together.
+_MERGED_MIN_FRAMES = 4
 # A box must be in this many frames in a row to become a piece.
 _NEW_FRAMES = 3
 # Two boxes this close are one piece drawn twice, not two pieces.
@@ -189,6 +192,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._verify_thread: Optional[threading.Thread] = None
         self._verify_result: tuple[str, Optional[float]] = ("none", None)
         self._paused_mid_cycle = False
+        self._merged: dict = {}
         self._geometry_error_logged = False
         self._fins: list[float] = []
         self._ledge_deg = 0.0
@@ -422,6 +426,11 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         """Match the frame's boxes to the pockets' records and add the pieces
         that have newly landed."""
         by_id = {tp.track_id: tp for pocket in self._pockets for tp in pocket}
+        # The boxes the camera fused into one (it draws them as one "merged" piece).
+        self._merged = {
+            tuple(int(v) for v in box): tuple(tuple(int(v) for v in b) for b in members)
+            for box, members in getattr(state, "merged", ())
+        }
         matched: set[int] = set()
         unmatched: list[tuple[int, object]] = []
         for po in getattr(state, "pieces", ()):
@@ -473,7 +482,13 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
     def _seen(self, tp: _TrackedPiece, po, now: float) -> None:
         b = po.bbox
         tp.bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
-        tp.boxes = (tp.bbox,)
+        tp.boxes = self._merged.get(tp.bbox, (tp.bbox,))
+        if tp.zone == _ZONE_DROP:
+            # At rest in the RECEIVE pocket: how often it is drawn as more than one.
+            tp.rest_boxes.append(tp.boxes)
+            tp.rest_frames = getattr(tp, "rest_frames", 0) + 1
+            if len(tp.boxes) > 1:
+                tp.merged_frames = getattr(tp, "merged_frames", 0) + 1
         tp.gap_to_exit = po.com_forward_to_exit_deg
         tp.last_seen = now
 
@@ -552,6 +567,15 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if receive:
             if not all(tp.capture_done for tp in receive):
                 return  # Still being photographed
+            for tp in receive:
+                frames = getattr(tp, "rest_frames", 0)
+                if not tp.double_feed and frames >= _MERGED_MIN_FRAMES and 2 * getattr(tp, "merged_frames", 0) >= frames:
+                    self._toDiscard(
+                        tp,
+                        "merged",
+                        "The camera drew it as more than one piece lying together in the receive pocket "
+                        "in most of its frames, so it went to the discard as a double drop.",
+                    )
         elif (now - self._rest_since) < _FLUSH_AFTER_S:
             return  # The feeder gets its chance to add a piece first
         # What this turn can drop: the last queue pocket's piece (and anything a

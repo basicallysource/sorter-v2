@@ -165,8 +165,9 @@ function withSpan(zones: ChannelZones, name: 'drop' | 'exit', span: Span): Chann
 export function moveEdge(zones: ChannelZones, name: ZoneName, edge: 'start' | 'end', angle: number): ChannelZones {
 	if (name === 'precise') {
 		// The sliver ends at the exit's start: only its start moves, and so its width.
+		// Never narrower than MIN_SPAN_DEG, so it cannot vanish under the exit.
 		const width = forwardDeg(normalizeAngle(angle), zones.exit.start);
-		return drawn({ ...zones, precise_width: Math.min(120, width > 240 ? 0 : width) }, 'precise');
+		return drawn({ ...zones, precise_width: Math.min(120, width > 240 ? MIN_SPAN_DEG : Math.max(MIN_SPAN_DEG, width)) }, 'precise');
 	}
 	const span = zones[name];
 	return withSpan(zones, name, edge === 'start' ? { start: angle, end: span.end } : { start: span.start, end: angle });
@@ -180,7 +181,7 @@ export function moveZone(zones: ChannelZones, name: ZoneName, byDeg: number): Ch
 
 export function widen(zones: ChannelZones, name: ZoneName, byDeg: number): ChannelZones {
 	if (name === 'precise') {
-		return drawn({ ...zones, precise_width: Math.max(0, Math.min(120, zones.precise_width + byDeg)) }, 'precise');
+		return drawn({ ...zones, precise_width: Math.max(MIN_SPAN_DEG, Math.min(120, zones.precise_width + byDeg)) }, 'precise');
 	}
 	const span = zones[name];
 	const width = Math.max(MIN_SPAN_DEG, spanWidth(span) + byDeg);

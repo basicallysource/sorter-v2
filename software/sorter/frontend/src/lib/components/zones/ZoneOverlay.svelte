@@ -123,12 +123,21 @@
 		if (locked(part)) return;
 		event.preventDefault();
 		event.stopPropagation();
-		(event.currentTarget as Element).setPointerCapture(event.pointerId);
 		drag = next;
+		// Follow the pointer anywhere on the page until the button comes up,
+		// not only while it is over the picture's handles and zones.
+		window.addEventListener('pointermove', move);
+		window.addEventListener('pointerup', end);
+		window.addEventListener('pointercancel', end);
 	}
 
 	function move(event: PointerEvent) {
 		if (!drag || !editing) return;
+		if (event.buttons === 0) {
+			// The button came up somewhere no event reached: the drag is over.
+			end();
+			return;
+		}
 		const p = toFrame(event);
 		const angle = angleOf(zones.center, p);
 		if (drag.kind === 'edge') {
@@ -149,7 +158,15 @@
 
 	function end() {
 		drag = null;
+		window.removeEventListener('pointermove', move);
+		window.removeEventListener('pointerup', end);
+		window.removeEventListener('pointercancel', end);
 	}
+
+	$effect(() => () => end());
+
+	// The thin precise sliver is drawn last, so the exit never hides it.
+	const DRAW_ORDER: ZoneName[] = ['drop', 'exit', 'precise'];
 
 	function wheel(event: WheelEvent, name: ZoneName) {
 		if (!editing || locked(name)) return;
@@ -174,7 +191,7 @@
 		return inFrame(p) ? p : null;
 	});
 	const edges = $derived(
-		ZONES.flatMap((name) => {
+		DRAW_ORDER.flatMap((name) => {
 			const span = zoneSpan(zones, name);
 			if (!span) return [];
 			const which = name === 'precise' ? (['start'] as const) : (['start', 'end'] as const);
@@ -206,12 +223,9 @@
 		class="h-full w-full overflow-hidden"
 		role="group"
 		aria-label="Zones"
-		onpointermove={move}
-		onpointerup={end}
-		onpointercancel={end}
 	>
 		<path d={outline} fill="none" stroke={OUTLINE} stroke-width={1.5 * unit} />
-		{#each ZONES as name (name)}
+		{#each DRAW_ORDER as name (name)}
 			{@const poly = zonePolygon(zones, name)}
 			{#if poly}
 				<path

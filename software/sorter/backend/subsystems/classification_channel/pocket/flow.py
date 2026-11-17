@@ -1156,6 +1156,13 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._stillInExit(pending)
         else:
             dropped += [tp for tp in pending if any(tp in pocket for pocket in self._pockets)]
+        if self._swept and not pending and self._exit_frames >= 1 and not self._pockets[-1]:
+            # The EXIT pocket came round empty, yet a piece lies there: the
+            # swept piece neither fell nor rode on, it is stuck at the opening.
+            # It is the piece it was, and the next turn takes it off.
+            stuck, self._swept = self._swept, []
+            self._pockets[-1] = stuck + self._pockets[-1]
+            self._stillInExit(stuck)
         if self._swept:
             carried = False
             if self._carry_frames >= 2:

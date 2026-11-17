@@ -98,8 +98,7 @@ GENERATIONS: dict[str, Generation] = {
         # Four fins make four pockets; the rotor rests with a fin walling the
         # pocket that receives pieces off from the exit, and the channel is run
         # by the pocket flow (subsystems/classification_channel/pocket).
-        # A piece drawn merged in even one frame at rest is a double drop.
-        classification_channel={"fin_count": 4, "fin_at_exit": True, "merged_double_drop_frames": 1},
+        classification_channel={"fin_count": 4, "fin_at_exit": True},
         smooth_shrink=True,
         driver_watch=True,
         # Quarter bins take up to a 3x3 plate, thirds a 4x4, halves a 6x6; a

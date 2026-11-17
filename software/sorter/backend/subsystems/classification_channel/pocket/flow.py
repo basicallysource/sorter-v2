@@ -106,9 +106,6 @@ _SHAKE_ROTOR_DEG = 6.0
 _SHAKE_CYCLES = 8
 # The firmware can report "stopped" before a move it was just given starts.
 _START_GRACE_S = 0.15
-# A piece drawn as several fused boxes in half its frames at rest, of at least
-# this many, is taken for two pieces that landed together.
-_MERGED_MIN_FRAMES = 4
 # A box must be in this many frames in a row to become a piece.
 _NEW_FRAMES = 3
 # Two boxes this close are one piece drawn twice, not two pieces.
@@ -218,6 +215,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._last_state_ts = -1.0
         self._new_seen: dict[tuple[int, int], int] = {}
         self._merged: dict = {}
+        self._doubt_frame_at = None
         self._cycle_start_pos: Optional[int] = None
         self._look_from = 0.0
         self._look_wall = 0.0
@@ -646,6 +644,58 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._takeBack(tp)
         self.logger.warning(f"{LOG_TAG} track={tp.track_id} -> discard ({kind})")
         self._markDoubleFeed(tp, group, kind, message)
+        if kind != "interrupted":
+            self._recordDoubt(tp, kind)
+
+    def _recordDoubt(self, tp: _TrackedPiece, kind: str) -> None:
+        """Keep the camera's frame of a piece that may not be one piece, with its
+        boxes, as a sample (capture reason "maybe_multiple") that goes to Hive
+        with the machine's other samples, so what it was can be labelled and
+        trained on later. One frame is kept once, however many pieces it shows."""
+        vision = getattr(self, "vision", None)
+        role, capture = None, None
+        if vision is not None and hasattr(vision, "getCaptureThreadForRole"):
+            for role in ("classification_channel", "carousel"):
+                capture = vision.getCaptureThreadForRole(role)
+                if capture is not None:
+                    break
+        frame = getattr(capture, "latest_frame", None) if capture is not None else None
+        if frame is None:
+            return
+        stamp = getattr(frame, "timestamp", None)
+        if stamp is not None and stamp == self._doubt_frame_at:
+            return
+        self._doubt_frame_at = stamp
+        obj = tp.known_object
+        doubt = {
+            "kind": kind,
+            "piece_uuid": getattr(obj, "uuid", None),
+            "part_id": getattr(obj, "part_id", None),
+            "track_id": tp.track_id,
+            "pocket": next((i for i, pocket in enumerate(self._pockets) if tp in pocket), None),
+            "rest_frames": getattr(tp, "rest_frames", 0),
+            "merged_frames": getattr(tp, "merged_frames", 0),
+            "bbox": [int(v) for v in tp.bbox],
+            "boxes": [[int(v) for v in box] for box in (tp.boxes or ())],
+            "rest_boxes": [[[int(v) for v in box] for box in boxes] for boxes in list(tp.rest_boxes)[-8:]],
+        }
+
+        def save() -> None:
+            try:
+                import sample_store
+                from sample_ingest import buildSample
+
+                sample = buildSample(self.gc, role, capture, frame, annotate=False)
+                if sample is None:
+                    return
+                jpeg, row = sample
+                row["meta"]["capture_reason"] = "maybe_multiple"
+                row["meta"]["piece_doubt"] = doubt
+                sample_store.enqueue(jpeg, row)
+            except Exception as exc:
+                self.logger.warning(f"{LOG_TAG} keeping the frame of track={doubt['track_id']} failed: {exc}")
+
+        threading.Thread(target=save, daemon=True, name="c4-doubt-frame").start()
 
     def _forget(self, tp: _TrackedPiece) -> None:
         for pocket in self._pockets:
@@ -690,8 +740,12 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                     )
         # The piece this turn drops first needs the chute on it. The chute goes
         # there now, while a piece that has just landed is photographed: the
-        # rotor stands still either way.
-        chute_on = not going or (all(tp.result_applied for tp in going) and self._aimedFor(going[0]))
+        # rotor stands still either way. A turn that takes no piece into the
+        # opening does not wait for it: the chute moves while the rotor turns.
+        reaches = any(tp.gap_to_exit is None or float(tp.gap_to_exit) < self._pitch_deg - 0.5 for tp in going)
+        if going and going[0].result_applied:
+            self._aimedFor(going[0])
+        chute_on = not reaches or (all(tp.result_applied for tp in going) and self._aimedFor(going[0]))
         if receive:
             if not all(tp.capture_done for tp in receive):
                 return  # Still being photographed
@@ -699,17 +753,31 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             for tp in receive:
                 frames = getattr(tp, "rest_frames", 0)
                 merged = getattr(tp, "merged_frames", 0)
-                if need > 0:
-                    together = merged >= need
-                else:
-                    together = frames >= _MERGED_MIN_FRAMES and 2 * merged >= frames
-                if not tp.double_feed and together:
+                if tp.double_feed or merged == 0:
+                    continue
+                if need > 0 and merged >= need:
                     self._toDiscard(
                         tp,
                         "merged",
                         f"The camera drew it as more than one piece lying together in the receive pocket "
                         f"({merged} of {frames} frames), so it went to the discard as a double drop.",
                     )
+                elif not getattr(tp, "doubt_recorded", False):
+                    # Two pieces, an assembly, or one oddly shaped piece: it
+                    # sorts as one, and its frame is kept to be labelled.
+                    tp.doubt_recorded = True
+                    self.logger.info(
+                        f"{LOG_TAG} track={tp.track_id} drawn as more than one box ({merged} of {frames} frames): "
+                        "maybe multiple, sorted as one piece, frame kept"
+                    )
+                    notePieceProblem(
+                        tp.known_object,
+                        "maybe_multiple",
+                        f"The camera drew it as more than one box in {merged} of {frames} frames at rest: two "
+                        "pieces, an assembly or one oddly shaped piece. It was sorted as one piece, and its "
+                        "frame was kept so what it was can be labelled.",
+                    )
+                    self._recordDoubt(tp, "merged")
         elif not ahead and not exit_ and (now - self._rest_since) < _FLUSH_AFTER_S:
             return  # The feeder may add a piece: it gets its chance first
         if not chute_on:

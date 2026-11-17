@@ -87,7 +87,12 @@ class _Resolver:
                 segs.append(s[None, :, :])
         out_t = np.concatenate(tris) if tris else np.zeros((0, 3, 3))
         out_s = np.concatenate(segs) if segs else np.zeros((0, 2, 3))
-        self.cache[path] = (out_t, out_s)
+        # Only what another file references is kept: primitives and subparts are
+        # used thousands of times, while a whole part's triangles, once measured,
+        # are not wanted again (its measurement is in geom_cache). Keeping every
+        # part's mesh would hold the whole library in memory by the end.
+        if depth > 0:
+            self.cache[path] = (out_t, out_s)
         return out_t, out_s
 
 

@@ -1030,7 +1030,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         elif self._check_seen >= 2:
             if self._check_shakes < self._check_shakes_max:
                 self._check_shakes += 1
-                self._shake_cycles = _SHAKE_CYCLES * self._check_shakes
+                self._shake_cycles = _SHAKE_CYCLES
                 self.logger.warning(
                     f"{LOG_TAG} track={tp.track_id if tp else '?'} did not fall at the opening: shaking it there "
                     f"({self._check_shakes} of {self._check_shakes_max})"
@@ -1039,12 +1039,14 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 return
             self.logger.warning(f"{LOG_TAG} track={tp.track_id if tp else '?'} still did not fall: finishing the turn")
         elif (gone or self._check_frames >= 2) and tp is not None and any(tp in pocket for pocket in self._pockets):
-            carried = int(getattr(tp, "carried", 0))
+            # It rode round before, or was missed here twice: out of sight is no
+            # proof it fell, so it is shaken where it is anyway. Missed once is
+            # most often a piece that slid back in its pocket and was looked
+            # for in the wrong place: the turn just takes it on.
+            carried = int(getattr(tp, "carried", 0)) + max(0, int(getattr(tp, "missed", 0)) - 1)
             if carried and self._check_shakes < min(carried, self._check_shakes_max):
-                # It rode round before, and out of sight is no proof it fell:
-                # it is shaken where it is anyway.
                 self._check_shakes += 1
-                self._shake_cycles = _SHAKE_CYCLES * (self._check_shakes + carried)
+                self._shake_cycles = _SHAKE_CYCLES
                 self.logger.warning(
                     f"{LOG_TAG} track={tp.track_id} went round before and is out of sight at the opening: shaking it there anyway"
                 )
@@ -1156,11 +1158,12 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
 
     def _stillInExit(self, pending: list[_TrackedPiece]) -> None:
         """Pieces gone at the opening out of the last queue pocket are in the
-        EXIT pocket after the turn: they did not fall. The next turn drops them,
-        and shakes them at the opening even out of sight."""
+        EXIT pocket after the turn: they did not fall. Most slid back in their
+        pocket and were looked for in the wrong place: the next turn drops
+        them; missed again, it shakes them at the opening even out of sight."""
         for tp in pending:
             tp.fell_pending = False
-            tp.carried = getattr(tp, "carried", 0) + 1
+            tp.missed = getattr(tp, "missed", 0) + 1
             if tp.placed and not tp.ejected:
                 self._takeBack(tp)
             if tp.known_object is not None:
@@ -1169,12 +1172,12 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 tp.known_object,
                 "did_not_fall",
                 "It went out of sight at the classification channel's opening but was still in the exit "
-                f"pocket after the turn, so it was taken there again (time {tp.carried}).",
+                f"pocket after the turn, so it was taken there again (time {tp.missed}).",
             )
         self._needs_verify = True
         names = "+".join(str(tp.track_id) for tp in pending)
         self.logger.warning(f"{LOG_TAG} track={names} did not fall: still in the exit pocket after the turn")
-        if any(getattr(tp, "carried", 0) >= _CARRY_MAX for tp in pending):
+        if any(getattr(tp, "missed", 0) >= _CARRY_MAX for tp in pending):
             self.logger.error(
                 f"{LOG_TAG} a piece has failed to fall {_CARRY_MAX} times: the channel stops until it is cleared"
             )

@@ -98,6 +98,12 @@ _CHECK_S = 0.6
 _CHECK_SETTLE_S = 0.35
 # A piece within this of where the dropping piece should be is taken for it.
 _CHECK_NEAR_DEG = 14.0
+# A piece that slid back in its pocket as the rotor turned sits short of where it
+# was aimed, as far back as this: it is still this piece, and is turned on until
+# its middle is where it was aimed (the middle of the opening), within
+# _CHECK_CENTER_TOL_DEG.
+_CHECK_SHORT_DEG = 40.0
+_CHECK_CENTER_TOL_DEG = 4.0
 # Pieces in two pockets at least this far apart are dropped one at a time with
 # the chute aimed for each; closer, they fall together and go to the discard.
 # Two in one pocket are always a double drop.
@@ -206,6 +212,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._planning = False
         self._turned_deg = 0.0
         self._check_gap = 0.0
+        self._check_short = 0.0
         self._check_room = 0.0
         self._check_turn_ends = False
         self._opening_deg = _OPENING_DEG
@@ -986,6 +993,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._check_frames = 0
         self._check_seen = 0
         self._check_empty = 0
+        self._check_short = 0.0
         self._enter(_P.CHECK)
 
     def _check(self, state, perception_service, stepper, now: float, moving: bool) -> None:
@@ -1007,16 +1015,18 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             # On the channel, or hanging past its rim over the opening (the exit
             # margin), where the camera's boxes are not pieces but one that
             # moved there with the rotor is this piece.
-            near = any(
-                po.com_forward_to_exit_deg is not None
-                and abs(float(po.com_forward_to_exit_deg) - self._check_gap) <= _CHECK_NEAR_DEG
+            # Where it was aimed, or short of it: slid back in its pocket.
+            offsets = [
+                float(po.com_forward_to_exit_deg) - self._check_gap
                 for po in getattr(state, "pieces", ())
-            ) or any(
-                po.com_forward_to_exit_deg is not None
-                and abs(float(po.com_forward_to_exit_deg) - self._check_gap) <= _CHECK_NEAR_DEG
-                and not self._stillInMargin(po.bbox)
+                if po.com_forward_to_exit_deg is not None
+            ] + [
+                float(po.com_forward_to_exit_deg) - self._check_gap
                 for po in getattr(state, "margin_pieces", ())
-            )
+                if po.com_forward_to_exit_deg is not None and not self._stillInMargin(po.bbox)
+            ]
+            offsets = [off for off in offsets if -_CHECK_NEAR_DEG <= off <= _CHECK_SHORT_DEG]
+            near = bool(offsets)
             self._check_empty = 0 if near else self._check_empty + 1
             # That it is still there counts only from after it has had time to
             # slide off.
@@ -1024,6 +1034,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 self._check_frames += 1
                 if near:
                     self._check_seen += 1
+                    self._check_short = max(offsets)
         # Gone in every frame since the move: it fell while turning in.
         gone = self._check_empty >= _GONE_FRAMES
         waited = now - self._check_from
@@ -1032,6 +1043,21 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         tp = self._check_tp
         if gone:
             self._check_seen = 0
+        if self._check_seen >= 2 and self._check_short > _CHECK_CENTER_TOL_DEG and self._check_room >= 1.0:
+            # Short of the middle of the opening (it slid back in its pocket):
+            # on until its middle is there, before anything is shaken.
+            push = min(self._check_short, self._check_room)
+            push_us = int(round(push * self._per_deg))
+            self._check_room -= push
+            self._check_gap -= push
+            self._turned_deg += push
+            self.logger.info(
+                f"{LOG_TAG} track={tp.track_id if tp else '?'} {self._check_short:.1f}° short of the middle of the opening: "
+                f"turning it {push:.1f}° further in"
+            )
+            self._sweep_steps = ([push_us] if push_us > 0 else []) + ["check"]
+            self._enter(_P.TURN)
+            return
         if self._check_seen >= 2 and self._check_room >= 1.0:
             # Still on: further into the opening first, to see if it slides off.
             push = min(_PUSH_DEG, self._check_room)

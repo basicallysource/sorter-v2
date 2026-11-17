@@ -137,6 +137,10 @@ class ClassificationChannelStateMachine:
             except Exception:
                 occupied = False
 
+        # A flow may know of a piece the camera cannot see (the pocket flow,
+        # stopped on one stuck out of sight at the opening).
+        occupied = occupied or bool(getattr(self._two_piece, "holds_piece", False))
+
         if not occupied:
             # Channel clear -> not stuck. Re-arm and drop any raised incident
             # (the piece left / was removed).

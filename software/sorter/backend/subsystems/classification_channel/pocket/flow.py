@@ -327,19 +327,27 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
     def stall_after_ms(self) -> float:
         return STALL_AFTER_MS
 
+    @property
+    def holds_piece(self) -> bool:
+        """Stopped on a piece that would not leave, seen or not: the stall
+        watchdog then raises its incident even when the camera sees nothing
+        (the piece hides at the opening)."""
+        return self._halted and any(self._pockets)
+
     def attemptStallAutoClear(self, *, max_output_deg: float) -> ChannelClearResult:
         """Clear the channel into the discard: every pocket across the opening
         with shakes while it is over it, harder on each turn of the rotor. A
         piece is only left for a person after the machine has tried to shake
         it off."""
         shaken_deg = 0.0
-        if channelOccupied(self.gc) is not False:
+        hidden = self._halted
+        if hidden or channelOccupied(self.gc) is not False:
             try:
                 routeSweep(self.gc, self.irl, LOG_TAG)
             except Exception as exc:
                 self.logger.warning(f"{LOG_TAG} channel clear: routing the sweep failed ({exc}); opening every door")
                 openAllLayerDoors(self.gc, self.irl, LOG_TAG)
-            shaken_deg = self._shakeOut()
+            shaken_deg = self._shakeOut(full=hidden)
         after = super().attemptStallAutoClear(max_output_deg=self._pitch_deg)
         result = ChannelClearResult(
             after.cleared, after.occupied_at_start or shaken_deg > 0, shaken_deg + after.output_deg_moved, after.reason
@@ -354,7 +362,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._last_step_at = None
         return result
 
-    def _shakeOut(self) -> float:
+    def _shakeOut(self, full: bool = False) -> float:
         """Turn the rotor with a shake before each part of every pocket's sweep
         across the opening, until the camera sees the channel empty. Blocking.
         Returns the output degrees turned."""
@@ -390,7 +398,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                         self.logger.warning(f"{LOG_TAG} channel clear: a turn was not acknowledged")
                         return turned
                     turned += microsteps / self._per_deg
-                if channelOccupied(self.gc) is False:
+                # A piece out of sight does not count as gone: the shakes run
+                # their full laps for it.
+                if not full and channelOccupied(self.gc) is False:
                     self.logger.info(f"{LOG_TAG} channel clear: the channel is empty")
                     return turned
         return turned

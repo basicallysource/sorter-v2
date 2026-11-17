@@ -134,6 +134,7 @@ class BusServoDoor(Door):
         self._asked_at = 0.0
         self._target: str | None = None  # "open" or "closed": where it was last sent
         self._fault: str | None = None
+        self._backing_off = False
         self._speeds: dict[str, int | None] = {"open": None, "closed": None, "standard": None}
         self._speed: int | None = None
         self._find()
@@ -205,6 +206,7 @@ class BusServoDoor(Door):
             return False
         self._target = target
         self._fault = None
+        self._backing_off = False
         return True
 
     def open(self) -> bool:
@@ -212,6 +214,34 @@ class BusServoDoor(Door):
 
     def close(self) -> bool:
         return self._send("closed")
+
+    def backOff(self, fraction: float) -> bool:
+        if self._target is None or not self.is_calibrated or not self.available:
+            return False
+        assert self._servo is not None
+        closed, opened = self._setting.closed, self._setting.open
+        assert closed is not None and opened is not None
+        away = opened - closed if self._target == "closed" else closed - opened
+        try:
+            here = self._servo.present().position
+            goal = here + round(away * fraction)
+            goal = max(min(closed, opened), min(max(closed, opened), goal))
+            self._servo.move(goal, speed_deg_s=self._speed)
+        except ServoLinkError as exc:
+            self._lost(exc)
+            return False
+        self._backing_off = True
+        return True
+
+    def tryAgain(self) -> bool:
+        if self._target is None:
+            return False
+        self._backing_off = False
+        if self._target == "closed":
+            self.apply_close_speed()
+        else:
+            self.apply_open_speed()
+        return self._send(self._target)
 
     @property
     def stopped(self) -> bool:
@@ -225,6 +255,8 @@ class BusServoDoor(Door):
             return True
         if report.busy:
             return False
+        if self._backing_off:
+            return True  # Where a back-off ends is not where it was sent
         where = "closing" if self._target == "closed" else "opening"
         if report.state == GuardState.STALLED:
             self._fault = (

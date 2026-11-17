@@ -64,6 +64,10 @@ class Generation:
     # a band past its rim over the exit, where boxes are not pieces on the
     # channel but tell the channel that the piece it drops has not fallen.
     classification_exit_margin: bool = False
+    # A bin door that meets something (a piece lodged in its way) backs off a
+    # little and tries again before anyone is called (subsystems/distribution/
+    # positioning.py, DOOR_RETRIES).
+    door_retry: bool = False
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -105,6 +109,7 @@ GENERATIONS: dict[str, Generation] = {
         classification_channel={"fin_count": 4, "fin_at_exit": True},
         smooth_shrink=True,
         classification_exit_margin=True,
+        door_retry=True,
         driver_watch=True,
         # Quarter bins take up to a 3x3 plate, thirds a 4x4, halves a 6x6; a
         # full bin takes anything.

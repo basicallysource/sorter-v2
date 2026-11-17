@@ -43,6 +43,15 @@ class Door(ABC):
         the person at the machine, or None if it did."""
         return None
 
+    def backOff(self, fraction: float) -> bool:
+        """Move `fraction` of its travel back from where it stands, away from
+        where it was last sent, to free what it met. False if it cannot."""
+        return False
+
+    def tryAgain(self) -> bool:
+        """Send it again where it was last sent. False if it cannot."""
+        return False
+
     @abstractmethod
     def open(self) -> bool:
         """Start opening. False if the door refused or cannot."""

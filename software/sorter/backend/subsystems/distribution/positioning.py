@@ -28,6 +28,12 @@ DISTRIBUTION_NO_DISCARD_BIN_INCIDENT_KIND = "distribution_no_discard_bin"
 # A door still moving refuses a new command, so the doors for the next piece
 # are set only once every flap has stopped; after this long, set them anyway.
 DOORS_STOP_WAIT_S = 2.0
+# A door that met something (a piece lodged in its way) backs off this share of
+# its travel, waits, and is sent again, this many times before anyone is called
+# (on a machine whose generation has door_retry).
+DOOR_RETRIES = 2
+DOOR_BACKOFF_FRACTION = 0.15
+DOOR_RETRY_WAIT_S = 1.0
 
 
 def _incidentHandlingOff(kind: str) -> bool:
@@ -81,6 +87,10 @@ class Positioning(BaseState):
         # have met anything, before the piece is let go.
         self._doors_commanded: list[int] = []
         self._doors_wait_since: float | None = None
+        # Tries of each door that met something, for this piece's route.
+        self._door_tries: dict[int, int] = {}
+        self._retry_layer: int | None = None
+        self._retry_at: float = 0.0
         self._state_entered_at: float = 0.0
         self._moving_started_at: float = 0.0
         self._piece = None
@@ -122,6 +132,7 @@ class Positioning(BaseState):
             # glitch must not permanently disable a layer.
             self._blocked_layers.clear()
             self._servo_offline_layers.clear()
+            self._door_tries = {}
             self._setOccupancyState("positioning.select_target_bin")
             self._state_entered_at = now
             transport = self.shared.transport
@@ -256,6 +267,15 @@ class Positioning(BaseState):
             self._moving_started_at = time.monotonic()
             return None
 
+        if self._phase == "door_retry":
+            self._setOccupancyState("positioning.door_retry")
+            door = self.irl.servos[self._retry_layer]
+            if now < self._retry_at or not door.stopped:
+                return None
+            door.tryAgain()  # Refused, its fault stands and the next look counts it
+            self._phase = "moving"
+            return None
+
         if self._phase == "moving":
             self._setOccupancyState("positioning.wait_servo_and_chute_motion")
             chute_stopped = self.chute.stepper.stopped
@@ -264,6 +284,8 @@ class Positioning(BaseState):
                 return None
             self.shared.set_chute_motion(False, target_bin=self._target_address)
             blocked = self._blockedDoor()
+            if blocked is not None and self._retryDoor(*blocked, now):
+                return None
             if blocked is not None:
                 # The piece has not been let go yet: it waits where it is until
                 # the door's way is clear, then is routed afresh.
@@ -273,6 +295,9 @@ class Positioning(BaseState):
                 self._doors_commanded = []
                 self._setOccupancyState("positioning.door_blocked_incident")
                 return DistributionState.IDLE
+            for layer_index, tries in self._door_tries.items():
+                self.logger.info(f"Positioning: layer {layer_index + 1}'s door got through on try {tries + 1}")
+            self._door_tries = {}
             if self._piece is not None and self._piece.distribution_positioned_at is None:
                 self._piece.distribution_positioned_at = time.time()
             move_ms = (now - self._moving_started_at) * 1000
@@ -528,6 +553,28 @@ class Positioning(BaseState):
             if fault:
                 return layer_index, fault
         return None
+
+    def _retryDoor(self, layer_index: int, fault: str, now: float) -> bool:
+        """A door that met something backs off a little and, a moment later, is
+        sent again: a piece lodged in its way often frees itself. False once
+        DOOR_RETRIES are spent, or where the door or the machine cannot."""
+        from hardware_settings.generation import machineGeneration
+
+        if not machineGeneration().door_retry:
+            return False
+        tries = self._door_tries.get(layer_index, 0)
+        if tries >= DOOR_RETRIES:
+            return False
+        if not self.irl.servos[layer_index].backOff(DOOR_BACKOFF_FRACTION):
+            return False
+        self._door_tries[layer_index] = tries + 1
+        self.logger.warning(
+            f"Positioning: {fault} Backing it off and trying again ({tries + 1} of {DOOR_RETRIES})."
+        )
+        self._retry_layer = layer_index
+        self._retry_at = now + DOOR_RETRY_WAIT_S
+        self._phase = "door_retry"
+        return True
 
     def _incidentActive(self, kind: str) -> bool:
         runtime_stats = getattr(self.gc, "runtime_stats", None)

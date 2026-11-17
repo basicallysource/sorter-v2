@@ -16,6 +16,7 @@ here and have its reader ask `machineGeneration()` for its default.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
@@ -25,6 +26,11 @@ MACHINE = "machine"
 KEY = "generation"
 V2 = "v2"
 V3 = "v3"
+
+
+def plateDiagonalMm(studs: int) -> float:
+    """Across the diagonal of a square plate this many studs a side."""
+    return round(studs * 8.0 * math.sqrt(2.0), 1)
 
 
 @dataclass(frozen=True)
@@ -50,6 +56,10 @@ class Generation:
     # keep its readings, warn when it runs hot, and restart one that has
     # switched itself off.
     driver_watch: bool = False
+    # The largest piece a layer takes unless the layer says otherwise, in mm
+    # across the piece's diagonal, by how many bins the layer has to a section.
+    # Bins per section not listed take any piece.
+    layer_max_dimension_mm: Mapping[int, float] = field(default_factory=dict)
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -61,6 +71,7 @@ class Generation:
             "classification_channel": dict(self.classification_channel),
             "smooth_shrink": self.smooth_shrink,
             "driver_watch": self.driver_watch,
+            "layer_max_dimension_mm": dict(self.layer_max_dimension_mm),
         }
 
 
@@ -90,6 +101,9 @@ GENERATIONS: dict[str, Generation] = {
         classification_channel={"fin_count": 4, "fin_at_exit": True},
         smooth_shrink=True,
         driver_watch=True,
+        # Quarter bins take up to a 3x3 plate, thirds a 4x4, halves a 6x6; a
+        # full bin takes anything.
+        layer_max_dimension_mm={4: plateDiagonalMm(3), 3: plateDiagonalMm(4), 2: plateDiagonalMm(6)},
     ),
 }
 DEFAULT_GENERATION = GENERATIONS[V2]

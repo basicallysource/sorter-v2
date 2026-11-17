@@ -16,7 +16,6 @@ from irl.bin_layout import (
     LayerConfig,
     calibratedAnglesForLayer,
     channelIdForLayer,
-    _LAYER_MAX_DIMENSION_DEFAULTS_MM,
 )
 from server import shared_state
 from server.routers.chute import _chute_settings_from_config
@@ -91,7 +90,11 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
         "allowed_bin_counts": ALLOWED_STORAGE_LAYER_BIN_COUNTS,
         # Per-bin-count default oversize limit, so the UI can auto-fill the
         # field when the operator changes a layer's bin count.
-        "max_dimension_defaults": {str(k): v for k, v in _LAYER_MAX_DIMENSION_DEFAULTS_MM.items()},
+        "max_dimension_defaults": {
+            str(count): limit
+            for count in ALLOWED_STORAGE_LAYER_BIN_COUNTS
+            if (limit := defaultMaxDimensionForBinCount(count)) is not None
+        },
         "layers": layers,
     }
 

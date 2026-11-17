@@ -1021,6 +1021,7 @@ class Rev01BaseState(BaseState):
                 cachedPieceMetadata,
                 isOversize,
                 maxDimensionMm,
+                sizeMm,
                 warmPieceMetadata,
             )
 
@@ -1033,6 +1034,7 @@ class Rev01BaseState(BaseState):
             obj.piece_metadata = metadata
             obj.moving_avg_price = metadata.get("moving_avg_price")
 
+            obj.size_mm = sizeMm(metadata)
             max_dim = maxDimensionMm(metadata)
             if max_dim is None:
                 return

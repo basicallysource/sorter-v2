@@ -40,6 +40,8 @@
 		invert: boolean;
 		binCount: string;
 		maxPiecesPerBin: string;
+		// The largest piece the layer takes, in mm across its diagonal; '' = any.
+		maxSize: string;
 		openAngle: number | null;
 		closedAngle: number | null;
 		currentAngle: number | null;
@@ -62,6 +64,12 @@
 	let layers = $state<LayerDraft[]>([]);
 	let channelChoices = $state<number[]>([]);
 	let allowedCounts = $state<number[]>([6, 12, 18, 30]);
+	// The machine's largest piece for a layer of each bin count, when it has one.
+	let sizeDefaults = $state<Record<string, number>>({});
+	function sizeDefault(binCount: string): string {
+		const value = sizeDefaults[binCount];
+		return typeof value === 'number' ? String(value) : '';
+	}
 	let selectedIndex = $state<number | null>(null);
 	// Channel, invert and the speeds: set once when the machine is built, so they
 	// stay out of the way of calibrating.
@@ -75,7 +83,7 @@
 	let savedSignature = $state('');
 	function layerSignature(list: LayerDraft[]): string {
 		return JSON.stringify(
-			list.map((l) => [l.enabled, l.channel, l.invert, l.binCount, l.maxPiecesPerBin.trim()])
+			list.map((l) => [l.enabled, l.channel, l.invert, l.binCount, l.maxPiecesPerBin.trim(), l.maxSize.trim()])
 		);
 	}
 	let dirty = $derived(layerSignature(layers) !== savedSignature);
@@ -156,6 +164,10 @@
 			allowedCounts = Array.isArray(storage.allowed_bin_counts)
 				? storage.allowed_bin_counts.filter((v: unknown): v is number => typeof v === 'number')
 				: [6, 12, 18, 30];
+			sizeDefaults =
+				storage.max_dimension_defaults && typeof storage.max_dimension_defaults === 'object'
+					? storage.max_dimension_defaults
+					: {};
 
 			const servoChannels: Array<{ id: number | null; invert: boolean }> = Array.isArray(
 				servo.channels
@@ -185,6 +197,10 @@
 						typeof sl.max_pieces_per_bin === 'number' && sl.max_pieces_per_bin > 0
 							? String(sl.max_pieces_per_bin)
 							: '',
+					maxSize:
+						typeof sl.max_dimension_mm === 'number' && sl.max_dimension_mm > 0
+							? String(sl.max_dimension_mm)
+							: '',
 					openAngle: typeof sl.servo_open_angle === 'number' ? sl.servo_open_angle : null,
 					closedAngle: typeof sl.servo_closed_angle === 'number' ? sl.servo_closed_angle : null,
 					currentAngle: typeof sl.servo_current_angle === 'number' ? sl.servo_current_angle : null,
@@ -205,9 +221,19 @@
 	}
 
 	function setLayer(layerIndex: number, patch: Partial<LayerDraft>) {
-		layers = layers.map((layer) =>
-			layer.layerIndex === layerIndex ? { ...layer, ...patch } : layer
-		);
+		layers = layers.map((layer) => {
+			if (layer.layerIndex !== layerIndex) return layer;
+			const next = { ...layer, ...patch };
+			// A new bin count brings its own largest piece, unless one was typed in.
+			if (
+				patch.binCount !== undefined &&
+				patch.maxSize === undefined &&
+				layer.maxSize.trim() === sizeDefault(layer.binCount)
+			) {
+				next.maxSize = sizeDefault(patch.binCount);
+			}
+			return next;
+		});
 	}
 
 	async function postLayerAction(
@@ -356,12 +382,22 @@
 					}
 					maxPieces = parsed;
 				}
+				const sizeText = layer.maxSize.trim();
+				let maxSize: number | null = null;
+				if (sizeText.length > 0) {
+					const parsed = Number(sizeText);
+					if (!Number.isFinite(parsed) || parsed <= 0) {
+						throw new Error(`${layer.label}'s largest piece must be a number of mm above 0.`);
+					}
+					maxSize = parsed;
+				}
 				return {
 					bin_count: Number(layer.binCount),
 					enabled: layer.enabled,
 					servo_open_angle: layer.openAngle,
 					servo_closed_angle: layer.closedAngle,
-					max_pieces_per_bin: maxPieces
+					max_pieces_per_bin: maxPieces,
+					max_dimension_mm: maxSize
 				};
 			});
 
@@ -430,6 +466,7 @@
 				invert: false,
 				binCount: String(allowedCounts[0] ?? 12),
 				maxPiecesPerBin: '',
+				maxSize: sizeDefault(String(allowedCounts[0] ?? 12)),
 				openAngle: null,
 				closedAngle: null,
 				currentAngle: null,
@@ -663,6 +700,27 @@
 								oninput={(e) =>
 									setLayer(layer.layerIndex, {
 										maxPiecesPerBin: (e.currentTarget as HTMLInputElement).value
+									})}
+								class="w-24"
+							/>
+						</Field>
+						<Field
+							label="Largest piece (mm)"
+							for="layer-{layer.layerIndex}-size"
+							info="The largest piece this layer's bins take, in mm across the piece's diagonal: the diagonal of a square plate, so 33.9 takes up to a 3x3, 45.3 a 4x4, 67.9 a 6x6. A larger piece goes to a bin of its category on a layer it fits, then to the next category that has one, then to misc. A piece whose size is not known goes only to layers with no limit. Leave it empty for no limit."
+						>
+							<Input
+								id="layer-{layer.layerIndex}-size"
+								type="number"
+								size="sm"
+								min={1}
+								step={0.1}
+								placeholder="∞"
+								value={layer.maxSize}
+								disabled={loading || saving}
+								oninput={(e) =>
+									setLayer(layer.layerIndex, {
+										maxSize: (e.currentTarget as HTMLInputElement).value
 									})}
 								class="w-24"
 							/>

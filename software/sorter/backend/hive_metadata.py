@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+import re
 import threading
 import time
 from typing import Any, Optional
@@ -370,6 +372,49 @@ def maxDimensionMm(metadata: Optional[dict[str, Any]]) -> Optional[float]:
     values = [dims.get("bbox_x_mm"), dims.get("bbox_y_mm"), dims.get("bbox_z_mm")]
     numeric = [float(v) for v in values if isinstance(v, (int, float))]
     return max(numeric) if numeric else None
+
+
+_STUD_MM = 8.0
+_BRICK_MM = 9.6
+_NAME_SIZE = re.compile(r"(\d+(?:\.\d+)?) x (\d+(?:\.\d+)?)(?: x (\d+(?:\.\d+)?))?(?![\d/.])")
+
+
+def sizeMm(metadata: Optional[dict[str, Any]], name: Optional[str] = None) -> Optional[float]:
+    """How large a piece is for a bin: across the diagonal of its two longest
+    sides, the way a layer's limit is measured (a plate's diagonal). From the
+    part's measured box, or when Hive has none, from the size in its name."""
+    dims = metadata.get("dimensions") if isinstance(metadata, dict) else None
+    sides = sorted(
+        (
+            float(v)
+            for v in ((dims or {}).get("bbox_x_mm"), (dims or {}).get("bbox_y_mm"), (dims or {}).get("bbox_z_mm"))
+            if isinstance(v, (int, float))
+        ),
+        reverse=True,
+    )
+    if sides:
+        return math.hypot(*sides[:2])
+    if name is None and isinstance(metadata, dict):
+        name = metadata.get("name")
+    return sizeFromNameMm(name)
+
+
+def sizeFromNameMm(name: Optional[str]) -> Optional[float]:
+    """The size in a part's name ("Slope 45 2 x 1", "Brick 2 x 2 x 3", "Tire
+    30.4 x 14"): whole numbers are studs, and a third one bricks of height;
+    with a decimal point they are millimetres. None when the name has none."""
+    match = _NAME_SIZE.search(name or "")
+    if match is None:
+        return None
+    numbers = [n for n in match.groups() if n is not None]
+    if any("." in n for n in numbers):
+        sides = [float(n) for n in numbers]
+    else:
+        sides = [float(numbers[0]) * _STUD_MM, float(numbers[1]) * _STUD_MM]
+        if len(numbers) > 2:
+            sides.append(float(numbers[2]) * _BRICK_MM)
+    sides.sort(reverse=True)
+    return math.hypot(*sides[:2])
 
 
 def isOversize(max_dimension_mm: Optional[float]) -> bool:

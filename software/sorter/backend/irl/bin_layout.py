@@ -39,23 +39,15 @@ class LayerConfig:
         self.section_enabled = normalized
 
 
-# Per-layer oversize-limit defaults, keyed by the layer's total bin count.
-# Denser layers (more, smaller bins) get a tighter limit. A bin count not
-# listed here defaults to None (no per-layer size check). 5 is included per
-# spec even though it is not currently an allowed bin count; 30 (the densest
-# allowed layer) mirrors that tight limit.
-_LAYER_MAX_DIMENSION_DEFAULTS_MM: dict[int, float] = {
-    5: 40.0,
-    6: 80.0,
-    12: 80.0,
-    18: 50.0,
-    24: 45.0,
-    30: 40.0,
-}
-
-
 def defaultMaxDimensionForBinCount(bin_count: int) -> float | None:
-    return _LAYER_MAX_DIMENSION_DEFAULTS_MM.get(bin_count)
+    """The largest piece a layer of this many bins takes unless it says
+    otherwise, in mm across the piece's diagonal: set by the machine's
+    generation for its bins to a section (a Sorter V2 sets none)."""
+    from hardware_settings.generation import machineGeneration
+
+    if bin_count <= 0 or bin_count % DEFAULT_SECTION_COUNT:
+        return None
+    return machineGeneration().layer_max_dimension_mm.get(bin_count // DEFAULT_SECTION_COUNT)
 
 
 def _binCountOf(sections: List[List[str]]) -> int:
@@ -66,7 +58,7 @@ _MISSING = object()
 
 
 def _parseMaxDimension(raw: object, sections: List[List[str]]) -> float | None:
-    # Missing key (legacy layout) -> bin-count default. Explicit null -> no
+    # Missing key (legacy layout) -> the generation's default. Explicit null -> no
     # check. A number -> that limit.
     if raw is _MISSING:
         return defaultMaxDimensionForBinCount(_binCountOf(sections))

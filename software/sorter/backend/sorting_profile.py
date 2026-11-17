@@ -3,7 +3,7 @@ import json
 import os
 import re
 import threading
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Iterator, Optional
 
 from global_config import GlobalConfig
 
@@ -102,24 +102,39 @@ class ProfileRouter:
         color_id: Optional[str],
         kit_is_full: Optional[Callable[[str, str, str], bool]] = None,
     ) -> str:
+        return next(self.categories(part_id, color_id, kit_is_full))
+
+    def categories(
+        self,
+        part_id: str,
+        color_id: Optional[str],
+        kit_is_full: Optional[Callable[[str, str, str], bool]] = None,
+    ) -> Iterator[str]:
+        """Every category that would take the piece, the first match first: the
+        one it goes to, then the ones it goes to when that one cannot take it.
+        Ends with the default."""
         part = str(part_id)
         color = None if color_id in (None, "", ANY_COLOR) else str(color_id)
+        seen: set[str] = set()
         # A variant never fills a kit: kits take only the exact parts they list.
         for candidate, kits in ((part, True), *((base, False) for base in base_part_ids(part))):
-            category = self._match(candidate, color, kit_is_full, kits)
-            if category is not None:
-                return category
-        if self.fallback_by == "color" and color is not None:
-            return f"color_{color}"
-        return self.default
+            for category in self._matches(candidate, color, kit_is_full, kits):
+                if category not in seen:
+                    seen.add(category)
+                    yield category
+        if self.fallback_by == "color" and color is not None and f"color_{color}" not in seen:
+            seen.add(f"color_{color}")
+            yield f"color_{color}"
+        if self.default not in seen:
+            yield self.default
 
-    def _match(
+    def _matches(
         self,
         part: str,
         color: Optional[str],
         kit_is_full: Optional[Callable[[str, str, str], bool]],
         kits: bool,
-    ) -> Optional[str]:
+    ) -> Iterator[str]:
         for kind, category, parts, colors in self.rules:
             if kind == "kit":
                 if not kits:
@@ -129,7 +144,8 @@ class ProfileRouter:
                     continue
                 if kit_is_full is not None and kit_is_full(category, part, color or ANY_COLOR):
                     continue
-                return category
+                yield category
+                continue
             if parts is None:
                 # A rule for every part (by colour only) is no evidence about a
                 # variant; the exact part number alone may take it.
@@ -139,10 +155,9 @@ class ProfileRouter:
                 continue
             if colors is not None and color not in colors:
                 continue
-            return category
+            yield category
         if self.fallback_by == "category" and part in self.fallback_map:
-            return self.fallback_map[part]
-        return None
+            yield self.fallback_map[part]
 
 
 def categoryResolver(data: dict[str, Any]) -> Callable[[str, str], str]:
@@ -190,6 +205,11 @@ class SortingProfile(ABC):
     @abstractmethod
     def getCategoryIdForPart(self, part_id: str, color_id: str = "any_color") -> str:
         pass
+
+    def categoriesForPart(self, part_id: str, color_id: str = "any_color") -> list[str]:
+        """Every category that would take the part, the one it goes to first,
+        then the ones it goes to when that one cannot take it."""
+        return [self.getCategoryIdForPart(part_id, color_id)]
 
     def setKitProgress(self, tracker: Any) -> None:
         """The kit tracker whose counts decide when a kit passes pieces on;
@@ -290,6 +310,12 @@ class JsonSortingProfile(SortingProfile):
             return self._router.route(part_id, color_id, self._kit_is_full)
         category = _flat_lookup(self.part_to_category, part_id, color_id)
         return self.default_category_id if category is None else category
+
+    def categoriesForPart(self, part_id: str, color_id: str = "any_color") -> list[str]:
+        if self._router is not None:
+            return list(self._router.categories(part_id, color_id, self._kit_is_full))
+        first = self.getCategoryIdForPart(part_id, color_id)
+        return [first] if first == self.default_category_id else [first, self.default_category_id]
 
     def highValueCategoryId(self, price: Optional[float]) -> Optional[str]:
         cfg = self.high_value_routing

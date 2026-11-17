@@ -165,6 +165,9 @@ class KnownObject:
     # Largest single physical dimension (bbox x/y/z) in mm, resolved from Hive
     # part metadata at classification time. None when unknown.
     max_dimension_mm: Optional[float] = None
+    # How large it is for a bin, in mm: across the diagonal of its two longest
+    # sides (hive_metadata.sizeMm). None when unknown.
+    size_mm: Optional[float] = None
     # Headline BrickLink "moving average" price (USD) for this part+color, resolved
     # at classification time from Hive (hive_metadata, served via the persistent
     # metadata cache). None when Hive is unreachable and the cache is cold, or the
@@ -187,8 +190,8 @@ class KnownObject:
     # Set when the piece exceeds the global oversize limit: sent down the
     # center of the chute to the misc bottom bin instead of a real bin.
     too_big: bool = False
-    # Set when the piece fit no real bin because it was larger than its
-    # intended layer's max-dimension limit, so it was rerouted to misc.
+    # Set when the piece was larger than its category's layer takes, so it went
+    # to a bin of a later category it fits, or to misc.
     too_big_for_layer: bool = False
     # The layer this piece would have been distributed to before being
     # rejected for size (when too_big_for_layer is set).

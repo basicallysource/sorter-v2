@@ -194,9 +194,7 @@ class Positioning(BaseState):
 
             address = self._trainingBinAddress()
             if address is None:
-                address, _ = self._findOrAssignBinForCategory(
-                    category_id, not_in_inventory=route_not_in_inventory
-                )
+                address, category_id = self._binThatFits(piece, category_id, route_not_in_inventory)
             if address is None and self._servo_bus_pause_enqueued:
                 # Fatal: the servo bus is offline, so every layer is
                 # unusable. ``_findOrAssignBinForCategory`` already set
@@ -224,14 +222,12 @@ class Positioning(BaseState):
                 self._raiseBinsFullAlert(category_id)
                 return self._discard(piece, category_id, "positioning.passthrough_no_bin")
 
-            if self._exceedsLayerMaxDimension(piece, address.layer_index):
-                # The piece fits a real bin by category, but is physically too
-                # large for that bin's layer. Reroute it to the misc bottom bin
-                # (center-of-chute passthrough) and mark why.
+            if not self._fits(piece, address.layer_index):
+                # Never into a layer too small for it.
                 layer_max = self._layerMaxDimensionMm(address.layer_index)
                 self.logger.info(
-                    f"Positioning: piece {piece.uuid} ({piece.max_dimension_mm}mm) exceeds "
-                    f"layer {address.layer_index} limit ({layer_max}mm) — to the discard"
+                    f"Positioning: piece {piece.uuid} ({piece.size_mm} mm across) is larger than "
+                    f"layer {address.layer_index} takes ({layer_max} mm) — to the discard"
                 )
                 piece.too_big_for_layer = True
                 piece.intended_layer_index = address.layer_index
@@ -342,14 +338,101 @@ class Positioning(BaseState):
                 return float(value)
         return None
 
-    def _exceedsLayerMaxDimension(self, piece, layer_index: int) -> bool:
+    def _pieceSizeMm(self, piece) -> Optional[float]:
+        """How large the piece is for a bin (hive_metadata.sizeMm), from what
+        classification found or, if it had not arrived then, the metadata now."""
+        size = getattr(piece, "size_mm", None)
+        if isinstance(size, (int, float)):
+            return float(size)
+        from hive_metadata import cachedPieceMetadata, sizeMm
+
+        metadata = None
+        if getattr(piece, "part_id", None) is not None:
+            _known, metadata = cachedPieceMetadata(piece.part_id, piece.color_id)
+        size = sizeMm(metadata, getattr(piece, "part_name", None))
+        if size is not None:
+            piece.size_mm = size
+        return size
+
+    def _fits(self, piece, layer_index: int) -> bool:
+        """Whether the piece fits the layer's bins: no larger across than the
+        layer's limit. A piece of unknown size fits only a layer with none."""
         layer_max = self._layerMaxDimensionMm(layer_index)
         if layer_max is None:
-            return False
-        piece_max = piece.max_dimension_mm
-        if not isinstance(piece_max, (int, float)):
-            return False
-        return float(piece_max) > layer_max
+            return True
+        size = self._pieceSizeMm(piece)
+        return size is not None and size <= layer_max + 0.05
+
+    def _categoryLayers(self, category_id: str, not_in_inventory: bool) -> set[int]:
+        """The layers holding a bin of the category that sorting may use."""
+        layers: set[int] = set()
+        for layer_idx, layer in enumerate(self.layout.layers):
+            if not getattr(layer, "enabled", True):
+                continue
+            for section in layer.sections:
+                if not getattr(section, "enabled", True):
+                    continue
+                if any(
+                    bool(b.not_in_inventory) == not_in_inventory and category_id in b.category_ids
+                    for b in section.bins
+                ):
+                    layers.add(layer_idx)
+        return layers
+
+    def _binThatFits(self, piece, category_id: str, not_in_inventory: bool) -> tuple[Optional[BinAddress], str]:
+        """A bin for the piece on a layer it fits, and its category. Its own
+        category's bin; if every bin of that category is on a layer too small
+        for it, the bin of the next category the profile would give it that it
+        fits; failing that, misc. A category that cannot take it for any other
+        reason (full, no bin) is handled as always."""
+        layers = self._categoryLayers(category_id, not_in_inventory)
+        if not layers or any(self._fits(piece, layer) for layer in layers):
+            address, _ = self._findOrAssignBinForCategory(category_id, not_in_inventory=not_in_inventory, piece=piece)
+            return address, category_id
+        piece.too_big_for_layer = True
+        piece.intended_layer_index = min(layers)
+        size = self._pieceSizeMm(piece)
+        across = f"{size:.0f} mm across" if size is not None else "of unknown size"
+        later = (
+            self.sorting_profile.categoriesForPart(piece.part_id, piece.color_id)
+            if piece.part_id is not None
+            else []
+        )
+        for category in later:
+            if category in (category_id, MISC_CATEGORY):
+                continue
+            if not any(self._fits(piece, layer) for layer in self._categoryLayers(category, not_in_inventory)):
+                continue
+            address, _ = self._findOrAssignBinForCategory(
+                category, not_in_inventory=not_in_inventory, piece=piece, misc_fallback=False
+            )
+            if address is None:
+                continue
+            self.logger.info(
+                f"Positioning: piece {piece.uuid} ({across}) is too large for {category_id}'s bins — "
+                f"to {category}'s bin, the next category it fits"
+            )
+            notePieceProblem(
+                piece,
+                "too_big_for_layer",
+                f"It is {across}, too large for the bins of {category_id}, so it went to the bin of "
+                f"{category}, the next category the profile gives it that has a bin it fits.",
+            )
+            return address, category
+        self.logger.info(
+            f"Positioning: piece {piece.uuid} ({across}) is too large for {category_id}'s bins "
+            "and no later category has a bin it fits — to misc"
+        )
+        notePieceProblem(
+            piece,
+            "too_big_for_layer",
+            f"It is {across}, too large for the bins of {category_id}, and no other category the "
+            "profile gives it has a bin it fits, so it went to misc.",
+        )
+        if not_in_inventory:
+            return None, MISC_CATEGORY
+        address, _ = self._findOrAssignBinForCategory(MISC_CATEGORY, piece=piece)
+        return address, MISC_CATEGORY
 
     def _isLayerUsable(self, layer_index: int) -> bool:
         """Check whether this layer is currently usable for a sort move.
@@ -891,8 +974,14 @@ class Positioning(BaseState):
         return address
 
     def _findOrAssignBinForCategory(
-        self, category_id: str, not_in_inventory: bool = False
+        self,
+        category_id: str,
+        not_in_inventory: bool = False,
+        piece=None,
+        misc_fallback: bool = True,
     ) -> tuple[Optional[BinAddress], bool]:
+        # ``piece``: only layers it fits (_fits). ``misc_fallback``: with no bin
+        # for the category, look for misc's.
         # ``not_in_inventory`` selects which bin pool to search. Pieces absent
         # from the active .bsx route only among bins flagged not-in-inventory;
         # everyone else routes only among the normal bins. The two pools never
@@ -934,6 +1023,9 @@ class Positioning(BaseState):
                 continue
 
             has_usable_layers = True
+            if piece is not None and not self._fits(piece, layer_idx):
+                skipped.append(f"layer{layer_idx}=too small for the piece")
+                continue
             max_per_bin = getattr(layer, "max_pieces_per_bin", None)
             for section_idx, section in enumerate(layer.sections):
                 if not getattr(section, "enabled", True):
@@ -1029,13 +1121,13 @@ class Positioning(BaseState):
             )
             return address, True
 
-        if category_id != MISC_CATEGORY and not not_in_inventory:
+        if misc_fallback and category_id != MISC_CATEGORY and not not_in_inventory:
             # No bin slot available for this category; fall back to MISC,
             # which will only succeed if the operator pre-assigned a bin
             # to MISC. Otherwise it returns None and the piece passes
             # through to the discard bucket. Not-in-inventory pieces never fall
             # back to a normal MISC bin — they stay in their pool or pass through.
-            return self._findOrAssignBinForCategory(MISC_CATEGORY)
+            return self._findOrAssignBinForCategory(MISC_CATEGORY, piece=piece)
 
         self.logger.info(
             f"Positioning: MISC has no assigned bin — passthrough to discard bucket "

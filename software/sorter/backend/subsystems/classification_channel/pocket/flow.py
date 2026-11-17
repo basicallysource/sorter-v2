@@ -185,6 +185,10 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._pockets: list[list[_TrackedPiece]] = [[] for _ in range(self._n)]
         # The EXIT pocket's pieces after the turn that swept it, until the look.
         self._swept: list[_TrackedPiece] = []
+        # Pieces gone at the opening out of the last queue pocket, which rode
+        # into the EXIT pocket with the turn: dropped once it is seen empty.
+        self._exit_pending: list[_TrackedPiece] = []
+        self._exit_frames = 0
         self._members: list[_TrackedPiece] = []
         self._pp = _P.VERIFY
         self._started = False
@@ -947,6 +951,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._look_wall = time.time()
         self._look_frames = 0
         self._carry_frames = 0
+        self._exit_frames = 0
+        self._exit_pending = [tp for tp in self._pockets[-1] if getattr(tp, "fell_pending", False)]
         self._new_seen = {}
         self._enter(_P.LOOK)
 
@@ -1046,20 +1052,24 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 return
             group = [m for m in (self._check_group or [tp]) if any(m in pocket for pocket in self._pockets)]
             later = any(any(g[0] in pocket for pocket in self._pockets) for g in self._targets)
-            if not later and all(m in self._pockets[-1] for m in group):
+            home = next((p for p in (self._pockets[-1], self._pockets[-2]) if tp in p), None)
+            if not later and home is not None and all(m in home for m in group):
                 # Gone from where the camera looks, but the camera cannot see all
-                # of the opening, and a piece stuck to the rotor rides on round
-                # into the RECEIVE pocket: it counts as dropped once the look
-                # after the turn finds that pocket empty. The chute stays on it
-                # till then, and its trip down the chute is timed from now.
+                # of the opening, and a piece stuck to the rotor rides on: from
+                # the EXIT pocket round into the RECEIVE pocket, from the last
+                # queue pocket on into the EXIT pocket. It counts as dropped once
+                # the look after the turn finds the pocket it rode in empty. The
+                # chute stays on it till then, and its trip down the chute is
+                # timed from now.
                 at = time.time()
                 for member in group:
+                    member.fell_pending = True
                     if member.known_object is not None:
                         member.known_object.fell_at = at
-                self._pockets[-1].remove(tp)
-                self._pockets[-1].insert(0, tp)
+                home.remove(tp)
+                home.insert(0, tp)
                 self.logger.info(
-                    f"{LOG_TAG} track={tp.track_id} gone at the opening: dropped once the receive pocket is seen empty"
+                    f"{LOG_TAG} track={tp.track_id} gone at the opening: dropped once the pocket it rode in is seen empty"
                 )
             else:
                 # Another piece drops later in this turn and the chute must go
@@ -1080,41 +1090,59 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._enter(_P.TURN)
 
     def _look(self, state, perception_service, stepper, now: float, moving: bool) -> None:
-        """At rest after a turn that swept the EXIT pocket: is its piece in the
-        RECEIVE pocket? Nothing else can be there: C3 stands still while the
-        rotor turns, and a piece it let go just before is told apart (c3_fell_at)."""
+        """At rest after a turn. The EXIT pocket it swept across the opening: is
+        its piece in the RECEIVE pocket? A piece gone at the opening out of the
+        last queue pocket: is it in the EXIT pocket? Nothing else can be in
+        either: the EXIT pocket arrives empty, and C3 stands still while the
+        rotor turns (a piece it let go just before is told apart, c3_fell_at)."""
         if moving:
             return
-        if not self._swept:
+        if not self._swept and not self._exit_pending:
             self._finishCycle(now)
             return
         if self._fresh(state, self._look_wall):
             self._noteMarginStill(state)
             self._look_frames += 1
-            if any(self._station(po.com_forward_to_exit_deg) == 0 for po in getattr(state, "pieces", ())):
+            stations = {self._station(po.com_forward_to_exit_deg) for po in getattr(state, "pieces", ())}
+            if 0 in stations:
                 self._carry_frames += 1
+            if self._n - 1 in stations:
+                self._exit_frames += 1
         waited = now - self._look_from
         if waited < _LOOK_S or (self._look_frames < _LOOK_FRAMES and waited < 3 * _LOOK_S):
             return
-        if self._carry_frames >= 2:
-            fell = getattr(self.shared, "c3_fell_at", None)
-            if fell is not None and fell >= self._cycle_started_mono - _C3_LANDING_S and fell > self._landed_at:
-                # A piece came off C3 around this turn that has not landed in
-                # the record yet: what is in RECEIVE may be it, not the swept
-                # piece, so the swept piece counts as fallen and the newcomer
-                # is taken in at rest like any other.
-                self.logger.warning(
-                    f"{LOG_TAG} a piece in the receive pocket after the sweep, but C3 let one go "
-                    "around this turn: taken as a new piece, not turned back"
-                )
-            else:
-                self._carriedRound(now)
-                return
-        lead = self._swept[0]
+        dropped: list[_TrackedPiece] = []
+        pending, self._exit_pending = self._exit_pending, []
+        if pending and self._exit_frames >= 2:
+            self._stillInExit(pending)
+        else:
+            dropped += [tp for tp in pending if any(tp in pocket for pocket in self._pockets)]
+        if self._swept:
+            carried = False
+            if self._carry_frames >= 2:
+                fell = getattr(self.shared, "c3_fell_at", None)
+                if fell is not None and fell >= self._cycle_started_mono - _C3_LANDING_S and fell > self._landed_at:
+                    # A piece came off C3 around this turn that has not landed in
+                    # the record yet: what is in RECEIVE may be it, not the swept
+                    # piece, so the swept piece counts as fallen and the newcomer
+                    # is taken in at rest like any other.
+                    self.logger.warning(
+                        f"{LOG_TAG} a piece in the receive pocket after the sweep, but C3 let one go "
+                        "around this turn: taken as a new piece, not turned back"
+                    )
+                else:
+                    self._carriedRound(now)
+                    carried = True
+            if not carried:
+                dropped += self._swept
+            self._swept = []
+        if not dropped:
+            self._finishCycle(now)
+            return
+        lead = dropped[0]
         self._commitToDistribution(lead)
         self.logger.info(f"{LOG_TAG} ejected track={lead.track_id}")
-        self._members = self._swept[1:]
-        self._swept = []
+        self._members = dropped[1:]
         self._forget(lead)
         self.noteProgress()
         try:
@@ -1126,12 +1154,39 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         else:
             self._finishCycle(now)
 
+    def _stillInExit(self, pending: list[_TrackedPiece]) -> None:
+        """Pieces gone at the opening out of the last queue pocket are in the
+        EXIT pocket after the turn: they did not fall. The next turn drops them,
+        and shakes them at the opening even out of sight."""
+        for tp in pending:
+            tp.fell_pending = False
+            tp.carried = getattr(tp, "carried", 0) + 1
+            if tp.placed and not tp.ejected:
+                self._takeBack(tp)
+            if tp.known_object is not None:
+                tp.known_object.fell_at = None
+            notePieceProblem(
+                tp.known_object,
+                "did_not_fall",
+                "It went out of sight at the classification channel's opening but was still in the exit "
+                f"pocket after the turn, so it was taken there again (time {tp.carried}).",
+            )
+        self._needs_verify = True
+        names = "+".join(str(tp.track_id) for tp in pending)
+        self.logger.warning(f"{LOG_TAG} track={names} did not fall: still in the exit pocket after the turn")
+        if any(getattr(tp, "carried", 0) >= _CARRY_MAX for tp in pending):
+            self.logger.error(
+                f"{LOG_TAG} a piece has failed to fall {_CARRY_MAX} times: the channel stops until it is cleared"
+            )
+            self._halted = True
+
     def _carriedRound(self, now: float) -> None:
         """The swept pocket's piece is still on the channel: it stuck to the
         rotor and rode round into the RECEIVE pocket. It goes on as the piece
         it is, and is shaken harder at the opening on its next pass."""
         swept, self._swept = self._swept, []
         for tp in swept:
+            tp.fell_pending = False
             tp.carried = getattr(tp, "carried", 0) + 1
             if tp.placed and not tp.ejected:
                 self._takeBack(tp)
@@ -1153,7 +1208,6 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 f"{LOG_TAG} a piece has gone round {_CARRY_MAX} times without falling: the channel stops until it is cleared"
             )
             self._halted = True
-        self._finishCycle(now)
 
     def _commit(self, state, perception_service, stepper, now: float, moving: bool) -> None:
         """The rest of a group that fell with its first piece: each is handed to

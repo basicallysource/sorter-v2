@@ -149,36 +149,88 @@ def ensureLibrary(library_dir: str, url: str = LDRAW_COMPLETE_URL) -> str:
     return root
 
 
+def _bricklinkOnlyItems(conn) -> list[tuple[str, list[str]]]:
+    # Every BrickLink item number that is not also a Rebrickable part number,
+    # with the Rebrickable parts it stands for: the primary mapping first, then
+    # the item's own part, then the rest.
+    items: dict[str, list[str]] = {}
+    for item_no, part_num in conn.execute(
+        "SELECT pbi.item_no, pbi.part_num FROM part_bricklink_ids pbi "
+        "LEFT JOIN bricklink_items bi ON bi.item_no = pbi.item_no "
+        "WHERE pbi.item_no NOT IN (SELECT part_num FROM parts) "
+        "ORDER BY pbi.item_no, pbi.is_primary DESC, (pbi.part_num = bi.part_num) DESC, pbi.part_num"
+    ):
+        items.setdefault(item_no, []).append(part_num)
+    for item_no, part_num in conn.execute(
+        "SELECT item_no, part_num FROM bricklink_items "
+        "WHERE item_no NOT IN (SELECT part_num FROM parts) ORDER BY item_no"
+    ):
+        mapped = items.setdefault(item_no, [])
+        if part_num not in mapped:
+            mapped.append(part_num)
+    return sorted(items.items())
+
+
 def computeAllGeometry(conn, ldraw_root, upsert_fn, computed_at,
                        progress_fn=None, should_stop_fn=None) -> dict:
+    # Two passes. The first measures every Rebrickable part. The second gives a
+    # row to every BrickLink item number that is not a Rebrickable part number
+    # (3040, 3069, 4073: what a sorter predicts), from the parts it maps to, so
+    # that a lookup by the number a sorter sends finds a size.
     index = buildFileIndex(ldraw_root)
     resolver = _Resolver(index)
     rows = conn.execute("SELECT part_num, external_ids FROM parts").fetchall()
-    total = len(rows)
-    direct = parent = none = 0
+    items = _bricklinkOnlyItems(conn)
+    total = len(rows) + len(items)
+    counts = {"direct": 0, "parent": 0, "bricklink": 0}
+    measured: dict[str, dict] = {}
+
+    def result(stopped):
+        return {"total": total, "computed": sum(counts.values()), **counts, "stopped": stopped}
+
+    def step(i, part_num, geom):
+        if geom:
+            upsert_fn(conn, part_num, geom, computed_at)
+            counts[geom["geometry_source"]] += 1
+        if (i + 1) % 1000 == 0:
+            conn.commit()
+            if progress_fn:
+                progress_fn(i + 1, total, f"Geometry: {i+1}/{total} ({sum(counts.values())} computed)")
+
     for i, (part_num, ext_json) in enumerate(rows):
         if should_stop_fn and should_stop_fn():
             conn.commit()
-            return {"total": total, "computed": direct + parent, "direct": direct,
-                    "parent": parent, "stopped": True}
+            return result(True)
         ext = json.loads(ext_json) if ext_json else {}
         ldraw_ids = [str(x) for x in ext.get("LDraw", [])]
         geom = resolveGeometry(resolver, part_num, ldraw_ids)
         if geom:
-            upsert_fn(conn, part_num, geom, computed_at)
-            if geom["geometry_source"] == "direct":
-                direct += 1
-            else:
-                parent += 1
-        else:
-            none += 1
-        if (i + 1) % 1000 == 0:
+            measured[part_num] = geom
+        step(i, part_num, geom)
+    for j, (item_no, part_nums) in enumerate(items):
+        if should_stop_fn and should_stop_fn():
             conn.commit()
-            if progress_fn:
-                progress_fn(i + 1, total, f"Geometry: {i+1}/{total} ({direct+parent} computed)")
+            return result(True)
+        step(len(rows) + j, item_no, resolveBricklinkGeometry(resolver, item_no, part_nums, measured))
     conn.commit()
-    return {"total": total, "computed": direct + parent, "direct": direct,
-            "parent": parent, "stopped": False}
+    return result(False)
+
+
+def resolveBricklinkGeometry(resolver: _Resolver, item_no: str, part_nums: list[str],
+                             measured: dict[str, dict]) -> dict | None:
+    # A BrickLink number can stand for several Rebrickable parts (4287 is 4287a,
+    # 4287b and 4287c; 30413 is a thin- and a thick-walled panel). A piece
+    # predicted as that number may be any of them, so its size is the largest
+    # of theirs: a piece is never sent to a bin too small for it. Mostly they
+    # are the same mold in variants and the sizes agree; on a tie the first
+    # (the primary mapping) is named.
+    found = [(pn, measured[pn]) for pn in part_nums if pn in measured]
+    if found:
+        part_num, geom = max(found, key=lambda f: f[1]["max_extent_mm"])
+        return {**geom, "physical_parent_part_num": part_num, "geometry_source": "bricklink"}
+    # None of them measured: LDraw's own file of that number (for an old
+    # number, often a "~Moved to" that points at the current one).
+    return resolveGeometry(resolver, item_no, [])
 
 
 def resolveGeometry(resolver: _Resolver, part_num: str, ldraw_ids: list[str]) -> dict | None:

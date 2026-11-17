@@ -193,7 +193,8 @@ class SyncManager:
                 else:
                     self.last_message = (
                         f"Geometry complete: {result['computed']} / {result['total']} parts "
-                        f"(direct {result['direct']}, parent {result['parent']})"
+                        f"and BrickLink numbers (direct {result['direct']}, parent "
+                        f"{result['parent']}, BrickLink {result['bricklink']})"
                     )
                     self._persist(
                         conn, "geometry", status="completed", completed_at=_nowIso(),

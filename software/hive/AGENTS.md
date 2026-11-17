@@ -46,6 +46,10 @@ in [`agent-docs/`](agent-docs/):
   filter for both, the labeling queue and its worker, sort segments and cursor
   paging, the per-piece results kept instead of recomputed, and the rule that
   no request scans the fleet.
+- [`agent-docs/part-sizes.md`](agent-docs/part-sizes.md) — each part's size in
+  mm from its LDraw model, the sizes sorters route pieces by: how they are
+  measured, why every BrickLink number gets a row of its own, and how a lookup
+  falls back when there is no model.
 - [`agent-docs/query-plans.md`](agent-docs/query-plans.md) — how that rule is
   enforced: a production-sized seeded database and a test that EXPLAINs every
   list and count the API serves, and what to do when it fails.

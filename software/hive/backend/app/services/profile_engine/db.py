@@ -1052,7 +1052,11 @@ def adminCatalogOverview(conn):
     price_rows_with_rb_color = conn.execute(
         "SELECT COUNT(*) FROM price_guides WHERE rb_color_id IS NOT NULL"
     ).fetchone()[0]
-    parts_with_geometry = _tableCount(conn, "part_geometry")
+    # part_geometry also holds a row per BrickLink number (3040 beside 3040b);
+    # this counts Rebrickable parts only, like the rest of the coverage.
+    parts_with_geometry = conn.execute(
+        "SELECT COUNT(*) FROM part_geometry g JOIN parts p ON p.part_num = g.part_num"
+    ).fetchone()[0]
     return {
         "tables": {
             "parts": parts_total,
@@ -1307,12 +1311,17 @@ def resolvePartDimensions(conn, part_num):
             return {**_geomFields(gg), "source": f"canonical:{rep}", "confidence": "family",
                     "ldraw_id": gg.get("ldraw_id"), "physical_parent_part_num": rep}
 
-    # Tier 3: BrickStore stud footprint -> mm (x/y only, height unknown).
+    # Tier 3: BrickStore stud footprint -> mm (x/y only, height unknown), from
+    # the part's BrickLink items, or the BrickLink item of that number.
     row = conn.execute(
         "SELECT bi.dim_x_studs, bi.dim_y_studs FROM part_bricklink_ids pbi "
         "JOIN bricklink_items bi ON bi.item_no = pbi.item_no "
         "WHERE pbi.part_num = ? AND bi.dim_x_studs IS NOT NULL "
         "ORDER BY pbi.is_primary DESC LIMIT 1",
+        (part_num,),
+    ).fetchone() or conn.execute(
+        "SELECT dim_x_studs, dim_y_studs FROM bricklink_items "
+        "WHERE item_no = ? AND dim_x_studs IS NOT NULL",
         (part_num,),
     ).fetchone()
     if row and row[0] is not None:

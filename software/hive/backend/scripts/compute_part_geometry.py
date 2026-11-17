@@ -31,10 +31,11 @@ def main():
     have = result["computed"]
     total = result["total"]
     print(f"\nDONE: {have}/{total} parts with geometry ({100*have/total:.1f}%)")
-    print(f"  direct={result['direct']}  parent={result['parent']}")
+    print(f"  direct={result['direct']}  parent={result['parent']}  bricklink={result['bricklink']}")
 
+    # Rebrickable numbers, printed variants, and BrickLink numbers a sorter sends
     print("\nspot-check:")
-    for pid in ["3001", "3005", "3023", "3068b", "973pb2833", "3001pr0042"]:
+    for pid in ["3001", "3005", "3023", "3068b", "973pb2833", "3001pr0042", "3040", "3069", "4073"]:
         g = profile_db.getPartGeometry(conn, pid)
         if g:
             print(f"  {pid:14s} {g['bbox_x_mm']}x{g['bbox_y_mm']}x{g['bbox_z_mm']}mm "

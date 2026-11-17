@@ -110,15 +110,17 @@ def _compute_sample_stats(db: Session, machine_ids: list[Any] | None = None) -> 
     def _scoped(query, col):
         return query.filter(col.in_(machine_ids)) if machine_ids is not None else query
 
+    # count(*), never count(Sample.id): the id is not in the narrow indexes
+    # these read, and asking for it sends each query to the wide table.
     sample_rows = _scoped(
         db.query(
             Sample.machine_id,
-            func.count(Sample.id).label("total_samples"),
-            func.count(Sample.id).filter(Sample.review_status == "accepted").label("accepted_samples"),
-            func.count(Sample.id).filter(Sample.review_status == "unreviewed").label("unreviewed_samples"),
-            func.count(Sample.id).filter(Sample.review_status == "in_review").label("in_review_samples"),
-            func.count(Sample.id).filter(Sample.review_status == "rejected").label("rejected_samples"),
-            func.count(Sample.id).filter(Sample.review_status == "conflict").label("conflict_samples"),
+            func.count().label("total_samples"),
+            func.count().filter(Sample.review_status == "accepted").label("accepted_samples"),
+            func.count().filter(Sample.review_status == "unreviewed").label("unreviewed_samples"),
+            func.count().filter(Sample.review_status == "in_review").label("in_review_samples"),
+            func.count().filter(Sample.review_status == "rejected").label("rejected_samples"),
+            func.count().filter(Sample.review_status == "conflict").label("conflict_samples"),
             func.min(Sample.captured_at).label("first_capture"),
             func.max(Sample.captured_at).label("last_capture"),
         ),
@@ -135,12 +137,12 @@ def _compute_sample_stats(db: Session, machine_ids: list[Any] | None = None) -> 
     # The sources and capture reasons the Channel samples filters offer, with
     # their counts, per machine; archived samples are not offered.
     source_rows = _scoped(
-        db.query(Sample.machine_id, Sample.source_role, func.count(Sample.id))
+        db.query(Sample.machine_id, Sample.source_role, func.count())
         .filter(Sample.archived_at.is_(None), Sample.source_role.isnot(None)),
         Sample.machine_id,
     ).group_by(Sample.machine_id, Sample.source_role).all()
     reason_rows = _scoped(
-        db.query(Sample.machine_id, Sample.capture_reason, func.count(Sample.id))
+        db.query(Sample.machine_id, Sample.capture_reason, func.count())
         .filter(Sample.archived_at.is_(None), Sample.capture_reason.isnot(None)),
         Sample.machine_id,
     ).group_by(Sample.machine_id, Sample.capture_reason).all()

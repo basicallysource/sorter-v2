@@ -550,7 +550,7 @@ def _bboxRegionCounts(
 
 
 def orderedPieceObservations(
-    bboxes: Iterable[Bbox], channel: ChannelDef
+    bboxes: Iterable[Bbox], channel: ChannelDef, on_channel: bool = True
 ) -> list[tuple[float, int, int, Bbox]]:
     """Per-piece ``(com_forward_to_exit_deg, com_section, region_code, bbox)`` for EVERY
     on-channel piece, ordered leading-first (ascending gap to the exit-only entry
@@ -578,7 +578,7 @@ def orderedPieceObservations(
     lut = _region_lookup(channel)
     out: list[tuple[float, int, int, Bbox]] = []
     for bbox in bboxes:
-        if not bboxInsideChannelMask(bbox, channel):
+        if on_channel and not bboxInsideChannelMask(bbox, channel):
             continue
         mx, my = bboxCenter(bbox)
         angle = float(np.degrees(np.arctan2(my - cy0, mx - cx0)))

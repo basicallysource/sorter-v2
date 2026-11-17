@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections import deque
 from dataclasses import replace
 from enum import Enum
 from typing import Optional
@@ -218,6 +219,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._doubt_frame_at = None
         # When the last piece off C3 was taken into the RECEIVE pocket.
         self._landed_at = float("-inf")
+        # Boxes seen in the exit margin while the rotor stood still: something
+        # that does not move with the rotor, never a piece it carries.
+        self._margin_still: deque = deque(maxlen=60)
         # The acceleration last given the motor for a turn (homing and the
         # other flows may have set another since a pause: set again then).
         self._accel_set: Optional[int] = None
@@ -538,6 +542,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
     def _observeAtRest(self, state, now: float) -> None:
         """Match the frame's boxes to the pockets' records and add the pieces
         that have newly landed."""
+        self._noteMarginStill(state)
         by_id = {tp.track_id: tp for pocket in self._pockets for tp in pocket}
         # The boxes the camera fused into one (it draws them as one "merged" piece).
         self._merged = {
@@ -591,6 +596,15 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 self.logger.info(f"{LOG_TAG} track={tp.track_id} left the receive pocket unphotographed; dropped")
                 tp.worker.abandonInFlightObject("gone from the receive pocket before it was photographed")
                 self._forget(tp)
+
+    def _noteMarginStill(self, state) -> None:
+        for po in getattr(state, "margin_pieces", ()):
+            self._margin_still.append(tuple(int(v) for v in po.bbox))
+
+    def _stillInMargin(self, bbox) -> bool:
+        """Whether a box in the exit margin is where one stood while the rotor
+        stood still: the opening's own shadows and edges, not a piece."""
+        return any(_iou(bbox, still) > 0.5 for still in self._margin_still)
 
     def _seen(self, tp: _TrackedPiece, po, now: float) -> None:
         b = po.bbox
@@ -964,10 +978,18 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._startCheck(now)
             return
         if self._fresh(state, self._check_wall):
+            # On the channel, or hanging past its rim over the opening (the exit
+            # margin), where the camera's boxes are not pieces but one that
+            # moved there with the rotor is this piece.
             near = any(
                 po.com_forward_to_exit_deg is not None
                 and abs(float(po.com_forward_to_exit_deg) - self._check_gap) <= _CHECK_NEAR_DEG
                 for po in getattr(state, "pieces", ())
+            ) or any(
+                po.com_forward_to_exit_deg is not None
+                and abs(float(po.com_forward_to_exit_deg) - self._check_gap) <= _CHECK_NEAR_DEG
+                and not self._stillInMargin(po.bbox)
+                for po in getattr(state, "margin_pieces", ())
             )
             self._check_empty = 0 if near else self._check_empty + 1
             # That it is still there counts only from after it has had time to
@@ -1071,6 +1093,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._finishCycle(now)
             return
         if self._fresh(state, self._look_wall):
+            self._noteMarginStill(state)
             self._look_frames += 1
             if any(self._station(po.com_forward_to_exit_deg) == 0 for po in getattr(state, "pieces", ())):
                 self._carry_frames += 1
@@ -1351,3 +1374,11 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._rest_wall = time.time()
         self._new_seen = {}
         self._enter(_P.REST)
+
+
+def _iou(a, b) -> float:
+    ix = max(0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
+    return inter / union if union > 0 else 0.0

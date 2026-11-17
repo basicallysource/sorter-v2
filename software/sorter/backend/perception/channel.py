@@ -82,10 +82,12 @@ def buildChannelDef(
     precise_arc: tuple[float, float] | None,
     arc_center: tuple[float, float] | None = None,
     reverse: bool = False,
+    classification_exit_margin: bool = False,
 ) -> ChannelDef:
     """Pure builder, in frame coordinates. ``arc_center`` is the ring's center,
     the pivot every angle is measured from; without it (tests) the polygon's
-    centroid stands in."""
+    centroid stands in. ``classification_exit_margin``: the classification
+    channel has an exit margin too, over its exit and the approach to it."""
     if channel_id not in CAMERA_ROLE:
         raise ValueError(f"unknown perception channel_id={channel_id}")
     h, w = frame_shape
@@ -108,6 +110,14 @@ def buildChannelDef(
         return sectionsFor(Span(*arc), section_zero_angle)
 
     precise_sections = sections(precise_arc)
+    exit_margin_mask = None
+    if channel_id in FEEDER_CHANNELS and exit_arc is not None:
+        exit_margin_mask = _exitMarginMask(mask, center, exit_arc)
+    elif classification_exit_margin:
+        for arc in (exit_arc, precise_arc):
+            if arc is not None and (arc[1] - arc[0]) % 360.0 != 0:
+                band = _exitMarginMask(mask, center, arc, CLASSIFICATION_EXIT_MARGIN_FRACTION)
+                exit_margin_mask = band if exit_margin_mask is None else cv2.bitwise_or(exit_margin_mask, band)
     return ChannelDef(
         channel_id=channel_id,
         camera_source_id=CAMERA_ROLE[channel_id],
@@ -118,11 +128,7 @@ def buildChannelDef(
         exit_sections=sections(exit_arc) | precise_sections,
         precise_sections=precise_sections,
         reverse=reverse or channel_id in REVERSE_TRAVEL_CHANNELS,
-        exit_margin_mask=(
-            _exitMarginMask(mask, center, exit_arc)
-            if channel_id in FEEDER_CHANNELS and exit_arc is not None
-            else None
-        ),
+        exit_margin_mask=exit_margin_mask,
     )
 
 
@@ -142,20 +148,35 @@ def channelDefFor(zones: ChannelZones, frame_shape: tuple[int, int]) -> ChannelD
         precise_arc=(precise.start, precise.end) if precise is not None else None,
         reverse=live.reverse,
         arc_center=live.ring.center,
+        classification_exit_margin=live.channel not in FEEDER_CHANNELS and _classificationExitMargin(),
     )
+
+
+def _classificationExitMargin() -> bool:
+    """Whether this machine's classification channel has an exit margin (its
+    generation says)."""
+    try:
+        from hardware_settings.generation import machineGeneration
+
+        return bool(machineGeneration().classification_exit_margin)
+    except Exception:
+        return False
 
 
 # How far past the exit's edge the margin reaches, as a share of the frame's width.
 EXIT_MARGIN_FRACTION = 0.05
+# The classification channel's: its opening reaches further out past the rim.
+CLASSIFICATION_EXIT_MARGIN_FRACTION = 0.08
 
 
 def _exitMarginMask(
     mask: np.ndarray,
     center: tuple[float, float],
     exit_arc: tuple[float, float],
+    fraction: float = EXIT_MARGIN_FRACTION,
 ) -> np.ndarray:
     h, w = mask.shape[:2]
-    px = max(3, int(round(EXIT_MARGIN_FRACTION * w)))
+    px = max(3, int(round(fraction * w)))
     grown = cv2.dilate(mask, np.ones((2 * px + 1, 2 * px + 1), np.uint8))
     start = exit_arc[0]
     span = (exit_arc[1] - exit_arc[0]) % 360.0

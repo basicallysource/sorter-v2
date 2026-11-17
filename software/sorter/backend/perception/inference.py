@@ -697,9 +697,15 @@ class InferenceWorker:
 
                 margin = ch_def.exit_margin_mask
                 on_channel = {tuple(int(v) for v in b[:4]) for b in bboxes}
-                in_margin = margin is not None and any(
-                    box not in on_channel and bboxInsideMask(box, margin)
+                margin_boxes = [
+                    box
                     for box in (tuple(int(v) for v in b[:4]) for b in raw_bboxes_full)
+                    if margin is not None and box not in on_channel and bboxInsideMask(box, margin)
+                ]
+                in_margin = bool(margin_boxes)
+                margin_pieces = tuple(
+                    PieceObservation(com_forward_to_exit_deg=gap, com_section=sec, zone_code=zone_code, bbox=bbox)
+                    for gap, sec, zone_code, bbox in orderedPieceObservations(margin_boxes, ch_def, on_channel=False)
                 )
                 state = ChannelState(
                     ts=frame.timestamp,
@@ -715,6 +721,7 @@ class InferenceWorker:
                     exit_com_forward_to_precise_deg=exit_com_forward_to_precise_deg,
                     exit_com_in_precise=exit_com_in_precise,
                     pieces=pieces,
+                    margin_pieces=margin_pieces,
                     merged=merged_groups,
                 )
                 self._slot.write(state)

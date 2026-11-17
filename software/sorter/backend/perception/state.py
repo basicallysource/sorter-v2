@@ -122,6 +122,11 @@ class ChannelState:
     # (ChannelDef.exit_margin_mask): a piece that left the channel, or one
     # hanging off its lip. Not one of ``pieces``.
     in_margin: bool = False
+    # The boxes wholly in the exit margin this frame, each with its gap to the
+    # exit worked out as for a piece (PieceObservation, no track id). The
+    # classification channel reads them as a piece it drops still hanging
+    # over the opening; they are never pieces on the channel.
+    margin_pieces: tuple = ()
     # Classification channel: each piece box that was merged from several of the
     # detector's boxes this frame, with those boxes: ((merged, (box, ...)), ...).
     # One object drawn in parts (an assembly, a two-colour brick) and two pieces

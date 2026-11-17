@@ -27,7 +27,7 @@ import uuid as uuid_mod
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -487,6 +487,12 @@ def refresh_all(db: Session) -> int:
 def _refresh_pass() -> dict[str, Any]:
     db = SessionLocal()
     try:
+        # A pass over every piece the fleet has sent outgrows the 60 s a
+        # statement gets by default (database.py), and a pass that is cancelled
+        # leaves every machine's numbers where the last good one put them. It
+        # is the worker's own job, off any request path: no limit, for the
+        # session, since refresh_all commits part way through.
+        db.execute(text("SET statement_timeout = 0"))
         # Grouped passes over every piece and sample: give them room to sort in
         # memory rather than spill to temp files.
         tune_for_aggregates(db, work_mem="64MB")
@@ -495,6 +501,11 @@ def _refresh_pass() -> dict[str, Any]:
         db.rollback()
         raise
     finally:
+        try:
+            # The connection goes back to the pool: its next user gets the default.
+            db.execute(text("RESET statement_timeout"))
+        except Exception:
+            pass
         db.close()
 
 

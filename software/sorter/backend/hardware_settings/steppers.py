@@ -92,6 +92,9 @@ FIELDS: dict[str, Field] = {
         Field("stallguard", STALLGUARD, "enabled", False, _isBool, "true or false"),
         # The StallGuard tuner (stallguard_tuner.py) keeps sgthrs and tcoolthrs.
         Field("stallguard_auto", STALLGUARD, "auto", False, _isBool, "true or false"),
+        # Jam detection on the tuner's dial: the trigger as a percentage of
+        # normal running at the speeds it checks; 0 is the tuner's stall-only trigger.
+        Field("stallguard_sensitivity", STALLGUARD, "sensitivity", 0, _intIn(0, 90), "an integer from 0 to 90"),
         Field("sgthrs", STALLGUARD, "sgthrs", 50, _intIn(0, 255), "an integer from 0 to 255"),
         Field(
             "tcoolthrs", STALLGUARD, "tcoolthrs", 150,
@@ -132,6 +135,7 @@ class StepperSettings:
     coolstep: bool
     stallguard: bool
     stallguard_auto: bool
+    stallguard_sensitivity: int
     sgthrs: int
     tcoolthrs: int
     inverted: bool

@@ -29,6 +29,23 @@ it drifts as a motor wears or collects debris. So:
 
 It changes the driver only between moves, never clears a stall latch, and
 saves what it sets, so the motor starts on it next time.
+
+Jam detection (a sensitivity on the dial, stallguard_sensitivity above 0)
+puts the trigger far higher, to stop the motor while it is still pushing
+gently on something in its way (a piece jammed in a full bin), not only once
+it is stuck. The trigger is that percentage of what normal running reads at
+its lowest, at the speeds the driver checks. Normal running reads lower the
+slower the motor turns, so a higher trigger is checked over fewer speeds:
+- The readings are kept by speed band: band 0 is the operating speed and the
+  top of each ramp (the speed floor above), each band after it half an octave
+  slower, JAM_BANDS of them.
+- It checks every band, from the fastest, whose normal low is at least
+  JAM_BAND_KEEP of band 0's, and stops at the first that is not; the speed
+  floor is the slowest speed of the last band it checks.
+- Until a band has MIN_BAND_READINGS readings of its own, its normal low comes
+  from what the machine recorded while sorting (fleet_telemetry's stepper_load
+  windows of the last SEED_DAYS under the same current, microstepping and
+  chopper mode), so the dial holds from its first move.
 """
 
 from __future__ import annotations
@@ -79,7 +96,13 @@ APPLY_RETRY_S = 30.0
 REG_TSTEP = 0x12
 REG_SG_RESULT = 0x41
 SG_MAX = 1023
+# TSTEP reads its largest value while the motor stands still.
+TSTEP_STANDSTILL = 0xFFFFF
 ERROR_LOG_INTERVAL_S = 300.0
+JAM_BANDS = 4
+JAM_BAND_KEEP = 0.8
+MIN_BAND_READINGS = 150
+SEED_DAYS = 3.0
 
 
 def tstepAt(speed: float, microsteps: int) -> float:
@@ -110,6 +133,106 @@ def normalLow(readings: list[int]) -> int:
     return ordered[int(NORMAL_LOW_QUANTILE * (len(ordered) - 1))]
 
 
+def jamBand(tstep: float, cruise_tstep: float) -> int:
+    """The speed band of a reading at `tstep`: 0 at or under FLOOR_MARGIN times
+    the operating speed's TSTEP, one more each half octave slower, and
+    JAM_BANDS + 1 for every speed slower than the last band."""
+    ratio = tstep / cruise_tstep
+    if ratio <= FLOOR_MARGIN:
+        return 0
+    return min(JAM_BANDS + 1, math.ceil(2.0 * math.log2(ratio / FLOOR_MARGIN)))
+
+
+def jamBandEdge(band: int, cruise_tstep: float) -> int:
+    """The largest TSTEP in `band`: the speed floor that checks it and every faster band."""
+    return min(TCOOLTHRS_EVERY_SPEED, math.ceil(cruise_tstep * FLOOR_MARGIN * math.sqrt(2.0) ** band))
+
+
+@dataclass(frozen=True)
+class JamPlan:
+    trigger: int
+    tcoolthrs: int
+    # The slowest band it checks, and normal running's lowest reading over the bands it checks.
+    band: int
+    lowest: int
+
+
+def jamPlan(lows: dict[int, int], cruise_tstep: float, sensitivity: int) -> JamPlan | None:
+    base = lows.get(0)
+    if base is None:
+        return None
+    band, lowest = 0, base
+    for slower in range(1, JAM_BANDS + 1):
+        low = lows.get(slower)
+        if low is None or low < JAM_BAND_KEEP * base:
+            break
+        band, lowest = slower, min(lowest, low)
+    trigger = max(MIN_TRIGGER, min(2 * 255, round(sensitivity / 100.0 * lowest)))
+    return JamPlan(trigger, jamBandEdge(band, cruise_tstep), band, lowest)
+
+
+@dataclass
+class Seed:
+    """What sorting recorded of a motor, by jam band: normal lows, readings,
+    and the share of its travel each band made up (speed times time)."""
+
+    lows: dict[int, int] = field(default_factory=dict)
+    readings: dict[int, int] = field(default_factory=dict)
+    travel: dict[int, float] = field(default_factory=dict)
+
+
+def seedFrom(records: list[dict[str, Any]], motor_name: str, conditions: "Conditions") -> Seed:
+    """A Seed from fleet_telemetry's stepper_load windows: its TSTEP bands
+    (half octaves) go to the jam band of their middle, its SG_RESULT bins count
+    at their lower edge."""
+    cruise = tstepAt(conditions.speed, conditions.microsteps)
+    wanted = (conditions.irun, conditions.microsteps, conditions.stealthchop)
+    counts: dict[int, dict[int, int]] = {}
+    seed = Seed()
+    for record in records:
+        data = record.get("data") or {}
+        width = int(data.get("sg_bin_width") or 1)
+        for entry in (data.get("steppers") or {}).get(motor_name, []):
+            settings = entry.get("settings") or {}
+            if (settings.get("irun"), settings.get("microsteps"), settings.get("stealthchop")) != wanted:
+                continue
+            for b in entry.get("bands") or []:
+                low_t, high_t = b["tstep"]
+                middle = math.sqrt(low_t * high_t)
+                band = jamBand(middle, cruise)
+                n = int(b.get("n") or 0)
+                seed.travel[band] = seed.travel.get(band, 0.0) + n * cruise / middle
+                if band > JAM_BANDS:
+                    continue
+                into = counts.setdefault(band, {})
+                for i, count in enumerate(b.get("sg") or []):
+                    if count:
+                        value = (int(b.get("sg_from") or 0) + i) * width
+                        into[value] = into.get(value, 0) + int(count)
+    for band, into in counts.items():
+        total = sum(into.values())
+        seed.readings[band] = total
+        if total < MIN_BAND_READINGS:
+            continue
+        rank = int(NORMAL_LOW_QUANTILE * (total - 1))
+        seen = 0
+        for value in sorted(into):
+            seen += into[value]
+            if seen > rank:
+                seed.lows[band] = value
+                break
+    return seed
+
+
+def _recordedSeed(motor: Motor, conditions: "Conditions") -> Seed:
+    try:
+        import telemetry_store
+
+        return seedFrom(telemetry_store.listKind("stepper_load", time.time() - SEED_DAYS * 86400), motor.name, conditions)
+    except Exception:
+        return Seed()
+
+
 @dataclass(frozen=True)
 class Conditions:
     """What the readings depend on; a change starts learning over."""
@@ -137,6 +260,8 @@ class Learned:
     tuned_at: float | None = None
     # Newest first: {at, sgthrs: [from, to], tcoolthrs: [from, to], why}.
     changes: list[dict[str, Any]] = field(default_factory=list)
+    # The normal low of each slower jam band it has its own readings of, by band ("1".."4").
+    band_lows: dict[str, int] = field(default_factory=dict)
 
 
 def _createTables(conn: sqlite3.Connection) -> None:
@@ -200,13 +325,22 @@ class MotorTuning:
         self.motor = motor
         self.learned = learned
         self.readings: deque[int] = deque(maxlen=WINDOW)
+        # Jam detection: the dial, the readings of the slower bands, the travel
+        # it saw in each band, and what sorting recorded before.
+        self.sensitivity = 0
+        self.bands: dict[int, deque[int]] = {band: deque(maxlen=WINDOW) for band in range(1, JAM_BANDS + 1)}
+        self.travel: dict[int, float] = {}
+        self.seed = Seed()
+        self.plan: JamPlan | None = None
         self.since_retune = 0
         self.conditions: Conditions | None = None
         self.settings: StepperSettings | None = None
         self.settings_read_at = -math.inf
         self.move: Any = None
         # The readings of the move being followed; None once it is judged.
-        self.move_readings: list[int] | None = None
+        self.move_readings: list[tuple[int, int]] | None = None
+        # The travel the move being followed made in each band (speed times time, in TSTEP units).
+        self.move_travel: dict[int, float] = {}
         # (sgthrs, tcoolthrs, why) for the driver, set between moves.
         self.target: tuple[int, int, str] | None = None
         self.retry_at = -math.inf
@@ -223,37 +357,128 @@ class MotorTuning:
         assert self.conditions is not None
         return floorFor(self.conditions.speed, self.conditions.microsteps)
 
-    def aim(self, sgthrs: int, why: str) -> None:
+    def aim(self, sgthrs: int, why: str, tcoolthrs: int | None = None) -> None:
         settings = self.settings
-        floor = self.floor()
+        floor = self.floor() if tcoolthrs is None else tcoolthrs
         if settings is not None and (settings.sgthrs, settings.tcoolthrs) == (sgthrs, floor):
             self.target = None
         else:
             self.target = (sgthrs, floor, why)
 
+    def cruiseTstep(self) -> float:
+        assert self.conditions is not None
+        return tstepAt(self.conditions.speed, self.conditions.microsteps)
+
+    def bandOf(self, tstep: float) -> int:
+        """Band 0 is what the stall-only trigger learns from: TSTEP at or under its floor."""
+        return 0 if tstep <= self.floor() else max(1, jamBand(tstep, self.cruiseTstep()))
+
+    def lows(self) -> dict[int, int]:
+        """Each band's normal low: its own readings once there are enough,
+        else what it learned before a restart, else what sorting recorded."""
+        lows = dict(self.seed.lows)
+        for band, low in self.learned.band_lows.items():
+            lows[int(band)] = low
+        for band, readings in self.bands.items():
+            if len(readings) >= MIN_BAND_READINGS:
+                lows[band] = normalLow(list(readings))
+        if self.learned.normal_low is not None:
+            lows[0] = self.learned.normal_low
+        return lows
+
+    def jamPlanNow(self) -> JamPlan | None:
+        if self.sensitivity <= 0 or self.conditions is None:
+            return None
+        return jamPlan(self.lows(), self.cruiseTstep(), self.sensitivity)
+
+    def aimJam(self, why: str, *, force: bool = False) -> bool:
+        """Aim the dial's trigger and floor; False while it has nothing to go on.
+        Lowering the trigger or moving the floor always goes through; raising
+        it waits for a change of two, so it does not flicker."""
+        plan = self.jamPlanNow()
+        self.plan = plan
+        if plan is None:
+            return False
+        why = f"{why}: {self.sensitivity}% of normal running's low {plan.lowest} at the speeds it checks"
+        sgthrs = sgthrsFor(plan.trigger)
+        settings = self.settings
+        current = (settings.sgthrs, settings.tcoolthrs) if settings is not None else None
+        if (
+            force
+            or current is None
+            or plan.tcoolthrs != current[1]
+            or sgthrs < current[0]
+            or sgthrs >= current[0] + 2
+        ):
+            self.aim(sgthrs, why, plan.tcoolthrs)
+        return True
+
     def startOver(self, conditions: Conditions, why: str) -> None:
         self.conditions = conditions
         self.learned = Learned(conditions=conditions.key)
         self.readings.clear()
+        for readings in self.bands.values():
+            readings.clear()
+        self.travel = {}
         self.since_retune = 0
+        if self.sensitivity > 0:
+            self.seed = _recordedSeed(self.motor, conditions)
+            if self.aimJam(f"{why}, from what sorting recorded", force=True):
+                return
         self.aim(sgthrsFor(PROVISIONAL_TRIGGER), why)
+
+    def dialMoved(self) -> None:
+        """The dial was set to another sensitivity, or off, under the same conditions."""
+        assert self.conditions is not None
+        if self.sensitivity > 0:
+            if not self.seed.lows:
+                self.seed = _recordedSeed(self.motor, self.conditions)
+            if self.aimJam(f"the dial moved to {self.sensitivity}%", force=True):
+                return
+        self.plan = None
+        if self.learned.normal_low is not None:
+            self.aim(sgthrsFor(triggerFor(self.learned.normal_low)), "the dial turned off")
+        else:
+            self.aim(sgthrsFor(PROVISIONAL_TRIGGER), f"learning at {self.conditions.speed} µsteps/s")
 
     def judgeMove(self, stalled: bool, log: Any) -> None:
         readings = self.move_readings
+        travel = self.move_travel
         self.move_readings = None
+        self.move_travel = {}
         if not readings:
             return
         if stalled:
             log.info(f"StallGuard tuner: {self.motor.name}: left out {len(readings)} readings of the move that stalled.")
             return
-        self.readings.extend(readings)
-        self.since_retune += len(readings)
+        for tstep, sg in readings:
+            band = self.bandOf(tstep)
+            if band == 0:
+                self.readings.append(sg)
+                self.since_retune += 1
+            elif band <= JAM_BANDS:
+                self.bands[band].append(sg)
+        for band, distance in travel.items():
+            self.travel[band] = self.travel.get(band, 0.0) + distance
         self.learned.readings += len(readings)
 
     def due(self) -> bool:
         if len(self.readings) < MIN_READINGS:
             return False
         return self.learned.normal_low is None or self.since_retune >= RETUNE_EVERY
+
+    def checkedTravel(self) -> float | None:
+        """The share of the motor's travel made at the speeds the dial checks."""
+        plan = self.plan
+        if plan is None:
+            return None
+        travel = dict(self.seed.travel)
+        for band, distance in self.travel.items():
+            travel[band] = travel.get(band, 0.0) + distance
+        total = sum(travel.values())
+        if total <= 0:
+            return None
+        return sum(distance for band, distance in travel.items() if band <= plan.band) / total
 
     def retune(self, log: Any) -> None:
         self.since_retune = 0
@@ -271,6 +496,12 @@ class MotorTuning:
                 f"StallGuard tuner: {self.motor.name} works harder than it did: its normal "
                 f"load reading fell from {learned.baseline_low} to {low}."
             )
+        for band, readings in self.bands.items():
+            if len(readings) >= MIN_BAND_READINGS:
+                learned.band_lows[str(band)] = normalLow(list(readings))
+        if self.sensitivity > 0:
+            self.aimJam(f"normal low {low} over {len(self.readings)} readings", force=first)
+            return
         sgthrs = sgthrsFor(triggerFor(low))
         current = self.settings.sgthrs if self.settings is not None else None
         # Lowering it always goes through: it keeps normal running clear of it.
@@ -311,6 +542,42 @@ class MotorTuning:
             ),
             "changes": learned.changes,
             "error": self.error,
+            **self.jamStatus(),
+        }
+
+    def jamStatus(self) -> dict[str, Any]:
+        conditions = self.conditions
+        plan = self.plan
+        if self.sensitivity <= 0 or conditions is None:
+            return {"sensitivity": self.sensitivity}
+        cruise = self.cruiseTstep()
+        own = {band: len(readings) for band, readings in self.bands.items()}
+        own[0] = len(self.readings)
+        lows = self.lows()
+        bands = []
+        for band in range(JAM_BANDS + 1):
+            slowest = jamBandEdge(band, cruise)
+            fastest = None if band == 0 else jamBandEdge(band - 1, cruise)
+            bands.append({
+                "band": band,
+                "from_speed": speedAt(slowest, conditions.microsteps),
+                "to_speed": None if fastest is None else speedAt(fastest, conditions.microsteps),
+                "normal_low": lows.get(band),
+                "readings": own.get(band, 0),
+                "recorded": self.seed.readings.get(band, 0),
+                "checked": plan is not None and band <= plan.band,
+            })
+        return {
+            "sensitivity": self.sensitivity,
+            "jam": None if plan is None else {
+                "trigger": plan.trigger,
+                "lowest": plan.lowest,
+                "tcoolthrs": plan.tcoolthrs,
+                "floor_speed": speedAt(plan.tcoolthrs, conditions.microsteps),
+                "checked_travel": self.checkedTravel(),
+            },
+            "bands": bands,
+            "band_keep": JAM_BAND_KEEP,
         }
 
 
@@ -371,13 +638,17 @@ class StallGuardTuner:
             tuning.move_readings = None
             return
         conditions = Conditions(speed, settings.microsteps, settings.irun, settings.stealthchop)
+        if settings.stallguard_sensitivity != tuning.sensitivity:
+            tuning.sensitivity = settings.stallguard_sensitivity
+            if conditions == tuning.conditions:
+                tuning.dialMoved()
         if conditions != tuning.conditions:
             self.meet(tuning, conditions)
         self.follow(tuning, stepper, now)
         if tuning.due():
             tuning.retune(self._log)
             self.store(tuning)
-        tuning.state = "tuned" if tuning.learned.normal_low is not None else "learning"
+        tuning.state = "tuned" if tuning.learned.normal_low is not None or tuning.plan is not None else "learning"
         if tuning.target is not None and now >= tuning.retry_at and self.betweenMoves(stepper, now):
             self.apply(tuning, stepper, now)
 
@@ -388,7 +659,14 @@ class StallGuardTuner:
         if previous is None and tuning.learned.conditions == conditions.key and tuning.learned.normal_low is not None:
             tuning.conditions = conditions
             tuning.readings.clear()
+            for readings in tuning.bands.values():
+                readings.clear()
+            tuning.travel = {}
             tuning.since_retune = 0
+            if tuning.sensitivity > 0:
+                tuning.seed = _recordedSeed(tuning.motor, conditions)
+                if tuning.aimJam("as learned before the restart", force=True):
+                    return
             tuning.aim(sgthrsFor(triggerFor(tuning.learned.normal_low)), "as learned before the restart")
             return
         tuning.startOver(conditions, f"learning at {conditions.speed} µsteps/s")
@@ -402,6 +680,7 @@ class StallGuardTuner:
             tuning.judgeMove(bool(getattr(stepper, "stalled", False)), self._log)
             tuning.move = move
             tuning.move_readings = [] if move is not None and move.max_speed == tuning.conditions.speed else None
+            tuning.move_travel = {}
         if move is None or tuning.move_readings is None:
             return
         ends = move.sent_at + move.duration_s
@@ -413,13 +692,21 @@ class StallGuardTuner:
 
     def sample(self, tuning: MotorTuning, stepper: Any) -> None:
         assert tuning.move_readings is not None
-        # Only what the driver judges: TSTEP at or under the speed floor.
         tstep = _read(stepper, REG_TSTEP)
-        if tstep is None or not 0 < tstep <= tuning.floor():
+        if tuning.sensitivity > 0:
+            # Jam detection: every speed band, and the travel at each speed.
+            if tstep is None or not 0 < tstep < TSTEP_STANDSTILL:
+                return
+            band = tuning.bandOf(tstep)
+            tuning.move_travel[band] = tuning.move_travel.get(band, 0.0) + tuning.cruiseTstep() / tstep
+            if band > JAM_BANDS:
+                return
+        # Only what the driver judges: TSTEP at or under the speed floor.
+        elif tstep is None or not 0 < tstep <= tuning.floor():
             return
         sg = _read(stepper, REG_SG_RESULT)
         if sg is not None and 0 <= sg <= SG_MAX:
-            tuning.move_readings.append(sg)
+            tuning.move_readings.append((tstep, sg))
 
     def betweenMoves(self, stepper: Any, now: float) -> bool:
         if getattr(stepper, "stalled", False):
@@ -504,6 +791,7 @@ def status(motor: Motor) -> dict[str, Any]:
     }
     if supports(motor) and _tuner is not None:
         result.update(_tuner.status(motor.name))
+    result["sensitivity"] = settings.stallguard_sensitivity
     return result
 
 

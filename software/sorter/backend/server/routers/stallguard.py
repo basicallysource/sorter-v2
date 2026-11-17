@@ -546,6 +546,10 @@ class StallGuardAutoBody(BaseModel):
     enabled: Optional[bool] = None
     # Forget what it learned and learn the motor again as it is now.
     learn_again: bool = False
+    # Jam detection's dial (stallguard_tuner): the trigger as a percentage of
+    # normal running. Above 0 it turns StallGuard and automatic tuning on; 0
+    # goes back to the stall-only trigger.
+    sensitivity: Optional[int] = Field(None, ge=0, le=90)
 
 
 @router.get("/stepper/{stepper}/stallguard-auto")
@@ -561,8 +565,15 @@ def set_stallguard_auto(stepper: str, body: StallGuardAutoBody) -> Dict[str, Any
     motor = _motor(stepper)
     if not stallguard_tuner.supports(motor):
         raise HTTPException(status_code=400, detail=f"The {motor.label} has no automatic tuning.")
+    changes: Dict[str, Any] = {}
     if body.enabled is not None:
-        save_stepper_settings(motor, {"stallguard_auto": body.enabled})
+        changes["stallguard_auto"] = body.enabled
+    if body.sensitivity is not None:
+        changes["stallguard_sensitivity"] = body.sensitivity
+        if body.sensitivity > 0:
+            changes.update(stallguard=True, stallguard_auto=True)
+    if changes:
+        save_stepper_settings(motor, changes)
     if body.learn_again:
         stallguard_tuner.learnAgain(motor)
     return stallguard_tuner.status(motor)

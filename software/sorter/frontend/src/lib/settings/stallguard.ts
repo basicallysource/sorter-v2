@@ -66,6 +66,25 @@ export type AutoTuning = {
 		why: string;
 	}[];
 	error?: string | null;
+	// Jam detection's dial: the trigger as a percentage of normal running; 0 is off.
+	sensitivity?: number;
+	jam?: {
+		trigger: number;
+		lowest: number;
+		tcoolthrs: number;
+		floor_speed: number;
+		checked_travel: number | null;
+	} | null;
+	bands?: {
+		band: number;
+		from_speed: number;
+		to_speed: number | null;
+		normal_low: number | null;
+		readings: number;
+		recorded: number;
+		checked: boolean;
+	}[];
+	band_keep?: number;
 };
 
 export type Replay = {

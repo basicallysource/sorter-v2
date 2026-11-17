@@ -81,7 +81,7 @@ _DRV_FLAGS = (
 )
 _SETTING_FIELDS = (
     "irun", "ihold", "microsteps", "stealthchop", "coolstep",
-    "stallguard", "stallguard_auto", "sgthrs", "tcoolthrs",
+    "stallguard", "stallguard_auto", "stallguard_sensitivity", "sgthrs", "tcoolthrs",
 )
 
 

@@ -8,6 +8,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import MeasureTurn from '$lib/components/setup/MeasureTurn.svelte';
 	import StepperPanel from '$lib/components/settings/StepperPanel.svelte';
+	import ChuteJamSensitivity from '$lib/components/settings/stepper/ChuteJamSensitivity.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getChute, type ChuteSettings } from '$lib/api/chute';
 	import { errorMessage } from '$lib/api/http';
@@ -95,6 +96,7 @@
 			onmeasured={(settings) => (chute = settings)}
 		/>
 	{/if}
+	<ChuteJamSensitivity {base} />
 {/if}
 
 <StepperPanel

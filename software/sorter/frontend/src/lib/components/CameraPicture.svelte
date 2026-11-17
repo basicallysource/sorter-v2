@@ -34,8 +34,9 @@
 		merged: 'rgb(128 0 255)',
 		margin: 'rgb(160 160 160)'
 	};
-	// The rotor's fins as the machine reads them: there, but quiet.
-	const FIN_LINE = 'rgb(255 255 255 / 0.35)';
+	// The rotor's fins as the machine reads them, in a colour the white rotor
+	// does not have, so they show against it.
+	const FIN_LINE = 'rgb(255 150 0 / 0.9)';
 	const LABEL_PX = 11;
 
 	type Size = { width: number; height: number };
@@ -242,7 +243,7 @@
 		height: number,
 		px: number
 	) {
-		g.lineWidth = px;
+		g.lineWidth = 2 * px;
 		g.strokeStyle = FIN_LINE;
 		g.beginPath();
 		for (const [x1, y1, x2, y2] of lines) {

@@ -93,6 +93,11 @@ _FLUSH_AFTER_S = 6.0
 # The fins within this of the rest pose are at rest; further off, the rotor is
 # turned to it (steps were lost, or it was moved by hand).
 _ALIGN_TOL_DEG = 2.0
+# A piece C3 lets go lands on this channel within this long.
+_C3_LANDING_S = 1.5
+# Turned back toward rest by at most this while the RECEIVE pocket holds a
+# piece: further back, that piece is carried toward the opening.
+_BACK_WITH_PIECE_DEG = 8.0
 # Distribution must see its slot empty before a piece that was taken back is
 # handed to it again: handed back at once, it still reads as the piece the
 # chute is already on, and the chute never moves to where the piece goes now.
@@ -153,6 +158,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._started = False
         self._halted = False
         self._taken_back_at = float("-inf")
+        self._cycle_started_mono = float("-inf")
+        # C3 stands still while this channel is not ready (SharedVariables).
+        self.shared.feeder_holds_while_busy = True
         self._serial = 0
         self._move_cmd_at = 0.0
         self._rest_since = 0.0
@@ -647,6 +655,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             if not self._chuteOn(lead):
                 return  # The chute is not on it yet
         self._cycle_start_pos = int(stepper.position)
+        self._cycle_started_mono = now
         self.noteProgress()
         try:
             self._cycles.rotated(time.time(), ejecting=bool(exit_))
@@ -710,6 +719,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             if step == "shake":
                 self._startShake(stepper, now)
             elif step == "back":
+                # Where the turn back ends is where the sweep starts: a stop
+                # part way through finishes from there, not a whole pocket on.
+                self._cycle_start_pos = int(stepper.position) - int(C4_TRAVEL_SIGN) * self._pitch_us
                 self._move(
                     stepper, self._pitch_us, self.ctx.config.rotate_speed_usteps_per_s, now, "back before the opening", back=True
                 )
@@ -737,7 +749,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
 
     def _look(self, state, perception_service, stepper, now: float, moving: bool) -> None:
         """At rest after a turn that swept the EXIT pocket: is its piece in the
-        RECEIVE pocket? Nothing else can be there: the feeder was held."""
+        RECEIVE pocket? Nothing else can be there: C3 stands still while the
+        rotor turns, and a piece it let go just before is told apart (c3_fell_at)."""
         if moving:
             return
         if not self._swept:
@@ -751,8 +764,19 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if waited < _LOOK_S or (self._look_frames < _LOOK_FRAMES and waited < 3 * _LOOK_S):
             return
         if self._carry_frames >= 2:
-            self._didNotFall(now)
-            return
+            fell = getattr(self.shared, "c3_fell_at", None)
+            if fell is not None and fell >= self._cycle_started_mono - _C3_LANDING_S:
+                # A piece came off C3 around this turn: what is in RECEIVE may
+                # be it, not the swept piece. Turning back would carry it across
+                # the opening unseen, so the swept piece counts as fallen and the
+                # newcomer is taken in at rest like any other.
+                self.logger.warning(
+                    f"{LOG_TAG} a piece in the receive pocket after the sweep, but C3 let one go "
+                    "around this turn: taken as a new piece, not turned back"
+                )
+            else:
+                self._didNotFall(now)
+                return
         lead = self._swept[0]
         self._commitToDistribution(lead)
         self.logger.info(f"{LOG_TAG} ejected track={lead.track_id}")
@@ -965,6 +989,15 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._verify_reads = 0
             if getattr(self.irl, "c4_fin_rest_microsteps", None) is None:
                 self.irl.c4_fin_rest_microsteps = int(stepper.position)
+            self._toRest(now)
+            return
+        if off < 0 and abs(off) > _BACK_WITH_PIECE_DEG and self._pockets[0]:
+            self.logger.warning(
+                f"{LOG_TAG} a fin stands {abs(off):.1f}° past rest with a piece in the receive pocket: "
+                "not turned back, which would carry it toward the opening"
+            )
+            self._off_seen = None
+            self._verify_reads = 0
             self._toRest(now)
             return
         if self._off_seen is None or abs(self._off_seen - off) > _ALIGN_TOL_DEG:

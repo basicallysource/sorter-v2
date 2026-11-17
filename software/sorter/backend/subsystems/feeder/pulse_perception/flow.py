@@ -165,6 +165,7 @@ class PulsePerceptionFeeding(BaseState):
         watch.noteFall(channel, gate.fell_track_id)
 
     def _on_ch3_dispense(self) -> None:
+        self.shared.c3_fell_at = time.monotonic()
         try:
             from .autotune import noteDispense
             noteDispense()
@@ -281,9 +282,14 @@ class PulsePerceptionFeeding(BaseState):
                 greedy=cfg.ch3_greedy_enabled,
             )
             action, hidden_cap = self._withHiddenPieces(3, c3, action, now_mono, cfg)
-            self._apply_action(
-                "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg, hidden_cap
-            )
+            # A classification channel that asks for it gets a C3 that stands
+            # still the whole time it is not ready: keeping only the lead piece
+            # back from the lip still let pieces fall, ones the camera had lost
+            # at the edge of its picture or two lying together.
+            if not (getattr(self.shared, "feeder_holds_while_busy", False) and not self._classification_ready(cfg)):
+                self._apply_action(
+                    "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg, hidden_cap
+                )
 
         if cfg.enable_ch2:
             # C2's downstream is C3. "Clear" = C3's drop zone is not occupied,

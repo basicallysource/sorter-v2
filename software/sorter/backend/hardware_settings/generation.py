@@ -60,10 +60,6 @@ class Generation:
     # across the piece's diagonal, by how many bins the layer has to a section.
     # Bins per section not listed take any piece.
     layer_max_dimension_mm: Mapping[int, float] = field(default_factory=dict)
-    # The classification channel reaches past its rim over the exit, as the
-    # feeder channels' exits do, so a piece stuck over the opening (a tire
-    # gripping the rim) is still seen as on the channel.
-    classification_exit_margin: bool = False
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -104,7 +100,6 @@ GENERATIONS: dict[str, Generation] = {
         # by the pocket flow (subsystems/classification_channel/pocket).
         classification_channel={"fin_count": 4, "fin_at_exit": True},
         smooth_shrink=True,
-        classification_exit_margin=True,
         driver_watch=True,
         # Quarter bins take up to a 3x3 plate, thirds a 4x4, halves a 6x6; a
         # full bin takes anything.

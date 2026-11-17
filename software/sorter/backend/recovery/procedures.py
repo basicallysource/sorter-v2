@@ -87,4 +87,21 @@ C4_SHAKE_OFF = Procedure(
     restore=True,
 )
 
-PROCEDURES: dict[str, Procedure] = {p.key: p for p in (LANDING_HELD, C4_SHAKE_OFF)}
+# A piece where pieces land on the classification channel that did not ride
+# its turn: it still hangs off C3's exit. Only C3 moves: nudge it off, shake,
+# pull it back, push harder. The classification channel is never turned for it:
+# that does not move a piece C3 holds, and it would shift its pockets.
+C3_EXIT_HELD = Procedure(
+    "c3_exit_held",
+    "Free a piece hanging off C3 onto the classification channel",
+    (
+        Move("above", turn_deg=4.0),
+        Move("above", turn_deg=6.0),
+        Move("above", shake="brief"),
+        Move("above", turn_deg=-10.0),
+        Move("above", shake="heavy"),
+        Move("above", turn_deg=12.0),
+    ),
+)
+
+PROCEDURES: dict[str, Procedure] = {p.key: p for p in (LANDING_HELD, C4_SHAKE_OFF, C3_EXIT_HELD)}

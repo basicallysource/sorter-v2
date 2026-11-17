@@ -167,6 +167,17 @@ KINDS: dict[str, IncidentKind] = {
             procedure="landing_held",
         ),
         IncidentKind(
+            "piece_held_c4",
+            title="A piece hangs off C3 onto the classification channel",
+            todo="A piece where pieces land on the classification channel does not move with it: it still hangs off C3's exit. Take it off, then press Done.",
+            actions=("done",),
+            scope="Classification",
+            description="A piece where pieces land on the classification channel stayed put through a turn of it: it hangs off C3's exit.",
+            default_handling=AUTOMATIC,
+            automatic_label="Free it by moving C3, then call the operator",
+            procedure="c3_exit_held",
+        ),
+        IncidentKind(
             "stepper_stall",
             title="Motor stalled",
             todo="{motor} stalled. Check it can turn freely, then press Done.",

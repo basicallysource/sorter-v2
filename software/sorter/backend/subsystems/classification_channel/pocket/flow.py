@@ -189,6 +189,11 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         # into the EXIT pocket with the turn: dropped once it is seen empty.
         self._exit_pending: list[_TrackedPiece] = []
         self._exit_frames = 0
+        # The RECEIVE pocket's pieces and where they lay as a turn began: one
+        # still lying there after the turn did not ride the rotor, it hangs off
+        # C3's exit. Frames after the turn that showed it there.
+        self._receive_before: list[tuple[_TrackedPiece, tuple[int, int, int, int]]] = []
+        self._held_seen: dict[int, int] = {}
         self._members: list[_TrackedPiece] = []
         self._pp = _P.VERIFY
         self._started = False
@@ -484,6 +489,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         """The first step, or the first after a pause or a hold."""
         # Hands may have moved the rotor meanwhile: the fins are read again.
         self._needs_verify = True
+        self._receive_before = []
         for tp in self._pieces.values():
             tp.last_seen = now
             if tp.known_object is not None:
@@ -590,6 +596,12 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 self._newPiece(station, po, now)
                 self._new_seen.pop(key, None)
         self._new_seen = {key: n for key, n in self._new_seen.items() if key in seen_now}
+        # A piece that hung off C3 and is gone from RECEIVE went back onto C3.
+        for tp in list(self._pockets[0]):
+            if getattr(tp, "held_from_above", False) and (now - tp.last_seen) > _UNSEEN_DROP_S:
+                self.logger.info(f"{LOG_TAG} track={tp.track_id} that hung off C3 is gone from the receive pocket: back on C3")
+                tp.worker.abandonInFlightObject("went back onto C3")
+                self._forget(tp)
         # A box in RECEIVE that never became a photographed piece and is gone.
         for tp in list(self._pockets[0]):
             if not tp.capture_done and (now - tp.last_seen) > _UNSEEN_DROP_S:
@@ -822,6 +834,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 self._targets[-1].append(tp)  # Falls with the one beside it
             else:
                 self._targets.append([tp])
+        self._receive_before = [(tp, tuple(int(v) for v in tp.bbox)) for tp in receive if any(tp.bbox)]
         self._planning = True
         self._turned_deg = 0.0
         self._sweep_steps = []
@@ -952,6 +965,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._look_frames = 0
         self._carry_frames = 0
         self._exit_frames = 0
+        self._held_seen = {}
         self._exit_pending = [tp for tp in self._pockets[-1] if getattr(tp, "fell_pending", False)]
         self._new_seen = {}
         self._enter(_P.LOOK)
@@ -1099,13 +1113,20 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         rotor turns (a piece it let go just before is told apart, c3_fell_at)."""
         if moving:
             return
-        if not self._swept and not self._exit_pending:
+        if not self._swept and not self._exit_pending and not self._receive_before:
             self._finishCycle(now)
             return
         if self._fresh(state, self._look_wall):
             self._noteMarginStill(state)
             self._look_frames += 1
-            stations = {self._station(po.com_forward_to_exit_deg) for po in getattr(state, "pieces", ())}
+            stations = set()
+            for po in getattr(state, "pieces", ()):
+                station = self._station(po.com_forward_to_exit_deg)
+                stayed = self._stayedPut(po.bbox) if station == 0 else None
+                if stayed is not None:
+                    self._held_seen[id(stayed)] = self._held_seen.get(id(stayed), 0) + 1
+                    continue
+                stations.add(station)
             if 0 in stations:
                 self._carry_frames += 1
             if self._n - 1 in stations:
@@ -1113,6 +1134,13 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         waited = now - self._look_from
         if waited < _LOOK_S or (self._look_frames < _LOOK_FRAMES and waited < 3 * _LOOK_S):
             return
+        before, self._receive_before = self._receive_before, []
+        held = [(tp, box) for tp, box in before if self._held_seen.get(id(tp), 0) >= 2]
+        fell = getattr(self.shared, "c3_fell_at", None)
+        if held and fell is not None and fell >= self._cycle_started_mono - _C3_LANDING_S and fell > self._landed_at:
+            held = []  # C3 let a piece go around this turn: what lies there may be it
+        if held:
+            self._heldFromAbove(held)
         dropped: list[_TrackedPiece] = []
         pending, self._exit_pending = self._exit_pending, []
         if pending and self._exit_frames >= 2:
@@ -1155,6 +1183,80 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._enter(_P.COMMIT)
         else:
             self._finishCycle(now)
+
+    def _stayedPut(self, bbox) -> Optional[_TrackedPiece]:
+        """The RECEIVE pocket's piece from before the turn that lay where this
+        box lies now, if any."""
+        cx, cy = (bbox[0] + bbox[2]) / 2.0, (bbox[1] + bbox[3]) / 2.0
+        for tp, box in self._receive_before:
+            near = max(15.0, 0.25 * max(box[2] - box[0], box[3] - box[1]))
+            if abs((box[0] + box[2]) / 2.0 - cx) <= near and abs((box[1] + box[3]) / 2.0 - cy) <= near:
+                return tp
+        return None
+
+    def _heldFromAbove(self, held: list) -> None:
+        """A piece in the RECEIVE pocket lay where it lay through the turn: it
+        did not ride the rotor, it hangs off C3's exit. Its record goes back to
+        the RECEIVE pocket, and its incident moves C3 to free it (never this
+        channel, which does not move a piece C3 holds)."""
+        for tp, box in held:
+            for pocket in self._pockets:
+                if tp in pocket:
+                    pocket.remove(tp)
+            self._pockets[0].insert(0, tp)
+            tp.zone = _ZONE_DROP
+            tp.held_from_above = True
+            if tp.placed and not tp.ejected:
+                self._takeBack(tp)
+            notePieceProblem(
+                tp.known_object,
+                "hangs_off_c3",
+                "It lay where it lay through a turn of the classification channel: it hung off C3's exit.",
+            )
+            self.logger.warning(f"{LOG_TAG} track={tp.track_id} stayed put through the turn: it hangs off C3")
+        self._reportHangingOffC3(held[0][0], held[0][1])
+
+    def _reportHangingOffC3(self, tp: _TrackedPiece, box) -> None:
+        import incidents
+
+        kind = "piece_held_c4"
+        mode = incidents.handling(kind)
+        if mode == incidents.OFF:
+            return
+        if not incidents.report(
+            self.gc, kind, subject="C4", channel="c4", channel_label="C4", track_id=tp.track_id, box=list(box)
+        ):
+            return
+        if mode != incidents.AUTOMATIC:
+            return
+        perception = getattr(self.gc, "perception_service", None)
+        motor = self._c3Motor()
+        if perception is None or motor is None:
+            return
+        import recovery
+        from recovery.judges import pieceGoneFrom
+
+        recovery.start(
+            self.gc, "c3_exit_held", kind=kind, motors={"above": motor}, judge=pieceGoneFrom(perception, 4, box)
+        )
+
+    def _c3Motor(self):
+        try:
+            from hardware_settings.feeder import feederDrive
+            from recovery.motors import ChannelMotor, gearedMicrosteps
+            from subsystems.feeder.pulse_perception.config import channelMoveSpeed, configFromDict
+            from toml_config import getPulsePerceptionConfig
+
+            cfg = configFromDict(getPulsePerceptionConfig())
+            ratio = feederDrive().gear_ratio
+            stepper = self.irl.c_channel_3_rotor_stepper
+            sign = 1 if cfg.forward_direction_sign >= 0 else -1
+            return ChannelMotor(
+                "C3", stepper, gearedMicrosteps(stepper, ratio, sign), speed=channelMoveSpeed(cfg, 3), gear_ratio=ratio
+            )
+        except Exception as exc:
+            self.logger.warning(f"{LOG_TAG} no C3 motor for the recovery: {exc}")
+            return None
 
     def _stillInExit(self, pending: list[_TrackedPiece]) -> None:
         """Pieces gone at the opening out of the last queue pocket are in the

@@ -17,7 +17,9 @@ The C-channels' motor speeds and accelerations were tuned on the geared ones,
 in motor microsteps. On another drive their built-in defaults are scaled so the
 channels turn just as fast (`FeederDrive.motorRate`), and the drive can give
 its motors other built-in settings, current and direction (`stepper_defaults`,
-which steppers.py layers over its own). A value saved in machine.toml is
+which steppers.py layers over its own), and accelerations of their own
+(`accelerations`): a motor that turns its channel itself can speed it up and
+slow it down much harder than the gear let it. A value saved in machine.toml is
 always taken as it is.
 """
 
@@ -51,6 +53,9 @@ class FeederDrive:
     # the motor's own (steppers.MOTOR_DEFAULTS). Its direction included: a gear
     # turns the channel the other way from its motor.
     stepper_defaults: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+    # The acceleration of a motor on this drive (microsteps/s²), by motor name,
+    # in place of the geared feeder's scaled.
+    accelerations: Mapping[str, int] = field(default_factory=dict)
 
     def motorRate(self, geared_rate: float) -> int:
         """A motor speed or acceleration tuned on the geared feeder, for this
@@ -76,6 +81,9 @@ DRIVES: dict[str, FeederDrive] = {
             "c_channel_3": {"irun": 16},
             "carousel": {"irun": 16},
         },
+        # C1 keeps the geared feeder's: it already has all it can do to move
+        # its load.
+        {"c_channel_2": 3000, "c_channel_3": 3000, "carousel": 2000},
     ),
 }
 

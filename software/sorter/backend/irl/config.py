@@ -802,16 +802,23 @@ def mkStepperConfig(default_steps_per_second: int = 2000) -> StepperConfig:
 FEEDER_MOTOR_DEFAULT_STEPS_PER_SECOND = 4000
 
 
+def _driveAcceleration(drive: FeederDrive, motor: str) -> int:
+    """A C-channel motor's acceleration on its drive: the drive's own for it, or
+    the geared feeder's, scaled."""
+    own = drive.accelerations.get(motor)
+    return int(own) if own else drive.motorRate(FIRMWARE_DEFAULT_ACCELERATION_MICROSTEPS_PER_SECOND_SQ)
+
+
 def setFeederStepperConfigs(irl_config: "IRLConfig", drive: FeederDrive) -> None:
     """The feeder motors' speed limit and acceleration for the feeder's drive:
     the geared feeder's, scaled to turn the channels as fast."""
-    for attr in ("c_channel_1_rotor_stepper", "c_channel_2_rotor_stepper", "c_channel_3_rotor_stepper"):
+    for motor in ("c_channel_1", "c_channel_2", "c_channel_3"):
         setattr(
             irl_config,
-            attr,
+            f"{motor}_rotor_stepper",
             StepperConfig(
                 drive.motorRate(FEEDER_MOTOR_DEFAULT_STEPS_PER_SECOND),
-                drive.motorRate(FIRMWARE_DEFAULT_ACCELERATION_MICROSTEPS_PER_SECOND_SQ),
+                _driveAcceleration(drive, motor),
             ),
         )
     setClassificationChannelDrive(irl_config, drive)
@@ -829,7 +836,7 @@ def setClassificationChannelDrive(irl_config: "IRLConfig", drive: FeederDrive) -
 
     irl_config.carousel_stepper = StepperConfig(
         drive.motorRate(C4_MOTOR_DEFAULT_STEPS_PER_SECOND),
-        drive.motorRate(FIRMWARE_DEFAULT_ACCELERATION_MICROSTEPS_PER_SECOND_SQ),
+        _driveAcceleration(drive, "carousel"),
     )
     irl_config.c_channel_4_rotor_stepper = irl_config.carousel_stepper
     geared_eject = FeederConfig().classification_channel_eject

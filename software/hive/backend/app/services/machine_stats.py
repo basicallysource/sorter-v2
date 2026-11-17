@@ -13,36 +13,46 @@ Three families of metrics per machine:
     what let an arbitrary set of machines be answered without touching pieces.
 
 Recomputing these over the whole fleet on every request was the load source on
-the admin machines page, and later on the public one. Instead a daemon thread
-refreshes one row per machine into machine_stats_cache hourly; the API reads
-those rows. Single-machine overviews lazily compute + cache on a miss so a
-brand-new machine isn't blank until the next scheduled pass.
+the admin machines page, and later on the public one. Instead a worker refreshes
+one row per machine into machine_stats_cache; the API reads those rows.
+
+**A pass reads what changed, not the fleet's history.** Rescanning every piece
+and channel crop each pass ran past the worker's statement limit once the fleet
+had two million pieces and fifty million crops, and the cache froze
+(2026-11-16). Now:
+  * piece numbers come from per machine-day partial answers that triggers mark
+    stale when pieces change (`services/piece_days.py`); a pass rebuilds the
+    marked days and folds the machine's day rows;
+  * channel crops are counted by triggers into machine_channel_crop_deltas,
+    which a pass adds to the count and deletes;
+  * the sample counts are grouped scans of narrow indexes on samples (a few
+    thousand samples a day, not a million crops).
+A machine is counted in full once, the first time the worker sees it after the
+triggers exist (`incremental_since`). Single-machine overviews compute and
+cache on a miss so a brand-new machine isn't blank until the next pass.
 """
 
 from __future__ import annotations
 
 import logging
 import threading
-import uuid as uuid_mod
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import SessionLocal, tune_for_aggregates
+from app.database import STATEMENT_TIMEOUT_KEY, SessionLocal
 from app.models.machine import Machine
+from app.models.machine_channel_crop import MachineChannelCrop, MachineChannelCropDelta
 from app.models.machine_piece import MachinePiece
 from app.models.machine_stats_cache import MachineStatsCache
+from app.services import piece_days
 from app.services.periodic import PeriodicWorker
+from app.services.piece_days import ACTIVE_GAP_IDLE_S  # noqa: F401  (fleet_records reads it here)
 
 logger = logging.getLogger(__name__)
-
-# Two pieces more than this many seconds apart are treated as separate sorting
-# sessions, so the gap between them is NOT counted as active time. Tunable
-# against a machine whose real /records numbers we know.
-ACTIVE_GAP_IDLE_S = 60.0
 
 # Fields carried through the cache row, in the shape the API serves. Date fields
 # are handled separately so we can store datetimes but serve ISO strings.
@@ -67,6 +77,14 @@ _NUMERIC_FIELDS = (
     "channel_crops",
 )
 _DATE_FIELDS = ("first_seen", "last_seen", "first_capture", "last_capture")
+_PIECE_FIELDS = (
+    "pieces_seen", "distributed", "classified", "unique_parts", "unique_colors",
+    "first_seen", "last_seen", "active_seconds", "overall_ppm", "ontime_pct",
+)
+_SAMPLE_FIELDS = (
+    "total_samples", "accepted_samples", "unreviewed_samples", "in_review_samples", "rejected_samples",
+    "conflict_samples", "first_capture", "last_capture", "total_sessions", "parts_found", "parts_needed",
+)
 
 
 def _empty_distributions() -> dict[str, Any]:
@@ -82,138 +100,6 @@ def _empty_stats() -> dict[str, Any]:
         stats[f] = None
     stats["distributions"] = _empty_distributions()
     return stats
-
-
-def _active_seconds_by_machine(db: Session, machine_ids: list[Any] | None = None) -> dict[str, float]:
-    """Sum the gaps between consecutive pieces per machine, ignoring idle gaps."""
-    if db.bind.dialect.name == "postgresql":
-        from sqlalchemy import text
-
-        filter_sql = ""
-        params: dict[str, Any] = {"idle": ACTIVE_GAP_IDLE_S}
-        if machine_ids is not None:
-            # Cast the uuid column to text — the bound ids are strings, and
-            # Postgres has no uuid = text operator for the ANY() comparison.
-            filter_sql = "AND machine_id::text = ANY(:mids)"
-            params["mids"] = [str(m) for m in machine_ids]
-        result = db.execute(
-            text(
-                f"""
-                WITH g AS (
-                    SELECT machine_id,
-                           EXTRACT(EPOCH FROM (
-                               seen_at - LAG(seen_at) OVER (
-                                   PARTITION BY machine_id ORDER BY seen_at, local_id))) AS gap
-                    FROM machine_pieces
-                    WHERE seen_at IS NOT NULL {filter_sql})
-                SELECT machine_id,
-                       COALESCE(SUM(CASE WHEN gap > 0 AND gap <= :idle THEN gap ELSE 0 END), 0) AS active
-                FROM g GROUP BY machine_id
-                """
-            ),
-            params,
-        )
-        return {str(mid): float(active) for mid, active in result}
-
-    active: dict[str, float] = {}
-    prev_mid = None
-    prev_seen = None
-    query = db.query(MachinePiece.machine_id, MachinePiece.seen_at).filter(MachinePiece.seen_at.isnot(None))
-    if machine_ids is not None:
-        query = query.filter(MachinePiece.machine_id.in_(machine_ids))
-    rows = query.order_by(MachinePiece.machine_id, MachinePiece.seen_at, MachinePiece.local_id).all()
-    for mid, seen_at in rows:
-        mid_str = str(mid)
-        active.setdefault(mid_str, 0.0)
-        if prev_mid == mid_str and prev_seen is not None:
-            gap = (seen_at - prev_seen).total_seconds()
-            if 0 < gap <= ACTIVE_GAP_IDLE_S:
-                active[mid_str] += gap
-        prev_mid = mid_str
-        prev_seen = seen_at
-    return active
-
-
-def _compute_piece_stats(db: Session, machine_ids: list[Any] | None = None) -> dict[str, dict[str, Any]]:
-    query = db.query(
-        MachinePiece.machine_id,
-        func.count().label("pieces_seen"),
-        func.count().filter(MachinePiece.bin_x.isnot(None)).label("distributed"),
-        func.count().filter(MachinePiece.classification_status == "classified").label("classified"),
-        func.count(func.distinct(MachinePiece.part_id)).label("unique_parts"),
-        func.count(func.distinct(MachinePiece.color_id)).label("unique_colors"),
-        func.min(MachinePiece.seen_at).label("first_seen"),
-        func.max(MachinePiece.seen_at).label("last_seen"),
-    )
-    if machine_ids is not None:
-        query = query.filter(MachinePiece.machine_id.in_(machine_ids))
-    agg = query.group_by(MachinePiece.machine_id).all()
-    active_by_machine = _active_seconds_by_machine(db, machine_ids)
-
-    result: dict[str, dict[str, Any]] = {}
-    for r in agg:
-        mid = str(r.machine_id)
-        active_s = active_by_machine.get(mid, 0.0)
-        distributed = r.distributed or 0
-        overall_ppm = (distributed * 60.0 / active_s) if active_s > 0 else 0.0
-        span_s = (
-            (r.last_seen - r.first_seen).total_seconds()
-            if r.first_seen and r.last_seen
-            else 0.0
-        )
-        ontime_pct = (active_s / span_s * 100.0) if span_s > 0 else 0.0
-        result[mid] = {
-            "pieces_seen": r.pieces_seen or 0,
-            "distributed": distributed,
-            "classified": r.classified or 0,
-            "unique_parts": r.unique_parts or 0,
-            "unique_colors": r.unique_colors or 0,
-            "first_seen": r.first_seen,
-            "last_seen": r.last_seen,
-            "active_seconds": active_s,
-            "overall_ppm": overall_ppm,
-            "ontime_pct": ontime_pct,
-        }
-    return result
-
-
-def _compute_distributions(db: Session, machine_ids: list[Any] | None = None) -> dict[str, dict[str, Any]]:
-    """Whole per-machine distribution maps: status, parts, colors.
-
-    Three grouped passes per refresh, in place of the same three group-bys run
-    on every analytics request. Kept WHOLE (no top-N) because the fold that
-    builds a fleet-wide answer needs every key: a top-15 per machine cannot be
-    folded into a correct top-15 for the fleet, and `unique_parts` for a set is
-    the size of the union of these keys.
-    """
-
-    def _scoped(query):
-        return query.filter(MachinePiece.machine_id.in_(machine_ids)) if machine_ids is not None else query
-
-    out: dict[str, dict[str, Any]] = {}
-
-    def _bucket(mid: Any, key: str) -> dict[str, Any]:
-        return out.setdefault(str(mid), {"status": {}, "parts": {}, "colors": {}})[key]
-
-    for mid, status, count in _scoped(
-        db.query(MachinePiece.machine_id, MachinePiece.classification_status, func.count())
-    ).group_by(MachinePiece.machine_id, MachinePiece.classification_status).all():
-        _bucket(mid, "status")[status or "unknown"] = int(count)
-
-    for column, name_column, key in (
-        (MachinePiece.part_id, MachinePiece.part_name, "parts"),
-        (MachinePiece.color_id, MachinePiece.color_name, "colors"),
-    ):
-        rows = (
-            _scoped(db.query(MachinePiece.machine_id, column, func.max(name_column), func.count()))
-            .filter(column.isnot(None))
-            .group_by(MachinePiece.machine_id, column)
-            .all()
-        )
-        for mid, value, name, count in rows:
-            _bucket(mid, key)[str(value)] = [int(count), name]
-
-    return out
 
 
 def _compute_sample_stats(db: Session, machine_ids: list[Any] | None = None) -> dict[str, dict[str, Any]]:
@@ -300,18 +186,14 @@ def _compute_sample_stats(db: Session, machine_ids: list[Any] | None = None) -> 
     return result
 
 
-def _compute_crop_counts(db: Session, machine_ids: list[Any]) -> dict[str, int]:
-    """Each machine's upstream channel crops, for the crops page's count: an
-    index-only count per machine, here so no request counts millions of rows."""
-    from app.models.machine_channel_crop import MachineChannelCrop
-
-    rows = (
-        db.query(MachineChannelCrop.machine_id, func.count())
-        .filter(MachineChannelCrop.machine_id.in_(machine_ids))
-        .group_by(MachineChannelCrop.machine_id)
-        .all()
-    )
-    return {str(mid): int(n) for mid, n in rows}
+def _empty_sample_stats() -> dict[str, Any]:
+    return {
+        **{name: 0 for name in _SAMPLE_FIELDS},
+        "first_capture": None,
+        "last_capture": None,
+        "sample_sources": {},
+        "sample_capture_reasons": {},
+    }
 
 
 def _compute_control_data(db: Session, machine_ids: list[Any]) -> dict[str, dict[str, Any]]:
@@ -325,65 +207,210 @@ def _compute_control_data(db: Session, machine_ids: list[Any]) -> dict[str, dict
     return {mid: summarize_segments(rows) for mid, rows in by_machine.items()}
 
 
-def compute_stats(db: Session, machine_ids: list[Any] | None = None) -> dict[str, dict[str, Any]]:
-    """Merged piece + sample stats, one entry per machine.
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
-    When machine_ids is None every machine gets a row (so the cache stays
-    complete). Date fields are datetimes here; serialize before serving.
-    """
-    if machine_ids is None:
-        ids = [mid for (mid,) in db.query(Machine.id).all()]
-    else:
-        ids = list(machine_ids)
 
-    piece_stats = _compute_piece_stats(db, ids)
-    sample_stats = _compute_sample_stats(db, ids)
-    distributions = _compute_distributions(db, ids)
-    crops = _compute_crop_counts(db, ids) if ids else {}
-    control_data = _compute_control_data(db, ids) if ids else {}
+def _aware(value: datetime) -> datetime:
+    # sqlite (the tests) hands datetimes back naive; every stored time is UTC.
+    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
 
-    merged: dict[str, dict[str, Any]] = {}
-    for mid in ids:
-        mid_str = str(mid)
-        stats = _empty_stats()
-        stats.update(piece_stats.get(mid_str, {}))
-        stats.update(sample_stats.get(mid_str, {}))
-        stats["channel_crops"] = crops.get(mid_str, 0)
-        stats["control_data"] = control_data.get(mid_str, {})
-        stats["distributions"] = {
-            **distributions.get(mid_str, _empty_distributions()),
-            # Kept beside the piece maps; the analytics fold reads only those.
-            "sample_sources": stats.pop("sample_sources", {}),
-            "sample_capture_reasons": stats.pop("sample_capture_reasons", {}),
-        }
-        merged[mid_str] = stats
-    return merged
+
+# What the last refresh did, for the worker's status.
+LAST_PASS: dict[str, int] = {}
+
+# A new row's watermark: until its pieces are folded, piece_total counts every
+# piece the machine has as arriving after it.
+_NEVER = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def _cache_rows(db: Session, ids: list[Any]) -> dict[str, MachineStatsCache]:
+    rows: dict[str, MachineStatsCache] = {}
+    for chunk in (ids[i : i + 500] for i in range(0, len(ids), 500)):
+        for row in (
+            db.query(MachineStatsCache)
+            .filter(MachineStatsCache.machine_id.in_(chunk))
+            .populate_existing()
+        ):
+            rows[str(row.machine_id)] = row
+    return rows
+
+
+def _unbounded(db: Session) -> None:
+    """Lift the statement limit for the rest of this transaction, for the one
+    full count a machine ever gets. Not in a request, which keeps its own."""
+    if db.get_bind().dialect.name == "postgresql" and not db.info.get(STATEMENT_TIMEOUT_KEY):
+        db.execute(text("SET LOCAL statement_timeout = 0"))
+
+
+def _count_crops(db: Session, machine_id: Any) -> int:
+    """The machine's channel crops counted in full, with the deltas that count
+    already holds removed, in one snapshot: deltas written after it stay for
+    the next pass to add."""
+    if db.get_bind().dialect.name == "postgresql":
+        return int(
+            db.execute(
+                text(
+                    "WITH taken AS (DELETE FROM machine_channel_crop_deltas WHERE machine_id = :m RETURNING n) "
+                    "SELECT count(*) FROM machine_channel_crops WHERE machine_id = :m"
+                ),
+                {"m": machine_id},
+            ).scalar()
+            or 0
+        )
+    db.execute(delete(MachineChannelCropDelta).where(MachineChannelCropDelta.machine_id == machine_id))
+    return int(
+        db.execute(select(func.count()).select_from(MachineChannelCrop).where(MachineChannelCrop.machine_id == machine_id)).scalar()
+        or 0
+    )
+
+
+def _seed(db: Session, machine_id: Any) -> None:
+    """Count a machine in full, once: mark every day it has pieces on (the
+    piece pass that follows builds them) and count its crops. Commits."""
+    try:
+        piece_days.lock_machine(db, machine_id)
+        _unbounded(db)
+        row = db.get(MachineStatsCache, machine_id, populate_existing=True)
+        if row is None:
+            row = MachineStatsCache(machine_id=machine_id, **{f: v for f, v in _empty_stats().items() if f in _NUMERIC_FIELDS + _DATE_FIELDS})
+            row.distributions = _empty_distributions()
+            row.control_data = {}
+            row.computed_at = _NEVER
+            db.add(row)
+        if row.incremental_since is not None:
+            db.rollback()
+            return
+        days = piece_days.seed(db, machine_id)
+        row.channel_crops = _count_crops(db, machine_id)
+        row.incremental_since = _now()
+        db.commit()
+        logger.info("machine stats: counted %s in full (%d days of pieces, %d crops)", machine_id, days, row.channel_crops)
+    except Exception:
+        db.rollback()
+        raise
+
+
+def _refresh_pieces(db: Session, machine_id: Any) -> int:
+    """Rebuild the machine's marked piece days and write its piece numbers to
+    its cache row. Commits. Returns the days rebuilt."""
+    try:
+        piece_days.lock_machine(db, machine_id)
+        # Pieces that reach Hive from here on are counted live (piece_total)
+        # until the next pass, so the watermark is taken before the marks.
+        taken_at = _now()
+        result = piece_days.refresh_machine(db, machine_id)
+        if result is None:
+            db.rollback()
+            return 0
+        folded, days = result
+        row = db.get(MachineStatsCache, machine_id, populate_existing=True)
+        if row is not None:
+            for name, value in folded.as_stats().items():
+                setattr(row, name, value)
+            row.distributions = {**(row.distributions or {}), **folded.distributions}
+            row.computed_at = taken_at
+        db.commit()
+        return days
+    except Exception:
+        db.rollback()
+        raise
+
+
+def _add_crop_deltas(db: Session, rows: dict[str, MachineStatsCache]) -> int:
+    """Add the crop deltas of counted machines to their counts and delete them;
+    drop those of machines that are gone. The caller commits."""
+    counted = [row.machine_id for row in rows.values() if row.incremental_since is not None]
+    added: dict[str, int] = {}
+    for chunk in (counted[i : i + 500] for i in range(0, len(counted), 500)):
+        for mid, n in db.execute(
+            delete(MachineChannelCropDelta)
+            .where(MachineChannelCropDelta.machine_id.in_(chunk))
+            .returning(MachineChannelCropDelta.machine_id, MachineChannelCropDelta.n)
+        ):
+            added[str(mid)] = added.get(str(mid), 0) + int(n)
+    for mid, n in added.items():
+        rows[mid].channel_crops = int(rows[mid].channel_crops or 0) + n
+    db.execute(
+        delete(MachineChannelCropDelta).where(MachineChannelCropDelta.machine_id.notin_(select(Machine.id)))
+    )
+    return sum(added.values())
 
 
 def refresh_cache(db: Session, machine_ids: list[Any] | None = None) -> int:
-    """Recompute and upsert cache rows. Returns the number of machines refreshed."""
-    stats = compute_stats(db, machine_ids)
-    now = datetime.now(timezone.utc)
-    key_uuids = [uuid_mod.UUID(k) for k in stats.keys()]
-    existing = {
-        str(row.machine_id): row
-        for row in db.query(MachineStatsCache)
-        .filter(MachineStatsCache.machine_id.in_(key_uuids))
-        .all()
-    } if stats else {}
+    """Bring cache rows up to date. Returns the number of machines refreshed.
 
-    for mid, values in stats.items():
-        row = existing.get(mid)
-        if row is None:
-            row = MachineStatsCache(machine_id=uuid_mod.UUID(mid))
-            db.add(row)
-        for field in _NUMERIC_FIELDS + _DATE_FIELDS:
-            setattr(row, field, values[field])
-        row.distributions = values.get("distributions") or _empty_distributions()
-        row.control_data = values.get("control_data") or {}
-        row.computed_at = now
+    With machine_ids None every machine gets a row, so the cache stays complete.
+    """
+    started = _now()
+    known = [mid for (mid,) in db.query(Machine.id).all()]
+    if machine_ids is None:
+        ids = known
+    else:
+        wanted = {str(m) for m in machine_ids}
+        ids = [mid for mid in known if str(mid) in wanted]
+    if not ids:
+        return 0
+
+    # One machine that fails (a statement cancelled, a bad row) is logged and
+    # left for the next pass; it never holds back the others' numbers.
+    failed: list[str] = []
+    rows = _cache_rows(db, ids)
+    for mid in ids:
+        row = rows.get(str(mid))
+        if row is None or row.incremental_since is None:
+            try:
+                _seed(db, mid)
+            except Exception:
+                logger.exception("machine stats: counting %s in full failed", mid)
+                failed.append(str(mid))
+
+    marked = piece_days.marked_machines(db)
+    days = 0
+    for mid in ids:
+        if mid in marked and str(mid) not in failed:
+            try:
+                days += _refresh_pieces(db, mid)
+            except Exception:
+                logger.exception("machine stats: rebuilding %s's piece days failed", mid)
+                failed.append(str(mid))
+    if machine_ids is None:
+        piece_days.forget_gone_machines(db, set(known))
+        db.commit()
+
+    # Samples, crops and control data, for every machine in one transaction.
+    rows = _cache_rows(db, ids)
+    ids = [mid for mid in ids if str(mid) in rows]
+    samples = _compute_sample_stats(db, ids)
+    control_data = _compute_control_data(db, ids)
+    crops_added = _add_crop_deltas(db, rows)
+    for mid in ids:
+        key = str(mid)
+        row = rows[key]
+        values = {**_empty_sample_stats(), **samples.get(key, {})}
+        for name in _SAMPLE_FIELDS:
+            setattr(row, name, values[name])
+        row.distributions = {
+            **_empty_distributions(),
+            **(row.distributions or {}),
+            "sample_sources": values["sample_sources"],
+            "sample_capture_reasons": values["sample_capture_reasons"],
+        }
+        row.control_data = control_data.get(key, {})
+        # A machine with no piece days marked had no pieces arrive since its
+        # last pass: its numbers are current as of the start of this one. One
+        # that failed keeps its watermark, so the live count still adds the
+        # pieces its numbers lack.
+        if key not in failed and (row.computed_at is None or _aware(row.computed_at) < started):
+            row.computed_at = started
     db.commit()
-    return len(stats)
+    LAST_PASS.clear()
+    LAST_PASS.update({"piece_days_rebuilt": days, "crops_added": crops_added, "machines_failed": len(failed)})
+    logger.info(
+        "machine stats: %d machines, %d piece days rebuilt, %d crops added, %d failed",
+        len(ids), days, crops_added, len(failed),
+    )
+    return len(ids)
 
 
 def _serialize(values: dict[str, Any], computed_at: datetime | None) -> dict[str, Any]:
@@ -458,14 +485,15 @@ def piece_total(db: Session, machine_id: Any) -> int:
 
 def channel_crop_total(db: Session, machine_id: Any) -> int:
     """How many upstream channel crops a machine had at the stats worker's
-    last pass (hourly)."""
+    last pass."""
     return int(
         db.query(MachineStatsCache.channel_crops).filter(MachineStatsCache.machine_id == machine_id).scalar() or 0
     )
 
 
 def refresh_all(db: Session) -> int:
-    """One full pass over a session: per-machine cache, then the daily table.
+    """One full pass over a session: per-machine cache (and with it the daily
+    table, kept from the same machine-days), then the sample tables.
 
     This is the ONLY place in the app that aggregates over machine_pieces at
     fleet scale. Everything served to a request is a fold over what this
@@ -473,24 +501,53 @@ def refresh_all(db: Session) -> int:
     forcing a rebuild — calls this rather than growing its own copy.
     """
     count = refresh_cache(db)
-    # Same pass also maintains the per-day analytics substrate, the weekly
-    # sample counts the diversity overview adds up, and the datasets' counts
-    # per machine (recounted, for samples deleted since they were recorded).
-    from app.services import analytics, model_datasets, sample_diversity
+    # Same pass also maintains the weekly sample counts the diversity overview
+    # adds up, and the datasets' counts per machine (recounted, for samples
+    # deleted since they were recorded).
+    from app.services import model_datasets, sample_diversity
 
-    analytics.refresh_daily_stats(db)
     sample_diversity.refresh(db)
     model_datasets.recount(db)
     return count
 
 
+def warn_if_disk_low(path: str = "/") -> float | None:
+    """Alert the operator, once a day, while the disk has less than
+    DISK_ALERT_FREE_PCT free. In the worker's container the root is the host's
+    disk Docker keeps its data on, which is the database's. Returns the free
+    share, or None when it cannot be read."""
+    import shutil
+
+    from app.services import admin_alert
+
+    try:
+        usage = shutil.disk_usage(path)
+    except OSError:
+        return None
+    free_pct = usage.free / usage.total * 100.0 if usage.total else 100.0
+    if free_pct < float(settings.DISK_ALERT_FREE_PCT):
+        message = (
+            f"{usage.free / 1e9:.1f} GB free of {usage.total / 1e9:.0f} GB ({free_pct:.0f}%). "
+            "The database is on this disk and stops when it is full."
+        )
+        logger.warning("disk low: %s", message)
+        admin_alert.send_in_background(
+            title="Hive's disk is nearly full",
+            message=message,
+            request_id=f"hive-disk-low-{_now().date().isoformat()}",
+        )
+    return free_pct
+
+
 def _refresh_pass() -> dict[str, Any]:
     db = SessionLocal()
     try:
-        # Grouped passes over every piece and sample: give them room to sort in
-        # memory rather than spill to temp files.
-        tune_for_aggregates(db, work_mem="64MB")
-        return {"last_run_machines": refresh_all(db)}
+        free_pct = warn_if_disk_low()
+        return {
+            "last_run_machines": refresh_all(db),
+            **LAST_PASS,
+            "disk_free_pct": round(free_pct, 1) if free_pct is not None else None,
+        }
     except Exception:
         db.rollback()
         raise
@@ -520,7 +577,6 @@ def get_machine_stats_worker() -> PeriodicWorker:
 
 
 __all__ = [
-    "compute_stats",
     "refresh_cache",
     "refresh_all",
     "get_fleet_stats",

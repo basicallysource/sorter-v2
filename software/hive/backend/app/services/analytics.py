@@ -35,7 +35,6 @@ pieces the fleet could theoretically sort in a day at that day's throughput.
 
 from __future__ import annotations
 
-import uuid as uuid_mod
 from datetime import datetime
 from typing import Any
 
@@ -49,9 +48,6 @@ from app.models.machine_piece import MachinePiece
 from app.models.machine_stats_cache import MachineStatsCache
 from app.models.user import User
 
-# Idle-gap threshold — must match app.services.machine_stats so the derived
-# active time is consistent between the summary cache and the daily table.
-ACTIVE_GAP_IDLE_S = 60.0
 MINUTES_PER_DAY = 1440.0
 
 # The ladder the fleet is reported against: how many machines have ever passed
@@ -97,86 +93,15 @@ def _threshold_ladder(by_machine: list[tuple[str, int]]) -> list[dict[str, Any]]
 # --------------------------------------------------------------------------- refresh
 
 def refresh_daily_stats(db: Session) -> int:
-    """Recompute per-(machine, day) pieces/distributed/active_seconds and upsert.
+    """Bring machine_daily_stats up to date. Returns the table's rows.
 
-    Full recompute each pass — pieces are only ever appended, so upsert-in-place
-    keeps every day correct without deleting anything. Returns rows written.
-    """
-    if db.bind.dialect.name == "postgresql":
-        from sqlalchemy import text
+    The daily rows are written by the stats worker from the same machine-days
+    it keeps for every other piece number (services/piece_days.py), only for
+    the days whose pieces changed; this runs that pass."""
+    from app.services import machine_stats
 
-        result = db.execute(
-            text(
-                """
-                INSERT INTO machine_daily_stats (machine_id, day, pieces_seen, distributed, active_seconds)
-                SELECT machine_id, day,
-                       count(*) AS pieces_seen,
-                       count(*) FILTER (WHERE bin_x IS NOT NULL) AS distributed,
-                       COALESCE(SUM(CASE WHEN gap > 0 AND gap <= :idle THEN gap ELSE 0 END), 0) AS active_seconds
-                FROM (
-                    SELECT machine_id, bin_x,
-                           (seen_at AT TIME ZONE 'UTC')::date AS day,
-                           EXTRACT(EPOCH FROM (
-                               seen_at - LAG(seen_at) OVER (
-                                   PARTITION BY machine_id ORDER BY seen_at, local_id))) AS gap
-                    FROM machine_pieces
-                    WHERE seen_at IS NOT NULL
-                ) g
-                GROUP BY machine_id, day
-                ON CONFLICT (machine_id, day) DO UPDATE SET
-                    pieces_seen = EXCLUDED.pieces_seen,
-                    distributed = EXCLUDED.distributed,
-                    active_seconds = EXCLUDED.active_seconds
-                """
-            ),
-            {"idle": ACTIVE_GAP_IDLE_S},
-        )
-        db.commit()
-        return result.rowcount or 0
-
-    return _refresh_daily_stats_python(db)
-
-
-def _refresh_daily_stats_python(db: Session) -> int:
-    """SQLite / non-Postgres fallback — compute in Python, upsert via ORM."""
-    rows = (
-        db.query(
-            MachinePiece.machine_id,
-            MachinePiece.seen_at,
-            MachinePiece.bin_x,
-        )
-        .filter(MachinePiece.seen_at.isnot(None))
-        .order_by(MachinePiece.machine_id, MachinePiece.seen_at, MachinePiece.local_id)
-        .all()
-    )
-    agg: dict[tuple[Any, Any], dict[str, float]] = {}
-    prev_mid = None
-    prev_seen = None
-    for mid, seen_at, bin_x in rows:
-        day = seen_at.date()
-        key = (str(mid), day)
-        cell = agg.setdefault(key, {"pieces": 0, "distributed": 0, "active": 0.0})
-        cell["pieces"] += 1
-        if bin_x is not None:
-            cell["distributed"] += 1
-        if prev_mid == str(mid) and prev_seen is not None:
-            gap = (seen_at - prev_seen).total_seconds()
-            if 0 < gap <= ACTIVE_GAP_IDLE_S:
-                cell["active"] += gap
-        prev_mid = str(mid)
-        prev_seen = seen_at
-
-    existing = {(str(r.machine_id), r.day): r for r in db.query(MachineDailyStats).all()}
-    for (mid, day), cell in agg.items():
-        row = existing.get((mid, day))
-        if row is None:
-            row = MachineDailyStats(machine_id=uuid_mod.UUID(mid), day=day)
-            db.add(row)
-        row.pieces_seen = int(cell["pieces"])
-        row.distributed = int(cell["distributed"])
-        row.active_seconds = float(cell["active"])
-    db.commit()
-    return len(agg)
+    machine_stats.refresh_cache(db)
+    return int(db.query(func.count()).select_from(MachineDailyStats).scalar() or 0)
 
 
 # --------------------------------------------------------------------------- scope

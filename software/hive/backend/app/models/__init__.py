@@ -43,13 +43,19 @@ from app.models.machine_piece import MachinePiece  # noqa: E402, F401
 from app.models.machine_piece_image import MachinePieceImage  # noqa: E402, F401
 from app.models.machine_piece_rejection_reason import MachinePieceRejectionReason  # noqa: E402, F401
 from app.models.machine_piece_prediction import MachinePiecePrediction  # noqa: E402, F401
-from app.models.machine_channel_crop import MachineChannelCrop  # noqa: E402, F401
+from app.models.machine_channel_crop import MachineChannelCrop, MachineChannelCropDelta  # noqa: E402, F401
 from app.models.machine_control_data_segment import MachineControlDataSegment  # noqa: E402, F401
 from app.models.machine_sync_state import MachineSyncState  # noqa: E402, F401
 from app.models.machine_training_run import MachineTrainingRun  # noqa: E402, F401
 from app.models.machine_sorting_run import MachineLot, MachineSortingRun  # noqa: E402, F401
 from app.models.machine_stats_cache import MachineStatsCache  # noqa: E402, F401
 from app.models.machine_daily_stats import MachineDailyStats  # noqa: E402, F401
+from app.models.machine_piece_day import (  # noqa: E402, F401
+    MachinePieceDay,
+    MachinePieceDayKey,
+    MachinePieceDayMark,
+    MachinePieceKey,
+)
 from app.models.sample_diversity import SampleDiversityWeek  # noqa: E402, F401
 from app.models.server_storage_cache import ServerStorageCache  # noqa: E402, F401
 from app.models.piece_color_label import PieceColorLabel  # noqa: E402, F401

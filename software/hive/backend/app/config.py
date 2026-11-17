@@ -110,22 +110,26 @@ class Settings(BaseSettings):
     CONDITION_WORKER_POLL_INTERVAL_S: float = 5.0
     CONDITION_WORKER_BATCH_SIZE: int = 5
     CONDITION_WORKER_MIN_INTERVAL_S: float = 0.20
-    # How often the background worker recomputes per-machine dashboard stats
-    # (machine_stats_cache). Clamped to a 60s floor in the worker.
-    MACHINE_STATS_REFRESH_INTERVAL_MINUTES: int = 60
+    # How often the background worker brings per-machine dashboard stats
+    # (machine_stats_cache, the daily table, the per-day piece keys the fleet
+    # mass and records read) up to date. A pass reads only the machine-days
+    # whose pieces changed (services/piece_days.py), a few seconds, so it runs
+    # often. Clamped to a 60s floor in the worker.
+    MACHINE_STATS_REFRESH_INTERVAL_MINUTES: int = 10
     # How often the background worker walks the object store for the admin
     # server-health page (server_storage_cache). The walk lists every S3 key (over
     # an hour at ~12M objects), so once a day is plenty for a number on an
     # admin page. Clamped to a 5min floor in the worker.
     SERVER_STORAGE_REFRESH_INTERVAL_MINUTES: int = 1440
     # How often the background worker recomputes what the fleet has sorted by
-    # weight. One sequential scan of machine_pieces plus a catalog lookup, so it
-    # belongs on a clock and never on a request. A lifetime total half an hour
+    # weight: the per-machine part counts the stats worker keeps plus a catalog
+    # lookup, on a clock and never on a request. A lifetime total half an hour
     # stale differs from a live one in a digit nobody reads. 60s floor.
     FLEET_MASS_REFRESH_INTERVAL_MINUTES: int = 30
     # How often the fleet records are recomputed: per-machine speed, who reached
-    # each milestone first, the newest parts and colors found. Two grouped scans
-    # of machine_pieces, so a clock and never a request. 60s floor.
+    # each milestone first, the newest parts and colors found. Reads what the
+    # stats worker keeps and a day of pieces, on a clock and never a request.
+    # 60s floor.
     FLEET_RECORDS_REFRESH_INTERVAL_MINUTES: int = 15
     # The general job queue (app.services.job_queue): rows in `jobs`, run by
     # worker threads in the process that runs background work (HIVE_ROLE
@@ -176,6 +180,11 @@ class Settings(BaseSettings):
     # only logged.
     ADMIN_ALERT_URL: str = ""
     ADMIN_ALERT_TOKEN: str = ""
+    # The stats worker alerts the operator (once a day) while the server's disk,
+    # which the database lives on, has less than this share of it free. The
+    # database grows every day; a full disk stops it. Above the room the
+    # nightly dump needs, so the alert comes before the dump is refused.
+    DISK_ALERT_FREE_PCT: float = 15.0
     # Turning sorters' file uploads away while this process is overloaded
     # (app/middleware/load_shed.py): too many uploads or requests in flight,
     # or the container's memory past this fraction of its limit (0 turns the

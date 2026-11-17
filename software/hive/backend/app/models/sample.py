@@ -97,6 +97,23 @@ Index(
     postgresql_include=["id", "machine_id"],
     postgresql_where=text("phash IS NOT NULL AND archived_at IS NULL"),
 )
+# The stats worker's counts per machine (services/machine_stats.py,
+# services/sample_diversity.py), read from these alone rather than the samples
+# table, whose rows are wide.
+Index("ix_samples_machine_review_captured", Sample.machine_id, Sample.review_status, Sample.captured_at)
+Index(
+    "ix_samples_machine_role_active",
+    Sample.machine_id,
+    Sample.source_role,
+    postgresql_where=text("archived_at IS NULL AND source_role IS NOT NULL"),
+)
+Index(
+    "ix_samples_machine_reason_active",
+    Sample.machine_id,
+    Sample.capture_reason,
+    postgresql_include=["source_role", "uploaded_at", "detection_count", "detection_score"],
+    postgresql_where=text("archived_at IS NULL AND capture_reason IS NOT NULL"),
+)
 Index(
     "ix_samples_reviewed_uploaded_at",
     Sample.review_status,

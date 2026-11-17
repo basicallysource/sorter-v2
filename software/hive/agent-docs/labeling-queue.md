@@ -47,8 +47,8 @@ filter changed). `MachineFilter.svelte` is the machine picker on both pages.
 | `labeling_queue_state` | same worker | the worker (its progress) |
 | `piece_link_scores` | `services/piece_link_scores.py`, on the first open of a piece | `GET /api/labeling/possible-crops/...` |
 | `piece_color_guesses` | `services/piece_color_guess.py`, on the first open | `GET /api/labeling/piece/...` |
-| `machine_stats_cache.*_samples` | `services/machine_stats.py` (hourly) | `GET /api/stats/overview` (the dashboard) |
-| `sample_diversity_weekly` | `services/sample_diversity.py`, in the same hourly pass | `GET /api/samples/diversity` |
+| `machine_stats_cache.*_samples` | `services/machine_stats.py` (every 10 minutes) | `GET /api/stats/overview` (the dashboard) |
+| `sample_diversity_weekly` | `services/sample_diversity.py`, in the same pass | `GET /api/samples/diversity` |
 
 ## The samples list
 
@@ -98,7 +98,11 @@ checks `dead` on the rows it serves.
 
 It reads the crop tables through BRIN indexes on `created_at` (they only
 append), and `machine_pieces` through `(machine_id, created_at)` one machine at
-a time.
+a time. The BRIN indexes have `autosummarize` on: a BRIN index finds only the
+ranges it has summarized, and without it new ranges were summarized only when
+autovacuum vacuumed the table, about weekly for insert-only tables this size,
+so a query for the last few minutes read every crop since (2 GB a pass, and
+growing, by 2026-11-16).
 
 ## The grid
 

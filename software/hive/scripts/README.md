@@ -129,6 +129,14 @@ wrote — see CUTOVER.md → "Restoring the database".
 Every dump is validated with `pg_restore --list`, not just a size check — a
 `pg_dump` whose pipe broke still exits 0 and still writes a nonzero file.
 
+A dump starts only with room for it on the disk the database lives on: free
+space of at least the last dump's size plus a fifth, plus
+`HIVE_BACKUP_MIN_FREE_GB` (3). Otherwise the run fails before it writes
+anything, and a deploy that needs a pre-deploy dump does not start (the next
+poll tries again), rather than filling the disk under Postgres. The last
+dump's size is kept in `state/last_backup.json`, since the dump itself may
+already have been copied off the box.
+
 Local retention is **3 days, never fewer than the 3 newest dumps**
 (`HIVE_BACKUP_KEEP_DAYS=3`, `HIVE_BACKUP_KEEP_MIN=3` in `/etc/hive-release.env`).
 Note the code's own defaults are 30/7 — the box deliberately overrides them.

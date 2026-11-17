@@ -8,11 +8,12 @@ class MachineDailyStats(Base):
     """Per-machine, per-day sorting metrics — the substrate for the analytics
     time-series (pieces/PPM/capacity over time) across any set of machines.
 
-    One row per (machine, calendar day of seen_at). active_seconds is the summed
-    gap between consecutive pieces on that day, ignoring idle gaps (same rule as
-    machine_stats). PPM is derived (distributed * 60 / active_seconds). A
-    background pass (app.services.analytics) upserts these hourly; rows are only
-    ever added/updated since pieces aren't deleted.
+    One row per (machine, UTC day of seen_at). active_seconds is the summed
+    gap between consecutive pieces, ignoring idle gaps (same rule as
+    machine_stats), each gap counted on the day of the later piece. PPM is
+    derived (distributed * 60 / active_seconds). The stats worker writes the
+    rows of the days whose pieces changed, from the machine-days it keeps
+    (app.services.piece_days); a day left with no pieces loses its row.
     """
 
     __tablename__ = "machine_daily_stats"

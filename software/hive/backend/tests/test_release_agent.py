@@ -88,3 +88,29 @@ def test_rolling_back_past_the_worker_stops_it_first(agent, monkeypatch, tmp_pat
     # And migrated exactly once, with the backend service.
     migrations = [c for c in docker.calls if "alembic" in c]
     assert len(migrations) == 1 and migrations[0][-4:] == ["backend", "alembic", "upgrade", "head"]
+
+
+def test_a_dump_needs_room_for_one_as_big_as_the_last(agent, monkeypatch, tmp_path):
+    """A dump that would fill the database's disk is refused before it writes
+    anything (2026-11-14: a nightly filled it and Hive was down for hours)."""
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    cfg = agent.AgentConfig(tmp_path, tmp_path, tmp_path, tmp_path / ".env.prod", tmp_path / "lock", backups)
+    gb = 1_000_000_000
+
+    def free(n):
+        monkeypatch.setattr(agent.shutil, "disk_usage", lambda _path: agent.shutil._ntuple_diskusage(100 * gb, 0, n))
+
+    # The last dump was 6 GB and is already off the box: its size is remembered.
+    agent.writeState(cfg, "last_backup.json", {"name": "db-old.dump", "bytes": 6 * gb})
+    free(int(9.5 * gb))  # 6 * 1.2 + 3 = 10.2 GB needed
+    with pytest.raises(RuntimeError, match="not enough disk"):
+        agent.requireBackupRoom(cfg)
+    ran = []
+    monkeypatch.setattr(agent, "requirePostgres", lambda: None)
+    monkeypatch.setattr(agent.subprocess, "run", lambda *a, **k: ran.append(a))
+    with pytest.raises(RuntimeError, match="not enough disk"):
+        agent.takeBackup(cfg, "nightly")
+    assert ran == [] and not list(backups.glob("db-*.dump"))
+    free(11 * gb)
+    agent.requireBackupRoom(cfg)

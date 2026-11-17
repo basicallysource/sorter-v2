@@ -32,6 +32,13 @@ BACKUP_S3_ENDPOINT = os.environ.get("HIVE_BACKUP_S3_ENDPOINT", "")
 BACKUP_S3_REGION = os.environ.get("HIVE_BACKUP_S3_REGION", "")
 BACKUP_S3_ACCESS_KEY_ID = os.environ.get("HIVE_BACKUP_S3_ACCESS_KEY_ID", "")
 BACKUP_S3_SECRET_ACCESS_KEY = os.environ.get("HIVE_BACKUP_S3_SECRET_ACCESS_KEY", "")
+# A dump is written to the disk the database lives on. Started without room for
+# it, it fills that disk, and Postgres and everything else on the box fail to
+# write (a nightly beside old dumps, 2026-11-14: Hive down for ten hours). So a
+# dump starts only with room for one as big as the last plus a fifth, and this
+# much left over; otherwise it fails before writing anything, and a deploy that
+# needs one does not start.
+BACKUP_MIN_FREE_GB = float(os.environ.get("HIVE_BACKUP_MIN_FREE_GB", "3"))
 RELEASES_KEEP = int(os.environ.get("HIVE_RELEASES_KEEP", "5"))
 # Image layers are the biggest thing a deploy leaves behind: a backend image is
 # 1.36 GB and every release pulls a new one by digest, so the old one is
@@ -233,9 +240,30 @@ def migrationsChanged(current: Optional[dict[str, Any]], manifest: dict[str, Any
     return before != after
 
 
+def backupRoom(cfg: AgentConfig) -> tuple[int, int]:
+    """(free bytes on the backup disk, bytes a dump needs there)."""
+    cfg.backup_dir.mkdir(parents=True, exist_ok=True)
+    free = shutil.disk_usage(cfg.backup_dir).free
+    # The newest dump may already be off the box (copied away and removed), so
+    # the last size is also kept in the state directory.
+    sizes = [p.stat().st_size for p in cfg.backup_dir.glob("db-*.dump")]
+    last = (readState(cfg, "last_backup.json") or {}).get("bytes", 0)
+    need = int(max([last, *sizes]) * 1.2 + BACKUP_MIN_FREE_GB * 1e9)
+    return free, need
+
+
+def requireBackupRoom(cfg: AgentConfig) -> None:
+    free, need = backupRoom(cfg)
+    if free < need:
+        raise RuntimeError(
+            f"not enough disk for a dump: {free / 1e9:.1f} GB free in {cfg.backup_dir}, "
+            f"{need / 1e9:.1f} GB needed (the last dump and a fifth, and {BACKUP_MIN_FREE_GB:g} GB left over)"
+        )
+
+
 def takeBackup(cfg: AgentConfig, reason: str) -> Path:
     requirePostgres()
-    cfg.backup_dir.mkdir(parents=True, exist_ok=True)
+    requireBackupRoom(cfg)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     out = cfg.backup_dir / f"db-{stamp}-{reason}.dump"
     log(f"backup → {out}")
@@ -253,6 +281,7 @@ def takeBackup(cfg: AgentConfig, reason: str) -> Path:
         out.unlink(missing_ok=True)
         raise RuntimeError("pg_dump produced an empty file")
     verifyBackup(out)
+    writeState(cfg, "last_backup.json", {"name": out.name, "bytes": out.stat().st_size})
     log(f"  ✓ backup ok ({out.stat().st_size / 1e6:.1f} MB)")
     uploadBackup(out)
     pruneBackups(cfg)
@@ -583,11 +612,16 @@ def installRelease(cfg: AgentConfig, release: dict[str, Any], force: bool) -> bo
         return False
 
     log(f"installing {manifest['version']} (commit {manifest['commit'][:9]})")
+    needs_dump = migrationsChanged(current, manifest)
+    if needs_dump:
+        # Before the status window opens: without room for the dump the deploy
+        # does not start, and the next poll tries again.
+        requireBackupRoom(cfg)
     # Opened before the backup, not after: a pre-deploy dump is part of how long
     # a deploy takes, and it is the slow part on the releases that need one.
     statusDeploy("start", manifest["version"])
     try:
-        if migrationsChanged(current, manifest):
+        if needs_dump:
             takeBackup(cfg, "predeploy")
         else:
             log("migrations unchanged — skipping pre-deploy dump (nightly + off-box copies stand)")

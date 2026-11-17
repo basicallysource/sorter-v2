@@ -7,8 +7,9 @@ pieces is a lot, and everybody knows what a tonne is.
 **It is a join across two databases and cannot be done in SQL.** The piece
 histogram lives in Postgres (`machine_pieces`) and the weights live in the
 parts catalog, which is a separate SQLite file (`parts.db`, see
-`services/profile_engine/db.py`). So: one grouped scan in Postgres, one batched
-weight lookup in SQLite, multiplied in Python.
+`services/profile_engine/db.py`). So: one read of the per-machine part counts
+the stats worker keeps in Postgres, one batched weight lookup in SQLite,
+multiplied in Python.
 
 **Coverage is part of the answer, not a footnote.** A piece contributes mass
 only if it was identified AND its part has a weight on file, and neither is
@@ -46,7 +47,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import SessionLocal
 from app.models.machine import Machine
-from app.models.machine_piece import MachinePiece
+from app.models.machine_piece_day import KIND_PART, MachinePieceDay, MachinePieceKey
 from app.services import worker_state
 from app.services.periodic import PeriodicWorker
 
@@ -137,19 +138,20 @@ def _compute(db: Session, machine_ids: list) -> dict[str, Any]:
 
     # Every piece, identified or not, so `total_pieces` is the real denominator
     # and the estimate below extrapolates over the right population.
+    # Both from what the stats worker keeps per machine (services/piece_days.py):
+    # its pieces per day, and its pieces per part.
     total_pieces = int(
-        db.query(func.count())
-        .select_from(MachinePiece)
-        .filter(MachinePiece.machine_id.in_(machine_ids))
+        db.query(func.sum(MachinePieceDay.pieces))
+        .filter(MachinePieceDay.machine_id.in_(machine_ids))
         .scalar()
         or 0
     )
 
     counts = (
-        db.query(MachinePiece.part_id, func.count())
-        .filter(MachinePiece.machine_id.in_(machine_ids))
-        .filter(MachinePiece.part_id.isnot(None))
-        .group_by(MachinePiece.part_id)
+        db.query(MachinePieceKey.key, func.sum(MachinePieceKey.n))
+        .filter(MachinePieceKey.machine_id.in_(machine_ids))
+        .filter(MachinePieceKey.kind == KIND_PART)
+        .group_by(MachinePieceKey.key)
         .all()
     )
     by_part = {str(pid): int(n) for pid, n in counts}

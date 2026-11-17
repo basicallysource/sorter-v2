@@ -77,7 +77,8 @@ the rows they took in). The fix is one of:
   again (`reviewQueue.svelte.ts`).
 - **A number or table a worker keeps**: `machine_stats_cache` (counts per
   machine, including channel crops and the control-data summary),
-  `machine_daily_stats`, `labeling_queue` and `labeling_queue_counts`,
+  `machine_daily_stats`, `machine_piece_days` and `machine_piece_keys`
+  (`stats.md`), `labeling_queue` and `labeling_queue_counts`,
   `sample_diversity_weekly`, `model_dataset_machines`.
 
 ## Adding an endpoint

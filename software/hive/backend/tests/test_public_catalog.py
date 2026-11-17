@@ -287,11 +287,14 @@ class TestFleetMass:
             for i, rec in enumerate(records)
         ])
         # The endpoint reads what the worker published and never computes, so a
-        # pass has to run before there is anything to read. `refresh` and not
-        # the worker itself: the worker opens its own SessionLocal, which here
-        # is not the session the fixtures wrote through.
+        # pass has to run before there is anything to read, and the mass is
+        # summed from the part counts the stats pass keeps, so that runs first.
+        # `refresh` and not the worker itself: the worker opens its own
+        # SessionLocal, which here is not the session the fixtures wrote through.
         from app.models.machine import Machine
+        from app.services import machine_stats
 
+        machine_stats.refresh_all(db)
         ids = [m for (m,) in db.query(Machine.id).filter(Machine.archived_at.is_(None)).all()]
         fleet_mass.refresh(db, ids)
         token = _mint(client, _admin_login(client, db), ["stats:read"])

@@ -19,10 +19,14 @@ than that, and every extra answer here costs a scan the roster cannot afford:
 * **Newest finds**: the most recent parts, colors, and parts in a color the
   fleet had never seen before, with the machine that saw each one first.
 
-**Nothing here runs on a request path.** The finds are a grouped scan of
-machine_pieces and a milestone is a sort over it; a worker computes and
-publishes, `latest()` reads. Same trade as `fleet_mass`: a record that is a
-quarter of an hour stale is still the record.
+**Nothing here runs on a request path.** A worker computes and publishes,
+`latest()` reads. Same trade as `fleet_mass`: a record that is a quarter of an
+hour stale is still the record. **Nor does a pass scan the fleet's history.**
+The counts and the finds are read from what the stats worker keeps per machine
+(`services/piece_days.py`: each machine's pieces per day, and its earliest
+classified sighting of each part, colour and part in a colour), so they are as
+fresh as its last pass; the day's speed walks a day of pieces; only a fleet
+milestone not yet answered in this process sorts every piece, once.
 
 **A milestone can move, and that is why it is memoised.** Pieces are ordered
 by `seen_at`, and a machine that was offline uploads its backlog later with
@@ -47,7 +51,9 @@ from app.database import SessionLocal
 from app.models.machine import Machine
 from app.models.machine_daily_stats import MachineDailyStats
 from app.models.machine_piece import MachinePiece
+from app.models.machine_piece_day import KIND_COLOR, KIND_COMBO, KIND_PART, NULL_DAY, MachinePieceDay, MachinePieceKey
 from app.services.machine_stats import ACTIVE_GAP_IDLE_S
+from app.services.piece_days import COMBO_SEP, NOT_A_KEY
 from app.services import worker_state
 from app.services.periodic import PeriodicWorker
 
@@ -70,7 +76,7 @@ NEWEST = 5
 
 # A color id that is not a color: the bucket a profile sorts into when it
 # does not care about color.
-_NOT_A_COLOR = ("", "any_color")
+_NOT_A_COLOR = NOT_A_KEY
 
 # Published to the database (worker_state): the worker that computes runs in
 # another process than the requests that serve it (agent-docs/process-roles.md).
@@ -125,17 +131,17 @@ def _compute(db: Session, machine_ids: list, now: datetime) -> dict[str, Any]:
     # are counted in, read once.
     counts = {
         mid: int(n)
-        for mid, n in db.query(MachinePiece.machine_id, func.count())
-        .filter(MachinePiece.machine_id.in_(machine_ids))
-        .filter(MachinePiece.seen_at.isnot(None))
-        .group_by(MachinePiece.machine_id)
+        for mid, n in db.query(MachinePieceDay.machine_id, func.sum(MachinePieceDay.pieces))
+        .filter(MachinePieceDay.machine_id.in_(machine_ids))
+        .filter(MachinePieceDay.day != NULL_DAY)
+        .group_by(MachinePieceDay.machine_id)
         .all()
     }
     total = sum(counts.values())
     passed, upcoming = _fleet_rungs(total)
-    parts, distinct_parts = _newest(db, machine_ids, MachinePiece.part_id)
-    colors, distinct_colors = _newest(db, machine_ids, MachinePiece.color_id)
-    combos, distinct_combos = _newest(db, machine_ids, MachinePiece.part_id, MachinePiece.color_id)
+    parts, distinct_parts = _newest(db, machine_ids, KIND_PART, MachinePiece.part_id)
+    colors, distinct_colors = _newest(db, machine_ids, KIND_COLOR, MachinePiece.color_id)
+    combos, distinct_combos = _newest(db, machine_ids, KIND_COMBO, MachinePiece.part_id, MachinePiece.color_id)
     return {
         "speed": _speed(db, machine_ids, now),
         "fleet_milestones": _fleet_milestones(db, machine_ids, passed),
@@ -301,37 +307,36 @@ def _machine_milestones(db: Session, counts: dict) -> list[dict[str, Any]]:
     return out
 
 
-def _newest(db: Session, machine_ids: list, *columns) -> tuple[list[dict[str, Any]], int]:
+def _newest(db: Session, machine_ids: list, kind: str, *columns) -> tuple[list[dict[str, Any]], int]:
     """The NEWEST values of `columns` (one column, or a combination such as a
     part in a color) the fleet ever saw for the first time, newest first, each
     with the piece that first showed it; and how many distinct values there are.
 
     Classified pieces only: an unidentified piece has no part to be new, and a
-    guess the machine itself would not stand behind is not a find.
+    guess the machine itself would not stand behind is not a find. Each
+    machine's first classified sighting of every value is kept by the stats
+    worker (machine_piece_keys, `kind`); the fleet's is the earliest of them.
     """
-    labels = [f"v{i}" for i in range(len(columns))]
-    query = db.query(
-        *(c.label(name) for c, name in zip(columns, labels)),
-        func.min(MachinePiece.seen_at).label("first_seen"),
+    firsts = (
+        db.query(MachinePieceKey.key.label("key"), func.min(MachinePieceKey.first_classified).label("first_seen"))
+        .filter(MachinePieceKey.machine_id.in_(machine_ids))
+        .filter(MachinePieceKey.kind == kind)
+        .filter(MachinePieceKey.first_classified.isnot(None))
     )
-    query = (
-        query.filter(MachinePiece.machine_id.in_(machine_ids))
-        .filter(MachinePiece.classification_status == "classified")
-        .filter(MachinePiece.seen_at.isnot(None))
-    )
-    for c in columns:
-        query = query.filter(c.isnot(None)).filter(c.notin_(_NOT_A_COLOR))
-    firsts = query.group_by(*columns).subquery()
+    if kind != KIND_COMBO:
+        # A combo is only kept when both of its values are real ones.
+        firsts = firsts.filter(MachinePieceKey.key.notin_(_NOT_A_COLOR))
+    firsts = firsts.group_by(MachinePieceKey.key).subquery()
     distinct = int(db.query(func.count()).select_from(firsts).scalar() or 0)
-    newest = (
-        db.query(*(firsts.c[name] for name in labels), firsts.c.first_seen)
-        .order_by(firsts.c.first_seen.desc(), *(firsts.c[name] for name in labels))
+    newest = [
+        (key.split(COMBO_SEP) if kind == KIND_COMBO else [key], first_seen)
+        for key, first_seen in db.query(firsts.c.key, firsts.c.first_seen)
+        .order_by(firsts.c.first_seen.desc(), firsts.c.key)
         .limit(NEWEST)
         .all()
-    )
+    ]
     out = []
-    for i, row in enumerate(newest):
-        *values, first_seen = row
+    for i, (values, first_seen) in enumerate(newest):
         piece = (
             db.query(MachinePiece)
             .filter(MachinePiece.machine_id.in_(machine_ids))

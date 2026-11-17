@@ -46,6 +46,10 @@ in [`agent-docs/`](agent-docs/):
   filter for both, the labeling queue and its worker, sort segments and cursor
   paging, the per-piece results kept instead of recomputed, and the rule that
   no request scans the fleet.
+- [`agent-docs/stats.md`](agent-docs/stats.md) — the stats the worker keeps
+  current (pieces per machine-day, crop deltas, triggers that mark what
+  changed): why a pass reads only what changed, how its numbers equal the old
+  full scans, and how to add a stat.
 - [`agent-docs/query-plans.md`](agent-docs/query-plans.md) — how that rule is
   enforced: a production-sized seeded database and a test that EXPLAINs every
   list and count the API serves, and what to do when it fails.

@@ -32,7 +32,7 @@ that starts them (both entrypoints call `background.start()`):
 | `catalog-auto-sync`, `default-profiles` (all) | The same, on threads of an all-in-one process, which holds the catalog anyway |
 | `teacher-worker` | Runs teacher jobs (OpenRouter / Perceptron) |
 | `condition-worker` | The condition auto-labeler (off unless `CONDITION_WORKER_ENABLED`) |
-| `machine-stats-worker` | Per-machine stats cache and the daily analytics table |
+| `machine-stats-worker` | Per-machine stats cache, the daily analytics table and the per-day piece tables the fleet workers read, from what changed since its last pass (`agent-docs/stats.md`) |
 | `fleet-mass-worker`, `fleet-records-worker` | What `/api/public/fleet/mass` and `/fleet/records` serve |
 | `storage-stats-worker` | Walks the object store for the admin server-health page |
 | `labeling-queue-worker` | The labeling queue (`agent-docs/labeling-queue.md`) |

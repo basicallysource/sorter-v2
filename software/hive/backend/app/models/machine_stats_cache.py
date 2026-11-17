@@ -82,3 +82,7 @@ class MachineStatsCache(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+    # When the worker counted this machine's pieces and channel crops in full;
+    # since then it adds what changed (services/piece_days.py, the crop
+    # deltas). NULL: not counted yet, the next pass counts it.
+    incremental_since = Column(DateTime(timezone=True), nullable=True)

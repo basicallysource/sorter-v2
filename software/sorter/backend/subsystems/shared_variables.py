@@ -48,11 +48,6 @@ class SharedVariables:
         # Per feeder channel, how many pieces it is carrying out of its
         # camera's sight (the feeder's unseen arc). Written by the feeder.
         self.feeder_hidden_pieces: dict[int, int] = {}
-        # True where the classification channel needs C3 to stand still the
-        # whole time it is not ready, not only to keep its lead piece back
-        # from the lip (the pocket flow: a piece C3 lets go while the rotor is
-        # turning lands in the wrong pocket). Set by that channel.
-        self.feeder_holds_while_busy: bool = False
         # When a piece last fell off C3 (time.monotonic()). Written by the feeder.
         self.c3_fell_at: Optional[float] = None
 

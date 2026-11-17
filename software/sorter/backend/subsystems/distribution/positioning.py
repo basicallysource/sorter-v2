@@ -1085,7 +1085,18 @@ class Positioning(BaseState):
         # Category is assigned to one or more bins: route to one of them. With a
         # single bin this is just that bin; with several it is a uniform random
         # choice, so a category spanning N bins fills them at an even ~1/N rate.
+        # Bins on layers of different size limits: only those on the smallest
+        # layer the piece fits, so a category's bin on a larger layer takes just
+        # the pieces too big for its smaller one. Layers with no limit (a Sorter
+        # V2) all tie, and every bin of the category is a choice as before.
         if matching_candidates:
+            if piece is not None:
+                def limit(address: BinAddress) -> float:
+                    value = self._layerMaxDimensionMm(address.layer_index)
+                    return float("inf") if value is None else value
+
+                smallest = min(limit(address) for address in matching_candidates)
+                matching_candidates = [a for a in matching_candidates if limit(a) == smallest]
             return random.choice(matching_candidates), False
 
         # MISC must never claim or use a real bin. The discard bucket below

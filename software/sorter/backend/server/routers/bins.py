@@ -113,6 +113,9 @@ class AssignBinCategoriesPayload(BaseModel):
     section_index: int
     bin_index: int
     category_ids: List[str] = []
+    # True: the other bins keep these categories too, so a category can have a
+    # bin on a larger layer for its pieces too big for its first bin.
+    keep_elsewhere: bool = False
 
 
 class NotInInventoryModePayload(BinScopePayload):
@@ -430,6 +433,7 @@ def assign_bin_categories(
     section_index: int,
     bin_index: int,
     category_ids: list[str],
+    keep_elsewhere: bool = False,
 ) -> dict[str, Any]:
     categories = _current_bin_categories()
 
@@ -455,14 +459,14 @@ def assign_bin_categories(
             )
         cleaned.append(category_id)
 
-    # A category lives in exactly one bin. Drop these category_ids from every
-    # other bin first so a manual assignment moves the category here rather than
-    # leaving a stale duplicate that the positioner would match first.
+    # Unless asked to keep them elsewhere, a category lives in one bin: drop
+    # these category_ids from every other bin first so a manual assignment
+    # moves the category here rather than leaving a stale duplicate.
     target = (layer_index, section_index, bin_index)
     for li, layer in enumerate(categories):
         for si, section in enumerate(layer):
             for bi, existing in enumerate(section):
-                if (li, si, bi) == target or not existing:
+                if keep_elsewhere or (li, si, bi) == target or not existing:
                     continue
                 section[bi] = [c for c in existing if c not in cleaned]
 
@@ -828,6 +832,7 @@ def assign_bins_categories(payload: AssignBinCategoriesPayload) -> Dict[str, Any
         section_index=payload.section_index,
         bin_index=payload.bin_index,
         category_ids=payload.category_ids,
+        keep_elsewhere=payload.keep_elsewhere,
     )
 
 

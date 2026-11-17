@@ -88,6 +88,9 @@ _OPENING_DEG = 58.0
 # ahead of it is taken in.
 _NEXT_MARGIN_DEG = 8.0
 _CHECK_SHAKES = 3
+# Most pieces fall while the rotor is still turning them in: this many frames in
+# a row taken after the move with nothing where the piece should be, and it fell.
+_GONE_FRAMES = 3
 # A piece takes this long to slide off once it is over the opening: the look
 # waits for it before taking the piece for one that stayed.
 _CHECK_S = 0.6
@@ -137,6 +140,10 @@ STALL_AFTER_MS = 15000.0
 # this many turns of the rotor, harder each turn. Only a piece that stays
 # through all of it is left for a person.
 _CLEAR_SHAKE_LAPS = 2
+# The fins are read after every turn that could have lost steps (a shake, a
+# piece going round again, a correction, a start), and otherwise after every
+# this many turns.
+_VERIFY_EVERY = 4
 # Fin readings that keep disagreeing are given up on after this many.
 _VERIFY_READS_MAX = 4
 # A longer gap between steps means the machine was paused or held.
@@ -201,6 +208,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._check_wall = 0.0
         self._check_frames = 0
         self._check_seen = 0
+        self._check_empty = 0
+        self._turns_since_verify = 0
+        self._needs_verify = True
         self._serial = 0
         self._move_cmd_at = 0.0
         self._rest_since = 0.0
@@ -464,6 +474,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
 
     def _afterGap(self, stepper, now: float) -> None:
         """The first step, or the first after a pause or a hold."""
+        # Hands may have moved the rotor meanwhile: the fins are read again.
+        self._needs_verify = True
         for tp in self._pieces.values():
             tp.last_seen = now
             if tp.known_object is not None:
@@ -799,6 +811,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         except Exception as exc:
             self.logger.warning(f"{LOG_TAG} shake failed: {exc}")
         self._shaking = True
+        self._needs_verify = True
         self._move_cmd_at = now
 
     def _turn(self, state, perception_service, stepper, now: float, moving: bool) -> None:
@@ -852,6 +865,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._check_wall = time.time()
         self._check_frames = 0
         self._check_seen = 0
+        self._check_empty = 0
         self._enter(_P.CHECK)
 
     def _check(self, state, perception_service, stepper, now: float, moving: bool) -> None:
@@ -869,19 +883,27 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._shaking = False
             self._startCheck(now)
             return
-        # Only frames from after the piece has had time to slide off count.
-        if now - self._check_from >= _CHECK_SETTLE_S and self._fresh(state, self._check_wall + _CHECK_SETTLE_S):
-            self._check_frames += 1
-            if any(
+        if self._fresh(state, self._check_wall):
+            near = any(
                 po.com_forward_to_exit_deg is not None
                 and abs(float(po.com_forward_to_exit_deg) - self._check_gap) <= _CHECK_NEAR_DEG
                 for po in getattr(state, "pieces", ())
-            ):
-                self._check_seen += 1
+            )
+            self._check_empty = 0 if near else self._check_empty + 1
+            # That it is still there counts only from after it has had time to
+            # slide off.
+            if float(getattr(state, "ts", 0.0) or 0.0) >= self._check_wall + _CHECK_SETTLE_S:
+                self._check_frames += 1
+                if near:
+                    self._check_seen += 1
+        # Gone in every frame since the move: it fell while turning in.
+        gone = self._check_empty >= _GONE_FRAMES
         waited = now - self._check_from
-        if waited < _CHECK_S or (self._check_frames < _LOOK_FRAMES and waited < 2 * _CHECK_S):
+        if not gone and (waited < _CHECK_S or (self._check_frames < _LOOK_FRAMES and waited < 2 * _CHECK_S)):
             return
         tp = self._check_tp
+        if gone:
+            self._check_seen = 0
         if self._check_seen >= 2 and self._check_room >= 1.0:
             # Still on: further into the opening first, to see if it slides off.
             push = min(_PUSH_DEG, self._check_room)
@@ -912,7 +934,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 self._startShake(stepper, now)
                 return
             self.logger.warning(f"{LOG_TAG} track={tp.track_id if tp else '?'} still did not fall: finishing the turn")
-        elif self._check_frames >= 2 and tp is not None and any(tp in pocket for pocket in self._pockets):
+        elif (gone or self._check_frames >= 2) and tp is not None and any(tp in pocket for pocket in self._pockets):
             # It fell into the bin the chute was aimed at for it, with any piece
             # too close beside it.
             for member in self._check_group or [tp]:
@@ -993,6 +1015,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 f"there, so it went round again (time {tp.carried}).",
             )
             tp.zone = _ZONE_DROP
+        self._needs_verify = True
         names = "+".join(str(tp.track_id) for tp in swept)
         self.logger.warning(f"{LOG_TAG} track={names} did not fall: carried round into the receive pocket")
         self._pockets[0] = swept + self._pockets[0]
@@ -1028,7 +1051,11 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._cycles.staged(time.time())
         except Exception:
             pass
-        self._startVerify(now)
+        self._turns_since_verify += 1
+        if self._needs_verify or self._turns_since_verify >= _VERIFY_EVERY:
+            self._startVerify(now)
+        else:
+            self._toRest(now)
 
     # ---------------------------------------------------------------------- AIM
 
@@ -1103,6 +1130,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
     # ----------------------------------------------------------- VERIFY, CORRECT
 
     def _startVerify(self, now: float) -> None:
+        self._needs_verify = False
+        self._turns_since_verify = 0
         self._verify_result = ("none", None)
         self._verify_thread = None  # Started by _verify once the rotor stands still
         self._enter(_P.VERIFY)
@@ -1203,6 +1232,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if moving:
             return
         self.irl.c4_fin_rest_microsteps = int(stepper.position)
+        # The correction itself can lose steps: read the fins after the next turn too.
+        self._needs_verify = True
         self._toRest(now)
 
     def _toRest(self, now: float) -> None:

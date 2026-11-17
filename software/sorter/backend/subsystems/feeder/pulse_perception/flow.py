@@ -495,7 +495,38 @@ class PulsePerceptionFeeding(BaseState):
                 self._noteExitStep(channel, lead, pieces[1] if len(pieces) > 1 else None, step)
             if channel in self._gates:
                 self._gates[channel].notePush(lead)
-        # IDLE / FREEZE: no move.
+        elif action == Action.FREEZE:
+            deg = self._stageDeg(channel, state, cfg)
+            if deg is not None:
+                self._move(f"{label}_stage", channel, stepper, deg, cfg.exit_pulse_pause_ms, cfg, enforce_min=False)
+        # IDLE: no move.
+
+    def _stageDeg(self, channel: int, state, cfg: PulsePerceptionConfig) -> float | None:
+        """How far to carry the lead piece on into the exit while the channel
+        below is busy: until its center is ch{N}_stage_short_deg short of where
+        pieces fall, one exit move at a time, never so far that the next piece
+        reaches the exit. None: it stays."""
+        short = float(getattr(cfg, f"ch{channel}_stage_short_deg", 0.0) or 0.0)
+        if short <= 0:
+            return None
+        if float(getattr(state, "ts", 0.0) or 0.0) < self._moved_until.get(channel, 0.0):
+            return None
+        pieces = getattr(state, "pieces", ()) or ()
+        if not pieces or pieces[0].com_forward_to_exit_deg is None:
+            return None
+        lead = pieces[0]
+        deg = min(float(lead.com_forward_to_exit_deg) - short, cfg.exit_move_max_deg)
+        behind = [p for p in pieces[1:] if not _boxesOverlap(p.bbox, lead.bbox)]
+        if behind:
+            perception_service = getattr(self.gc, "perception_service", None)
+            channel_def = perception_service.channels().get(channel) if perception_service else None
+            if channel_def is None:
+                return None
+            from perception.arcs import forwardGapToExitDeg
+
+            room = min(forwardGapToExitDeg(p.bbox, channel_def) for p in behind) - cfg.exit_move_margin_deg
+            deg = min(deg, room)
+        return deg if deg >= 1.0 else None
 
     def _exitStep(self, channel: int, state, cfg: PulsePerceptionConfig) -> ExitStep | None:
         """The exit's next move: a push, or with the lead in the opening and the

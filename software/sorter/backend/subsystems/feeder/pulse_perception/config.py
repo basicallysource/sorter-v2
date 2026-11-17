@@ -76,6 +76,11 @@ class PulsePerceptionConfig:
     # exit edge. A piece carried right up to the lip falls onto C4 mid-turn and
     # lands beside the piece already there: a double feed. 0 = no stand-off.
     ch3_busy_standoff_deg: float = 0.0
+    # While the classification channel is busy, C3 carries its lead piece on
+    # into the exit until its center is this far short of where pieces fall,
+    # so that when C4 asks, one short push drops it. 0 = off: the lead waits
+    # at the exit's near edge.
+    ch3_stage_short_deg: float = 0.0
     ch2_max_pieces: int = 0
     ch3_max_pieces: int = 0
     # Hand-off: once the piece a channel is pushing off has fallen (its track id
@@ -148,6 +153,7 @@ FIELD_META: list[dict] = [
     {"section": "Hand-off", "key": "ch3_max_pieces", "label": "Most pieces on C3", "type": "int", "default": _DEFAULTS.ch3_max_pieces, "description": "C2 hands C3 no new piece while C3 holds this many. Crowded pieces on C3 sit touching, and C3's exit then drops two at once onto the classification channel. 0 = no limit."},
     {"section": "Hand-off", "key": "ch2_max_pieces", "label": "Most pieces on C2", "type": "int", "default": _DEFAULTS.ch2_max_pieces, "description": "C1 adds nothing to C2 while C2 holds this many, so a heavy pour from the hopper does not flood C2 and pack C3 behind it. 0 = no limit."},
     {"section": "Hand-off", "key": "ch3_busy_standoff_deg", "label": "C3 stand-off while C4 is busy (output deg)", "type": "float", "default": _DEFAULTS.ch3_busy_standoff_deg, "description": "While the classification channel is turning or has a piece in its drop zone, C3 advances its lead piece only to this far short of the exit, so nothing waits at the lip to fall onto C4 mid-turn. 0 = advance right up to the exit edge."},
+    {"section": "Hand-off", "key": "ch3_stage_short_deg", "label": "C3 waits this close to the drop (output deg)", "type": "float", "default": _DEFAULTS.ch3_stage_short_deg, "description": "While the classification channel is busy, C3 carries its lead piece on into the exit until the piece's center is this far short of where pieces fall, never letting the piece behind it reach the exit. When the classification channel asks, one short push drops it. 0 = off: the lead waits at the exit's near edge."},
     {"section": "Hand-off", "key": "dispense_vanish_confirm_ms", "label": "Fallen after gone for (ms)", "type": "int", "default": _DEFAULTS.dispense_vanish_confirm_ms, "description": "The piece being pushed off the exit counts as fallen once the camera has not seen it for this long. Longer ignores detector blinks; shorter reacts sooner."},
     {"section": "Hand-off", "key": "dispense_hold_ms", "label": "Hold after a piece falls (ms)", "type": "int", "default": _DEFAULTS.dispense_hold_ms, "description": "After the piece being pushed off falls, the exit pushes nothing for this long, so the next channel sees it before another piece can follow."},
     {"section": "Hand-off", "key": "hold_follows_landings", "label": "Hold follows how long pieces take to land", "type": "bool", "default": _DEFAULTS.hold_follows_landings, "description": "Once 20 pieces have been seen to fall and land, each exit holds for the time 9 in 10 of them took to land on the next channel, plus 0.3 s (0.5 to 2.5 s): a long drop or a ramp holds longer, a short one no longer than it needs. Until then, and when off, the hold above."},

@@ -690,6 +690,13 @@ class DriverWatch:
                 "Its driver is on again, but the chute did not find home. "
                 "Check that it turns freely, then press Try again."
             )
+        elif outage.kind == OVERHEATED_FAULT:
+            # It comes back each time it cools and overheats again: the current
+            # is more than this driver can carry for this motor's work.
+            outage.doing = (
+                f"It overheated {RECOVERY_ATTEMPTS} times in {minutes:.0f} minutes. Lower its run current, "
+                "or cool the driver, then press Try again."
+            )
         else:
             outage.doing = (
                 f"Restarting it {RECOVERY_ATTEMPTS} times in {minutes:.0f} minutes did not keep it on. "

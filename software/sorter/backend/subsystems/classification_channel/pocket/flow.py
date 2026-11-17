@@ -116,17 +116,13 @@ _SAME_PIECE_DEG = 8.0
 # A box in the RECEIVE pocket that was never photographed and is gone this long
 # was not a piece.
 _UNSEEN_DROP_S = 0.7
-# With no piece in the receive pocket, the feeder gets this long to add one
-# before the pieces further on move on without it: one turn then both drops a
-# piece and carries the new one on, and every pocket can hold a piece.
-_FILL_WAIT_S = 2.5
+# With no new piece for this long, the pieces already on the channel move on.
+_FLUSH_AFTER_S = 6.0
 # The fins within this of the rest pose are at rest; further off, the rotor is
 # turned to it (steps were lost, or it was moved by hand).
 _ALIGN_TOL_DEG = 2.0
-# A piece C3 lets go this long or less before a turn starts has not been taken
-# in yet (it lands, is seen three frames and photographed first): what is in the
-# receive pocket after the turn may be it.
-_C3_UNSEEN_S = 0.6
+# A piece C3 lets go lands on this channel within this long.
+_C3_LANDING_S = 1.5
 # Turned back toward rest by at most this while the RECEIVE pocket holds a
 # piece: further back, that piece is carried toward the opening.
 _BACK_WITH_PIECE_DEG = 8.0
@@ -455,10 +451,10 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._recordCycle(perception_service, state, ready)
 
     def _admits(self, state) -> bool:
-        """Whether the feeder may add a piece now: the RECEIVE pocket is empty.
-        Every pocket can hold a piece: the one a turn sweeps across the opening
-        is told from the newcomer, which that turn carries on to the next pocket."""
-        if self._halted or self._pockets[0]:
+        """Whether the feeder may add a piece now: the RECEIVE pocket is empty,
+        so is the pocket ahead of it (pieces ride an empty pocket apart), and no
+        piece is in the EXIT pocket waiting for the turn that sweeps it."""
+        if self._halted or self._pockets[0] or self._pockets[1] or self._pockets[-1]:
             return False
         return not any(
             self._station(po.com_forward_to_exit_deg) == 0 for po in getattr(state, "pieces", ())
@@ -672,7 +668,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._maybeStartCycle(stepper, now)
 
     def _maybeStartCycle(self, stepper, now: float) -> None:
-        receive, last_queue, exit_ = self._pockets[0], self._pockets[-2], self._pockets[-1]
+        receive, ahead, last_queue, exit_ = self._pockets[0], self._pockets[1], self._pockets[-2], self._pockets[-1]
         if self._halted or not any(self._pockets):
             return
         # Every piece this turn can drop, nearest the opening first. Two too
@@ -714,7 +710,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                         f"The camera drew it as more than one piece lying together in the receive pocket "
                         f"({merged} of {frames} frames), so it went to the discard as a double drop.",
                     )
-        elif (now - self._rest_since) < _FILL_WAIT_S:
+        elif not ahead and not exit_ and (now - self._rest_since) < _FLUSH_AFTER_S:
             return  # The feeder may add a piece: it gets its chance first
         if not chute_on:
             return  # Not identified yet, or the chute is not on it yet
@@ -975,9 +971,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             return
         if self._carry_frames >= 2:
             fell = getattr(self.shared, "c3_fell_at", None)
-            # A piece C3 let go too late to be taken in before the turn, not the
-            # one asked for, which landed, was photographed and rode on.
-            if fell is not None and fell >= self._cycle_started_mono - _C3_UNSEEN_S:
+            if fell is not None and fell >= self._cycle_started_mono - _C3_LANDING_S:
                 # A piece came off C3 around this turn: what is in RECEIVE may
                 # be it, not the swept piece. Turning back would carry it across
                 # the opening unseen, so the swept piece counts as fallen and the

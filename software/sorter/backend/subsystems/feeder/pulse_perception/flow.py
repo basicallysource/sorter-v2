@@ -90,7 +90,10 @@ class PulsePerceptionFeeding(BaseState):
         # shake still owes, and the back-offs and shakes made for the lead.
         self._moved_until: dict[int, float] = {}
         self._shake_owed: dict[int, float] = {}
-        self._exit_tries: dict[int, tuple[int | None, int]] = {}
+        # Back-offs and shakes at each channel's exit since a piece last fell off
+        # it. Counted for the exit, not one piece: a piece the camera draws as
+        # several boxes changes its track number, and must not start it over.
+        self._exit_tries: dict[int, int] = {}
 
     def _cfg(self) -> PulsePerceptionConfig:
         now = time.monotonic()
@@ -274,6 +277,7 @@ class PulsePerceptionFeeding(BaseState):
             # while, so C4 sees it before the next one can follow.
             gate3 = self._gate(3, cfg)
             if gate3.observe(c3, now_mono):
+                self._exit_tries.pop(3, None)
                 self._on_ch3_dispense()
                 self._noteFall(3, gate3)
             action = feederChannelAction(
@@ -292,6 +296,7 @@ class PulsePerceptionFeeding(BaseState):
             # a piece falls, nothing more goes for a while, so C3 sees it land.
             gate2 = self._gate(2, cfg)
             if gate2.observe(c2, now_mono):
+                self._exit_tries.pop(2, None)
                 self._noteFall(2, gate2)
             action = feederChannelAction(
                 c2,
@@ -502,17 +507,18 @@ class PulsePerceptionFeeding(BaseState):
         pieces = getattr(state, "pieces", ()) or ()
         if not pieces:
             return ExitStep("push", push)
-        lead_id = getattr(pieces[0], "sv_bt_track_id", None)
-        tried_id, tries = self._exit_tries.get(channel, (None, 0))
-        if tried_id != lead_id:
-            tries = 0
+        lead = pieces[0]
+        # A box on top of the lead's is the lead drawn twice, or a piece lying
+        # on it that no back-off can part from it: the next piece is the first
+        # one clear of it.
+        nxt = next((p for p in pieces[1:] if not _boxesOverlap(p.bbox, lead.bbox)), None)
         return exitStep(
-            float(pieces[0].com_forward_to_exit_deg),
-            float(pieces[1].com_forward_to_exit_deg) if len(pieces) > 1 else None,
+            float(lead.com_forward_to_exit_deg),
+            float(nxt.com_forward_to_exit_deg) if nxt is not None else None,
             push,
             cfg.exit_pulse_output_deg,
             clear,
-            tries,
+            self._exit_tries.get(channel, 0),
         )
 
     def _noteExitStep(self, channel: int, lead, behind, step: ExitStep) -> None:
@@ -521,8 +527,7 @@ class PulsePerceptionFeeding(BaseState):
         measured."""
         lead_id = getattr(lead, "sv_bt_track_id", None)
         if step.kind != "push":
-            tried_id, tries = self._exit_tries.get(channel, (None, 0))
-            self._exit_tries[channel] = (lead_id, (tries if tried_id == lead_id else 0) + 1)
+            self._exit_tries[channel] = self._exit_tries.get(channel, 0) + 1
         try:
             import control_data_store
 
@@ -595,3 +600,10 @@ class PulsePerceptionFeeding(BaseState):
             blind.clear()
         self._held.reset()
         super().cleanup()
+
+
+def _boxesOverlap(a, b) -> bool:
+    """Whether two (x1, y1, x2, y2) boxes share any area."""
+    if a is None or b is None:
+        return False
+    return min(a[2], b[2]) > max(a[0], b[0]) and min(a[3], b[3]) > max(a[1], b[1])

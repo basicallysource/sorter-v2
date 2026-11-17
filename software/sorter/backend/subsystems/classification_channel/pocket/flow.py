@@ -216,6 +216,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._new_seen: dict[tuple[int, int], int] = {}
         self._merged: dict = {}
         self._doubt_frame_at = None
+        # When the last piece off C3 was taken into the RECEIVE pocket.
+        self._landed_at = float("-inf")
         # The acceleration last given the motor for a turn (homing and the
         # other flows may have set another since a pause: set again then).
         self._accel_set: Optional[int] = None
@@ -612,6 +614,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         # The inherited photographing takes pieces "in the drop zone": here that
         # is the RECEIVE pocket and nowhere else.
         tp.zone = _ZONE_DROP if station == 0 else _ZONE_PRECISE
+        if station == 0:
+            self._landed_at = now
         others = list(pocket)
         pocket.append(tp)
         if others:
@@ -1011,21 +1015,49 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 return
             self.logger.warning(f"{LOG_TAG} track={tp.track_id if tp else '?'} still did not fall: finishing the turn")
         elif (gone or self._check_frames >= 2) and tp is not None and any(tp in pocket for pocket in self._pockets):
-            # It fell into the bin the chute was aimed at for it, with any piece
-            # too close beside it.
-            for member in self._check_group or [tp]:
-                if not any(member in pocket for pocket in self._pockets):
-                    continue
-                if member is not tp:
-                    self._place(member)
-                self._commitToDistribution(member)
-                self.logger.info(f"{LOG_TAG} ejected track={member.track_id} (fell at the opening)")
-                self._forget(member)
-            self.noteProgress()
-            try:
-                self._cycles.ejected(time.time())
-            except Exception:
-                pass
+            carried = int(getattr(tp, "carried", 0))
+            if carried and self._check_shakes < min(carried, self._check_shakes_max):
+                # It rode round before, and out of sight is no proof it fell:
+                # it is shaken where it is anyway.
+                self._check_shakes += 1
+                self._shake_cycles = _SHAKE_CYCLES * (self._check_shakes + carried)
+                self.logger.warning(
+                    f"{LOG_TAG} track={tp.track_id} went round before and is out of sight at the opening: shaking it there anyway"
+                )
+                self._startShake(stepper, now)
+                return
+            group = [m for m in (self._check_group or [tp]) if any(m in pocket for pocket in self._pockets)]
+            later = any(any(g[0] in pocket for pocket in self._pockets) for g in self._targets)
+            if not later and all(m in self._pockets[-1] for m in group):
+                # Gone from where the camera looks, but the camera cannot see all
+                # of the opening, and a piece stuck to the rotor rides on round
+                # into the RECEIVE pocket: it counts as dropped once the look
+                # after the turn finds that pocket empty. The chute stays on it
+                # till then, and its trip down the chute is timed from now.
+                at = time.time()
+                for member in group:
+                    if member.known_object is not None:
+                        member.known_object.fell_at = at
+                self._pockets[-1].remove(tp)
+                self._pockets[-1].insert(0, tp)
+                self.logger.info(
+                    f"{LOG_TAG} track={tp.track_id} gone at the opening: dropped once the receive pocket is seen empty"
+                )
+            else:
+                # Another piece drops later in this turn and the chute must go
+                # to it: this one is counted now, into the bin the chute was
+                # aimed at for it, with any piece too close beside it.
+                for member in group:
+                    if member is not tp:
+                        self._place(member)
+                    self._commitToDistribution(member)
+                    self.logger.info(f"{LOG_TAG} ejected track={member.track_id} (fell at the opening)")
+                    self._forget(member)
+                self.noteProgress()
+                try:
+                    self._cycles.ejected(time.time())
+                except Exception:
+                    pass
         self._check_tp = None
         self._enter(_P.TURN)
 
@@ -1047,11 +1079,11 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             return
         if self._carry_frames >= 2:
             fell = getattr(self.shared, "c3_fell_at", None)
-            if fell is not None and fell >= self._cycle_started_mono - _C3_LANDING_S:
-                # A piece came off C3 around this turn: what is in RECEIVE may
-                # be it, not the swept piece. Turning back would carry it across
-                # the opening unseen, so the swept piece counts as fallen and the
-                # newcomer is taken in at rest like any other.
+            if fell is not None and fell >= self._cycle_started_mono - _C3_LANDING_S and fell > self._landed_at:
+                # A piece came off C3 around this turn that has not landed in
+                # the record yet: what is in RECEIVE may be it, not the swept
+                # piece, so the swept piece counts as fallen and the newcomer
+                # is taken in at rest like any other.
                 self.logger.warning(
                     f"{LOG_TAG} a piece in the receive pocket after the sweep, but C3 let one go "
                     "around this turn: taken as a new piece, not turned back"
@@ -1084,6 +1116,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             tp.carried = getattr(tp, "carried", 0) + 1
             if tp.placed and not tp.ejected:
                 self._takeBack(tp)
+            if tp.known_object is not None:
+                tp.known_object.fell_at = None
             notePieceProblem(
                 tp.known_object,
                 "did_not_fall",

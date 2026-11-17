@@ -70,6 +70,11 @@ class Sending(BaseState):
                     self.shared.set_distribution_gate(True, reason=None)
                     return DistributionState.IDLE
                 return None
+            fell_at = getattr(self.piece, "fell_at", None)
+            if fell_at is not None:
+                # The channel saw it fall before it could count it as dropped:
+                # its trip down the chute started then.
+                self.start_time = min(self.start_time, float(fell_at))
 
         elapsed_ms = (now - self.start_time) * 1000
         settle_ms = CHUTE_SETTLE_MS

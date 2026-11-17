@@ -11,8 +11,12 @@ EnvironmentFile=-/etc/hive-release.env
 ExecStart=/usr/bin/python3 /usr/local/lib/hive/hive_release_agent.py poll
 
 # A poll that wedges (a hung pull, a health check that never settles) must not
-# hold the agent's flock forever and silently stop every later release.
-TimeoutStartSec=1800
+# hold the agent's flock forever and silently stop every later release. But a
+# release with a migration dumps the database first, which took 25 minutes on
+# 2026-11-17 (6.4 GB) and grows with it: at 30 minutes that install was killed
+# just as it migrated, and the next poll began a second dump, which held up the
+# migration's CREATE INDEX CONCURRENTLY until it was stopped.
+TimeoutStartSec=7200
 
 NoNewPrivileges=true
 ProtectKernelTunables=true

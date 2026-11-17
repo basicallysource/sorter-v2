@@ -94,9 +94,9 @@ _CHECK_S = 0.6
 _CHECK_SETTLE_S = 0.35
 # A piece within this of where the dropping piece should be is taken for it.
 _CHECK_NEAR_DEG = 14.0
-# Pieces at least this far apart, in one pocket or two, are dropped one at a
-# time with the chute aimed for each; closer, they fall together and go to the
-# discard.
+# Pieces in two pockets at least this far apart are dropped one at a time with
+# the chute aimed for each; closer, they fall together and go to the discard.
+# Two in one pocket are always a double drop.
 _SPLIT_MIN_DEG = 22.0
 _SHAKE_PARTS = 3
 _SHAKE_ROTOR_DEG = 6.0
@@ -600,41 +600,28 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         tp.zone = _ZONE_DROP if station == 0 else _ZONE_PRECISE
         others = list(pocket)
         pocket.append(tp)
-        apart = tp.gap_to_exit is not None and all(
-            o.gap_to_exit is not None and abs(float(o.gap_to_exit) - float(tp.gap_to_exit)) >= _SPLIT_MIN_DEG
-            for o in others
-        )
-        if others and apart:
-            self.logger.info(
-                f"{LOG_TAG} track={tp.track_id} landed in pocket {station} beside another piece, far enough apart "
-                "to drop one at a time"
-            )
-        elif others:
+        if others:
+            # Two pieces in one pocket came off C3 together: a double drop, however
+            # far apart they lie.
             self._multi_drop_seq += 1
             for member in pocket:
                 self._toDiscard(
                     member,
                     "double_feed",
-                    "Two pieces were in one pocket of the classification channel, so neither could be "
-                    "sent to a bin of its own; both went to the discard.",
+                    "Two pieces were in one pocket of the classification channel: they came off C3 "
+                    "together, a double drop. Both went to the discard.",
                     group=self._multi_drop_seq,
                 )
             return
         if station != 0:
-            self._ensureKnownObject(tp)
-            obj = tp.known_object
-            if obj is not None:
-                obj.classification_status = ClassificationStatus.unknown
-                obj.part_id = None
-                notePieceProblem(
-                    obj,
-                    "stray",
-                    "The camera first saw it in a pocket past the one pieces land in, so it was "
-                    "never photographed or identified; it went to the discard.",
-                )
-                tp.worker.emitKnownObject()
-            tp.capture_done = True
-            tp.result_applied = True
+            # Seen first past the pocket pieces land in: it arrived unseen, beside
+            # or behind another piece, so it counts as a double drop.
+            self._toDiscard(
+                tp,
+                "stray",
+                "The camera first saw it in a pocket past the one pieces land in, so it was never "
+                "photographed or identified; it came off C3 unseen, a double drop, and went to the discard.",
+            )
             self.logger.warning(f"{LOG_TAG} track={tp.track_id} appeared in pocket {station}, unphotographed -> discard")
 
     def _toDiscard(self, tp: _TrackedPiece, kind: str, message: str, group: Optional[int] = None) -> None:
@@ -672,6 +659,27 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         receive, ahead, last_queue, exit_ = self._pockets[0], self._pockets[1], self._pockets[-2], self._pockets[-1]
         if self._halted or not any(self._pockets):
             return
+        # Every piece this turn can drop, nearest the opening first. Two too
+        # close to part fall together: both go to the discard.
+        going = sorted(
+            exit_ + last_queue,
+            key=lambda tp: float(tp.gap_to_exit) if tp.gap_to_exit is not None else -1e9,
+        )
+        for a, b in zip(going, going[1:]):
+            if a.gap_to_exit is None or b.gap_to_exit is None or float(b.gap_to_exit) - float(a.gap_to_exit) < _SPLIT_MIN_DEG:
+                self._multi_drop_seq += 1
+                for tp in (a, b):
+                    self._toDiscard(
+                        tp,
+                        "together",
+                        "It reached the classification channel's exit right beside another piece, too "
+                        "close to drop on its own, so the two fell together; both went to the discard.",
+                        group=self._multi_drop_seq,
+                    )
+        # The piece this turn drops first needs the chute on it. The chute goes
+        # there now, while a piece that has just landed is photographed: the
+        # rotor stands still either way.
+        chute_on = not going or (all(tp.result_applied for tp in going) and self._aimedFor(going[0]))
         if receive:
             if not all(tp.capture_done for tp in receive):
                 return  # Still being photographed
@@ -692,29 +700,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                     )
         elif not ahead and not exit_ and (now - self._rest_since) < _FLUSH_AFTER_S:
             return  # The feeder may add a piece: it gets its chance first
-        # Every piece this turn can drop, nearest the opening first. Two too
-        # close to part fall together: both go to the discard.
-        going = sorted(
-            exit_ + last_queue,
-            key=lambda tp: float(tp.gap_to_exit) if tp.gap_to_exit is not None else -1e9,
-        )
-        for a, b in zip(going, going[1:]):
-            if a.gap_to_exit is None or b.gap_to_exit is None or float(b.gap_to_exit) - float(a.gap_to_exit) < _SPLIT_MIN_DEG:
-                self._multi_drop_seq += 1
-                for tp in (a, b):
-                    self._toDiscard(
-                        tp,
-                        "together",
-                        "It reached the classification channel's exit right beside another piece, too "
-                        "close to drop on its own, so the two fell together; both went to the discard.",
-                        group=self._multi_drop_seq,
-                    )
-        # The piece this turn drops first needs the chute on it.
-        if going:
-            if not all(tp.result_applied for tp in going):
-                return  # Not identified yet
-            if not self._aimedFor(going[0]):
-                return  # The chute is not on it yet
+        if not chute_on:
+            return  # Not identified yet, or the chute is not on it yet
         self._cycle_start_pos = int(stepper.position)
         self._cycle_started_mono = now
         self.noteProgress()

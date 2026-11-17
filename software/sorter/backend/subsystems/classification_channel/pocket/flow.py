@@ -696,12 +696,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if going:
             if not all(tp.result_applied for tp in going):
                 return  # Not identified yet
-            lead = going[0]
-            if not lead.placed:
-                if self.transport.getPieceForDistributionPositioning() is None:
-                    self._place(lead)
-                return
-            if not self._chuteOn(lead):
+            if not self._aimedFor(going[0]):
                 return  # The chute is not on it yet
         self._cycle_start_pos = int(stepper.position)
         self._cycle_started_mono = now
@@ -811,13 +806,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if self._sweep_steps and self._sweep_steps[0] == "aim":
             tp = self._check_tp
             if tp is not None and any(tp in pocket for pocket in self._pockets):
-                if not tp.result_applied:
-                    return  # Not identified yet
-                if not tp.placed:
-                    if self.transport.getPieceForDistributionPositioning() is None:
-                        self._place(tp)
-                    return
-                if not self._chuteOn(tp):
+                if not tp.result_applied or not self._aimedFor(tp):
                     return
             self._sweep_steps.pop(0)
         if self._sweep_steps:
@@ -1031,6 +1020,19 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         tp.placed = True
         tp.placed_at = time.monotonic()
         self.logger.info(f"{LOG_TAG} aiming chute for track={tp.track_id} (status={obj.classification_status})")
+
+    def _aimedFor(self, tp: _TrackedPiece) -> bool:
+        """Whether the chute is on this piece; if not, it is handed to
+        distribution, taking back any other piece distribution holds (one
+        aimed for earlier that now drops after it)."""
+        if not tp.placed:
+            for other in self._pieces.values():
+                if other is not tp and other.placed and not other.ejected:
+                    self._takeBack(other)
+            if self.transport.getPieceForDistributionPositioning() is None:
+                self._place(tp)
+            return False
+        return self._chuteOn(tp)
 
     def _chuteOn(self, tp: _TrackedPiece) -> bool:
         """Whether the chute is on this piece. A piece handed over that the

@@ -672,7 +672,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._maybeStartCycle(stepper, now)
 
     def _maybeStartCycle(self, stepper, now: float) -> None:
-        receive, ahead, last_queue, exit_ = self._pockets[0], self._pockets[1], self._pockets[-2], self._pockets[-1]
+        receive, last_queue, exit_ = self._pockets[0], self._pockets[-2], self._pockets[-1]
         if self._halted or not any(self._pockets):
             return
         # Every piece this turn can drop, nearest the opening first. Two too

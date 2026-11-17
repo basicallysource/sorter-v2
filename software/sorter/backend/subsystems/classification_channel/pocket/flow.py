@@ -1132,7 +1132,12 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             if self._n - 1 in stations:
                 self._exit_frames += 1
         waited = now - self._look_from
-        if waited < _LOOK_S or (self._look_frames < _LOOK_FRAMES and waited < 3 * _LOOK_S):
+        if not self._swept and not self._exit_pending:
+            # Only whether the RECEIVE pocket's piece rode the turn: two fresh
+            # frames tell.
+            if self._look_frames < 2 and waited < 3 * _LOOK_S:
+                return
+        elif waited < _LOOK_S or (self._look_frames < _LOOK_FRAMES and waited < 3 * _LOOK_S):
             return
         before, self._receive_before = self._receive_before, []
         held = [(tp, box) for tp, box in before if self._held_seen.get(id(tp), 0) >= 2]
@@ -1143,7 +1148,11 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._heldFromAbove(held)
         dropped: list[_TrackedPiece] = []
         pending, self._exit_pending = self._exit_pending, []
-        if pending and self._exit_frames >= 2:
+        # The EXIT pocket lies at the edge of the picture, where a piece is only
+        # partly seen: seen there once, it is still there. Wrongly kept costs a
+        # turn; wrongly counted as dropped sends a piece to a bin it never
+        # reached.
+        if pending and self._exit_frames >= 1:
             self._stillInExit(pending)
         else:
             dropped += [tp for tp in pending if any(tp in pocket for pocket in self._pockets)]

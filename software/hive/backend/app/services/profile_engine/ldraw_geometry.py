@@ -12,6 +12,8 @@ LDRAW_COMPLETE_URL = "https://library.ldraw.org/library/updates/complete.zip"
 # strip a printed/decorated/assembly suffix to the underlying physical mold id
 _SUFFIX_RE = re.compile(r'^(\d+[a-z]?)(p[a-z0-9]+|pr\d+|pb\d+|c\d{2}[a-z]?|d\d+|s\d+)$')
 _LEADING_NUM_RE = re.compile(r'^(\d+[a-z]?)')
+# a BrickLink printed part: a mold and a print code, nothing after (3010pb035d, 3001p01)
+_BRICKLINK_PRINT_RE = re.compile(r'^(\d+[a-z]?)(pb\d+[a-z]?|px\d+[a-z]?|p\d+[a-z]?)$')
 
 
 def baseMoldId(part_id: str) -> str | None:
@@ -230,7 +232,20 @@ def resolveBricklinkGeometry(resolver: _Resolver, item_no: str, part_nums: list[
         return {**geom, "physical_parent_part_num": part_num, "geometry_source": "bricklink"}
     # None of them measured: LDraw's own file of that number (for an old
     # number, often a "~Moved to" that points at the current one).
-    return resolveGeometry(resolver, item_no, [])
+    path = resolver.resolve(item_no + ".dat")
+    geom = _geomForDat(resolver, path) if path else None
+    if geom:
+        return {**geom, "ldraw_id": item_no, "physical_parent_part_num": None, "geometry_source": "direct"}
+    # Or, for a printed part, its mold: printing does not change the size. Only
+    # a print code with nothing after it, because a BrickLink number such as
+    # 973pb1258c01 (a torso with its arms and hands) or 10152.3stk01 (a sticker
+    # sheet) is far more than the mold its number starts with.
+    m = _BRICKLINK_PRINT_RE.match(item_no)
+    path = resolver.resolve(m.group(1) + ".dat") if m else None
+    geom = _geomForDat(resolver, path) if path else None
+    if geom:
+        return {**geom, "ldraw_id": m.group(1), "physical_parent_part_num": m.group(1), "geometry_source": "parent"}
+    return None
 
 
 def resolveGeometry(resolver: _Resolver, part_num: str, ldraw_ids: list[str]) -> dict | None:

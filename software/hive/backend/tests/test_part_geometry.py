@@ -40,6 +40,7 @@ def library(tmp_path: Path) -> str:
     _write(tmp_path, "parts/6141.dat", "0 Plate round 1 x 1\n" + _box(20, 12, 20))
     _write(tmp_path, "parts/3069.dat", "0 ~Moved to 3069b\n1 16 0 0 0 1 0 0 0 1 0 0 0 1 3069b.dat\n")
     _write(tmp_path, "parts/3069b.dat", "0 Tile 1 x 2\n" + _box(40, 8, 20))
+    _write(tmp_path, "parts/973.dat", "0 Torso, no arms\n" + _box(44, 32, 20))
     return str(tmp_path / "ldraw")
 
 
@@ -60,6 +61,12 @@ def catalog(tmp_path: Path):
          "external_ids": {"BrickLink": ["99999old"]}},
         {"part_num": "3069b", "name": "Tile 1 x 2", "part_cat_id": 1,
          "external_ids": {"BrickLink": ["3069"]}},
+        # Rebrickable parts LDraw has no model for, so their BrickLink numbers
+        # fall back on the numbers themselves.
+        {"part_num": "3069bpr9999", "name": "Tile 1 x 2 with print", "part_cat_id": 1,
+         "external_ids": {"BrickLink": ["3069pb999"]}},
+        {"part_num": "973c99h99pr9999", "name": "Torso with arms and hands", "part_cat_id": 1,
+         "external_ids": {"BrickLink": ["973pb9999c01"]}},
     ])
     for item_no, part_num, name, dims in [
         ("3040", "3040b", "Slope 45 2 x 1", (2, 1)),
@@ -85,7 +92,7 @@ def _measure(catalog, library):
 def test_a_bricklink_number_gets_the_size_of_its_rebrickable_part(catalog, library):
     result = _measure(catalog, library)
     assert result["stopped"] is False
-    assert result["bricklink"] == 4  # 3040, 4287, 4073, 3069; 99999old has no model
+    assert result["bricklink"] == 5  # 3040, 4287, 4073, 3069, 3069pb999; 99999old has no model
 
     dims = profile_db.pieceMetadata(catalog, "3040", None)["dimensions"]
     assert (dims["bbox_x_mm"], dims["bbox_y_mm"], dims["bbox_z_mm"]) == (16.0, 11.2, 8.0)
@@ -107,6 +114,24 @@ def test_a_number_for_several_parts_takes_the_largest(catalog, library):
     assert dims["physical_parent_part_num"] == "4287c"
 
 
+def test_a_printed_bricklink_number_falls_back_on_its_mold_and_nothing_longer(catalog, library):
+    _measure(catalog, library)
+    # 3069bpr9999 is measured from its mold 3069b, so its BrickLink number is too.
+    assert profile_db.resolvePartDimensions(catalog, "3069pb999")["source"] == "ldraw_bricklink"
+    catalog.execute("DELETE FROM part_geometry")
+    catalog.execute("DELETE FROM part_bricklink_ids WHERE part_num = '3069bpr9999'")
+    catalog.execute("DELETE FROM parts WHERE part_num = '3069bpr9999'")
+    catalog.execute("INSERT INTO part_bricklink_ids (part_num, item_no, is_primary) VALUES ('99999', '3069pb999', 1)")
+    catalog.commit()
+    _measure(catalog, library)
+    # Its mapped part unmeasured: the printed number takes its mold (3069, moved to 3069b).
+    dims = profile_db.resolvePartDimensions(catalog, "3069pb999")
+    assert dims["source"] == "ldraw_parent"
+    assert dims["bbox_x_mm"] == 16.0
+    # A torso with arms is not the size of the bare torso its number starts with.
+    assert profile_db.getPartGeometry(catalog, "973pb9999c01") is None
+
+
 def test_a_bricklink_number_without_a_model_still_has_its_footprint(catalog, library):
     _measure(catalog, library)
     dims = profile_db.resolvePartDimensions(catalog, "99999old")
@@ -117,7 +142,7 @@ def test_a_bricklink_number_without_a_model_still_has_its_footprint(catalog, lib
 def test_the_admin_count_is_of_rebrickable_parts(catalog, library):
     _measure(catalog, library)
     overview = profile_db.adminCatalogOverview(catalog)
-    assert overview["coverage"]["parts_with_ldraw_geometry"] == 5  # all but 99999
+    assert overview["coverage"]["parts_with_ldraw_geometry"] == 6  # all but 99999 and the torso
 
 
 def test_an_unknown_number_is_still_unknown(catalog, library):

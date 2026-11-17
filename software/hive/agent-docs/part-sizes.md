@@ -35,7 +35,10 @@ the measuring should not load the server. Nothing measures at request time.
    `geometry_source` is `bricklink`, and `physical_parent_part_num` names the
    Rebrickable part the size is from. If none of the parts has a model, LDraw's
    own file of the BrickLink number is tried (for an old number it is often a
-   `~Moved to` that points at the current one).
+   `~Moved to` that points at the current one), and then, for a printed part
+   (a mold and a print code: 3010pb035d), the mold. Never the mold a longer
+   number merely starts with: 973pb1258c01 is a torso with arms and hands, and
+   10152.3stk01 a sticker sheet, both far from the size of 973 or 10152.
 
 A BrickLink number that is also a Rebrickable part number keeps the Rebrickable
 meaning; in the few cases where the two catalogs use one number for different

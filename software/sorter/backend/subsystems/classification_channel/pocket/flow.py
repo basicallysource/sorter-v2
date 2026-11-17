@@ -76,7 +76,10 @@ _CARRY_MAX = 4
 # this far into the opening, then looks whether it fell. A piece still there is
 # shaken where it is, up to _CHECK_SHAKES times (more for one that rode round
 # before), before the turn is finished. The rotor never turns back.
-_FALL_IN_DEG = 14.0
+_FALL_IN_DEG = 25.0
+# The next piece is kept at least this far short of the opening while the one
+# ahead of it is taken in.
+_NEXT_MARGIN_DEG = 8.0
 _CHECK_SHAKES = 3
 # A piece takes this long to slide off once it is over the opening: the look
 # waits for it before taking the piece for one that stayed.
@@ -84,6 +87,10 @@ _CHECK_S = 0.6
 _CHECK_SETTLE_S = 0.35
 # A piece within this of where the dropping piece should be is taken for it.
 _CHECK_NEAR_DEG = 14.0
+# Pieces at least this far apart, in one pocket or two, are dropped one at a
+# time with the chute aimed for each; closer, they fall together and go to the
+# discard.
+_SPLIT_MIN_DEG = 22.0
 _SHAKE_PARTS = 3
 _SHAKE_ROTOR_DEG = 6.0
 _SHAKE_CYCLES = 8
@@ -173,6 +180,10 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._taken_back_at = float("-inf")
         self._cycle_started_mono = float("-inf")
         self._check_tp: Optional[_TrackedPiece] = None
+        self._check_group: list[_TrackedPiece] = []
+        self._targets: list[list[_TrackedPiece]] = []
+        self._planning = False
+        self._turned_deg = 0.0
         self._check_gap = 0.0
         self._check_shakes = 0
         self._check_shakes_max = _CHECK_SHAKES
@@ -450,6 +461,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self.last_progress_at = now
         self._new_seen = {}
         self._sweep_steps = []
+        self._targets = []
+        self._planning = False
+        self._check_tp = None
         self._shaking = False
         if not self._started:
             self._started = True
@@ -573,8 +587,18 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         # The inherited photographing takes pieces "in the drop zone": here that
         # is the RECEIVE pocket and nowhere else.
         tp.zone = _ZONE_DROP if station == 0 else _ZONE_PRECISE
+        others = list(pocket)
         pocket.append(tp)
-        if len(pocket) > 1:
+        apart = tp.gap_to_exit is not None and all(
+            o.gap_to_exit is not None and abs(float(o.gap_to_exit) - float(tp.gap_to_exit)) >= _SPLIT_MIN_DEG
+            for o in others
+        )
+        if others and apart:
+            self.logger.info(
+                f"{LOG_TAG} track={tp.track_id} landed in pocket {station} beside another piece, far enough apart "
+                "to drop one at a time"
+            )
+        elif others:
             self._multi_drop_seq += 1
             for member in pocket:
                 self._toDiscard(
@@ -651,19 +675,24 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                     )
         elif not ahead and not exit_ and (now - self._rest_since) < _FLUSH_AFTER_S:
             return  # The feeder may add a piece: it gets its chance first
-        # Two pockets in a row at the exit would empty on the same turn: no bin
-        # is right for both, so both go to the discard. (Pieces are admitted an
-        # empty pocket apart; this is a piece that was carried round, or a stray.)
-        if exit_ and last_queue:
-            for tp in exit_ + last_queue:
-                self._toDiscard(
-                    tp,
-                    "together",
-                    "It reached the classification channel's exit right behind another piece, so the "
-                    "two fell together; both went to the discard.",
-                )
-        # The piece this turn can drop needs the chute on it first.
-        going = exit_ + last_queue
+        # Every piece this turn can drop, nearest the opening first. Two too
+        # close to part fall together: both go to the discard.
+        going = sorted(
+            exit_ + last_queue,
+            key=lambda tp: float(tp.gap_to_exit) if tp.gap_to_exit is not None else -1e9,
+        )
+        for a, b in zip(going, going[1:]):
+            if a.gap_to_exit is None or b.gap_to_exit is None or float(b.gap_to_exit) - float(a.gap_to_exit) < _SPLIT_MIN_DEG:
+                self._multi_drop_seq += 1
+                for tp in (a, b):
+                    self._toDiscard(
+                        tp,
+                        "together",
+                        "It reached the classification channel's exit right beside another piece, too "
+                        "close to drop on its own, so the two fell together; both went to the discard.",
+                        group=self._multi_drop_seq,
+                    )
+        # The piece this turn drops first needs the chute on it.
         if going:
             if not all(tp.result_applied for tp in going):
                 return  # Not identified yet
@@ -681,22 +710,60 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._cycles.rotated(time.time(), ejecting=bool(exit_))
         except Exception:
             pass
-        self._sweep_steps = [self._pitch_us]
+        # The turn is made piece by piece: as far as each takes it into the
+        # opening, a look, the chute aimed for the next; then the rest of it.
+        self._targets = []
+        for tp in going:
+            if tp.gap_to_exit is None:
+                self._targets = []
+                break
+            if self._targets and tp.double_feed and self._targets[-1][0].double_feed and float(tp.gap_to_exit) - float(self._targets[-1][0].gap_to_exit) < _SPLIT_MIN_DEG:
+                self._targets[-1].append(tp)  # Falls with the one beside it
+            else:
+                self._targets.append([tp])
+        self._planning = True
+        self._turned_deg = 0.0
+        self._sweep_steps = []
         self._check_tp = None
-        lead = going[0] if going else None
-        gap = None if lead is None else lead.gap_to_exit
-        if gap is not None:
-            # As far as it takes this piece into the opening, then a look.
-            first_deg = min(max(0.0, float(gap) + _FALL_IN_DEG), self._pitch_deg)
-            if first_deg < self._pitch_deg - 1.0:
-                first_us = int(round(first_deg * self._per_deg))
-                self._sweep_steps = ([first_us] if first_us > 0 else []) + ["check", self._pitch_us - first_us]
-                self._check_tp = lead
-                self._check_gap = float(gap) - first_deg
-                laps = getattr(lead, "carried", 0)
-                self._check_shakes_max = _CHECK_SHAKES + laps
-                self._check_shakes = 0
         self._enter(_P.TURN)
+
+    def _planNext(self) -> None:
+        """The next part of the turn: up to the next piece's drop and a look at
+        it, with the chute aimed for it first; or, with none left that this
+        turn reaches, the rest of the turn."""
+        while self._targets:
+            group = self._targets[0]
+            lead = group[0]
+            if not any(lead in pocket for pocket in self._pockets):
+                self._targets.pop(0)  # Already fell
+                continue
+            fall_in = _FALL_IN_DEG
+            behind = [g[0] for g in self._targets[1:]]
+            if behind:
+                # No further in than leaves the next piece short of the opening.
+                fall_in = min(fall_in, float(behind[0].gap_to_exit) - float(lead.gap_to_exit) - _NEXT_MARGIN_DEG)
+                fall_in = max(fall_in, _NEXT_MARGIN_DEG)
+            left = self._pitch_deg - self._turned_deg
+            if float(lead.gap_to_exit) - self._turned_deg >= left - 0.5:
+                self._targets = []  # It reaches the opening on a later turn
+                break
+            # Into the opening, at most to the end of the turn: a piece that is
+            # only just in at rest is looked at there, and is the first the
+            # next turn drops.
+            need = min(max(0.0, float(lead.gap_to_exit) + fall_in - self._turned_deg), left)
+            self._targets.pop(0)
+            need_us = int(round(need * self._per_deg))
+            self._check_tp = lead
+            self._check_group = group
+            self._check_gap = float(lead.gap_to_exit) - self._turned_deg - need
+            self._check_shakes_max = _CHECK_SHAKES + getattr(lead, "carried", 0)
+            self._check_shakes = 0
+            self._turned_deg += need
+            self._sweep_steps = ["aim"] + ([need_us] if need_us > 0 else []) + ["check"]
+            return
+        rest_us = self._pitch_us - int(round(self._turned_deg * self._per_deg))
+        self._sweep_steps = [rest_us] if rest_us > 0 else []
+        self._planning = False
 
     # -------------------------------------------------------------------- moves
 
@@ -739,6 +806,20 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             except Exception:
                 pass
             self._shaking = False
+        if not self._sweep_steps and self._planning:
+            self._planNext()
+        if self._sweep_steps and self._sweep_steps[0] == "aim":
+            tp = self._check_tp
+            if tp is not None and any(tp in pocket for pocket in self._pockets):
+                if not tp.result_applied:
+                    return  # Not identified yet
+                if not tp.placed:
+                    if self.transport.getPieceForDistributionPositioning() is None:
+                        self._place(tp)
+                    return
+                if not self._chuteOn(tp):
+                    return
+            self._sweep_steps.pop(0)
         if self._sweep_steps:
             step = self._sweep_steps.pop(0)
             if step == "shake":
@@ -814,10 +895,16 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 return
             self.logger.warning(f"{LOG_TAG} track={tp.track_id if tp else '?'} still did not fall: finishing the turn")
         elif self._check_frames >= 2 and tp is not None and any(tp in pocket for pocket in self._pockets):
-            # It fell into the bin the chute was aimed at for it.
-            self._commitToDistribution(tp)
-            self.logger.info(f"{LOG_TAG} ejected track={tp.track_id} (fell at the opening)")
-            self._forget(tp)
+            # It fell into the bin the chute was aimed at for it, with any piece
+            # too close beside it.
+            for member in self._check_group or [tp]:
+                if not any(member in pocket for pocket in self._pockets):
+                    continue
+                if member is not tp:
+                    self._place(member)
+                self._commitToDistribution(member)
+                self.logger.info(f"{LOG_TAG} ejected track={member.track_id} (fell at the opening)")
+                self._forget(member)
             self.noteProgress()
             try:
                 self._cycles.ejected(time.time())

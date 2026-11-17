@@ -675,14 +675,20 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if receive:
             if not all(tp.capture_done for tp in receive):
                 return  # Still being photographed
+            need = int(getattr(self.ctx.config, "merged_double_drop_frames", 0) or 0)
             for tp in receive:
                 frames = getattr(tp, "rest_frames", 0)
-                if not tp.double_feed and frames >= _MERGED_MIN_FRAMES and 2 * getattr(tp, "merged_frames", 0) >= frames:
+                merged = getattr(tp, "merged_frames", 0)
+                if need > 0:
+                    together = merged >= need
+                else:
+                    together = frames >= _MERGED_MIN_FRAMES and 2 * merged >= frames
+                if not tp.double_feed and together:
                     self._toDiscard(
                         tp,
                         "merged",
-                        "The camera drew it as more than one piece lying together in the receive pocket "
-                        "in most of its frames, so it went to the discard as a double drop.",
+                        f"The camera drew it as more than one piece lying together in the receive pocket "
+                        f"({merged} of {frames} frames), so it went to the discard as a double drop.",
                     )
         elif not ahead and not exit_ and (now - self._rest_since) < _FLUSH_AFTER_S:
             return  # The feeder may add a piece: it gets its chance first

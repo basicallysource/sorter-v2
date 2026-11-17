@@ -118,6 +118,10 @@ class Rev01Config:
     fin_count: int = 5
     fin_at_exit: bool = False
     fin_width_deg: float = 5.0
+    # A piece at rest in the receive pocket drawn as more than one box fused
+    # together in this many frames is two pieces that landed together: a double
+    # drop. 0 = in at least half its frames, and at least 4.
+    merged_double_drop_frames: int = 0
 
 
 _DEFAULTS = Rev01Config()
@@ -158,6 +162,7 @@ FIELD_META: list[dict] = [
     {"key": "fin_count", "label": "Fins on the rotor", "type": "int", "default": _DEFAULTS.fin_count, "description": "How many fins the classification channel's rotor has."},
     {"key": "fin_at_exit", "label": "Rest with a fin over the exit", "type": "bool", "default": _DEFAULTS.fin_at_exit, "description": "For a rotor whose fin must cover the gap to the exit while the channel waits: homing puts a fin's exit-side edge on the exit zone's far edge, and after each turn the channel turns on, the way it travels, to the nearest place a fin is there again."},
     {"key": "fin_width_deg", "label": "Fin width (output deg)", "type": "float", "default": _DEFAULTS.fin_width_deg, "description": "How wide a fin is at the ring, in degrees, so its edge, not its middle, is what rests on the exit zone's far edge."},
+    {"key": "merged_double_drop_frames", "label": "Merged frames for a double drop", "type": "int", "default": _DEFAULTS.merged_double_drop_frames, "description": "A piece in the receive pocket that the camera draws as more than one box lying together in this many frames goes to the discard as a double drop. 0 = in at least half its frames (and at least 4)."},
     {"key": "jitter_accel_usteps_per_s2", "label": "Jitter accel (\u00b5steps/s\u00b2)", "type": "int", "default": _DEFAULTS.jitter_accel_usteps_per_s2, "description": "Motor acceleration during jitter oscillations — high, so the shake is sharp enough to unstick a piece."},
 ]
 

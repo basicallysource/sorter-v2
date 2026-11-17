@@ -230,8 +230,12 @@ def _orderedCircularSections(sections: frozenset[int]) -> list[int]:
 
 
 def exitNearEdgeSection(channel: ChannelDef) -> int | None:
+    """The exit zone's section a piece reaches first, in the channel's own
+    direction of travel."""
     ordered = _orderedCircularSections(channel.exit_sections)
-    return ordered[0] if ordered else None
+    if not ordered:
+        return None
+    return ordered[-1] if getattr(channel, "reverse", False) else ordered[0]
 
 
 def forwardClearanceToExitDeg(
@@ -242,19 +246,20 @@ def forwardClearanceToExitDeg(
     the most-forward piece enters the exit zone. ``None`` when no piece is on
     the channel or the channel has no exit arc.
 
-    Forward is the increasing-relative-angle direction (same convention as the
-    section math and the forward motor sign). With 1°-wide sections the
+    Forward is the channel's direction of travel: increasing relative angle,
+    or decreasing on a channel that turns in reverse. With 1°-wide sections the
     section-index delta is already the angle in degrees.
     """
     near = exitNearEdgeSection(channel)
     if near is None:
         return None
+    reverse = bool(getattr(channel, "reverse", False))
     best: int | None = None
     for bbox in bboxes:
         if not bboxInsideChannelMask(bbox, channel):
             continue
         for section in bboxSections(bbox, channel):
-            dist = (near - section) % SECTION_COUNT
+            dist = _sectionsToEntry(section, near, reverse)
             if best is None or dist < best:
                 best = dist
     if best is None:

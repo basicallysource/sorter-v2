@@ -74,9 +74,16 @@ _LOOK_FRAMES = 3
 _CARRY_MAX = 4
 # Every turn that drops a piece first turns only as far as it takes that piece
 # this far into the opening, then looks whether it fell. A piece still there is
-# shaken where it is, up to _CHECK_SHAKES times (more for one that rode round
-# before), before the turn is finished. The rotor never turns back.
-_FALL_IN_DEG = 25.0
+# turned _PUSH_DEG further and looked at again, as deep as the opening goes
+# (short of its far edge by _FAR_MARGIN_DEG) and the piece behind allows; only
+# there is it shaken, up to _CHECK_SHAKES times (more for one that rode round
+# before), before the turn is finished. A piece the turn ends before taking that
+# deep is left for the next turn, not shaken. The rotor never turns back.
+_FALL_IN_DEG = 30.0
+_PUSH_DEG = 10.0
+_FAR_MARGIN_DEG = 8.0
+# The opening's width when the zones do not say.
+_OPENING_DEG = 58.0
 # The next piece is kept at least this far short of the opening while the one
 # ahead of it is taken in.
 _NEXT_MARGIN_DEG = 8.0
@@ -185,6 +192,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._planning = False
         self._turned_deg = 0.0
         self._check_gap = 0.0
+        self._check_room = 0.0
+        self._check_turn_ends = False
+        self._opening_deg = _OPENING_DEG
         self._check_shakes = 0
         self._check_shakes_max = _CHECK_SHAKES
         self._check_from = 0.0
@@ -254,6 +264,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                     fin_rel = (float(target[0]) - float(channel.radius1_angle_image)) % 360.0
                     block = (fin_rel - entry) % 360.0 if reverse else (entry - fin_rel) % 360.0
             self._fins = sorted((block - k * self._pitch_deg) % 360.0 for k in range(self._n))
+            self._opening_deg = float(zones.exit.width)
             platter = C4FiveSectorPlatter.from_irl_config(self.irl_config)
             per_rev = float(platter.motor_microsteps_per_output_revolution)
             self._per_deg = per_rev / 360.0
@@ -732,25 +743,31 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             if not any(lead in pocket for pocket in self._pockets):
                 self._targets.pop(0)  # Already fell
                 continue
-            fall_in = _FALL_IN_DEG
+            # As deep as the piece may go: short of the opening's far edge, and
+            # no further in than leaves the next piece short of the opening.
+            deepest = max(_NEXT_MARGIN_DEG, self._opening_deg - _FAR_MARGIN_DEG)
             behind = [g[0] for g in self._targets[1:]]
             if behind:
-                # No further in than leaves the next piece short of the opening.
-                fall_in = min(fall_in, float(behind[0].gap_to_exit) - float(lead.gap_to_exit) - _NEXT_MARGIN_DEG)
-                fall_in = max(fall_in, _NEXT_MARGIN_DEG)
+                deepest = min(deepest, float(behind[0].gap_to_exit) - float(lead.gap_to_exit) - _NEXT_MARGIN_DEG)
+                deepest = max(deepest, _NEXT_MARGIN_DEG)
+            fall_in = min(_FALL_IN_DEG, deepest)
             left = self._pitch_deg - self._turned_deg
-            if float(lead.gap_to_exit) - self._turned_deg >= left - 0.5:
+            gap = float(lead.gap_to_exit) - self._turned_deg
+            if gap >= left - 0.5:
                 self._targets = []  # It reaches the opening on a later turn
                 break
             # Into the opening, at most to the end of the turn: a piece that is
             # only just in at rest is looked at there, and is the first the
             # next turn drops.
-            need = min(max(0.0, float(lead.gap_to_exit) + fall_in - self._turned_deg), left)
+            need = min(max(0.0, gap + fall_in), left)
+            furthest = min(max(0.0, gap + deepest), left)
             self._targets.pop(0)
             need_us = int(round(need * self._per_deg))
             self._check_tp = lead
             self._check_group = group
-            self._check_gap = float(lead.gap_to_exit) - self._turned_deg - need
+            self._check_gap = gap - need
+            self._check_room = max(0.0, furthest - need)
+            self._check_turn_ends = gap + deepest > left + 0.5
             self._check_shakes_max = _CHECK_SHAKES + getattr(lead, "carried", 0)
             self._check_shakes = 0
             self._turned_deg += need
@@ -872,7 +889,26 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if waited < _CHECK_S or (self._check_frames < _LOOK_FRAMES and waited < 2 * _CHECK_S):
             return
         tp = self._check_tp
-        if self._check_seen >= 2:
+        if self._check_seen >= 2 and self._check_room >= 1.0:
+            # Still on: further into the opening first, to see if it slides off.
+            push = min(_PUSH_DEG, self._check_room)
+            push_us = int(round(push * self._per_deg))
+            self._check_room -= push
+            self._check_gap -= push
+            self._turned_deg += push
+            self.logger.info(
+                f"{LOG_TAG} track={tp.track_id if tp else '?'} still on at the opening: turning it {push:.1f}° further in"
+            )
+            self._sweep_steps = ([push_us] if push_us > 0 else []) + ["check"]
+            self._enter(_P.TURN)
+            return
+        if self._check_seen >= 2 and self._check_turn_ends:
+            # The turn ends before it is as deep as it may go: the next turn
+            # takes it further, so it is not shaken here.
+            self.logger.info(
+                f"{LOG_TAG} track={tp.track_id if tp else '?'} still on at the end of the turn: the next turn takes it further"
+            )
+        elif self._check_seen >= 2:
             if self._check_shakes < self._check_shakes_max:
                 self._check_shakes += 1
                 self._shake_cycles = _SHAKE_CYCLES * self._check_shakes

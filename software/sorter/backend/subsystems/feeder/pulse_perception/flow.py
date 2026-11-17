@@ -105,6 +105,8 @@ class PulsePerceptionFeeding(BaseState):
         # Clump shakes made for each clump, by its lead's track, and the shake
         # each channel waits to see the result of.
         self._clump_tries: dict[tuple[int, object], int] = {}
+        # When each channel last saw a piece in its exit (monotonic).
+        self._exit_seen_at: dict[int, float] = {}
         self._clump_shaken: dict[int, tuple[float, list[float]]] = {}
 
     def _cfg(self) -> PulsePerceptionConfig:
@@ -254,6 +256,9 @@ class PulsePerceptionFeeding(BaseState):
         # a stable "occupied" instead of flickering empty for a frame.
         c2 = self._latch_drop(2, c2, now_mono, cfg)
         c3 = self._latch_drop(3, c3, now_mono, cfg)
+        for channel, state in ((2, c2), (3, c3)):
+            if state.in_exit:
+                self._exit_seen_at[channel] = now_mono
 
         # A piece its own channel cannot move rests on the channel next to it.
         # Where pieces land it hangs off the channel above: its incident holds
@@ -438,6 +443,11 @@ class PulsePerceptionFeeding(BaseState):
                 del self._shake_owed[channel]
             return
         if action == Action.ADVANCE:
+            latch_s = max(0, int(getattr(cfg, "exit_latch_ms", 0) or 0)) / 1000.0
+            if latch_s > 0 and time.monotonic() - self._exit_seen_at.get(channel, float("-inf")) < latch_s:
+                # A piece was at the exit a moment ago: one the camera missed for
+                # a frame would be pushed off by this advance.
+                return
             # Free advance pulse, but never push the most-forward piece off the
             # edge into the exit zone: cap the move to its forward clearance to
             # the exit edge. Once a piece reaches the exit, the PRECISE/FREEZE

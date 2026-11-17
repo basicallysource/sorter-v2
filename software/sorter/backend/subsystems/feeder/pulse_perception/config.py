@@ -81,6 +81,11 @@ class PulsePerceptionConfig:
     # so that when C4 asks, one short push drops it. 0 = off: the lead waits
     # at the exit's near edge.
     ch3_stage_short_deg: float = 0.0
+    # After a piece was last seen in a channel's exit, the channel makes no
+    # free advance for this long: a piece at the exit that the camera misses
+    # for a frame must not be pushed off by a long advance meant for an empty
+    # exit. 0 = off.
+    exit_latch_ms: int = 0
     # Clumps: pieces near a channel's exit that touch, or whose centers are
     # closer than clump_gap_deg, while the channel is not handing a piece on.
     # The channel is vibrated in place this far each way (output degrees),
@@ -168,6 +173,7 @@ FIELD_META: list[dict] = [
     {"section": "Hand-off", "key": "ch2_max_pieces", "label": "Most pieces on C2", "type": "int", "default": _DEFAULTS.ch2_max_pieces, "description": "C1 adds nothing to C2 while C2 holds this many, so a heavy pour from the hopper does not flood C2 and pack C3 behind it. 0 = no limit."},
     {"section": "Hand-off", "key": "ch3_busy_standoff_deg", "label": "C3 stand-off while C4 is busy (output deg)", "type": "float", "default": _DEFAULTS.ch3_busy_standoff_deg, "description": "While the classification channel is turning or has a piece in its drop zone, C3 advances its lead piece only to this far short of the exit, so nothing waits at the lip to fall onto C4 mid-turn. 0 = advance right up to the exit edge."},
     {"section": "Hand-off", "key": "ch3_stage_short_deg", "label": "C3 waits this close to the drop (output deg)", "type": "float", "default": _DEFAULTS.ch3_stage_short_deg, "description": "While the classification channel is busy, C3 carries its lead piece on into the exit until the piece's center is this far short of where pieces fall, never letting the piece behind it reach the exit. When the classification channel asks, one short push drops it. 0 = off: the lead waits at the exit's near edge."},
+    {"section": "Hand-off", "key": "exit_latch_ms", "label": "No free advance after a piece at the exit (ms)", "type": "int", "default": _DEFAULTS.exit_latch_ms, "description": "After a piece was last seen in a channel's exit, the channel makes no free advance for this long, so a piece the camera misses for a frame is not pushed off by a long advance. 0 = off."},
     {"section": "Clumps", "key": "ch3_clump_shake_deg", "label": "C3: shake a clump (output deg each way)", "type": "float", "default": _DEFAULTS.ch3_clump_shake_deg, "description": "When pieces near C3's exit touch or lie closer than the clump gap, and C3 is not handing a piece on, C3 is vibrated in place this far each way to spread them before the lead reaches the exit. 0 = off."},
     {"section": "Clumps", "key": "ch2_clump_shake_deg", "label": "C2: shake a clump (output deg each way)", "type": "float", "default": _DEFAULTS.ch2_clump_shake_deg, "description": "The same for C2. 0 = off."},
     {"section": "Clumps", "key": "clump_shake_cycles", "label": "Shake strokes", "type": "int", "default": _DEFAULTS.clump_shake_cycles, "description": "How many times back and forth one clump shake goes."},

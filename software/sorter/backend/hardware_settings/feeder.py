@@ -81,9 +81,9 @@ DRIVES: dict[str, FeederDrive] = {
             "c_channel_3": {"irun": 16},
             "carousel": {"irun": 16},
         },
-        # C1 keeps the geared feeder's: it already has all it can do to move
-        # its load.
-        {"c_channel_2": 3000, "c_channel_3": 3000, "carousel": 2000},
+        # The C-channels keep the geared feeder's, scaled: 3000 on C2 and C3
+        # made their short moves snap.
+        {"carousel": 2000},
     ),
 }
 

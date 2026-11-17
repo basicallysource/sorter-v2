@@ -56,8 +56,9 @@ _CONFIG_TTL_S = 1.0
 # Back-offs and shakes at an exit count as one run of tries while none is more
 # than this apart (exit_step.MAX_TRIES).
 EXIT_TRIES_CALM_S = 5.0
-# A clump whose lead is closer than this to where pieces fall is not shaken.
-_CLUMP_LIP_DEG = 5.0
+# A clump is shaken only while no piece is closer than this to where pieces
+# fall: right after a hand-off, before the next piece is carried up.
+_CLUMP_EXIT_CLEAR_DEG = 20.0
 
 
 class PulsePerceptionFeeding(BaseState):
@@ -553,8 +554,9 @@ class PulsePerceptionFeeding(BaseState):
         if clump is None or action == Action.PRECISE:
             return False
         lead = clump[0]
-        if float(lead.com_forward_to_exit_deg) < _CLUMP_LIP_DEG:
-            return False  # Its lead is at the lip: a shake could drop it
+        first = state.pieces[0]
+        if first.com_forward_to_exit_deg is None or float(first.com_forward_to_exit_deg) < _CLUMP_EXIT_CLEAR_DEG:
+            return False  # A piece waits at the exit: a shake could drop it
         key = (channel, lead.sv_bt_track_id if lead.sv_bt_track_id is not None else round(float(lead.com_forward_to_exit_deg)))
         tries = self._clump_tries.get(key, 0)
         if tries >= max(0, int(cfg.clump_shake_tries)):

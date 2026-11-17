@@ -216,6 +216,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._new_seen: dict[tuple[int, int], int] = {}
         self._merged: dict = {}
         self._doubt_frame_at = None
+        # The acceleration last given the motor for a turn (homing and the
+        # other flows may have set another since a pause: set again then).
+        self._accel_set: Optional[int] = None
         self._cycle_start_pos: Optional[int] = None
         self._look_from = 0.0
         self._look_wall = 0.0
@@ -474,6 +477,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         """The first step, or the first after a pause or a hold."""
         # Hands may have moved the rotor meanwhile: the fins are read again.
         self._needs_verify = True
+        self._accel_set = None
         for tp in self._pieces.values():
             tp.last_seen = now
             if tp.known_object is not None:
@@ -858,8 +862,12 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             return
         try:
             stepper.set_speed_limits(16, max(16, int(speed)))
+            accel = int(getattr(self.ctx.config, "rotate_accel_usteps_per_s2", 0) or 0)
+            if accel > 0 and accel != self._accel_set:
+                stepper.set_acceleration(accel)
+                self._accel_set = accel
         except Exception as exc:
-            self.logger.warning(f"{LOG_TAG} set_speed_limits failed: {exc}")
+            self.logger.warning(f"{LOG_TAG} setting the turn's speed failed: {exc}")
         self.logger.info(f"{LOG_TAG} {what}: {microsteps / self._per_deg:.1f}°")
         direction = -int(C4_TRAVEL_SIGN) if back else int(C4_TRAVEL_SIGN)
         if not bool(stepper.move_steps(direction * microsteps)):

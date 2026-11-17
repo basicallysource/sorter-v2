@@ -4,6 +4,9 @@ from dataclasses import dataclass
 @dataclass
 class Rev01Config:
     rotate_speed_usteps_per_s: int = 7000
+    # The pocket flow's turns accelerate at this (motor µsteps/s², not scaled
+    # for the drive). 0 = the motor's own acceleration.
+    rotate_accel_usteps_per_s2: int = 0
     # Active-path UNUSED: the reverse capture-at-rest flow no longer sweeps the
     # carousel while photographing. Kept only for the legacy non-perception
     # fallback (a single fixed move).
@@ -129,6 +132,7 @@ _DEFAULTS = Rev01Config()
 
 FIELD_META: list[dict] = [
     {"key": "rotate_speed_usteps_per_s", "label": "Rotate speed (µsteps/s)", "type": "int", "default": _DEFAULTS.rotate_speed_usteps_per_s, "description": "Motor speed for normal C4 platter rotation (microsteps per second). Higher moves pieces faster but can fling light pieces."},
+    {"key": "rotate_accel_usteps_per_s2", "label": "Rotate acceleration (µsteps/s²)", "type": "int", "default": _DEFAULTS.rotate_accel_usteps_per_s2, "description": "How fast a turn of a finned rotor (the pocket flow) speeds up and slows down, in motor microsteps per second squared. Short turns never reach the rotate speed, so this sets how long they take. 0 = the motor's own acceleration."},
     {"key": "capture_sweep_output_deg", "label": "Capture sweep (output deg, legacy)", "type": "float", "default": _DEFAULTS.capture_sweep_output_deg, "description": "Legacy non-perception fallback only: single fixed move used to sweep a piece past the camera. Unused on the active perception path."},
     {"key": "capture_at_rest_ms", "label": "Capture-at-rest window (ms)", "type": "float", "default": _DEFAULTS.capture_at_rest_ms, "description": "How long the piece is photographed at rest. The burst ends at this window or the frame ceiling, whichever comes first (~30 fps, so 350 ms fits ~10 frames)."},
     {"key": "precise_converge_speed_usteps_per_s", "label": "Move-to-precise converge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.precise_converge_speed_usteps_per_s, "description": "Motor speed for the reverse converge into the narrow precise staging band. Slower than normal rotation so the approach is gentle."},

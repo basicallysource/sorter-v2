@@ -103,6 +103,10 @@ _CHECK_NEAR_DEG = 14.0
 # its middle is where it was aimed (the middle of the opening), within
 # _CHECK_CENTER_TOL_DEG.
 _CHECK_SHORT_DEG = 40.0
+# A box in the RECEIVE pocket not yet seen _NEW_FRAMES times (a second piece that
+# landed beside the first, often hidden behind it as it bounced): the turn waits
+# for it to become a piece or vanish, up to this long after the landing.
+_PENDING_WAIT_S = 1.5
 _CHECK_CENTER_TOL_DEG = 4.0
 # Pieces in two pockets at least this far apart are dropped one at a time with
 # the chute aimed for each; closer, they fall together and go to the discard.
@@ -800,6 +804,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         if receive:
             if not all(tp.capture_done for tp in receive):
                 return  # Still being photographed
+            if any(key[0] == 0 for key in self._new_seen) and (now - self._landed_at) < _PENDING_WAIT_S:
+                return  # Another box beside it, not yet a piece: wait to see it is one
             need = int(getattr(self.ctx.config, "merged_double_drop_frames", 0) or 0)
             for tp in receive:
                 frames = getattr(tp, "rest_frames", 0)

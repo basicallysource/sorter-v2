@@ -56,6 +56,8 @@ _CONFIG_TTL_S = 1.0
 # Back-offs and shakes at an exit count as one run of tries while none is more
 # than this apart (exit_step.MAX_TRIES).
 EXIT_TRIES_CALM_S = 5.0
+# The smallest move that carries a lead on into the exit while C4 is busy.
+_STAGE_MIN_DEG = 4.0
 # A clump is shaken only while no piece is closer than this to where pieces
 # fall: right after a hand-off, before the next piece is carried up.
 _CLUMP_EXIT_CLEAR_DEG = 20.0
@@ -633,7 +635,8 @@ class PulsePerceptionFeeding(BaseState):
 
             room = min(forwardGapToExitDeg(p.bbox, channel_def) for p in behind) - cfg.exit_move_margin_deg
             deg = min(deg, room)
-        return deg if deg >= 1.0 else None
+        # Small moves only creep: it is carried on in few, real steps.
+        return deg if deg >= _STAGE_MIN_DEG else None
 
     def _exitStep(self, channel: int, state, cfg: PulsePerceptionConfig) -> ExitStep | None:
         """The exit's next move: a push, or with the lead in the opening and the

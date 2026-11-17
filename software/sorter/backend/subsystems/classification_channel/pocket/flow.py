@@ -76,8 +76,12 @@ _CARRY_MAX = 4
 # this far into the opening, then looks whether it fell. A piece still there is
 # shaken where it is, up to _CHECK_SHAKES times (more for one that rode round
 # before), before the turn is finished. The rotor never turns back.
-_FALL_IN_DEG = 6.0
+_FALL_IN_DEG = 14.0
 _CHECK_SHAKES = 3
+# A piece takes this long to slide off once it is over the opening: the look
+# waits for it before taking the piece for one that stayed.
+_CHECK_S = 0.6
+_CHECK_SETTLE_S = 0.35
 # A piece within this of where the dropping piece should be is taken for it.
 _CHECK_NEAR_DEG = 14.0
 _SHAKE_PARTS = 3
@@ -785,7 +789,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._shaking = False
             self._startCheck(now)
             return
-        if self._fresh(state, self._check_wall):
+        # Only frames from after the piece has had time to slide off count.
+        if now - self._check_from >= _CHECK_SETTLE_S and self._fresh(state, self._check_wall + _CHECK_SETTLE_S):
             self._check_frames += 1
             if any(
                 po.com_forward_to_exit_deg is not None
@@ -794,7 +799,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             ):
                 self._check_seen += 1
         waited = now - self._check_from
-        if waited < _LOOK_S or (self._check_frames < _LOOK_FRAMES and waited < 3 * _LOOK_S):
+        if waited < _CHECK_S or (self._check_frames < _LOOK_FRAMES and waited < 2 * _CHECK_S):
             return
         tp = self._check_tp
         if self._check_seen >= 2:

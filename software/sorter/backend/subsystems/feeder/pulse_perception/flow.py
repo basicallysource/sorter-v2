@@ -53,6 +53,9 @@ MIN_MOVE_SPEED_USTEPS_PER_S = 16
 # Re-read the tuning config from disk at most this often so the tuning page
 # takes effect live without a restart, without hammering the filesystem.
 _CONFIG_TTL_S = 1.0
+# Back-offs and shakes at an exit count as one run of tries while none is more
+# than this apart (exit_step.MAX_TRIES).
+EXIT_TRIES_CALM_S = 5.0
 
 
 class PulsePerceptionFeeding(BaseState):
@@ -90,10 +93,12 @@ class PulsePerceptionFeeding(BaseState):
         # shake still owes, and the back-offs and shakes made for the lead.
         self._moved_until: dict[int, float] = {}
         self._shake_owed: dict[int, float] = {}
-        # Back-offs and shakes at each channel's exit since a piece last fell off
-        # it. Counted for the exit, not one piece: a piece the camera draws as
-        # several boxes changes its track number, and must not start it over.
-        self._exit_tries: dict[int, int] = {}
+        # Back-offs and shakes at each channel's exit in a row (none more than
+        # EXIT_TRIES_CALM_S apart), and when the last was. Counted for the exit,
+        # not one piece: a piece the camera draws as several boxes changes its
+        # track number and seems to fall when a box flickers out, and neither
+        # may start the count over.
+        self._exit_tries: dict[int, tuple[int, float]] = {}
 
     def _cfg(self) -> PulsePerceptionConfig:
         now = time.monotonic()
@@ -277,7 +282,6 @@ class PulsePerceptionFeeding(BaseState):
             # while, so C4 sees it before the next one can follow.
             gate3 = self._gate(3, cfg)
             if gate3.observe(c3, now_mono):
-                self._exit_tries.pop(3, None)
                 self._on_ch3_dispense()
                 self._noteFall(3, gate3)
             action = feederChannelAction(
@@ -296,7 +300,6 @@ class PulsePerceptionFeeding(BaseState):
             # a piece falls, nothing more goes for a while, so C3 sees it land.
             gate2 = self._gate(2, cfg)
             if gate2.observe(c2, now_mono):
-                self._exit_tries.pop(2, None)
                 self._noteFall(2, gate2)
             action = feederChannelAction(
                 c2,
@@ -518,8 +521,12 @@ class PulsePerceptionFeeding(BaseState):
             push,
             cfg.exit_pulse_output_deg,
             clear,
-            self._exit_tries.get(channel, 0),
+            self._exitTries(channel),
         )
+
+    def _exitTries(self, channel: int) -> int:
+        tries, last = self._exit_tries.get(channel, (0, 0.0))
+        return tries if time.monotonic() - last < EXIT_TRIES_CALM_S else 0
 
     def _noteExitStep(self, channel: int, lead, behind, step: ExitStep) -> None:
         """Count a back-off or shake against the lead, and log every move the
@@ -527,7 +534,7 @@ class PulsePerceptionFeeding(BaseState):
         measured."""
         lead_id = getattr(lead, "sv_bt_track_id", None)
         if step.kind != "push":
-            self._exit_tries[channel] = self._exit_tries.get(channel, 0) + 1
+            self._exit_tries[channel] = (self._exitTries(channel) + 1, time.monotonic())
         try:
             import control_data_store
 

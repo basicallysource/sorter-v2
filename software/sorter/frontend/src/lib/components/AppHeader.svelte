@@ -9,7 +9,6 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import { requestBackendRestart } from '$lib/backend';
 	import SortingProfileDropdown from '$lib/components/SortingProfileDropdown.svelte';
-	import FeedProfileDropdown from '$lib/components/FeedProfileDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import {
 		homeSelectedMachine,
@@ -287,7 +286,6 @@
 				<Badge tone={camerasTone}>{cameraActive}/{cameraTotal} cameras</Badge>
 			{/if}
 		</div>
-		<div class="hidden lg:block"><FeedProfileDropdown /></div>
 		<div class="hidden sm:block"><SortingProfileDropdown /></div>
 		{#if hardwareState === 'ready' || hardwareState === 'initialized'}
 			{@const resuming = machineState === 'paused' || hardwareState === 'initialized'}

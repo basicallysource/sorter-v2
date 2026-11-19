@@ -8,6 +8,13 @@ from typing import Any, Callable, Iterator, Optional
 from global_config import GlobalConfig
 
 MISC_CATEGORY = "misc"
+# Bins for pieces no profile category takes. A bin given one of these takes the
+# double feeds, or the pieces that were not identified (unknown, not found,
+# failed), instead of the discard. With no such bin they go to the discard as
+# before.
+DOUBLE_FEED_CATEGORY = "double_feed"
+UNIDENTIFIED_CATEGORY = "unidentified"
+PROBLEM_CATEGORIES = (DOUBLE_FEED_CATEGORY, UNIDENTIFIED_CATEGORY)
 
 # A profile file carries the compiled part map and runs to tens of MB, and
 # json.loads holds the GIL for 1 to 2 s on the Pi: every thread stops, the

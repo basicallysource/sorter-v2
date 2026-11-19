@@ -11,7 +11,7 @@ from .chute import Chute, BinAddress
 from irl.bin_layout import DistributionLayout, Bin, extractCategories
 from irl.config import IRLInterface
 from global_config import GlobalConfig
-from sorting_profile import SortingProfile, MISC_CATEGORY
+from sorting_profile import SortingProfile, MISC_CATEGORY, DOUBLE_FEED_CATEGORY, UNIDENTIFIED_CATEGORY, PROBLEM_CATEGORIES
 from bin_layout_store import set_bin_categories
 import db
 from defs.events import PauseCommandData, PauseCommandEvent
@@ -159,7 +159,7 @@ class Positioning(BaseState):
             if piece.part_id is not None:
                 category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
             else:
-                category_id = MISC_CATEGORY
+                category_id = self._problemCategory(piece)
             # High-value override: a piece whose Hive moving-average price
             # clears the profile's high_value_routing threshold is rerouted into
             # the configured category (e.g. Yellow/Orange Tiles), so it lands in
@@ -233,7 +233,7 @@ class Positioning(BaseState):
                 self._raiseBinsFullAlert(category_id)
                 return self._discard(piece, category_id, "positioning.passthrough_no_bin")
 
-            if not self._fits(piece, address.layer_index):
+            if not self._fitsFor(piece, address.layer_index, category_id):
                 # Never into a layer too small for it.
                 layer_max = self._layerMaxDimensionMm(address.layer_index)
                 self.logger.info(
@@ -388,6 +388,20 @@ class Positioning(BaseState):
         size = self._pieceSizeMm(piece)
         return size is not None and size <= layer_max + 0.05
 
+    def _fitsFor(self, piece, layer_index: int, category_id: str) -> bool:
+        """_fits, except that a double feed or an unidentified piece, whose size
+        is not known, is taken to fit its own bin: the bin was set aside for it."""
+        if category_id in PROBLEM_CATEGORIES and self._pieceSizeMm(piece) is None:
+            return True
+        return self._fits(piece, layer_index)
+
+    def _problemCategory(self, piece) -> str:
+        """Where a piece with no part goes: the bin set aside for double feeds or
+        for unidentified pieces, when one is; otherwise misc, the discard."""
+        status = getattr(getattr(piece, "classification_status", None), "value", None)
+        category_id = DOUBLE_FEED_CATEGORY if status == "multi_drop_fail" else UNIDENTIFIED_CATEGORY
+        return category_id if self._categoryLayers(category_id, False) else MISC_CATEGORY
+
     def _categoryLayers(self, category_id: str, not_in_inventory: bool) -> set[int]:
         """The layers holding a bin of the category that sorting may use."""
         layers: set[int] = set()
@@ -411,7 +425,7 @@ class Positioning(BaseState):
         fits; failing that, misc. A category that cannot take it for any other
         reason (full, no bin) is handled as always."""
         layers = self._categoryLayers(category_id, not_in_inventory)
-        if not layers or any(self._fits(piece, layer) for layer in layers):
+        if not layers or any(self._fitsFor(piece, layer, category_id) for layer in layers):
             address, _ = self._findOrAssignBinForCategory(category_id, not_in_inventory=not_in_inventory, piece=piece)
             return address, category_id
         piece.too_big_for_layer = True

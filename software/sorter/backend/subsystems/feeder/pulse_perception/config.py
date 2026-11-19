@@ -51,6 +51,10 @@ class PulsePerceptionConfig:
     # Equal to exit_pulse_output_deg: always the small pulse.
     exit_move_max_deg: float = 10.0
     exit_move_margin_deg: float = 4.0
+    # Once the lead piece's center is in the exit opening, no exit move goes
+    # further than this: it is about to fall, and a full move can drag a piece
+    # pressed against it over too. 0 = off.
+    exit_in_opening_max_deg: float = 0.0
     # While the lead piece is in a channel's exit opening, the exit never turns
     # so far that the next piece's center comes within this many degrees of the
     # opening: it shakes the lead loose instead (exit_step.py). 0 = off.
@@ -145,6 +149,7 @@ FIELD_META: list[dict] = [
     {"section": "Exit pulse", "key": "exit_pulse_output_deg", "label": "Exit pulse distance (output deg)", "type": "float", "default": _DEFAULTS.exit_pulse_output_deg, "description": "How far a piece is nudged per pulse once it reaches the exit edge and is being metered into the next channel. Smaller is gentler and less likely to push two pieces through at once. Use the speed presets above to set this."},
     {"section": "Exit pulse", "key": "exit_move_max_deg", "label": "Longest exit move (output deg)", "type": "float", "default": _DEFAULTS.exit_move_max_deg, "description": "When nothing is close behind the piece at the exit, one move pushes it this far so it drops in one go. The move always stops short of letting the next piece reach the exit. Set it equal to the exit pulse distance to always pulse."},
     {"section": "Exit pulse", "key": "exit_move_margin_deg", "label": "Room kept for the next piece (output deg)", "type": "float", "default": _DEFAULTS.exit_move_margin_deg, "description": "A longer exit move stops this far before the next piece's front edge would reach the exit."},
+    {"section": "Exit pulse", "key": "exit_in_opening_max_deg", "label": "Longest move with the lead in the opening (output deg)", "type": "float", "default": _DEFAULTS.exit_in_opening_max_deg, "description": "Once the lead piece's center is past the exit edge it is about to fall: no exit move goes further than this, so a piece pressed against it is not dragged over too. 0 = off."},
     {"section": "Exit pulse", "key": "ch2_exit_next_clear_deg", "label": "C2: keep the next piece back (deg)", "type": "float", "default": _DEFAULTS.ch2_exit_next_clear_deg, "description": "While the piece at C2's exit is in the opening, C2 never turns so far that the next piece's center comes within this many degrees of the opening: it shakes the piece at the exit loose instead (back a little, then forward as far), so the two do not fall together. 0 = off: the next piece is pushed in after it."},
     {"section": "Exit pulse", "key": "ch3_exit_next_clear_deg", "label": "C3: keep the next piece back (deg)", "type": "float", "default": _DEFAULTS.ch3_exit_next_clear_deg, "description": "The same for C3's exit onto the classification channel. 0 = off."},
     {"section": "Out of view", "key": "ch2_blind_arc_start_deg", "label": "C2 unseen arc start (deg)", "type": "float", "default": _DEFAULTS.ch2_blind_arc_start_deg, "description": "Where pieces on C2 go out of the camera's picture, in the channel's zone angles. Equal start and end: C2's camera sees its whole ring."},

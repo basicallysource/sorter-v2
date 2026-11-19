@@ -556,6 +556,10 @@ class PulsePerceptionFeeding(BaseState):
         next piece close behind it, a back-off or a shake (exit_step.py). None
         while the newest picture was taken before the last move ended."""
         push = self._exitMoveDeg(channel, state, cfg)
+        pieces = getattr(state, "pieces", ()) or ()
+        cap = float(cfg.exit_in_opening_max_deg)
+        if cap > 0 and pieces and pieces[0].com_forward_to_exit_deg is not None and float(pieces[0].com_forward_to_exit_deg) <= 0:
+            push = min(push, cap)
         clear = float(getattr(cfg, f"ch{channel}_exit_next_clear_deg", 0.0) or 0.0)
         if clear <= 0 or self._push_only:
             return ExitStep("push", push)

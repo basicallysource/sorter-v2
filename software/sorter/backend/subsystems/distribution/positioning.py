@@ -634,6 +634,7 @@ class Positioning(BaseState):
             if address is None
             else (address.layer_index, address.section_index, address.bin_index)
         )
+        piece.discarded = address is None or self.chute.isDiscardBin(address)
         piece.updated_at = time.time()
         self._piece = piece
         self.event_queue.put(knownObjectToEvent(piece))

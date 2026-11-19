@@ -197,6 +197,9 @@ class KnownObject:
     # rejected for size (when too_big_for_layer is set).
     intended_layer_index: Optional[int] = None
     destination_bin: Optional[Tuple[int, int, int]] = None
+    # Sent to the discard (the bucket, or a chute's discard bin), not to a bin of
+    # its category, whatever category_id says it was meant for.
+    discarded: bool = False
     thumbnail: Optional[str] = None
     latest_captured_crop: Optional[str] = None
     latest_captured_crop_ts: Optional[float] = None

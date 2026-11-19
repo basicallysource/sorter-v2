@@ -102,7 +102,9 @@ class Sending(BaseState):
                 self.event_queue.put(knownObjectToEvent(self.piece))
                 self.gc.run_recorder.recordPiece(self.piece)
                 tracker = getattr(self.gc, 'set_progress_tracker', None)
-                if tracker is not None:
+                # A piece meant for a kit that went to the discard is not in the
+                # kit's bin: counting it would leave the kit short when it says full.
+                if tracker is not None and not self.piece.discarded:
                     tracker.record(
                         self.piece.part_id,
                         self.piece.color_id,

@@ -70,6 +70,18 @@ LANDING_HELD = Procedure(
     ),
 )
 
+# The same on a machine whose feeder channels never shake (a Sorter V3): turns only.
+LANDING_HELD_STILL = Procedure(
+    "landing_held_still",
+    "Free a piece held where pieces land",
+    (
+        Move("above", turn_deg=3.0, probe_deg=-6.0),
+        Move("above", turn_deg=6.0, probe_deg=-6.0),
+        Move("above", turn_deg=-6.0, probe_deg=-6.0),
+        Move("this", turn_deg=-15.0, probe_deg=-6.0),
+    ),
+)
+
 # A piece that rides the classification channel past its exit instead of
 # falling off (often a tire): bring it into the exit and shake it off, harder
 # each time, backing up once in between.
@@ -88,8 +100,8 @@ C4_SHAKE_OFF = Procedure(
 )
 
 # A piece where pieces land on the classification channel that did not ride
-# its turn: it still hangs off C3's exit. Only C3 moves: nudge it off, shake,
-# pull it back, push harder. The classification channel is never turned for it:
+# its turn: it still hangs off C3's exit. Only C3 moves, and never shakes: nudge
+# it off, pull it back, push harder. The classification channel is never turned for it:
 # that does not move a piece C3 holds, and it would shift its pockets.
 C3_EXIT_HELD = Procedure(
     "c3_exit_held",
@@ -97,11 +109,9 @@ C3_EXIT_HELD = Procedure(
     (
         Move("above", turn_deg=4.0),
         Move("above", turn_deg=6.0),
-        Move("above", shake="brief"),
         Move("above", turn_deg=-10.0),
-        Move("above", shake="heavy"),
         Move("above", turn_deg=12.0),
     ),
 )
 
-PROCEDURES: dict[str, Procedure] = {p.key: p for p in (LANDING_HELD, C4_SHAKE_OFF, C3_EXIT_HELD)}
+PROCEDURES: dict[str, Procedure] = {p.key: p for p in (LANDING_HELD, LANDING_HELD_STILL, C4_SHAKE_OFF, C3_EXIT_HELD)}

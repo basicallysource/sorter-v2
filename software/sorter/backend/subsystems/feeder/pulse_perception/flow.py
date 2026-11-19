@@ -371,7 +371,7 @@ class PulsePerceptionFeeding(BaseState):
         if mode == incidents.AUTOMATIC:
             recovery.start(
                 self.gc,
-                "landing_held",
+                "landing_held_still" if self._push_only else "landing_held",
                 kind="piece_held",
                 motors={
                     "this": self._recoveryMotor(held.channel, cfg),

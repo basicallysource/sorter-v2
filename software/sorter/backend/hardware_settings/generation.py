@@ -68,9 +68,10 @@ class Generation:
     # little and tries again before anyone is called (subsystems/distribution/
     # positioning.py, DOOR_RETRIES).
     door_retry: bool = False
-    # C2's and C3's exits only push: they never back off or shake the piece
-    # at the exit to part it from the one behind, whatever the exit's
-    # keep-back setting says.
+    # C1 to C3 never shake: their exits only push (never back off or shake the
+    # piece at the exit to part it from the one behind, whatever the exit's
+    # keep-back setting says), and freeing a piece held where pieces land turns
+    # them without shaking (recovery LANDING_HELD_STILL).
     feeder_push_only: bool = False
 
     def describe(self) -> dict[str, Any]:

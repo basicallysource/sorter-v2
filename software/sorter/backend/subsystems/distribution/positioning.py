@@ -158,6 +158,9 @@ class Positioning(BaseState):
 
             if piece.part_id is not None:
                 category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
+            elif getattr(piece, "mold_provider", None) == "none" and piece.color_id:
+                # Color-only mode with no part named: routed by its color alone.
+                category_id = self.sorting_profile.getCategoryIdForPart("", piece.color_id)
             else:
                 category_id = self._problemCategory(piece)
             # High-value override: a piece whose Hive moving-average price

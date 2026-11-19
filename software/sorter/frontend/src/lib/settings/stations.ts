@@ -14,6 +14,7 @@ import Settings from '@lucide/svelte/icons/settings';
 import ShieldAlert from '@lucide/svelte/icons/shield-alert';
 import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 import Wifi from '@lucide/svelte/icons/wifi';
+import Funnel from '@lucide/svelte/icons/funnel';
 import Thermometer from '@lucide/svelte/icons/thermometer';
 import Wrench from '@lucide/svelte/icons/wrench';
 import Zap from '@lucide/svelte/icons/zap';
@@ -96,6 +97,12 @@ export const hiveModelsNavItem: SettingsNavItem = {
 	href: '/settings/hive/models',
 	label: 'Local models',
 	icon: Cpu
+};
+
+export const sortingNavItem: SettingsNavItem = {
+	href: '/settings/sorting',
+	label: 'Sorting',
+	icon: Funnel
 };
 
 export const classificationProvidersNavItem: SettingsNavItem = {
@@ -271,6 +278,7 @@ export type SettingsNavEntry = SettingsNavItem | SettingsNavHeading;
 
 export const settingsNavItems: SettingsNavEntry[] = [
 	generalNavItem,
+	sortingNavItem,
 	networkingNavItem,
 	appearanceNavItem,
 	hiveNavItem,

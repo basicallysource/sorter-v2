@@ -364,6 +364,12 @@ class Rev01BaseState(BaseState):
                     with self.ctx.classify_lock:
                         self.ctx.classification_error = "no_captures"
                     return
+                import sorting_mode
+
+                color_only = sorting_mode.colorOnly()
+                if color_only is not None:
+                    self._runColorOnly(sendable, all_captures, burst_entries, piece_uuid, color_only)
+                    return
                 # Upstream C2/C3 views of this same piece, found by the
                 # piece-link model. They are fused into the request alongside the
                 # burst, so they must be resolved BEFORE the fan-out — the burst
@@ -392,6 +398,43 @@ class Rev01BaseState(BaseState):
         thread = threading.Thread(target=_run, daemon=True)
         self.ctx.classify_thread = thread
         thread.start()
+
+    def _runColorOnly(
+        self,
+        sendable: list[_SendImage],
+        all_captures: list[np.ndarray],
+        burst_entries: list[RecognitionImage],
+        piece_uuid: Optional[str],
+        mode: dict,
+    ) -> None:
+        """Color-only mode (sorting_mode.py): only the color model is asked. The
+        part is the one the mode names, or none, and the piece is routed by its
+        color alone."""
+        obj = self.ctx.known_object
+        colour_images = _hostedColorImages(all_captures, burst_entries)
+        hosted = self._maybeStartHostedColorPredict(colour_images, piece_uuid, force=True)
+        if hosted is not None:
+            hosted["images"] = _imageRefs(obj, colour_images)
+        self._resolveHostedColor(hosted)
+        part = mode.get("assumed_part_id")
+        items = (
+            [{"id": part, "name": mode.get("assumed_part_name") or part, "score": 1.0, "rank": 1, "type": "P"}]
+            if part
+            else []
+        )
+        self.ctx.mold_provider = "assumed" if part else "none"
+        for s in sendable:
+            s.rec.used = True
+            s.rec.excluded_from_result = False
+        with self.ctx.classify_lock:
+            self.ctx.classification_attempts = []
+            self.ctx.classification_strategy = ClassificationAttemptStrategy.combined
+            self.ctx.selected_captures = [s.bgr for s in sendable if s.rec.source == "c4_burst"]
+            self.ctx.classification_result = {"items": items, "colors": [], "listing_id": None, "color_only": True}
+        self.logger.info(
+            f"{LOG_TAG} classify done: color only, part {part or 'none'}, color "
+            f"{self.ctx.hosted_color[1] if self.ctx.hosted_color else 'unknown'}"
+        )
 
     def _buildClassifyRequests(self, sendable: list[_SendImage]) -> list[_ClassifyRequest]:
         # The parallel request fan-out. All of these are submitted at once; the
@@ -459,7 +502,7 @@ class Rev01BaseState(BaseState):
         return [r for r in out if r is not None]
 
     def _maybeStartHostedColorPredict(
-        self, sendable: list[_SendImage], piece_uuid: Optional[str]
+        self, sendable: list[_SendImage], piece_uuid: Optional[str], force: bool = False
     ) -> Optional[dict]:
         # Fires the hosted color request on its own thread so it overlaps the
         # Brickognize fan-out. Returns None (and costs nothing) unless a hosted
@@ -469,7 +512,7 @@ class Rev01BaseState(BaseState):
         import basically_services
         from toml_config import getClassificationProviders
 
-        if getClassificationProviders()["color_provider"] != COLOR_PROVIDER_HIVE_BASICALLY:
+        if not force and getClassificationProviders()["color_provider"] != COLOR_PROVIDER_HIVE_BASICALLY:
             return None
         holder: dict = {"started_at": time.monotonic()}
 
@@ -808,7 +851,10 @@ class Rev01BaseState(BaseState):
             # without re-querying. Per-result ranks are set alongside the applied
             # item/color below.
             obj.brickognize_listing_id = result.get("listing_id")
-            if items:
+            if not items and result.get("color_only") and self.ctx.hosted_color is not None:
+                obj.part_id = None
+                obj.classification_status = ClassificationStatus.classified
+            elif items:
                 best = items[0]
                 obj.part_id = best.get("id")
                 obj.part_name = best.get("name")

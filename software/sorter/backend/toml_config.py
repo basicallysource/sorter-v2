@@ -13,11 +13,11 @@ from typing import Any
 import machine_toml
 
 
-def _withFeedProfile(values: dict[str, Any], section: str) -> dict[str, Any]:
+def _withFeedProfile(values: dict[str, Any], section: str, config: dict[str, Any]) -> dict[str, Any]:
     """The active feed profile's changes over a tuning section (feed_profiles.py)."""
     import feed_profiles
 
-    values.update({k: v for k, v in feed_profiles.overrides(section).items() if k in values})
+    values.update({k: v for k, v in feed_profiles.overrides(section, config).items() if k in values})
     return values
 
 
@@ -37,7 +37,7 @@ def getClassificationChannelRev01Config() -> dict[str, Any]:
     merged = dict(defaults)
     if isinstance(section, dict):
         merged.update({k: v for k, v in section.items() if k in defaults})
-    return _withFeedProfile(merged, "classification_channel")
+    return _withFeedProfile(merged, "classification_channel", config)
 
 
 def setClassificationChannelRev01Config(updates: dict[str, Any]) -> dict[str, Any]:
@@ -159,8 +159,8 @@ def getPulsePerceptionConfig() -> dict[str, Any]:
         # Migrate before filtering: retired keys are not in ``defaults``, so an
         # unmigrated section would have its old tuned value dropped on the floor.
         section = migrateLegacyKeys(section)
-        return _withFeedProfile({**defaults, **{k: v for k, v in section.items() if k in defaults}}, "feeder")
-    return _withFeedProfile(defaults, "feeder")
+        return _withFeedProfile({**defaults, **{k: v for k, v in section.items() if k in defaults}}, "feeder", config)
+    return _withFeedProfile(defaults, "feeder", config)
 
 
 def setPulsePerceptionConfig(updates: dict[str, Any]) -> dict[str, Any]:

@@ -153,6 +153,7 @@ from server.routers.chute_stress import router as chute_stress_router
 from server.routers.power_stress import router as power_stress_router
 from server.routers.recording import router as recording_router
 from server.routers.tuning import router as tuning_router
+from server.routers.sorting import router as sorting_router
 from server.routers.telemetry import router as telemetry_router
 from server.routers.tailscale import keep_installed as keep_tailscale_installed, router as tailscale_router
 from server.routers.wifi import router as wifi_router
@@ -196,6 +197,7 @@ app.include_router(chute_stress_router)
 app.include_router(power_stress_router)
 app.include_router(recording_router)
 app.include_router(tuning_router)
+app.include_router(sorting_router)
 app.include_router(telemetry_router)
 app.include_router(tailscale_router)
 app.include_router(wifi_router)

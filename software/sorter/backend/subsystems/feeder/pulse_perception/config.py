@@ -86,20 +86,6 @@ class PulsePerceptionConfig:
     # for a frame must not be pushed off by a long advance meant for an empty
     # exit. 0 = off.
     exit_latch_ms: int = 0
-    # Clumps: pieces near a channel's exit that touch, or whose centers are
-    # closer than clump_gap_deg, while the channel is not handing a piece on.
-    # The channel is vibrated in place this far each way (output degrees),
-    # clump_shake_cycles times, to spread them before the lead reaches the
-    # exit; at most clump_shake_tries times for one clump. 0 = off.
-    ch2_clump_shake_deg: float = 0.0
-    ch3_clump_shake_deg: float = 0.0
-    clump_shake_cycles: int = 4
-    # Motor microsteps, as the motor turns (not scaled for the drive).
-    clump_shake_speed_usteps_per_s: int = 1500
-    clump_shake_accel_usteps_per_s2: int = 30000
-    clump_gap_deg: float = 8.0
-    clump_zone_deg: float = 60.0
-    clump_shake_tries: int = 2
     ch2_max_pieces: int = 0
     ch3_max_pieces: int = 0
     # Hand-off: once the piece a channel is pushing off has fallen (its track id
@@ -174,14 +160,6 @@ FIELD_META: list[dict] = [
     {"section": "Hand-off", "key": "ch3_busy_standoff_deg", "label": "C3 stand-off while C4 is busy (output deg)", "type": "float", "default": _DEFAULTS.ch3_busy_standoff_deg, "description": "While the classification channel is turning or has a piece in its drop zone, C3 advances its lead piece only to this far short of the exit, so nothing waits at the lip to fall onto C4 mid-turn. 0 = advance right up to the exit edge."},
     {"section": "Hand-off", "key": "ch3_stage_short_deg", "label": "C3 waits this close to the drop (output deg)", "type": "float", "default": _DEFAULTS.ch3_stage_short_deg, "description": "While the classification channel is busy, C3 carries its lead piece on into the exit until the piece's center is this far short of where pieces fall, never letting the piece behind it reach the exit. When the classification channel asks, one short push drops it. 0 = off: the lead waits at the exit's near edge."},
     {"section": "Hand-off", "key": "exit_latch_ms", "label": "No free advance after a piece at the exit (ms)", "type": "int", "default": _DEFAULTS.exit_latch_ms, "description": "After a piece was last seen in a channel's exit, the channel makes no free advance for this long, so a piece the camera misses for a frame is not pushed off by a long advance. 0 = off."},
-    {"section": "Clumps", "key": "ch3_clump_shake_deg", "label": "C3: shake a clump (output deg each way)", "type": "float", "default": _DEFAULTS.ch3_clump_shake_deg, "description": "When pieces near C3's exit touch or lie closer than the clump gap, and C3 is not handing a piece on, C3 is vibrated in place this far each way to spread them before the lead reaches the exit. 0 = off."},
-    {"section": "Clumps", "key": "ch2_clump_shake_deg", "label": "C2: shake a clump (output deg each way)", "type": "float", "default": _DEFAULTS.ch2_clump_shake_deg, "description": "The same for C2. 0 = off."},
-    {"section": "Clumps", "key": "clump_shake_cycles", "label": "Shake strokes", "type": "int", "default": _DEFAULTS.clump_shake_cycles, "description": "How many times back and forth one clump shake goes."},
-    {"section": "Clumps", "key": "clump_shake_speed_usteps_per_s", "label": "Shake speed (motor µsteps/s)", "type": "int", "default": _DEFAULTS.clump_shake_speed_usteps_per_s, "description": "Top speed of a clump shake's strokes, as the motor turns."},
-    {"section": "Clumps", "key": "clump_shake_accel_usteps_per_s2", "label": "Shake acceleration (motor µsteps/s²)", "type": "int", "default": _DEFAULTS.clump_shake_accel_usteps_per_s2, "description": "How sharp a clump shake's strokes are, as the motor turns. Higher jolts the pieces harder."},
-    {"section": "Clumps", "key": "clump_gap_deg", "label": "Clump gap (output deg)", "type": "float", "default": _DEFAULTS.clump_gap_deg, "description": "Two pieces whose centers are closer than this, or whose boxes touch, are a clump."},
-    {"section": "Clumps", "key": "clump_zone_deg", "label": "Clumps looked for within (output deg of the exit)", "type": "float", "default": _DEFAULTS.clump_zone_deg, "description": "Only clumps whose lead piece is within this of the exit are shaken."},
-    {"section": "Clumps", "key": "clump_shake_tries", "label": "Shakes for one clump", "type": "int", "default": _DEFAULTS.clump_shake_tries, "description": "How many times one clump is shaken before it is left to the exit."},
     {"section": "Hand-off", "key": "dispense_vanish_confirm_ms", "label": "Fallen after gone for (ms)", "type": "int", "default": _DEFAULTS.dispense_vanish_confirm_ms, "description": "The piece being pushed off the exit counts as fallen once the camera has not seen it for this long. Longer ignores detector blinks; shorter reacts sooner."},
     {"section": "Hand-off", "key": "dispense_hold_ms", "label": "Hold after a piece falls (ms)", "type": "int", "default": _DEFAULTS.dispense_hold_ms, "description": "After the piece being pushed off falls, the exit pushes nothing for this long, so the next channel sees it before another piece can follow."},
     {"section": "Hand-off", "key": "hold_follows_landings", "label": "Hold follows how long pieces take to land", "type": "bool", "default": _DEFAULTS.hold_follows_landings, "description": "Once 20 pieces have been seen to fall and land, each exit holds for the time 9 in 10 of them took to land on the next channel, plus 0.3 s (0.5 to 2.5 s): a long drop or a ramp holds longer, a short one no longer than it needs. Until then, and when off, the hold above."},

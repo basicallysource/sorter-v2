@@ -9,6 +9,7 @@ from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig
 from vision import VisionManager
 from hardware_settings.feeder import GEARED_RATIO
+from hardware_settings.generation import machineGeneration
 
 from .config import (
     PulsePerceptionConfig,
@@ -58,9 +59,6 @@ _CONFIG_TTL_S = 1.0
 EXIT_TRIES_CALM_S = 5.0
 # The smallest move that carries a lead on into the exit while C4 is busy.
 _STAGE_MIN_DEG = 4.0
-# A clump is shaken only while no piece is closer than this to where pieces
-# fall: right after a hand-off, before the next piece is carried up.
-_CLUMP_EXIT_CLEAR_DEG = 20.0
 
 
 class PulsePerceptionFeeding(BaseState):
@@ -98,18 +96,15 @@ class PulsePerceptionFeeding(BaseState):
         # shake still owes, and the back-offs and shakes made for the lead.
         self._moved_until: dict[int, float] = {}
         self._shake_owed: dict[int, float] = {}
+        self._push_only = machineGeneration().feeder_push_only
         # Back-offs and shakes at each channel's exit in a row (none more than
         # EXIT_TRIES_CALM_S apart), and when the last was. Counted for the exit,
         # not one piece: a piece the camera draws as several boxes changes its
         # track number and seems to fall when a box flickers out, and neither
         # may start the count over.
         self._exit_tries: dict[int, tuple[int, float]] = {}
-        # Clump shakes made for each clump, by its lead's track, and the shake
-        # each channel waits to see the result of.
-        self._clump_tries: dict[tuple[int, object], int] = {}
         # When each channel last saw a piece in its exit (monotonic).
         self._exit_seen_at: dict[int, float] = {}
-        self._clump_shaken: dict[int, tuple[float, list[float]]] = {}
 
     def _cfg(self) -> PulsePerceptionConfig:
         now = time.monotonic()
@@ -304,10 +299,9 @@ class PulsePerceptionFeeding(BaseState):
                 greedy=cfg.ch3_greedy_enabled,
             )
             action, hidden_cap = self._withHiddenPieces(3, c3, action, now_mono, cfg)
-            if not self._clumpShake(3, c3, action, cfg):
-                self._apply_action(
-                    "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg, hidden_cap
-                )
+            self._apply_action(
+                "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg, hidden_cap
+            )
 
         if cfg.enable_ch2:
             # C2's downstream is C3. "Clear" = C3's drop zone is not occupied,
@@ -324,10 +318,9 @@ class PulsePerceptionFeeding(BaseState):
                 greedy=cfg.ch2_greedy_enabled,
             )
             action, hidden_cap = self._withHiddenPieces(2, c2, action, now_mono, cfg)
-            if not self._clumpShake(2, c2, action, cfg):
-                self._apply_action(
-                    "ch2", 2, action, self.irl.c_channel_2_rotor_stepper, c2, cfg, hidden_cap
-                )
+            self._apply_action(
+                "ch2", 2, action, self.irl.c_channel_2_rotor_stepper, c2, cfg, hidden_cap
+            )
 
         if cfg.enable_ch1:
             # C1 has no exit zone of its own; it just advances unless C2's drop
@@ -522,86 +515,6 @@ class PulsePerceptionFeeding(BaseState):
                 self._move(f"{label}_stage", channel, stepper, deg, cfg.exit_pulse_pause_ms, cfg, enforce_min=False)
         # IDLE: no move.
 
-    def _clump(self, state, cfg: PulsePerceptionConfig):
-        """The first two pieces near the exit that touch or lie closer than the
-        clump gap, nearest the exit first; None when there are none."""
-        near = [
-            p
-            for p in (getattr(state, "pieces", ()) or ())
-            if p.com_forward_to_exit_deg is not None and float(p.com_forward_to_exit_deg) < cfg.clump_zone_deg
-        ]
-        for a, b in zip(near, near[1:]):
-            if _boxesOverlap(a.bbox, b.bbox) or abs(float(b.com_forward_to_exit_deg) - float(a.com_forward_to_exit_deg)) < cfg.clump_gap_deg:
-                return a, b
-        return None
-
-    def _clumpShake(self, channel: int, state, action, cfg: PulsePerceptionConfig) -> bool:
-        """Vibrate the channel in place to spread a clump near its exit, while it
-        is not handing a piece on. True when it shook (nothing else moves the
-        channel this step). Each shake and whether the clump came apart go to
-        the control data."""
-        from perception.cascade import Action
-
-        amp = float(getattr(cfg, f"ch{channel}_clump_shake_deg", 0.0) or 0.0)
-        if amp <= 0:
-            return False
-        stepper = self._rotor(channel)
-        if self._busy(stepper) or not stepper.stopped:
-            return False
-        frame_ts = float(getattr(state, "ts", 0.0) or 0.0)
-        if frame_ts < self._moved_until.get(channel, 0.0):
-            return False
-        clump = self._clump(state, cfg)
-        shaken = self._clump_shaken.pop(channel, None)
-        if shaken is not None:
-            self._recordControl(
-                {
-                    "kind": "clump_shake_result",
-                    "ch": channel,
-                    "apart": clump is None,
-                    "gaps_before": shaken[1],
-                    "gaps_after": None if clump is None else [round(float(p.com_forward_to_exit_deg), 1) for p in clump],
-                }
-            )
-        if clump is None or action == Action.PRECISE:
-            return False
-        lead = clump[0]
-        first = state.pieces[0]
-        if first.com_forward_to_exit_deg is None or float(first.com_forward_to_exit_deg) < _CLUMP_EXIT_CLEAR_DEG:
-            return False  # A piece waits at the exit: a shake could drop it
-        key = (channel, lead.sv_bt_track_id if lead.sv_bt_track_id is not None else round(float(lead.com_forward_to_exit_deg)))
-        tries = self._clump_tries.get(key, 0)
-        if tries >= max(0, int(cfg.clump_shake_tries)):
-            return False
-        if len(self._clump_tries) > 200:
-            self._clump_tries.clear()
-        self._clump_tries[key] = tries + 1
-        cycles = max(1, int(cfg.clump_shake_cycles))
-        speed = max(16, int(cfg.clump_shake_speed_usteps_per_s))
-        accel = max(100, int(cfg.clump_shake_accel_usteps_per_s2))
-        amplitude = max(1, int(stepper.microsteps_for_degrees(amp * self._gear_ratio)))
-        try:
-            if not stepper.jitter(amplitude, cycles, speed, accel):
-                return False
-        except Exception as exc:
-            self.gc.logger.warning(f"PulsePerception: C{channel} clump shake failed: {exc}")
-            return False
-        # Each stroke crosses the whole throw, at most the shake's speed.
-        stroke = 2 * amplitude
-        peak = min(float(speed), (stroke * accel) ** 0.5)
-        stroke_s = stroke / peak + peak / accel
-        took = 2 * cycles * stroke_s + 0.1
-        self._busy_until[stepper._name] = time.monotonic() + took
-        self._moved_until[channel] = time.time() + took
-        gaps = [round(float(p.com_forward_to_exit_deg), 1) for p in clump]
-        self._clump_shaken[channel] = (time.time(), gaps)
-        self.gc.logger.info(
-            f"PulsePerception: C{channel} clump near the exit {gaps}: shaking it {amp:g}° each way, "
-            f"{cycles} times ({tries + 1} of {cfg.clump_shake_tries})"
-        )
-        self._recordControl({"kind": "clump_shake", "ch": channel, "gaps": gaps, "deg": amp, "cycles": cycles, "try": tries + 1})
-        return True
-
     def _recordControl(self, event: dict) -> None:
         try:
             import control_data_store
@@ -644,7 +557,7 @@ class PulsePerceptionFeeding(BaseState):
         while the newest picture was taken before the last move ended."""
         push = self._exitMoveDeg(channel, state, cfg)
         clear = float(getattr(cfg, f"ch{channel}_exit_next_clear_deg", 0.0) or 0.0)
-        if clear <= 0:
+        if clear <= 0 or self._push_only:
             return ExitStep("push", push)
         if float(getattr(state, "ts", 0.0) or 0.0) < self._moved_until.get(channel, 0.0):
             return None

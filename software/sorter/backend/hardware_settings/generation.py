@@ -68,6 +68,10 @@ class Generation:
     # little and tries again before anyone is called (subsystems/distribution/
     # positioning.py, DOOR_RETRIES).
     door_retry: bool = False
+    # C2's and C3's exits only push: they never back off or shake the piece
+    # at the exit to part it from the one behind, whatever the exit's
+    # keep-back setting says.
+    feeder_push_only: bool = False
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -110,6 +114,7 @@ GENERATIONS: dict[str, Generation] = {
         smooth_shrink=True,
         classification_exit_margin=True,
         door_retry=True,
+        feeder_push_only=True,
         driver_watch=True,
         # Quarter bins take up to a 3x3 plate, thirds a 4x4, halves a 6x6; a
         # full bin takes anything.

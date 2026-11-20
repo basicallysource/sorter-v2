@@ -38,6 +38,8 @@ from __future__ import annotations
 
 import threading
 import time
+
+import piece_verdicts
 from collections import deque
 from dataclasses import replace
 from enum import Enum
@@ -107,6 +109,8 @@ _CHECK_SHORT_DEG = 40.0
 # landed beside the first, often hidden behind it as it bounced): the turn waits
 # for it to become a piece or vanish, up to this long after the landing.
 _PENDING_WAIT_S = 1.5
+# A piece lands on the classification channel within this of falling off C3.
+_FALL_TO_LANDING_S = 3.0
 _CHECK_CENTER_TOL_DEG = 4.0
 # Pieces in two pockets at least this far apart are dropped one at a time with
 # the chute aimed for each; closer, they fall together and go to the discard.
@@ -689,6 +693,22 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             )
             self.logger.warning(f"{LOG_TAG} track={tp.track_id} appeared in pocket {station}, unphotographed -> discard")
 
+    def _c3FallCount(self) -> Optional[int]:
+        """How many pieces C3's camera saw leave its exit in the fall that put
+        the receive pocket's piece there; None when no fall matches its landing."""
+        fall = getattr(self.shared, "c3_fall", None)
+        if not fall or fall[0] is None:
+            return None
+        lag = self._landed_at - float(fall[0])
+        return int(fall[1]) if -0.5 <= lag <= _FALL_TO_LANDING_S else None
+
+    def _markDoubleFeed(self, tp, group, kind="double_feed", message=None) -> None:
+        piece_verdicts.note(tp.track_id, piece_verdicts.DOUBLE)
+        if message is None:
+            super()._markDoubleFeed(tp, group, kind)
+        else:
+            super()._markDoubleFeed(tp, group, kind, message)
+
     def _toDiscard(self, tp: _TrackedPiece, kind: str, message: str, group: Optional[int] = None) -> None:
         if tp.double_feed:
             return
@@ -807,10 +827,24 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             if any(key[0] == 0 for key in self._new_seen) and (now - self._landed_at) < _PENDING_WAIT_S:
                 return  # Another box beside it, not yet a piece: wait to see it is one
             need = int(getattr(self.ctx.config, "merged_double_drop_frames", 0) or 0)
+            fell = self._c3FallCount()
             for tp in receive:
                 frames = getattr(tp, "rest_frames", 0)
                 merged = getattr(tp, "merged_frames", 0)
-                if tp.double_feed or merged == 0:
+                if tp.double_feed:
+                    continue
+                if fell is not None and fell >= 2:
+                    # Looking back: C3's camera saw more than one piece leave its
+                    # exit in the fall that put this one here.
+                    self._toDiscard(
+                        tp,
+                        "fell_together",
+                        f"C3's camera saw {fell} pieces leave its exit in the fall that brought it, so it "
+                        "went to the discard as a double drop.",
+                    )
+                    continue
+                if merged == 0:
+                    piece_verdicts.note(tp.track_id, piece_verdicts.ONE)
                     continue
                 if need > 0 and merged >= need:
                     self._toDiscard(
@@ -820,19 +854,23 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                         f"({merged} of {frames} frames), so it went to the discard as a double drop.",
                     )
                 elif not getattr(tp, "doubt_recorded", False):
-                    # Two pieces, an assembly, or one oddly shaped piece: it
-                    # sorts as one, and its frame is kept to be labelled.
+                    # Drawn as several boxes, but only one piece fell off C3 (or
+                    # its fall was not seen): one piece, an assembly or an oddly
+                    # shaped one. It sorts as one, and its frame is kept to be
+                    # labelled.
                     tp.doubt_recorded = True
+                    piece_verdicts.note(tp.track_id, piece_verdicts.ONE)
+                    seen = "one piece left C3's exit" if fell == 1 else "C3's fall was not seen"
                     self.logger.info(
-                        f"{LOG_TAG} track={tp.track_id} drawn as more than one box ({merged} of {frames} frames): "
-                        "maybe multiple, sorted as one piece, frame kept"
+                        f"{LOG_TAG} track={tp.track_id} drawn as more than one box ({merged} of {frames} frames), "
+                        f"{seen}: sorted as one piece, frame kept"
                     )
                     notePieceProblem(
                         tp.known_object,
                         "maybe_multiple",
-                        f"The camera drew it as more than one box in {merged} of {frames} frames at rest: two "
-                        "pieces, an assembly or one oddly shaped piece. It was sorted as one piece, and its "
-                        "frame was kept so what it was can be labelled.",
+                        f"The camera drew it as more than one box in {merged} of {frames} frames at rest, and "
+                        f"{seen}. It was sorted as one piece, and its frame was kept so what it was can be "
+                        "labelled.",
                     )
                     self._recordDoubt(tp, "merged")
         elif not ahead and not exit_ and (now - self._rest_since) < _FLUSH_AFTER_S:

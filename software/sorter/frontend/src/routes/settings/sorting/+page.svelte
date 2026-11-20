@@ -303,6 +303,13 @@
 					{#if p.description}<p class="text-sm text-ink-muted">{p.description}</p>{/if}
 					{#if list.length}
 						<table class="w-full text-sm">
+							<thead>
+								<tr class="text-ink-faint">
+									<th class="py-1 pr-3 text-left font-normal">Setting</th>
+									<th class="py-1 text-right font-normal">Default</th>
+									<th class="py-1 pl-3 text-right font-normal">{p.label}</th>
+								</tr>
+							</thead>
 							<tbody>
 								{#each list as c (c.section + c.key)}
 									<tr class="border-t border-line first:border-t-0">

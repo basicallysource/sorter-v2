@@ -42,6 +42,10 @@ PRESETS: dict[str, dict[str, Any]] = {
             "exit_in_opening_max_deg": 2.0,
             "exit_move_margin_deg": 6.0,
         },
+        # One 1x1 plate never looks like several boxes: a merged box is two.
+        "classification_channel": {
+            "merged_double_drop_frames": 1,
+        },
     },
 }
 

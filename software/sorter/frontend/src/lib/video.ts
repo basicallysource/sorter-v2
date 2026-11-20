@@ -29,7 +29,8 @@ export type FeedZones = {
 export type FeedLayout = { zones: FeedZones | null };
 
 export type FeedBox = {
-	kind: 'piece' | 'merged' | 'margin';
+	// 'part': what the model drew inside a box the machine fused into one piece.
+	kind: 'piece' | 'part' | 'double' | 'margin';
 	box: [number, number, number, number];
 	id?: number;
 };

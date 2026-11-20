@@ -43,6 +43,8 @@ from typing import Any, Dict
 
 import cv2
 import numpy as np
+
+import piece_verdicts
 from fastapi import APIRouter, HTTPException, WebSocket
 from starlette.concurrency import run_in_threadpool
 
@@ -269,12 +271,30 @@ class _RoleFeed(_Feed):
                 continue
             if getattr(d, "in_margin", False):
                 boxes.append(box("margin", d.bbox))
-        # Originals (what the model drew); on C4 the merged boxes go over them.
+        # On C4 a box the machine took as two pieces is drawn as a double drop;
+        # boxes it fused into one piece are drawn as that piece, with what the
+        # model drew inside it as parts.
+        on_c4 = getattr(shot.channel, "channel_id", None) == 4
+        fused = list(cycle.get("merged_bboxes") or [])
+        fused_ids = cycle.get("merged_track_ids") or []
+
+        def kind(track_id: Any) -> str:
+            if on_c4 and piece_verdicts.get(track_id) == piece_verdicts.DOUBLE:
+                return "double"
+            return "piece"
+
+        def inFused(b: Any) -> bool:
+            return any(f[0] <= b[0] and f[1] <= b[1] and b[2] <= f[2] and b[3] <= f[3] for f in fused)
+
         for b in cycle.get("pre_merge_bboxes") or cycle.get("on_channel_bboxes") or []:
-            boxes.append(box("piece", b, track_ids.get(tuple(int(v) for v in b[:4]))))
-        merged_ids = cycle.get("merged_track_ids") or []
-        for i, b in enumerate(cycle.get("merged_bboxes") or []):
-            boxes.append(box("merged", b, merged_ids[i] if i < len(merged_ids) else None))
+            if inFused(b):
+                boxes.append(box("part", b))
+                continue
+            track_id = track_ids.get(tuple(int(v) for v in b[:4]))
+            boxes.append(box(kind(track_id), b, track_id))
+        for i, b in enumerate(fused):
+            track_id = fused_ids[i] if i < len(fused_ids) else None
+            boxes.append(box(kind(track_id), b, track_id))
         return boxes
 
     def _layout(self, shot: _Shot) -> tuple[int, dict] | None:

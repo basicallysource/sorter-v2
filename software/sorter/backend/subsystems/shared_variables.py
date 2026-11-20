@@ -50,6 +50,8 @@ class SharedVariables:
         self.feeder_hidden_pieces: dict[int, int] = {}
         # When a piece last fell off C3 (time.monotonic()). Written by the feeder.
         self.c3_fell_at: Optional[float] = None
+        # The last fall off C3: when it began (monotonic) and how many pieces it took.
+        self.c3_fall: Optional[tuple[float, int]] = None
 
     @property
     def classification_ready(self) -> bool:

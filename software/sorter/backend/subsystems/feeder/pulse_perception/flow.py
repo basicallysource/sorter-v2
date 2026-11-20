@@ -20,6 +20,7 @@ from . import landing_hold
 from .blind_arc import BlindArc, forward
 from .dispense_gate import DispenseGate
 from .exit_step import ExitStep, exitStep
+from .fall_count import FallCount
 from .held import FreeTurn, HeldAtLanding, HeldPieces
 
 # A deliberately simple pulsing state machine on the new perception stack.
@@ -97,6 +98,7 @@ class PulsePerceptionFeeding(BaseState):
         self._moved_until: dict[int, float] = {}
         self._shake_owed: dict[int, float] = {}
         self._push_only = machineGeneration().feeder_push_only
+        self._fall3 = FallCount()
         # Back-offs and shakes at each channel's exit in a row (none more than
         # EXIT_TRIES_CALM_S apart), and when the last was. Counted for the exit,
         # not one piece: a piece the camera draws as several boxes changes its
@@ -290,9 +292,16 @@ class PulsePerceptionFeeding(BaseState):
             # hand-off: once a piece falls, C3 pushes nothing more off for a
             # while, so C4 sees it before the next one can follow.
             gate3 = self._gate(3, cfg)
-            if gate3.observe(c3, now_mono):
+            fell3 = gate3.observe(c3, now_mono)
+            if fell3:
                 self._on_ch3_dispense()
                 self._noteFall(3, gate3)
+            if self._fall3.observe(c3, now_mono, gate3.fell_track_id, fell3) or fell3:
+                # How many pieces that fall took, for the classification
+                # channel to tell two pieces from one drawn in parts.
+                self.shared.c3_fall = (self._fall3.started, self._fall3.count)
+                if self._fall3.count >= 2:
+                    self.gc.logger.info(f"PulsePerception: {self._fall3.count} pieces fell off C3 together")
             action = feederChannelAction(
                 c3,
                 downstream_clear=self._classification_ready(cfg) and gate3.exitAllowed(now_mono),

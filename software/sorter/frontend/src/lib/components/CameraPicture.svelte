@@ -31,7 +31,8 @@
 	const EXIT_MARGIN = 'rgb(160 160 160)';
 	const BOX: Record<FeedBox['kind'], string> = {
 		piece: 'rgb(0 255 0)',
-		merged: 'rgb(128 0 255)',
+		part: 'rgb(0 255 0 / 0.35)',
+		double: 'rgb(255 40 40)',
 		margin: 'rgb(160 160 160)'
 	};
 	// The rotor's fins as the machine reads them, in a colour the white rotor
@@ -223,12 +224,12 @@
 	) {
 		for (const { kind, box, id } of all) {
 			const [x1, y1, x2, y2] = [box[0] * width, box[1] * height, box[2] * width, box[3] * height];
-			g.lineWidth = (kind === 'merged' ? 2 : 1) * px;
+			g.lineWidth = (kind === 'double' ? 2 : 1) * px;
 			g.strokeStyle = BOX[kind];
 			g.strokeRect(x1, y1, x2 - x1, y2 - y1);
-			if (kind === 'merged') {
-				// What the machine acts on, named under the box.
-				label(g, id === undefined ? 'merged' : `merged #${id}`, x1, y2 + px, BOX[kind], px);
+			if (kind === 'double') {
+				// Two pieces the machine sends to the discard together.
+				label(g, id === undefined ? 'double drop' : `double drop #${id}`, x1, y2 + px, BOX[kind], px);
 			} else if (kind === 'piece' && id !== undefined) {
 				const h = (LABEL_PX + 4) * px;
 				label(g, `#${id}`, x1, Math.max(0, y1 - h - px), BOX[kind], px);

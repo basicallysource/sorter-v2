@@ -109,6 +109,13 @@ class PulsePerceptionFeeding(BaseState):
         self._exit_tries: dict[int, tuple[int, float]] = {}
         # When each channel last saw a piece in its exit (monotonic).
         self._exit_seen_at: dict[int, float] = {}
+        # For the control-data record only (nothing here decides a move): the
+        # decision behind the move about to be made, each exit's last push and
+        # its pushes since the last fall, and what each exit last waited on.
+        self._move_ctx: dict | None = None
+        self._last_push: dict[int, dict] = {}
+        self._pushes: dict[int, int] = {}
+        self._hold_seen: dict[int, tuple] = {}
 
     def _cfg(self) -> PulsePerceptionConfig:
         now = time.monotonic()
@@ -141,10 +148,12 @@ class PulsePerceptionFeeding(BaseState):
         # The window is the ramp-aware move time plus the pause, so the pause
         # follows the end of the move; the board's own stopped state is the
         # check, since the firmware refuses a pulse on an axis still moving.
+        why = self.__dict__.pop("_move_ctx", None)
         if self._busy(stepper) or not stepper.stopped:
             return False
         speed = channelMoveSpeed(cfg, channel)
         output_deg = abs(output_deg)
+        asked_deg = output_deg
         if enforce_min:
             output_deg = max(cfg.min_move_output_deg, output_deg)
         output_deg = min(channelMaxMoveOutputDeg(cfg, channel), output_deg)
@@ -167,6 +176,19 @@ class PulsePerceptionFeeding(BaseState):
             self._moved_until[channel] = time.time() + max(0, exec_ms) / 1000.0
         cooldown_ms = (max(0, exec_ms) + max(0, pause_ms)) if success else 500
         self._busy_until[stepper._name] = time.monotonic() + cooldown_ms / 1000.0
+        self._recordControl(
+            {
+                "kind": "feed_move",
+                "ch": channel,
+                "label": label,
+                "deg": round(-output_deg if backwards else output_deg, 2),
+                "asked_deg": round(asked_deg, 2),
+                "ok": bool(success),
+                "exec_ms": exec_ms,
+                "pause_ms": pause_ms,
+                **(why or {}),
+            }
+        )
         self.gc.logger.debug(
             f"PulsePerception: {label} pulse ch={channel} speed={speed} "
             f"output={output_deg:.1f}° motor={motor_deg:.1f}° "
@@ -182,11 +204,11 @@ class PulsePerceptionFeeding(BaseState):
 
         watch.noteFall(channel, gate.fell_track_id)
 
-    def _on_ch3_dispense(self) -> None:
+    def _on_ch3_dispense(self, record: dict | None = None) -> None:
         self.shared.c3_fell_at = time.monotonic()
         try:
             from .autotune import noteDispense
-            noteDispense()
+            noteDispense(record)
         except Exception:
             pass
         if hasattr(self.shared, "publish_piece_delivered"):
@@ -294,9 +316,10 @@ class PulsePerceptionFeeding(BaseState):
             # hand-off: once a piece falls, C3 pushes nothing more off for a
             # while, so C4 sees it before the next one can follow.
             gate3 = self._gate(3, cfg)
+            gone3 = gate3.missing_since
             fell3 = gate3.observe(c3, now_mono)
             if fell3:
-                self._on_ch3_dispense()
+                self._on_ch3_dispense(self._fallRecord(3, gate3, gone3, now_mono))
                 self._noteFall(3, gate3)
             if self._fall3.observe(c3, now_mono, gate3.fell_track_id, fell3) or fell3:
                 # How many pieces that fall took, for the classification
@@ -304,14 +327,17 @@ class PulsePerceptionFeeding(BaseState):
                 self.shared.c3_fall = (self._fall3.started, self._fall3.count)
                 if self._fall3.count >= 2:
                     self.gc.logger.info(f"PulsePerception: {self._fall3.count} pieces fell off C3 together")
+                    self._recordFallCount(3, self._fall3)
+            clear3 = {"ready": self._classification_ready(cfg), "gate": gate3.exitAllowed(now_mono)}
+            self._recordHold(3, c3, clear3)
             action = feederChannelAction(
                 c3,
-                downstream_clear=self._classification_ready(cfg) and gate3.exitAllowed(now_mono),
+                downstream_clear=clear3["ready"] and clear3["gate"],
                 greedy=cfg.ch3_greedy_enabled,
             )
             action, hidden_cap = self._withHiddenPieces(3, c3, action, now_mono, cfg)
             self._apply_action(
-                "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg, hidden_cap
+                "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg, hidden_cap, clear3
             )
 
         if cfg.enable_ch2:
@@ -319,21 +345,29 @@ class PulsePerceptionFeeding(BaseState):
             # so we never pulse a C2 piece off the edge into a busy C3; and once
             # a piece falls, nothing more goes for a while, so C3 sees it land.
             gate2 = self._gate(2, cfg)
+            gone2 = gate2.missing_since
             fell2 = gate2.observe(c2, now_mono)
             if fell2:
                 self._noteFall(2, gate2)
-            if self._fall2.observe(c2, now_mono, gate2.fell_track_id, fell2) and self._fall2.count == 2:
-                self.gc.logger.info("PulsePerception: 2 pieces fell off C2 together")
+                self._recordControl({"kind": "c2_dispense", **self._fallRecord(2, gate2, gone2, now_mono)})
+            if self._fall2.observe(c2, now_mono, gate2.fell_track_id, fell2):
+                if self._fall2.count == 2:
+                    self.gc.logger.info("PulsePerception: 2 pieces fell off C2 together")
+                self._recordFallCount(2, self._fall2)
+            clear2 = {
+                "landing_clear": not c3.in_drop,
+                "gate": gate2.exitAllowed(now_mono),
+                "room": self._hasRoom(3, c3, cfg.ch3_max_pieces),
+            }
+            self._recordHold(2, c2, clear2)
             action = feederChannelAction(
                 c2,
-                downstream_clear=(not c3.in_drop)
-                and gate2.exitAllowed(now_mono)
-                and self._hasRoom(3, c3, cfg.ch3_max_pieces),
+                downstream_clear=clear2["landing_clear"] and clear2["gate"] and clear2["room"],
                 greedy=cfg.ch2_greedy_enabled,
             )
             action, hidden_cap = self._withHiddenPieces(2, c2, action, now_mono, cfg)
             self._apply_action(
-                "ch2", 2, action, self.irl.c_channel_2_rotor_stepper, c2, cfg, hidden_cap
+                "ch2", 2, action, self.irl.c_channel_2_rotor_stepper, c2, cfg, hidden_cap, clear2
             )
 
         # A piece came off C1: C2's landing zone filled.
@@ -444,6 +478,7 @@ class PulsePerceptionFeeding(BaseState):
         state,
         cfg: PulsePerceptionConfig,
         hidden_cap: float | None = None,
+        clear: dict | None = None,
     ) -> None:
         from perception.cascade import Action
 
@@ -479,22 +514,27 @@ class PulsePerceptionFeeding(BaseState):
                 pause_ms = cfg.greedy_pulse_pause_ms
                 move_label = f"{label}_greedy"
             enforce_min = True
+            want_deg, cap, standoff = output_deg, None, False
             clearance = getattr(state, "advance_clearance_deg", None)
             if clearance is not None and channel == 3 and not self._classification_ready(cfg):
                 # C4 is busy: keep the lead piece back from the lip, where it
                 # could fall onto C4 mid-turn beside the piece already there.
                 clearance -= max(0.0, cfg.ch3_busy_standoff_deg)
+                standoff = cfg.ch3_busy_standoff_deg > 0
                 if clearance < cfg.min_move_output_deg:
                     return
             if clearance is not None and clearance < output_deg:
                 output_deg = clearance
                 enforce_min = False
+                cap = "c4_busy_standoff" if standoff else "lead_to_exit"
             # Nor may a piece the camera cannot see be carried past the
             # staging point unseen. A cap of nothing is no cap: the expectation
             # is then wrong, and a channel that never moves never finds out.
             if hidden_cap is not None and 0 < hidden_cap < output_deg:
                 output_deg = hidden_cap
                 enforce_min = False
+                cap = "hidden_piece"
+            self._move_ctx = self._moveWhy("advance", state, clear, want_deg, cap)
             self._move(
                 move_label,
                 channel,
@@ -508,6 +548,9 @@ class PulsePerceptionFeeding(BaseState):
             step = self._exitStep(channel, state, cfg)
             if step is None:
                 return
+            self._move_ctx = self._moveWhy(
+                "precise", state, clear, cfg.exit_move_max_deg, _exitCap(step, state, cfg), what=step.kind, why=step.why
+            )
             moved = self._move(
                 f"{label}_exit" if step.kind == "push" else f"{label}_exit_{step.kind}",
                 channel,
@@ -531,9 +574,11 @@ class PulsePerceptionFeeding(BaseState):
                 self._noteExitStep(channel, lead, pieces[1] if len(pieces) > 1 else None, step)
             if channel in self._gates:
                 self._gates[channel].notePush(lead)
+            self._notePush(channel, lead, pieces[1] if len(pieces) > 1 else None, step, clear)
         elif action == Action.FREEZE:
             deg = self._stageDeg(channel, state, cfg)
             if deg is not None:
+                self._move_ctx = self._moveWhy("stage", state, clear, cfg.exit_move_max_deg, None)
                 self._move(f"{label}_stage", channel, stepper, deg, cfg.exit_pulse_pause_ms, cfg, enforce_min=False)
         # IDLE: no move.
 
@@ -542,6 +587,103 @@ class PulsePerceptionFeeding(BaseState):
             import control_data_store
 
             control_data_store.record({"type": "event", **event, "t": time.time(), "mono": time.monotonic()})
+        except Exception:
+            pass
+
+    # What follows only writes the control-data record: it reads what the flow
+    # already worked out and never changes a move.
+
+    def _moveWhy(self, action: str, state, clear: dict | None, want_deg: float, cap, **more) -> dict | None:
+        """The decision behind the move about to be sent, for its feed_move
+        record: the action, the degrees wanted before any cap and which cap cut
+        them, the lead's and the next piece's gap to the exit, the pieces on the
+        channel, whether the channel below was clear and what it waited on, and
+        the time of the picture all of it was read from."""
+        try:
+            pieces = getattr(state, "pieces", ()) or ()
+            gaps = [getattr(p, "com_forward_to_exit_deg", None) for p in pieces[:2]]
+            return {
+                "action": action,
+                "want_deg": round(float(want_deg), 2),
+                "cap": cap,
+                "lead_deg": round(float(gaps[0]), 2) if gaps and gaps[0] is not None else None,
+                "next_deg": round(float(gaps[1]), 2) if len(gaps) > 1 and gaps[1] is not None else None,
+                "lead_track": getattr(pieces[0], "sv_bt_track_id", None) if pieces else None,
+                "pieces": len(pieces),
+                "in_drop": bool(getattr(state, "in_drop", False)),
+                "in_exit": bool(getattr(state, "in_exit", False)),
+                "clear": all(clear.values()) if clear else None,
+                **(clear or {}),
+                "frame_ts": getattr(state, "ts", None),
+                **more,
+            }
+        except Exception:
+            return None
+
+    def _notePush(self, channel: int, lead, behind, step: ExitStep, clear: dict | None) -> None:
+        """Remember an exit's push, for the record of the fall it causes."""
+        try:
+            self._pushes[channel] = self._pushes.get(channel, 0) + 1
+            gap = getattr(lead, "com_forward_to_exit_deg", None)
+            next_gap = getattr(behind, "com_forward_to_exit_deg", None)
+            self._last_push[channel] = {
+                "push_mono": time.monotonic(),
+                "push_what": step.kind,
+                "push_deg": round(float(step.deg), 2),
+                "push_track": getattr(lead, "sv_bt_track_id", None),
+                "push_lead_deg": round(float(gap), 2) if gap is not None else None,
+                "push_next_deg": round(float(next_gap), 2) if next_gap is not None else None,
+                "push_asked": bool(clear.get("ready")) if clear and "ready" in clear else None,
+            }
+        except Exception:
+            pass
+
+    def _fallRecord(self, channel: int, gate: DispenseGate, gone_since: float | None, now: float) -> dict:
+        """What is known of a fall as the gate confirms it: the piece that fell,
+        when it was last seen (the fall itself; the gate confirms it a moment
+        later), the last push before it and the pushes since the fall before,
+        how long the exit now holds, and for C3 whether C4 was asking."""
+        try:
+            record = {
+                "ch": channel,
+                "track": gate.fell_track_id,
+                "gone_mono": gone_since if gone_since is not None else now,
+                "hold_s": round(float(gate.hold_s), 3),
+                "pushes": self._pushes.pop(channel, 0),
+                **self._last_push.pop(channel, {}),
+            }
+            if channel == 3:
+                record["asked"] = bool(self.shared.classification_ready)
+            return record
+        except Exception:
+            return {"ch": channel}
+
+    def _recordFallCount(self, channel: int, fall: FallCount) -> None:
+        """A fall took more than its lead: how many pieces, and which."""
+        try:
+            self._recordControl(
+                {
+                    "kind": "fall_count",
+                    "ch": channel,
+                    "count": fall.count,
+                    "tracks": sorted(fall._counted),
+                    "started_mono": fall.started,
+                }
+            )
+        except Exception:
+            pass
+
+    def _recordHold(self, channel: int, state, clear: dict) -> None:
+        """One feed_hold record each time what an exit waits on changes: a piece
+        at the exit or not, and each thing the channel below must be for a push."""
+        try:
+            seen = (bool(state.in_exit), *clear.values())
+            if self._hold_seen.get(channel) == seen:
+                return
+            self._hold_seen[channel] = seen
+            self._recordControl(
+                {"kind": "feed_hold", "ch": channel, "in_exit": seen[0], "clear": all(clear.values()), **clear}
+            )
         except Exception:
             pass
 
@@ -687,6 +829,24 @@ class PulsePerceptionFeeding(BaseState):
             blind.clear()
         self._held.reset()
         super().cleanup()
+
+
+def _exitCap(step: ExitStep, state, cfg: PulsePerceptionConfig) -> str | None:
+    """For the record: what kept an exit push under exit_move_max_deg. The lead
+    already in the opening ("in_opening", exit_in_opening_max_deg), or else the
+    piece behind it ("next_piece": its room to the exit, or the clear-of-the-
+    opening rule). None for a full push, a back-off or a shake."""
+    try:
+        if step.kind != "push" or step.deg >= cfg.exit_move_max_deg:
+            return None
+        pieces = getattr(state, "pieces", ()) or ()
+        gap = pieces[0].com_forward_to_exit_deg if pieces else None
+        opening = float(cfg.exit_in_opening_max_deg)
+        if gap is not None and float(gap) <= 0 and opening > 0 and abs(step.deg - opening) < 1e-6:
+            return "in_opening"
+        return "next_piece"
+    except Exception:
+        return None
 
 
 def _boxesOverlap(a, b) -> bool:

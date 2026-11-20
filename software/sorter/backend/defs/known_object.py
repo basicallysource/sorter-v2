@@ -283,6 +283,9 @@ class KnownObject:
     distribution_motion_started_at: Optional[float] = None
     distribution_positioned_at: Optional[float] = None
     distributed_at: Optional[float] = None
+    # When the classification channel saw it go out of sight at its opening,
+    # before it could count it as dropped (the pocket flow); None otherwise.
+    fell_at: Optional[float] = None
 
 
 def notePieceProblem(

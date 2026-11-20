@@ -141,6 +141,18 @@ def _imageRefs(obj, images: list[_SendImage]) -> list[dict]:
     return refs
 
 
+def recordControl(kind: str, **fields) -> None:
+    """One ``event`` record in the control data (control_data_store.event): a
+    line appended to the open capture segment, nothing when none is open. For
+    the record only; it never raises."""
+    try:
+        import control_data_store
+
+        control_data_store.event(kind, **fields)
+    except Exception:
+        pass
+
+
 class Rev01BaseState(BaseState):
     def __init__(
         self,
@@ -174,6 +186,7 @@ class Rev01BaseState(BaseState):
         # unconditionally was a main-thread log-flood source.
         if prev is None or prev != bool(ready):
             self.logger.info(f"{LOG_TAG} classification_ready -> {ready} ({reason})")
+            recordControl("c4_ready", ready=bool(ready), reason=reason)
 
     def stopStepper(self) -> None:
         stepper = getattr(self.irl, "carousel_stepper", None)

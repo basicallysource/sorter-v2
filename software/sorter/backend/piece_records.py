@@ -51,6 +51,16 @@ _PIECE_HISTORY_VIEW = (
 )
 
 
+# piece_records column -> the piece's field it keeps.
+_TIMING_COLUMNS = {
+    "classified_at": "classified_at",
+    "chute_target_at": "distributing_at",
+    "chute_motion_started_at": "distribution_motion_started_at",
+    "chute_positioned_at": "distribution_positioned_at",
+    "fell_at": "fell_at",
+}
+
+
 def _createTables(conn: sqlite3.Connection) -> None:
     conn.execute(
         "CREATE TABLE IF NOT EXISTS piece_records ("
@@ -117,6 +127,11 @@ def _createTables(conn: sqlite3.Connection) -> None:
         # list of {"kind", "message", "at", "after_s"}, oldest first (see
         # normalizeProblems). NULL when nothing did.
         "problems": "TEXT",
+        # The piece's own times on its way out (epoch seconds; NULL when not
+        # known): identified, chute told where to go, chute started moving,
+        # chute there, and seen to go out of sight at the classification
+        # channel's opening.
+        **{column: "REAL" for column in _TIMING_COLUMNS},
     })
     # Operator-flagged capture issues, one row per (piece, reason) so the
     # flags are queryable — "how many pieces were flagged blurry this
@@ -374,6 +389,15 @@ def recordPiece(
                 problems_json,
             ),
         )
+        # Its times, kept when a later write (the reaper, a correction) has none.
+        timing = {column: _finite(piece.get(field)) for column, field in _TIMING_COLUMNS.items()}
+        if any(value is not None for value in timing.values()):
+            conn.execute(
+                "UPDATE piece_records SET "
+                + ", ".join(f"{column} = COALESCE(?, {column})" for column in timing)
+                + " WHERE uuid = ?",
+                (*timing.values(), uuid_val),
+            )
         # With its record written, the piece's images are ready for Hive.
         piece_image_store.sequenceImages(conn, uuid_val)
         conn.commit()

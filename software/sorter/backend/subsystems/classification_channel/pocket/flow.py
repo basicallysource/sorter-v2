@@ -55,6 +55,7 @@ from subsystems.classification_channel.two_piece.channel_clear import (
     openAllLayerDoors,
     routeSweep,
 )
+from subsystems.classification_channel.two_piece.base import recordControl
 from subsystems.classification_channel.two_piece.constants import C4_TRAVEL_SIGN
 from subsystems.classification_channel.two_piece.flow import (
     _ZONE_DROP,
@@ -514,6 +515,13 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
     def _enter(self, phase: _P) -> None:
         if phase != self._pp:
             self.logger.info(f"{LOG_TAG} {self._pp.value} -> {phase.value}  [{self._pocketsText()}]")
+            # The pockets in travel order: receive, the queue pockets, exit.
+            recordControl(
+                "c4_phase",
+                was=self._pp.value,
+                phase=phase.value,
+                pockets=[[tp.track_id for tp in pocket] for pocket in self._pockets],
+            )
         self._pp = phase
 
     def _pocketsText(self) -> str:
@@ -549,6 +557,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         # the chute stood for them.
         for tp in self._swept + self._members:
             self._place(tp)
+            tp.drop_how = "swept_before_a_stop"
             self._commitToDistribution(tp)
         for tp in list(self._swept + self._members):
             self._forget(tp)
@@ -681,6 +690,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._landed_at = now
         others = list(pocket)
         pocket.append(tp)
+        self._recordLanded(tp, station, others, now)
         if others:
             # Two pieces in one pocket came off C3 together: a double drop, however
             # far apart they lie.
@@ -704,6 +714,25 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 "photographed or identified; it came off C3 unseen, a double drop, and went to the discard.",
             )
             self.logger.warning(f"{LOG_TAG} track={tp.track_id} appeared in pocket {station}, unphotographed -> discard")
+
+    def _recordLanded(self, tp: _TrackedPiece, station: int, others: list, now: float) -> None:
+        """For the control data: a box became a piece, in which pocket and
+        beside which pieces, with C3's last fall as its camera counted it and
+        how long ago that fall began."""
+        try:
+            fall = getattr(self.shared, "c3_fall", None)
+            seen = bool(fall) and fall[0] is not None
+            recordControl(
+                "c4_landed",
+                track=tp.track_id,
+                pocket=station,
+                gap_deg=None if tp.gap_to_exit is None else round(float(tp.gap_to_exit), 2),
+                beside=[other.track_id for other in others],
+                c3_fall_count=fall[1] if seen else None,
+                c3_fall_ago_s=round(now - float(fall[0]), 3) if seen else None,
+            )
+        except Exception:
+            pass
 
     def _c3FallCount(self) -> Optional[int]:
         """How many pieces C3's camera saw leave its exit in the fall that put
@@ -885,6 +914,14 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                         "labelled.",
                     )
                     self._recordDoubt(tp, "merged")
+                    recordControl(
+                        "c4_doubt",
+                        track=tp.track_id,
+                        piece=getattr(tp.known_object, "uuid", None),
+                        merged_frames=merged,
+                        rest_frames=frames,
+                        c3_fall_count=fell,
+                    )
         elif self._oneTurnAPiece() and any(self._pockets[1:]):
             # Every pocket may hold a piece: the feeder gets a moment to land
             # the next one, so this turn takes it in as it drops the one ahead.
@@ -986,6 +1023,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         except Exception as exc:
             self.logger.warning(f"{LOG_TAG} set_speed_limits failed: {exc}")
         self.logger.info(f"{LOG_TAG} {what}: {microsteps / self._per_deg:.1f}°")
+        recordControl(
+            "c4_move", what=what, deg=round(microsteps / self._per_deg, 2), back=bool(back), turned_deg=round(self._turned_deg, 2)
+        )
         direction = -int(C4_TRAVEL_SIGN) if back else int(C4_TRAVEL_SIGN)
         # The move carries its own acceleration: the motor puts its default
         # back before any move that does not.
@@ -1153,6 +1193,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                     member.fell_pending = True
                     if member.known_object is not None:
                         member.known_object.fell_at = at
+                recordControl("c4_gone", tracks=[member.track_id for member in group], fell_at=at)
                 home.remove(tp)
                 home.insert(0, tp)
                 self.logger.info(
@@ -1165,6 +1206,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 for member in group:
                     if member is not tp:
                         self._place(member)
+                    member.drop_how = "gone_at_the_opening"
                     self._commitToDistribution(member)
                     self.logger.info(f"{LOG_TAG} ejected track={member.track_id} (fell at the opening)")
                     self._forget(member)
@@ -1279,6 +1321,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._stillInExit(pending)
         else:
             dropped += [tp for tp in pending if any(tp in pocket for pocket in self._pockets)]
+            for tp in dropped:
+                tp.drop_how = "gone_at_the_opening_then_exit_pocket_empty"
         if self._swept and not pending and self._exit_frames >= 1 and not self._pockets[-1]:
             # The EXIT pocket came round empty, yet a piece lies there: the
             # swept piece neither fell nor rode on, it is stuck at the opening.
@@ -1299,10 +1343,15 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                         f"{LOG_TAG} a piece in the receive pocket after the sweep, but C3 let one go "
                         "around this turn: taken as a new piece, not turned back"
                     )
+                    for tp in self._swept:
+                        tp.drop_how = "swept_and_the_piece_in_receive_taken_as_new_from_c3"
                 else:
                     self._carriedRound(now)
                     carried = True
             if not carried:
+                for tp in self._swept:
+                    if getattr(tp, "drop_how", None) is None:
+                        tp.drop_how = "swept_and_receive_pocket_empty"
                 dropped += self._swept
             self._swept = []
         if not dropped:
@@ -1418,6 +1467,12 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._needs_verify = True
         names = "+".join(str(tp.track_id) for tp in pending)
         self.logger.warning(f"{LOG_TAG} track={names} did not fall: still in the exit pocket after the turn")
+        recordControl(
+            "c4_not_fallen",
+            tracks=[tp.track_id for tp in pending],
+            where="exit",
+            times=[getattr(tp, "missed", 0) for tp in pending],
+        )
         if any(getattr(tp, "missed", 0) >= _CARRY_MAX for tp in pending):
             self.logger.error(
                 f"{LOG_TAG} a piece has failed to fall {_CARRY_MAX} times: the channel stops until it is cleared"
@@ -1446,6 +1501,12 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._needs_verify = True
         names = "+".join(str(tp.track_id) for tp in swept)
         self.logger.warning(f"{LOG_TAG} track={names} did not fall: carried round into the receive pocket")
+        recordControl(
+            "c4_not_fallen",
+            tracks=[tp.track_id for tp in swept],
+            where="receive",
+            times=[getattr(tp, "carried", 0) for tp in swept],
+        )
         self._pockets[0] = swept + self._pockets[0]
         if any(getattr(tp, "carried", 0) >= _CARRY_MAX for tp in swept):
             self.logger.error(

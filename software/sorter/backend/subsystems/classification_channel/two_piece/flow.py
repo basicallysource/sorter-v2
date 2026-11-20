@@ -18,7 +18,7 @@ from runtime_stats import C4_WAITING_FOR_PIECE
 from subsystems.classification_channel.five_sector_platter import C4FiveSectorPlatter
 
 from .. import crop_quality
-from .base import Rev01BaseState
+from .base import Rev01BaseState, recordControl
 from .channel_clear import (
     ChannelClearResult,
     clearChannelByAdvancing,
@@ -1135,6 +1135,9 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self.logger.warning(
             f"{LOG_TAG} double feed -> misc (track={tp.track_id}, group={group})"
         )
+        recordControl(
+            "c4_discard", track=tp.track_id, piece=getattr(obj, "uuid", None), reason=kind, group=group
+        )
 
     # --------------------------------------------------- ordered-queue accessors
 
@@ -1768,6 +1771,16 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         tp.ejected = True
         tp.ejected_at = time.monotonic()
         self.gc.runtime_stats.observeC4Exit()
+        obj = getattr(tp, "known_object", None)
+        recordControl(
+            "c4_drop",
+            track=getattr(tp, "track_id", None),
+            piece=getattr(obj, "uuid", None),
+            # How it was taken as fallen (the pocket flow says), and when it
+            # went out of sight at the opening, if it was seen to.
+            how=getattr(tp, "drop_how", None),
+            fell_at=getattr(obj, "fell_at", None),
+        )
 
     def _enterPhase(self, phase: _Phase) -> None:
         # Deliberately NOT a watchdog progress credit: the eject/stage timeouts

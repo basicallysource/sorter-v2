@@ -138,6 +138,16 @@ def record(obj: dict[str, Any]) -> None:
         _writeLocked(obj)
 
 
+def event(kind: str, **fields: Any) -> None:
+    """Append one ``event`` record of this kind, stamped with the wall clock
+    (``t``) and the monotonic clock (``mono``). Never raises, and costs what
+    ``record`` costs: one line appended to the open segment, or nothing."""
+    try:
+        record({"type": "event", "kind": kind, **fields, "t": time.time(), "mono": time.monotonic()})
+    except Exception:
+        pass
+
+
 def _writeLocked(obj: dict[str, Any]) -> None:
     global _active_records, _active_bytes
     try:

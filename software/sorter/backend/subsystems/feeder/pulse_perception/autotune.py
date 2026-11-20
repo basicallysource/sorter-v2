@@ -76,7 +76,10 @@ _last_dispense_mono = 0.0
 _DISPENSE_DEBOUNCE_S = 1.2
 
 
-def noteDispense() -> None:
+def noteDispense(fall: dict | None = None) -> None:
+    """A piece fell off C3. ``fall`` is what the feeder knows of it (the piece,
+    the push before it, whether the classification channel was asking), kept
+    with the control-data record."""
     global _dispense_count, _last_dispense_mono
     now = time.monotonic()
     accepted = False
@@ -97,6 +100,7 @@ def noteDispense() -> None:
                 "t": time.time(),
                 "mono": now,
                 "debounced": accepted,
+                **(fall or {}),
             }
         )
     except Exception:

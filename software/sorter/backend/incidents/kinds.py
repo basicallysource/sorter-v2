@@ -10,7 +10,8 @@ Most kinds hold the machine until they are dealt with. A kind with
 ``holds=False`` is a warning instead: the machine keeps sorting, its card
 shows beside any incident, and it goes when its condition ends (the
 computer's health, computer_health.py, and the stepper drivers',
-driver_watch.py, raise these).
+driver_watch.py, raise these) or, where its card has a button, when the
+operator presses it.
 """
 
 from __future__ import annotations
@@ -160,6 +161,15 @@ KINDS: dict[str, IncidentKind] = {
             title="Nothing is coming from C1",
             todo="No piece has come off C1 in {minutes} minutes, so sorting paused. Fill the hopper or free C1, then press Resume.",
             actions=(),
+            holds=False,
+        ),
+        IncidentKind(
+            # The feeder's bucket_unjam.py. {doing}: what it is trying to free
+            # the bucket, or once it has given up, to check the bucket.
+            "potentially_bucket_empty",
+            title="Potentially bucket empty",
+            todo="{doing}",
+            actions=("close_warning",),
             holds=False,
         ),
         IncidentKind(

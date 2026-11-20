@@ -11,8 +11,9 @@ still lives in ``runtime_stats`` until every kind reports through here.
 
 A kind that does not hold the machine (``holds=False``) is a warning: any
 number can be open beside the incident, one per kind and subject, the machine
-keeps sorting, and each closes when ``clear`` says its condition ended. They
-are kept in ``runtime_stats`` too, and recorded with the incidents.
+keeps sorting, and each closes when ``clear`` says its condition ended or the
+operator presses a button its card has. They are kept in ``runtime_stats``
+too, and recorded with the incidents.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from .kinds import ALIASES, AUTOMATIC, KINDS, MANUAL, OFF, IncidentKind
 
 __all__ = [
     "ACTIONS", "ALIASES", "AUTOMATIC", "KINDS", "MANUAL", "OFF", "IncidentKind",
-    "act", "clear", "describe", "handling", "openIncident", "report",
+    "act", "clear", "describe", "handling", "openIncident", "openWarning", "report",
 ]
 
 # How a stepper is named on a card.
@@ -56,6 +57,15 @@ def openIncident(gc: Any, kind: str | None = None, subject: str | None = None) -
     if subject is not None and active.get("subject") != subject:
         return None
     return active
+
+
+def openWarning(gc: Any, kind: str | None) -> dict[str, Any] | None:
+    """The open warning of this kind, if there is one."""
+    definition = KINDS.get(kind) if kind else None
+    runtime_stats = getattr(gc, "runtime_stats", None)
+    if definition is None or definition.holds or runtime_stats is None:
+        return None
+    return next((w for w in runtime_stats.warnings() if w.get("kind") == kind), None)
 
 
 def report(gc: Any, kind: str, *, subject: str, **fields: Any) -> bool:
@@ -129,9 +139,10 @@ def describe(incident: dict[str, Any] | None) -> dict[str, Any] | None:
     return card
 
 
-def act(gc: Any, action: str) -> dict[str, Any]:
-    """Run one of the open incident's buttons."""
-    incident = openIncident(gc)
+def act(gc: Any, action: str, kind: str | None = None) -> dict[str, Any]:
+    """Run one of the open incident's buttons, or when ``kind`` names an open
+    warning, one of that warning's."""
+    incident = openWarning(gc, kind) or openIncident(gc)
     if incident is None:
         return {"ok": True, "acted": False}
     card = describe(incident) or {}

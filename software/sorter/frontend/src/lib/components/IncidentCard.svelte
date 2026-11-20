@@ -2,8 +2,8 @@
 	/*
 		The open incident, or a warning beside it, as the backend describes it
 		(incidents.describe): what happened, one line of what to do, the buttons
-		that do it, and a page that tells more. A warning (the computer's
-		health) has no buttons: it goes when its condition ends.
+		that do it, and a page that tells more. Most warnings (the computer's
+		health) have no buttons: they go when their condition ends.
 	*/
 	export type IncidentCardData = {
 		kind: string;
@@ -42,7 +42,7 @@
 			const res = await fetch(`${baseUrl}/api/incidents/action`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action })
+				body: JSON.stringify({ action, kind: card.kind })
 			});
 			if (!res.ok) {
 				const body = await res.json().catch(() => ({}));

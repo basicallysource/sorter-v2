@@ -107,6 +107,33 @@ class PulsePerceptionConfig:
     # Sorting pauses once no piece has come off C1 onto C2 for this many
     # minutes: the hopper is empty or C1 is stuck. 0 = never.
     pause_after_no_feed_min: float = 10.0
+    # The bucket gives no pieces (bucket_unjam.py; only on a machine whose
+    # generation has bucket_unjam). Once C1 has been asked to feed for this
+    # many seconds with nothing coming off it, the feeder tries to free the
+    # bucket. Only time C1 is asked counts: a C1 that stands still because C2
+    # is full is not starved. 0 = never.
+    bucket_unjam_after_s: float = 45.0
+    # It shakes C1 up to this many times, pausing between shakes, and stops
+    # shaking as soon as a piece comes.
+    bucket_shake_count: int = 3
+    bucket_shake_pause_s: float = 1.5
+    # One shake: each stroke in degrees of the motor (never scaled to the
+    # drive: the stroke that is 6 motor degrees on the geared feeder would be
+    # two microsteps of a direct drive, and its bowl would not move), the
+    # back-and-forths, and the motor's speed and acceleration in microsteps, as
+    # tuned on the geared feeder (the jitter page's "Sharp & short"); another
+    # drive's are scaled to jerk the channel as hard (defaultConfig).
+    bucket_shake_stroke_motor_deg: float = 6.0
+    bucket_shake_cycles: int = 6
+    bucket_shake_speed_usteps_per_s: int = 6500
+    bucket_shake_accel_usteps_per_s2: int = 180000
+    # Then one continuous turn of C1 this far, at this many degrees of the
+    # channel a second, and after it C1 pulses the normal way for this long.
+    bucket_sweep_output_deg: float = 180.0
+    bucket_sweep_output_deg_per_s: float = 45.0
+    bucket_pulse_s: float = 15.0
+    # No piece this long after the last shake: the bucket is taken as empty.
+    bucket_wait_s: float = 60.0
     ch2_max_pieces: int = 0
     ch3_max_pieces: int = 0
     # Hand-off: once the piece a channel is pushing off has fallen (its track id
@@ -150,6 +177,10 @@ class PulsePerceptionConfig:
 
 _DEFAULTS = PulsePerceptionConfig()
 
+# The settings of freeing the bucket (bucket_unjam.py), listed only on a
+# machine whose generation has it (fieldMeta).
+BUCKET_SECTION = "Bucket"
+
 # ``section`` groups fields under a denoted subheader in the tuning UI. Order
 # within a section is preserved; sections appear in first-seen order.
 FIELD_META: list[dict] = [
@@ -185,6 +216,17 @@ FIELD_META: list[dict] = [
     {"section": "Hand-off", "key": "ch3_early_push_fall_s", "label": "C3 pushes ahead of the ask: shortest fall (s)", "type": "float", "default": _DEFAULTS.ch3_early_push_fall_s, "description": "The shortest time a piece pushed off C3 takes to land. Above 0, C3 starts pushing its lead while a finned classification channel is still on the turn that leaves it room, whenever the piece cannot land before that turn ends. 0 = off: C3 waits until the channel asks."},
     {"section": "Hand-off", "key": "ch3_stage_short_deg", "label": "C3 waits this close to the drop (output deg)", "type": "float", "default": _DEFAULTS.ch3_stage_short_deg, "description": "While the classification channel is busy, C3 carries its lead piece on into the exit until the piece's center is this far short of where pieces fall, never letting the piece behind it reach the exit. When the classification channel asks, one short push drops it. 0 = off: the lead waits at the exit's near edge."},
     {"section": "Hand-off", "key": "pause_after_no_feed_min", "label": "Pause when nothing comes from C1 for (min)", "type": "float", "default": _DEFAULTS.pause_after_no_feed_min, "description": "Sorting pauses once no piece has come off C1 onto C2 for this long: the hopper is empty or C1 is stuck. 0 = never."},
+    {"section": BUCKET_SECTION, "key": "bucket_unjam_after_s", "label": "Free the bucket when C1 gives nothing for (s)", "type": "float", "default": _DEFAULTS.bucket_unjam_after_s, "description": "Once C1 has been asked to feed for this long and no piece has come off it, the machine shakes and turns C1 to get the pieces in the bucket moving. Only time C1 is asked to feed counts, not time it waits for room on C2. 0 = never."},
+    {"section": BUCKET_SECTION, "key": "bucket_shake_count", "label": "Shakes", "type": "int", "default": _DEFAULTS.bucket_shake_count, "description": "C1 is shaken up to this many times. A piece coming off C1 ends it at once."},
+    {"section": BUCKET_SECTION, "key": "bucket_shake_pause_s", "label": "Pause between shakes (s)", "type": "float", "default": _DEFAULTS.bucket_shake_pause_s, "description": "How long C1 rests after each shake before the next."},
+    {"section": BUCKET_SECTION, "key": "bucket_shake_stroke_motor_deg", "label": "Shake stroke (motor deg)", "type": "float", "default": _DEFAULTS.bucket_shake_stroke_motor_deg, "description": "How far each stroke of a shake turns C1's motor, in degrees of the motor, as on the jitter page."},
+    {"section": BUCKET_SECTION, "key": "bucket_shake_cycles", "label": "Shake cycles", "type": "int", "default": _DEFAULTS.bucket_shake_cycles, "description": "Back-and-forths in one shake."},
+    {"section": BUCKET_SECTION, "key": "bucket_shake_speed_usteps_per_s", "label": "Shake speed (µsteps/s)", "type": "int", "default": _DEFAULTS.bucket_shake_speed_usteps_per_s, "description": "C1's motor speed during a shake, in microsteps per second, as on the jitter page."},
+    {"section": BUCKET_SECTION, "key": "bucket_shake_accel_usteps_per_s2", "label": "Shake acceleration (µsteps/s²)", "type": "int", "default": _DEFAULTS.bucket_shake_accel_usteps_per_s2, "description": "C1's motor acceleration during a shake: how sharp each stroke is."},
+    {"section": BUCKET_SECTION, "key": "bucket_sweep_output_deg", "label": "Turn after the shakes (output deg)", "type": "float", "default": _DEFAULTS.bucket_sweep_output_deg, "description": "After the shakes C1 turns this far in one continuous move. A piece coming off C1 stops it. 0 = no turn."},
+    {"section": BUCKET_SECTION, "key": "bucket_sweep_output_deg_per_s", "label": "Speed of that turn (output deg/s)", "type": "float", "default": _DEFAULTS.bucket_sweep_output_deg_per_s, "description": "How fast C1 turns on it, in degrees of the channel per second."},
+    {"section": BUCKET_SECTION, "key": "bucket_pulse_s", "label": "Pulse after the turn for (s)", "type": "float", "default": _DEFAULTS.bucket_pulse_s, "description": "After the turn C1 pulses the normal way for this long while the machine watches for a piece."},
+    {"section": BUCKET_SECTION, "key": "bucket_wait_s", "label": "Taken as empty after (s)", "type": "float", "default": _DEFAULTS.bucket_wait_s, "description": "When no piece has come this long after the last shake, the bucket is taken as empty: C1 keeps pulsing, and nothing more is tried until pieces come again or you press Done on the card."},
     {"section": "Hand-off", "key": "exit_latch_ms", "label": "No free advance after a piece at the exit (ms)", "type": "int", "default": _DEFAULTS.exit_latch_ms, "description": "After a piece was last seen in a channel's exit, the channel makes no free advance for this long, so a piece the camera misses for a frame is not pushed off by a long advance. 0 = off."},
     {"section": "Hand-off", "key": "dispense_vanish_confirm_ms", "label": "Fallen after gone for (ms)", "type": "int", "default": _DEFAULTS.dispense_vanish_confirm_ms, "description": "The piece being pushed off the exit counts as fallen once the camera has not seen it for this long. Longer ignores detector blinks; shorter reacts sooner."},
     {"section": "Hand-off", "key": "dispense_hold_ms", "label": "Hold after a piece falls (ms)", "type": "int", "default": _DEFAULTS.dispense_hold_ms, "description": "After the piece being pushed off falls, the exit pushes nothing for this long, so the next channel sees it before another piece can follow."},
@@ -220,6 +262,10 @@ CHANNEL_MAX_MOVE_KEYS: dict[int, str] = {
     2: "ch2_max_move_output_deg",
     3: "ch3_max_move_output_deg",
 }
+
+# The bucket shake's motor speed and acceleration: like the move speeds, tuned
+# on the geared feeder and scaled for another drive.
+BUCKET_SHAKE_RATE_KEYS = ("bucket_shake_speed_usteps_per_s", "bucket_shake_accel_usteps_per_s2")
 
 
 def channelMoveSpeed(cfg: PulsePerceptionConfig, channel: int) -> int:
@@ -259,21 +305,30 @@ def migrateLegacyKeys(section: dict) -> dict:
 
 
 def defaultConfig(drive: "FeederDrive | None" = None) -> PulsePerceptionConfig:
-    """The built-in tuning for the machine's feeder drive: the move speeds,
-    tuned on the geared feeder, scaled to turn the channels as fast on another."""
+    """The built-in tuning for the machine's feeder drive: the move speeds and
+    the bucket shake's speed and acceleration, tuned on the geared feeder,
+    scaled to turn the channels as fast on another."""
     from hardware_settings.feeder import feederDrive
 
     drive = drive or feederDrive()
     cfg = PulsePerceptionConfig()
-    for key in CHANNEL_MOVE_SPEED_KEYS.values():
+    for key in (*CHANNEL_MOVE_SPEED_KEYS.values(), *BUCKET_SHAKE_RATE_KEYS):
         setattr(cfg, key, drive.motorRate(getattr(cfg, key)))
     return cfg
 
 
 def fieldMeta(drive: "FeederDrive | None" = None) -> list[dict]:
-    """FIELD_META with each default the machine's feeder drive takes."""
+    """FIELD_META with each default the machine's feeder drive takes, without
+    the settings of what the machine's generation does not do."""
+    from hardware_settings.generation import machineGeneration
+
     defaults = configToDict(defaultConfig(drive))
-    return [{**meta, "default": defaults[meta["key"]]} for meta in FIELD_META]
+    bucket = machineGeneration().bucket_unjam
+    return [
+        {**meta, "default": defaults[meta["key"]]}
+        for meta in FIELD_META
+        if bucket or meta["section"] != BUCKET_SECTION
+    ]
 
 
 def configFromDict(d: dict) -> PulsePerceptionConfig:

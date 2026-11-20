@@ -18,6 +18,7 @@ from .config import (
 )
 from . import landing_hold
 from .blind_arc import BlindArc, forward
+from .bucket_unjam import BucketUnjam
 from .dispense_gate import DispenseGate
 from .exit_step import ExitStep, exitStep
 from .fall_count import FallCount
@@ -104,7 +105,20 @@ class PulsePerceptionFeeding(BaseState):
         # the lead (exit_next_keep_back_deg).
         self._exit_next_close: dict[int, bool] = {}
         self._shake_owed: dict[int, float] = {}
-        self._push_only = machineGeneration().feeder_push_only
+        generation = machineGeneration()
+        self._push_only = generation.feeder_push_only
+        # C1 shaken and turned when the bucket gives no pieces (bucket_unjam.py).
+        self._unjam = (
+            BucketUnjam(
+                gc,
+                shared,
+                motor=lambda cfg: self._recoveryMotor(1, cfg),
+                hold=self._holdC1,
+                record=self._recordControl,
+            )
+            if generation.bucket_unjam
+            else None
+        )
         self._fall3 = FallCount()
         self._fall2 = FallCount()
         self._c2_in_drop = False
@@ -411,11 +425,11 @@ class PulsePerceptionFeeding(BaseState):
             # C1 has no exit zone of its own; it just advances unless C2's drop
             # zone is occupied.
             stepper = self.irl.c_channel_1_rotor_stepper
-            if (
-                c1Action(c2) == Action.ADVANCE
-                and self._hasRoom(2, c2, cfg.ch2_max_pieces)
-                and not self._busy(stepper)
-            ):
+            wants = c1Action(c2) == Action.ADVANCE and self._hasRoom(2, c2, cfg.ch2_max_pieces)
+            if self._unjam is not None and self._unjam.step(now_mono, wants, cfg):
+                # The bucket is being shaken or turned: no pulse of C1's own.
+                return
+            if wants and not self._busy(stepper):
                 self._move(
                     "ch1",
                     1,
@@ -478,6 +492,11 @@ class PulsePerceptionFeeding(BaseState):
             speed=channelMoveSpeed(cfg, channel),
             gear_ratio=self._gear_ratio,
         )
+
+    def _holdC1(self, until: float) -> None:
+        """No pulse of C1's own before ``until`` (monotonic): its motor is on a
+        shake or a turn that the bucket's freeing sent."""
+        self._busy_until[self._rotor(1)._name] = until
 
     def _hasRoom(self, channel: int, state, most: int) -> bool:
         """Fewer than ``most`` pieces on the channel, counting the ones it is
@@ -889,6 +908,8 @@ class PulsePerceptionFeeding(BaseState):
         for blind in self._blind.values():
             blind.clear()
         self._held.reset()
+        if self._unjam is not None:
+            self._unjam.pause(time.monotonic())
         super().cleanup()
 
 

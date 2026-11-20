@@ -68,11 +68,15 @@ class Generation:
     # little and tries again before anyone is called (subsystems/distribution/
     # positioning.py, DOOR_RETRIES).
     door_retry: bool = False
-    # C1 to C3 never shake: their exits only push (never back off or shake the
-    # piece at the exit to part it from the one behind, whatever the exit's
-    # keep-back setting says), and freeing a piece held where pieces land turns
-    # them without shaking (recovery LANDING_HELD_STILL).
+    # C1 to C3 never shake a piece: their exits only push (never back off or
+    # shake the piece at the exit to part it from the one behind, whatever the
+    # exit's keep-back setting says), and freeing a piece held where pieces land
+    # turns them without shaking (recovery LANDING_HELD_STILL).
     feeder_push_only: bool = False
+    # When C1 is asked to feed and gives nothing, the feeder shakes C1 and turns
+    # it half round to get the pieces in the bucket moving again before it takes
+    # the bucket as empty (subsystems/feeder/pulse_perception/bucket_unjam.py).
+    bucket_unjam: bool = False
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -116,6 +120,7 @@ GENERATIONS: dict[str, Generation] = {
         classification_exit_margin=True,
         door_retry=True,
         feeder_push_only=True,
+        bucket_unjam=True,
         driver_watch=True,
         # Quarter bins take up to a 3x3 plate, thirds a 4x4, halves a 6x6; a
         # full bin takes anything.

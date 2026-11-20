@@ -122,11 +122,13 @@ def listIncidents(
 
 class IncidentActionBody(BaseModel):
     action: str
+    # The card's kind: how a warning's button says which card it is on.
+    kind: Optional[str] = None
 
 
 @router.post("/api/incidents/action")
 def incident_action(body: IncidentActionBody) -> dict:
-    """Run one of the open incident's card buttons (see incidents.actions)."""
+    """Run one of an open card's buttons (see incidents.actions)."""
     import incidents
     from server import shared_state
 
@@ -134,7 +136,7 @@ def incident_action(body: IncidentActionBody) -> dict:
     if gc is None or getattr(gc, "runtime_stats", None) is None:
         raise HTTPException(status_code=503, detail="The machine is not running.")
     try:
-        return incidents.act(gc, body.action)
+        return incidents.act(gc, body.action, body.kind)
     except HTTPException:
         raise
     except Exception as exc:

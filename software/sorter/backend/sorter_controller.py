@@ -52,6 +52,8 @@ class SorterController:
             import incidents
 
             incidents.clear(self.gc, "nothing_fed")
+            # Resuming is the operator's word that the bucket was seen to.
+            incidents.clear(self.gc, "potentially_bucket_empty", resolved_by="operator")
         except Exception:
             pass
         self.irl.enableSteppers()

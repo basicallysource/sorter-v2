@@ -16,6 +16,12 @@ def _done(gc: Any, incident: dict[str, Any]) -> None:
     gc.runtime_stats.clearActiveIncident(kind=incident.get("kind"), resolved_by="operator")
 
 
+def _closeWarning(gc: Any, incident: dict[str, Any]) -> None:
+    gc.runtime_stats.clearWarning(
+        str(incident.get("kind")), subject=incident.get("subject"), resolved_by="operator"
+    )
+
+
 def _stopRecovery(gc: Any, incident: dict[str, Any]) -> None:
     import recovery
 
@@ -65,6 +71,7 @@ def _passThrough(gc: Any, incident: dict[str, Any]) -> None:
 
 ACTIONS: dict[str, Action] = {
     "done": Action("Done", _done),
+    "close_warning": Action("Done", _closeWarning),
     "stop_recovery": Action("Stop", _stopRecovery),
     "clear_c4": Action("Turn to clear", _clearC4),
     "clear_stall": Action("Done", _clearStall),

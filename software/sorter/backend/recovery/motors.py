@@ -42,15 +42,25 @@ class ChannelMotor:
             return None
         return self.stepper.estimateMoveStepsMs(abs(steps), max_speed=self.speed) / 1000.0
 
-    def shake(self, profile: ShakeProfile) -> float | None:
+    def shake(self, profile: ShakeProfile, for_gearing: bool = True) -> float | None:
         """Shake the channel with ``profile``. Returns about how long it takes,
-        or None when the motor refused (it is still shaking, say)."""
-        profile = forGearing(profile, self.gear_ratio)
+        or None when the motor refused (it is still shaking, say). With
+        ``for_gearing`` off the profile is this motor's own (its stroke in this
+        motor's degrees, its speeds this motor's) and is sent as it is."""
+        if for_gearing:
+            profile = forGearing(profile, self.gear_ratio)
         if not self.stepper.jitter_degrees(
             profile.amplitude_deg, profile.cycles, profile.speed, profile.acceleration
         ):
             return None
         return shakeSeconds(profile, self.stepper.microsteps_for_degrees(profile.amplitude_deg))
+
+    def halt(self) -> None:
+        """Brake a turn under way. (A shake cannot be cut short.)"""
+        try:
+            self.stepper.move_at_speed(0)
+        except Exception:
+            pass
 
     def idle(self) -> bool:
         try:

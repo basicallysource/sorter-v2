@@ -813,8 +813,14 @@ class PulsePerceptionFeeding(BaseState):
         if cfg.exit_move_max_deg <= small:
             return small
         pieces = getattr(state, "pieces", ())
+        longest = cfg.exit_move_max_deg
+        past = float(getattr(cfg, "exit_move_past_deg", 0.0) or 0.0)
+        if past > 0 and pieces and pieces[0].com_forward_to_exit_deg is not None:
+            # No further than drops the lead: its way to the fall point and a
+            # little past it, so a long move does not carry the next piece on.
+            longest = max(small, min(longest, float(pieces[0].com_forward_to_exit_deg) + past))
         if len(pieces) < 2:
-            return cfg.exit_move_max_deg
+            return longest
         perception_service = getattr(self.gc, "perception_service", None)
         channel_def = perception_service.channels().get(channel) if perception_service else None
         if channel_def is None:
@@ -822,7 +828,7 @@ class PulsePerceptionFeeding(BaseState):
         from perception.arcs import forwardGapToExitDeg
 
         room = min(forwardGapToExitDeg(p.bbox, channel_def) for p in pieces[1:])
-        return max(small, min(cfg.exit_move_max_deg, room - cfg.exit_move_margin_deg))
+        return max(small, min(longest, room - cfg.exit_move_margin_deg))
 
     def cleanup(self) -> None:
         for blind in self._blind.values():
@@ -844,6 +850,9 @@ def _exitCap(step: ExitStep, state, cfg: PulsePerceptionConfig) -> str | None:
         opening = float(cfg.exit_in_opening_max_deg)
         if gap is not None and float(gap) <= 0 and opening > 0 and abs(step.deg - opening) < 1e-6:
             return "in_opening"
+        past = float(getattr(cfg, "exit_move_past_deg", 0.0) or 0.0)
+        if gap is not None and past > 0 and abs(step.deg - (float(gap) + past)) < 1e-6:
+            return "lead_reach"
         return "next_piece"
     except Exception:
         return None

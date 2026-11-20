@@ -201,7 +201,9 @@
 							full
 							onchange={(next) => void chooseMode(next)}
 						/>
-						<p class="mt-1 text-right text-sm text-ink-muted">pieces already counted in this lot</p>
+						{#if resorting}
+							<p class="mt-1 text-right text-sm text-ink-muted">pieces already counted in this lot</p>
+						{/if}
 					</div>
 				</div>
 			{:else}

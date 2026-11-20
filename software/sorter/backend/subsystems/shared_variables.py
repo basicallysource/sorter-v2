@@ -52,6 +52,8 @@ class SharedVariables:
         self.c3_fell_at: Optional[float] = None
         # The last fall off C3: when it began (monotonic) and how many pieces it took.
         self.c3_fall: Optional[tuple[float, int]] = None
+        # When a piece last came off C1 onto C2 (monotonic).
+        self.c1_fed_at: Optional[float] = None
 
     @property
     def classification_ready(self) -> bool:

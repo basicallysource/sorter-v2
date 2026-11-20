@@ -100,6 +100,7 @@ class PulsePerceptionFeeding(BaseState):
         self._push_only = machineGeneration().feeder_push_only
         self._fall3 = FallCount()
         self._fall2 = FallCount()
+        self._c2_in_drop = False
         # Back-offs and shakes at each channel's exit in a row (none more than
         # EXIT_TRIES_CALM_S apart), and when the last was. Counted for the exit,
         # not one piece: a piece the camera draws as several boxes changes its
@@ -334,6 +335,11 @@ class PulsePerceptionFeeding(BaseState):
             self._apply_action(
                 "ch2", 2, action, self.irl.c_channel_2_rotor_stepper, c2, cfg, hidden_cap
             )
+
+        # A piece came off C1: C2's landing zone filled.
+        if c2.in_drop and not self._c2_in_drop:
+            self.shared.c1_fed_at = now_mono
+        self._c2_in_drop = bool(c2.in_drop)
 
         if cfg.enable_ch1:
             # C1 has no exit zone of its own; it just advances unless C2's drop

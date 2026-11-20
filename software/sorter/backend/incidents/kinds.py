@@ -156,6 +156,13 @@ KINDS: dict[str, IncidentKind] = {
             procedure="c4_shake_off",
         ),
         IncidentKind(
+            "nothing_fed",
+            title="Nothing is coming from C1",
+            todo="No piece has come off C1 in {minutes} minutes, so sorting paused. Fill the hopper or free C1, then press Resume.",
+            actions=(),
+            holds=False,
+        ),
+        IncidentKind(
             "piece_held",
             title="A piece is stuck where pieces land",
             todo="A piece where pieces land on {subject} does not move with the channel; it most likely hangs off the channel above. Take it off, then press Done.",

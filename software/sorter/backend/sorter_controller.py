@@ -4,6 +4,7 @@ from global_config import GlobalConfig
 from coordinator import Coordinator
 from vision import VisionManager
 import queue
+import time
 
 
 def _broadcastSorterState(state_value: str) -> None:
@@ -46,6 +47,13 @@ class SorterController:
         _broadcastSorterState(self.state.value)
 
     def resume(self) -> None:
+        self._running_since = time.monotonic()
+        try:
+            import incidents
+
+            incidents.clear(self.gc, "nothing_fed")
+        except Exception:
+            pass
         self.irl.enableSteppers()
         self.state = SorterLifecycle.RUNNING
         self.gc.runtime_stats.setLifecycleState(self.state.value)
@@ -75,3 +83,35 @@ class SorterController:
     def step(self) -> None:
         if self.state == SorterLifecycle.RUNNING:
             self.coordinator.step()
+            self._watchFeed()
+
+    def _watchFeed(self) -> None:
+        """Pause once no piece has come off C1 for the feeder's
+        pause_after_no_feed_min: the hopper is empty or C1 is stuck."""
+        now = time.monotonic()
+        if now - getattr(self, "_feed_checked", 0.0) < 5.0:
+            return
+        self._feed_checked = now
+        try:
+            from subsystems.feeder.pulse_perception.config import configFromDict
+            from toml_config import getPulsePerceptionConfig
+
+            limit_min = float(configFromDict(getPulsePerceptionConfig()).pause_after_no_feed_min)
+        except Exception:
+            return
+        if limit_min <= 0:
+            return
+        shared = getattr(self.coordinator, "shared", None)
+        fed = getattr(shared, "c1_fed_at", None) if shared is not None else None
+        last = max(fed or 0.0, getattr(self, "_running_since", now))
+        if now - last < limit_min * 60.0:
+            return
+        minutes = f"{limit_min:g}"
+        self.gc.logger.warning(f"Nothing has come off C1 in {minutes} minutes: pausing")
+        try:
+            import incidents
+
+            incidents.report(self.gc, "nothing_fed", subject="C1", minutes=minutes)
+        except Exception:
+            pass
+        self.pause()

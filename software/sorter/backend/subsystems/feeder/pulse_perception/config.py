@@ -90,6 +90,9 @@ class PulsePerceptionConfig:
     # for a frame must not be pushed off by a long advance meant for an empty
     # exit. 0 = off.
     exit_latch_ms: int = 0
+    # Sorting pauses once no piece has come off C1 onto C2 for this many
+    # minutes: the hopper is empty or C1 is stuck. 0 = never.
+    pause_after_no_feed_min: float = 10.0
     ch2_max_pieces: int = 0
     ch3_max_pieces: int = 0
     # Hand-off: once the piece a channel is pushing off has fallen (its track id
@@ -164,6 +167,7 @@ FIELD_META: list[dict] = [
     {"section": "Hand-off", "key": "ch2_max_pieces", "label": "Most pieces on C2", "type": "int", "default": _DEFAULTS.ch2_max_pieces, "description": "C1 adds nothing to C2 while C2 holds this many, so a heavy pour from the hopper does not flood C2 and pack C3 behind it. 0 = no limit."},
     {"section": "Hand-off", "key": "ch3_busy_standoff_deg", "label": "C3 stand-off while C4 is busy (output deg)", "type": "float", "default": _DEFAULTS.ch3_busy_standoff_deg, "description": "While the classification channel is turning or has a piece in its drop zone, C3 advances its lead piece only to this far short of the exit, so nothing waits at the lip to fall onto C4 mid-turn. 0 = advance right up to the exit edge."},
     {"section": "Hand-off", "key": "ch3_stage_short_deg", "label": "C3 waits this close to the drop (output deg)", "type": "float", "default": _DEFAULTS.ch3_stage_short_deg, "description": "While the classification channel is busy, C3 carries its lead piece on into the exit until the piece's center is this far short of where pieces fall, never letting the piece behind it reach the exit. When the classification channel asks, one short push drops it. 0 = off: the lead waits at the exit's near edge."},
+    {"section": "Hand-off", "key": "pause_after_no_feed_min", "label": "Pause when nothing comes from C1 for (min)", "type": "float", "default": _DEFAULTS.pause_after_no_feed_min, "description": "Sorting pauses once no piece has come off C1 onto C2 for this long: the hopper is empty or C1 is stuck. 0 = never."},
     {"section": "Hand-off", "key": "exit_latch_ms", "label": "No free advance after a piece at the exit (ms)", "type": "int", "default": _DEFAULTS.exit_latch_ms, "description": "After a piece was last seen in a channel's exit, the channel makes no free advance for this long, so a piece the camera misses for a frame is not pushed off by a long advance. 0 = off."},
     {"section": "Hand-off", "key": "dispense_vanish_confirm_ms", "label": "Fallen after gone for (ms)", "type": "int", "default": _DEFAULTS.dispense_vanish_confirm_ms, "description": "The piece being pushed off the exit counts as fallen once the camera has not seen it for this long. Longer ignores detector blinks; shorter reacts sooner."},
     {"section": "Hand-off", "key": "dispense_hold_ms", "label": "Hold after a piece falls (ms)", "type": "int", "default": _DEFAULTS.dispense_hold_ms, "description": "After the piece being pushed off falls, the exit pushes nothing for this long, so the next channel sees it before another piece can follow."},

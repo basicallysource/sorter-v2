@@ -126,6 +126,11 @@ class Rev01Config:
     # drop. 0 = never: it may be an assembly or one oddly shaped piece, so it
     # sorts as one piece and its frame is kept to be labelled.
     merged_double_drop_frames: int = 0
+    # The pocket flow takes a piece whenever its receive pocket is empty, so
+    # every pocket can hold one and one turn both takes a piece in and drops
+    # the one at the exit. Off: pieces ride an empty pocket apart, two turns
+    # a piece.
+    one_turn_a_piece: bool = False
 
 
 _DEFAULTS = Rev01Config()
@@ -167,6 +172,7 @@ FIELD_META: list[dict] = [
     {"key": "fin_count", "label": "Fins on the rotor", "type": "int", "default": _DEFAULTS.fin_count, "description": "How many fins the classification channel's rotor has."},
     {"key": "fin_at_exit", "label": "Rest with a fin over the exit", "type": "bool", "default": _DEFAULTS.fin_at_exit, "description": "For a rotor whose fin must cover the gap to the exit while the channel waits: homing puts a fin's exit-side edge on the exit zone's far edge, and after each turn the channel turns on, the way it travels, to the nearest place a fin is there again."},
     {"key": "fin_width_deg", "label": "Fin width (output deg)", "type": "float", "default": _DEFAULTS.fin_width_deg, "description": "How wide a fin is at the ring, in degrees, so its edge, not its middle, is what rests on the exit zone's far edge."},
+    {"key": "one_turn_a_piece", "label": "One turn a piece", "type": "bool", "default": _DEFAULTS.one_turn_a_piece, "description": "With fins: take a piece whenever the receive pocket is empty, so every pocket can hold one and one turn both takes a piece in and drops the one at the exit. Off: pieces ride an empty pocket apart, and each takes two turns."},
     {"key": "merged_double_drop_frames", "label": "Merged frames for a double drop", "type": "int", "default": _DEFAULTS.merged_double_drop_frames, "description": "A piece in the receive pocket that the camera draws as more than one box lying together in this many frames goes to the discard as a double drop. 0 = never: it may be an assembly or one oddly shaped piece, so it sorts as one piece and its frame is kept as a sample to be labelled."},
     {"key": "jitter_accel_usteps_per_s2", "label": "Jitter accel (\u00b5steps/s\u00b2)", "type": "int", "default": _DEFAULTS.jitter_accel_usteps_per_s2, "description": "Motor acceleration during jitter oscillations — high, so the shake is sharp enough to unstick a piece."},
 ]

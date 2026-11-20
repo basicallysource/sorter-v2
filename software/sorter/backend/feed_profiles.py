@@ -41,10 +41,16 @@ PRESETS: dict[str, dict[str, Any]] = {
             "exit_pulse_output_deg": 1.0,
             "exit_in_opening_max_deg": 2.0,
             "exit_move_margin_deg": 6.0,
+            # C3 waits with its lead just short of the drop while C4 is busy,
+            # so one short push drops it when C4 asks (4 let plates over).
+            "ch3_stage_short_deg": 8.0,
         },
-        # One 1x1 plate never looks like several boxes: a merged box is two.
         "classification_channel": {
+            # One 1x1 plate never looks like several boxes: a merged box is two.
             "merged_double_drop_frames": 1,
+            # Three photos are plenty for a plate's color, and quicker than six.
+            "max_captures": 3,
+            "classify_burst_count": 3,
         },
     },
 }

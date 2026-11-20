@@ -130,6 +130,9 @@ _SAME_PIECE_DEG = 8.0
 _UNSEEN_DROP_S = 0.7
 # With no new piece for this long, the pieces already on the channel move on.
 _FLUSH_AFTER_S = 6.0
+# One turn a piece: with pieces on the channel and none in the RECEIVE pocket,
+# the feeder gets this long to land one before the turn goes without it.
+_FILL_WAIT_S = 2.5
 # The fins within this of the rest pose are at rest; further off, the rotor is
 # turned to it (steps were lost, or it was moved by hand).
 _ALIGN_TOL_DEG = 2.0
@@ -484,11 +487,17 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._ready_since = now
         self._recordCycle(perception_service, state, ready)
 
+    def _oneTurnAPiece(self) -> bool:
+        return bool(getattr(self.ctx.config, "one_turn_a_piece", False))
+
     def _admits(self, state) -> bool:
         """Whether the feeder may add a piece now: the RECEIVE pocket is empty,
-        so is the pocket ahead of it (pieces ride an empty pocket apart), and no
-        piece is in the EXIT pocket waiting for the turn that sweeps it."""
-        if self._halted or self._pockets[0] or self._pockets[1] or self._pockets[-1]:
+        and (unless one_turn_a_piece) so is the pocket ahead of it (pieces ride
+        an empty pocket apart), and no piece is in the EXIT pocket waiting for
+        the turn that sweeps it."""
+        if self._halted or self._pockets[0]:
+            return False
+        if not self._oneTurnAPiece() and (self._pockets[1] or self._pockets[-1]):
             return False
         return not any(
             self._station(po.com_forward_to_exit_deg) == 0 for po in getattr(state, "pieces", ())
@@ -868,6 +877,13 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                         "labelled.",
                     )
                     self._recordDoubt(tp, "merged")
+        elif self._oneTurnAPiece() and any(self._pockets[1:]):
+            # Every pocket may hold a piece: the feeder gets a moment to land
+            # the next one, so this turn takes it in as it drops the one ahead.
+            if (now - self._rest_since) < _FILL_WAIT_S:
+                return
+            if any(key[0] == 0 for key in self._new_seen) and (now - self._landed_at) < _PENDING_WAIT_S:
+                return  # A box landing in the RECEIVE pocket: wait to see it is a piece
         elif not self._pockets[1] and not exit_ and (now - self._rest_since) < _FLUSH_AFTER_S:
             return  # The feeder may add a piece: it gets its chance first
         if not chute_on:

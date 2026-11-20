@@ -31,9 +31,9 @@ PRESETS: dict[str, dict[str, Any]] = {
     "1x1_plates": {
         "label": "1x1 plates",
         "description": (
-            "Tiny pieces that ride C3 in pairs about one plate apart and fall together: fewer "
-            "pieces on C2 and C3 so they spread out, and finer exit pulses so the lead drops "
-            "without dragging the one behind it."
+            "Tiny pieces that ride C3 in pairs and tip off at the lip: fewer pieces on C2 and C3, "
+            "finer exit pulses, C3 held back from the lip while C4 is busy, a merged box taken as "
+            "two plates, and 3 photos a piece. About 11 a minute with 8 to 10% double drops on clean."
         ),
         "feeder": {
             "ch3_max_pieces": 3,
@@ -41,9 +41,11 @@ PRESETS: dict[str, dict[str, Any]] = {
             "exit_pulse_output_deg": 1.0,
             "exit_in_opening_max_deg": 2.0,
             "exit_move_margin_deg": 6.0,
-            # C3 waits with its lead just short of the drop while C4 is busy,
-            # so one short push drops it when C4 asks (4 let plates over).
-            "ch3_stage_short_deg": 8.0,
+            # While C4 is busy, C3's advances stop 4 degrees short of the exit:
+            # a 1x1 plate with its front edge at the lip tips over unasked.
+            # (Staging the lead near the drop instead turned double feeds into
+            # strays: no better, 11/20 A/B.)
+            "ch3_busy_standoff_deg": 4.0,
         },
         "classification_channel": {
             # One 1x1 plate never looks like several boxes: a merged box is two.

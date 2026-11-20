@@ -55,6 +55,11 @@ class PulsePerceptionConfig:
     # plus this much past it: a long move then drops the lead and stops, and
     # does not carry the next piece on with it. 0 = off: a full move.
     exit_move_past_deg: float = 0.0
+    # An exit move keeps the center of the piece behind the lead this far
+    # short of where pieces fall, and with that piece close each push waits for
+    # a picture taken after the last. 0 = off: its box may come within
+    # exit_move_margin_deg of the exit.
+    exit_next_keep_back_deg: float = 0.0
     # Once the lead piece's center is in the exit opening, no exit move goes
     # further than this: it is about to fall, and a full move can drag a piece
     # pressed against it over too. 0 = off.
@@ -162,6 +167,7 @@ FIELD_META: list[dict] = [
     {"section": "Exit pulse", "key": "exit_move_max_deg", "label": "Longest exit move (output deg)", "type": "float", "default": _DEFAULTS.exit_move_max_deg, "description": "When nothing is close behind the piece at the exit, one move pushes it this far so it drops in one go. The move always stops short of letting the next piece reach the exit. Set it equal to the exit pulse distance to always pulse."},
     {"section": "Exit pulse", "key": "exit_move_margin_deg", "label": "Room kept for the next piece (output deg)", "type": "float", "default": _DEFAULTS.exit_move_margin_deg, "description": "A longer exit move stops this far before the next piece's front edge would reach the exit."},
     {"section": "Exit pulse", "key": "exit_move_past_deg", "label": "Exit move stops this far past the fall point (output deg)", "type": "float", "default": _DEFAULTS.exit_move_past_deg, "description": "An exit move goes no further than the lead piece's way to where pieces fall plus this much, so a long move drops the lead and does not carry the next piece on. 0 = off: a full move."},
+    {"section": "Exit pulse", "key": "exit_next_keep_back_deg", "label": "Next piece kept this far from the fall point (output deg)", "type": "float", "default": _DEFAULTS.exit_next_keep_back_deg, "description": "An exit move never brings the center of the piece behind the lead closer than this to where pieces fall, so the push that drops the lead does not tip the next one over. With the next piece that close, each push waits for a fresh picture. 0 = off: the next piece may come within the room kept above."},
     {"section": "Exit pulse", "key": "exit_in_opening_max_deg", "label": "Longest move with the lead in the opening (output deg)", "type": "float", "default": _DEFAULTS.exit_in_opening_max_deg, "description": "Once the lead piece's center is past the exit edge it is about to fall: no exit move goes further than this, so a piece pressed against it is not dragged over too. 0 = off."},
     {"section": "Exit pulse", "key": "ch2_exit_next_clear_deg", "label": "C2: keep the next piece back (deg)", "type": "float", "default": _DEFAULTS.ch2_exit_next_clear_deg, "description": "While the piece at C2's exit is in the opening, C2 never turns so far that the next piece's center comes within this many degrees of the opening: it shakes the piece at the exit loose instead (back a little, then forward as far), so the two do not fall together. 0 = off: the next piece is pushed in after it."},
     {"section": "Exit pulse", "key": "ch3_exit_next_clear_deg", "label": "C3: keep the next piece back (deg)", "type": "float", "default": _DEFAULTS.ch3_exit_next_clear_deg, "description": "The same for C3's exit onto the classification channel. 0 = off."},

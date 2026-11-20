@@ -100,6 +100,9 @@ class PulsePerceptionFeeding(BaseState):
         # last move ends (wall clock, like a frame's time), the forward stroke a
         # shake still owes, and the back-offs and shakes made for the lead.
         self._moved_until: dict[int, float] = {}
+        # Per channel: the last exit move was cut short for the piece behind
+        # the lead (exit_next_keep_back_deg).
+        self._exit_next_close: dict[int, bool] = {}
         self._shake_owed: dict[int, float] = {}
         self._push_only = machineGeneration().feeder_push_only
         self._fall3 = FallCount()
@@ -753,6 +756,10 @@ class PulsePerceptionFeeding(BaseState):
         cap = float(cfg.exit_in_opening_max_deg)
         if cap > 0 and pieces and pieces[0].com_forward_to_exit_deg is not None and float(pieces[0].com_forward_to_exit_deg) <= 0:
             push = min(push, cap)
+        if self._exit_next_close.get(channel) and float(getattr(state, "ts", 0.0) or 0.0) < self._moved_until.get(channel, 0.0):
+            # The next piece is close behind: each push waits for a picture
+            # taken after the last one, so none is sent once the lead has gone.
+            return None
         clear = float(getattr(cfg, f"ch{channel}_exit_next_clear_deg", 0.0) or 0.0)
         if clear <= 0 or self._push_only:
             return ExitStep("push", push)
@@ -848,8 +855,27 @@ class PulsePerceptionFeeding(BaseState):
             # No further than drops the lead: its way to the fall point and a
             # little past it, so a long move does not carry the next piece on.
             longest = max(small, min(longest, float(pieces[0].com_forward_to_exit_deg) + past))
+        self._exit_next_close[channel] = False
         if len(pieces) < 2:
             return longest
+        keep = float(getattr(cfg, "exit_next_keep_back_deg", 0.0) or 0.0)
+        if keep > 0:
+            # By centers: the piece behind the lead stays this far short of
+            # where pieces fall, so the push that drops the lead cannot tip it
+            # over too. (The rule below lets its box come within the margin of
+            # the exit, where a piece is already falling.)
+            lead = pieces[0]
+            behind = [
+                float(p.com_forward_to_exit_deg)
+                for p in pieces[1:]
+                if p.com_forward_to_exit_deg is not None and not _boxesOverlap(p.bbox, lead.bbox)
+            ]
+            if not behind:
+                return longest
+            room = min(behind) - keep
+            if room < longest:
+                self._exit_next_close[channel] = True
+            return max(small, min(longest, room))
         perception_service = getattr(self.gc, "perception_service", None)
         channel_def = perception_service.channels().get(channel) if perception_service else None
         if channel_def is None:

@@ -169,9 +169,6 @@ _VERIFY_EVERY = 4
 _VERIFY_READS_MAX = 4
 # A longer gap between steps means the machine was paused or held.
 _RESUME_GAP_S = 1.0
-# The rotor is taken as at rest this long after a whole turn usually ends, when
-# the feeder is told ahead when the channel will have room (c4_ready_at).
-_READY_AT_MARGIN_S = 0.15
 
 
 class _P(Enum):
@@ -243,10 +240,13 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._check_empty = 0
         self._turns_since_verify = 0
         self._needs_verify = True
-        # A whole turn that drops nothing: when the one under way began, how
-        # long they take, and when the one under way leaves room for a piece.
-        self._whole_turn_from: Optional[float] = None
-        self._whole_turn_s: Optional[float] = None
+        # A turn that leaves room for a piece: when its last move began and
+        # whether a fin check follows it, how long such turns take from there
+        # to rest (by fin check or not), and when the one under way will be at
+        # rest (told to the feeder, c4_ready_at).
+        self._tail_from: Optional[float] = None
+        self._tail_verify = False
+        self._tail_s: dict[bool, float] = {}
         self._ready_at: Optional[float] = None
         self._serial = 0
         self._move_cmd_at = 0.0
@@ -498,7 +498,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
 
         ready = self._pp == _P.REST and not moving and self._admits(state)
         self.setClassificationReady(ready, "at rest, room for a piece")
-        early = self._ready_at if self._pp == _P.TURN and not self._halted else None
+        early = self._ready_at if not self._halted else None
         self.shared.c4_ready_at = early if early is not None and now < early + 1.0 else None
         if not ready:
             self._ready_since = None
@@ -506,25 +506,27 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._ready_since = now
         self._recordCycle(perception_service, state, ready)
 
-    def _readyAfterTurn(self, state, microsteps: int, now: float) -> Optional[float]:
-        """When this move ends, if it is a whole turn that drops nothing and
-        leaves the channel at rest with room for a piece (only the pocket after
-        RECEIVE holds one, and no fin check follows): the feeder may then time
-        its next piece to land as the rotor stops. None for any other move, and
-        until one such turn has been timed."""
-        self._whole_turn_from = None
-        if microsteps != self._pitch_us or self._planning or self._sweep_steps or self._turned_deg:
+    def _readyAfterTurn(self, state, now: float) -> Optional[float]:
+        """As the last move of a turn starts: when the channel will be at rest
+        with room for a piece, if this turn leaves it so (the RECEIVE pocket
+        and the last queue pocket are empty, and what rode in the EXIT pocket
+        was seen gone at the opening), so the feeder can time its next piece to
+        land then. From how long such turns have taken from here to rest, with
+        and without a fin check. None for any other turn, and until one has
+        been timed."""
+        self._tail_from = None
+        if self._planning or self._sweep_steps or self._halted or self._oneTurnAPiece():
             return None
-        self._whole_turn_from = now
-        if self._whole_turn_s is None or self._halted or self._oneTurnAPiece():
+        if self._pockets[0] or self._pockets[-2]:
             return None
-        if self._pockets[0] or self._pockets[-1] or self._pockets[-2] or not self._pockets[1]:
-            return None
-        if self._needs_verify or self._turns_since_verify + 1 >= _VERIFY_EVERY:
+        if any(not getattr(tp, "fell_pending", False) for tp in self._pockets[-1]):
             return None
         if any(self._station(po.com_forward_to_exit_deg) == 0 for po in getattr(state, "pieces", ())):
             return None
-        return now + self._whole_turn_s + _READY_AT_MARGIN_S
+        self._tail_verify = bool(self._needs_verify or self._turns_since_verify + 1 >= _VERIFY_EVERY)
+        self._tail_from = now
+        usual = self._tail_s.get(self._tail_verify)
+        return None if usual is None else now + usual
 
     def _oneTurnAPiece(self) -> bool:
         return bool(getattr(self.ctx.config, "one_turn_a_piece", False))
@@ -552,9 +554,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 phase=phase.value,
                 pockets=[[tp.track_id for tp in pocket] for pocket in self._pockets],
             )
-        if phase == _P.TURN:
+        if phase not in (_P.LOOK, _P.VERIFY, _P.CORRECT):
             self._ready_at = None
-            self._whole_turn_from = None
         self._pp = phase
 
     def _pocketsText(self) -> str:
@@ -1088,15 +1089,10 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 self._startCheck(now)
             else:
                 self._move(stepper, int(step), self.ctx.config.rotate_speed_usteps_per_s, now, "turn")
-                self._ready_at = self._readyAfterTurn(state, int(step), now)
+                self._ready_at = self._readyAfterTurn(state, now)
                 if self._ready_at is not None:
-                    recordControl("c4_ready_at", in_s=round(self._ready_at - now, 3))
+                    recordControl("c4_ready_at", in_s=round(self._ready_at - now, 3), verify=self._tail_verify)
             return
-        if self._whole_turn_from is not None:
-            took = now - self._whole_turn_from
-            self._whole_turn_s = took if self._whole_turn_s is None else 0.7 * self._whole_turn_s + 0.3 * took
-            self._whole_turn_from = None
-        self._ready_at = None
         # One pocket on. The EXIT pocket was swept across the whole opening.
         self._swept = self._pockets[-1]
         self._pockets = [[]] + self._pockets[:-1]
@@ -1429,6 +1425,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         did not ride the rotor, it hangs off C3's exit. Its record goes back to
         the RECEIVE pocket, and its incident moves C3 to free it (never this
         channel, which does not move a piece C3 holds)."""
+        self._ready_at = None  # Not at rest with room after all
+        self._tail_from = None
         for tp, box in held:
             for pocket in self._pockets:
                 if tp in pocket:
@@ -1493,6 +1491,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         EXIT pocket after the turn: they did not fall. Most slid back in their
         pocket and were looked for in the wrong place: the next turn drops
         them; missed again, it shakes them at the opening even out of sight."""
+        self._ready_at = None  # Not at rest with room after all
+        self._tail_from = None
         for tp in pending:
             tp.fell_pending = False
             tp.missed = getattr(tp, "missed", 0) + 1
@@ -1525,6 +1525,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         """The swept pocket's piece is still on the channel: it stuck to the
         rotor and rode round into the RECEIVE pocket. It goes on as the piece
         it is, and goes across the opening again on its next pass."""
+        self._ready_at = None  # Not at rest with room after all
+        self._tail_from = None
         swept, self._swept = self._swept, []
         for tp in swept:
             tp.fell_pending = False
@@ -1767,6 +1769,12 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._toRest(now)
 
     def _toRest(self, now: float) -> None:
+        if self._tail_from is not None:
+            took = now - self._tail_from
+            if took < 3.0:
+                usual = self._tail_s.get(self._tail_verify)
+                self._tail_s[self._tail_verify] = took if usual is None else 0.7 * usual + 0.3 * took
+            self._tail_from = None
         self._rest_since = now
         self._closed_at = None
         self._rest_wall = time.time()

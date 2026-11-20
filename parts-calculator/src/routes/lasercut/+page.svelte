@@ -109,7 +109,8 @@
 				Don't have a laser nearby? Send the DXFs to a local maker space or an online cutting service,
 				for example <a href="https://simplycut.de/" target="_blank" rel="noopener" class="text-primary hover:underline">simplycut</a>
 				or <a href="https://www.expresszuschnitt.de/" target="_blank" rel="noopener" class="text-primary hover:underline">expresszuschnitt</a>
-				in Germany. Upload the DXF and pick plywood in the thickness listed on each part.
+				in Germany, or <a href="https://www.cutmy.co.uk/" target="_blank" rel="noopener" class="text-primary hover:underline">cutmy</a>
+				in the UK. Upload the DXF and pick plywood in the thickness listed on each part.
 			</p>
 		</div>
 		<a href="https://bin-gen.basically.website/" target="_blank" rel="noopener" class="inline-flex shrink-0 items-center justify-center gap-1.5 border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-muted transition-colors hover:border-primary hover:text-primary">

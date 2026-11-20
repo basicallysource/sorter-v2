@@ -611,9 +611,9 @@ def jitter_stepper(
 
     `amplitude_deg` is the per-stroke amplitude in motor-shaft degrees (before
     any output gear reduction), and the speed and acceleration are the motor's
-    own: all three are applied as asked. The jitter page scales its presets for
-    the machine's drive before it asks. The motion is symmetric and returns to
-    start.
+    own: all three are applied as asked. The jitter page scales its presets'
+    speed and acceleration for the machine's drive before it asks. The motion
+    is symmetric and returns to start.
     """
     _ensure_manual_motion_allowed("jitter a stepper")
     if cycles <= 0 or cycles > 5000:

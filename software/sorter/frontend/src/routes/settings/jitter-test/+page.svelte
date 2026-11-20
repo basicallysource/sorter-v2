@@ -21,7 +21,7 @@
 		cycles: number;
 		speed: number;
 		acceleration: number;
-		// The drive the three values above are for: channelDriveScale.
+		// The drive the speed and acceleration above are for: channelDriveScale.
 		scale: number;
 	};
 
@@ -70,7 +70,7 @@
 
 	// "for-drive": the values kept are this machine's motor values (before, the
 	// machine scaled speeds itself and swung a direct channel 11 times too far).
-	const STORAGE_KEY = 'jitter-test:settings:for-drive';
+	const STORAGE_KEY = 'jitter-test:settings:drive-rates';
 
 	function loadSettings(): JitterSettings {
 		try {
@@ -118,8 +118,10 @@
 		);
 	});
 	// The presets for the chosen motor on this machine: a channel motor on
-	// another drive gets the angle, speed and acceleration that move its channel
-	// as the geared one moved.
+	// another drive gets the speed and acceleration that jerk its channel as
+	// hard as the geared one was jerked. The stroke stays the motor's: scaled to
+	// the same channel angle it is two microsteps on a direct drive, and the
+	// channel does not move (11/20).
 	const driveScale = $derived(gearRatio === null ? null : channelDriveScale(settings.stepper, gearRatio));
 	const PRESETS_HERE = $derived(
 		PRESETS.map((p) => {
@@ -128,21 +130,19 @@
 				? p
 				: {
 						...p,
-						amplitudeDeg: Math.round(p.amplitudeDeg * scale * 100) / 100,
 						speed: Math.max(1, Math.round(p.speed * scale)),
 						acceleration: Math.max(1, Math.round(p.acceleration * scale))
 					};
 		})
 	);
-	// The values in the fields are for one drive (settings.scale: 1 is the geared
-	// channels, which the built-in ones are for). When the chosen motor's drive
-	// is another, they are scaled to move its channel the same.
+	// The speed and acceleration in the fields are for one drive (settings.scale:
+	// 1 is the geared channels, which the built-in ones are for). When the chosen
+	// motor's drive is another, they are scaled to jerk its channel as hard.
 	$effect(() => {
 		if (driveScale === null || settings.scale === driveScale) return;
 		const by = driveScale / (settings.scale > 0 ? settings.scale : 1);
 		settings = {
 			...settings,
-			amplitudeDeg: Math.round(settings.amplitudeDeg * by * 100) / 100,
 			speed: Math.max(1, Math.round(settings.speed * by)),
 			acceleration: Math.max(1, Math.round(settings.acceleration * by)),
 			scale: driveScale
@@ -245,7 +245,7 @@
 	description={gearRatio === null
 		? 'A preset fills in the settings below; then press Jitter. Amplitudes are at the motor.'
 		: gearRatio === 1
-			? 'A preset fills in the settings below; then press Jitter. This motor turns its channel directly, so the values are the channel\'s own.'
+			? 'A preset fills in the settings below; then press Jitter. This motor turns its channel directly: the channel swings the whole amplitude, at speeds set for this drive.'
 			: `A preset fills in the settings below; then press Jitter. Amplitudes are at the motor: the rotor moves about ${gearRatio.toFixed(1)} times less.`}
 	flush
 >

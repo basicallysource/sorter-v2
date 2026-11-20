@@ -133,6 +133,8 @@ _FLUSH_AFTER_S = 6.0
 # One turn a piece: with pieces on the channel and none in the RECEIVE pocket,
 # the feeder gets this long to land one before the turn goes without it.
 _FILL_WAIT_S = 2.5
+# A piece C3 pushes off lands within this: the turn waits for it.
+_C3_FALLING_S = 0.8
 # The fins within this of the rest pose are at rest; further off, the rotor is
 # turned to it (steps were lost, or it was moved by hand).
 _ALIGN_TOL_DEG = 2.0
@@ -884,6 +886,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                 return
             if any(key[0] == 0 for key in self._new_seen) and (now - self._landed_at) < _PENDING_WAIT_S:
                 return  # A box landing in the RECEIVE pocket: wait to see it is a piece
+            pushed = getattr(self.shared, "c3_pushed_at", None)
+            if pushed is not None and now - pushed < _C3_FALLING_S and (now - self._rest_since) < _FILL_WAIT_S + 2.0:
+                return  # C3 just pushed a piece off: it lands before the rotor moves
         elif not self._pockets[1] and not exit_ and (now - self._rest_since) < _FLUSH_AFTER_S:
             return  # The feeder may add a piece: it gets its chance first
         if not chute_on:

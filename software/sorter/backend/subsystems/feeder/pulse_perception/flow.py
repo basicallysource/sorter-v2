@@ -520,6 +520,9 @@ class PulsePerceptionFeeding(BaseState):
             )
             if not moved:
                 return
+            if channel == 3:
+                # A piece pushed off now may still be falling: C4 holds its turn.
+                self.shared.c3_pushed_at = time.monotonic()
             pieces = getattr(state, "pieces", ())
             lead = pieces[0] if pieces else None
             if step.kind == "shake":

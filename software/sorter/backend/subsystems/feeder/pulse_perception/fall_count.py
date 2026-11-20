@@ -21,10 +21,14 @@ BEFORE_S = 0.4
 CONFIRM_S = 0.15
 # A box this close to a vanished one is the same piece under a new id (px).
 SAME_PX = 40.0
+# Two boxes whose centers are this far apart are two pieces (px).
+APART_PX = 15.0
 
 
-def _overlap(a, b) -> bool:
-    return min(a[2], b[2]) > max(a[0], b[0]) and min(a[3], b[3]) > max(a[1], b[1])
+def _apart(a, b) -> bool:
+    """Two boxes are two pieces, not one drawn twice: their centers lie apart."""
+    (ax, ay), (bx, by) = _center(a), _center(b)
+    return max(abs(ax - bx), abs(ay - by)) >= APART_PX
 
 
 def _center(bbox) -> tuple[float, float]:
@@ -57,7 +61,7 @@ class FallCount:
                 near_now.append((int(tid), tuple(p.bbox)))
         for a, box_a in near_now:
             for b, box_b in near_now:
-                if a != b and not _overlap(box_a, box_b):
+                if a != b and _apart(box_a, box_b):
                     self._beside.setdefault(a, set()).add(b)
         if fell:
             self.started = now

@@ -23,6 +23,10 @@ CONFIRM_S = 0.15
 SAME_PX = 40.0
 
 
+def _overlap(a, b) -> bool:
+    return min(a[2], b[2]) > max(a[0], b[0]) and min(a[3], b[3]) > max(a[1], b[1])
+
+
 def _center(bbox) -> tuple[float, float]:
     return ((bbox[0] + bbox[2]) / 2.0, (bbox[1] + bbox[3]) / 2.0)
 
@@ -34,17 +38,27 @@ class FallCount:
     count: int = 0
     # Pieces seen at the exit lately: id -> (last seen, box).
     _near: dict[int, tuple[float, tuple]] = field(default_factory=dict)
+    # Pieces seen at the exit in the same frame as each other, as separate
+    # boxes: id -> the ids beside it. A piece the tracker gave a new id is
+    # never beside its old one, so it is never counted twice.
+    _beside: dict[int, set[int]] = field(default_factory=dict)
     _counted: set[int] = field(default_factory=set)
 
     def observe(self, state, now: float, fell_id: int | None = None, fell: bool = False) -> bool:
         """Update from one frame (``fell``: the gate saw the lead fall on it).
         True when the count of the current fall went up."""
         pieces = list(getattr(state, "pieces", ()) or ())
+        near_now = []
         for p in pieces:
             gap = getattr(p, "com_forward_to_exit_deg", None)
             tid = getattr(p, "sv_bt_track_id", None)
             if tid is not None and gap is not None and float(gap) <= NEAR_DEG:
                 self._near[int(tid)] = (now, tuple(p.bbox))
+                near_now.append((int(tid), tuple(p.bbox)))
+        for a, box_a in near_now:
+            for b, box_b in near_now:
+                if a != b and not _overlap(box_a, box_b):
+                    self._beside.setdefault(a, set()).add(b)
         if fell:
             self.started = now
             self.count = 1
@@ -58,6 +72,8 @@ class FallCount:
                     continue
                 if seen < self.started - BEFORE_S or now - seen < CONFIRM_S:
                     continue
+                if not (self._beside.get(tid, set()) & self._counted):
+                    continue  # Never seen beside a piece that fell: not another piece
                 cx, cy = _center(box)
                 if any(abs(cx - x) <= SAME_PX and abs(cy - y) <= SAME_PX for x, y in centers):
                     continue  # Drawn again under another id
@@ -66,4 +82,5 @@ class FallCount:
                 grew = True
         for tid in [t for t, (seen, _) in self._near.items() if now - seen > 3.0]:
             del self._near[tid]
+            self._beside.pop(tid, None)
         return grew

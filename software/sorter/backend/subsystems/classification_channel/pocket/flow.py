@@ -625,6 +625,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             lost = next((tp for tp in pocket if id(tp) not in matched), None)
             if lost is not None:
                 self.logger.info(f"{LOG_TAG} track={lost.track_id} is now track={po.sv_bt_track_id}")
+                recordControl("c4_track", was=lost.track_id, track=int(po.sv_bt_track_id), pocket=station)
                 lost.track_id = int(po.sv_bt_track_id)
                 self._seen(lost, po, now)
                 matched.add(id(lost))

@@ -130,10 +130,6 @@ _SAME_PIECE_DEG = 8.0
 _UNSEEN_DROP_S = 0.7
 # With no new piece for this long, the pieces already on the channel move on.
 _FLUSH_AFTER_S = 6.0
-# With pieces on the channel, the turn waits this long for the feeder to land
-# the next one, so that one turn both takes it in and drops the piece at the
-# exit: one turn a piece, not two.
-_NEXT_PIECE_WAIT_S = 3.0
 # The fins within this of the rest pose are at rest; further off, the rotor is
 # turned to it (steps were lost, or it was moved by hand).
 _ALIGN_TOL_DEG = 2.0
@@ -872,14 +868,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                         "labelled.",
                     )
                     self._recordDoubt(tp, "merged")
-        else:
-            # The feeder may add a piece: it gets its chance first, so the turn
-            # that takes the pieces on also takes it in, one turn a piece.
-            wait = _NEXT_PIECE_WAIT_S if any(self._pockets[1:]) else _FLUSH_AFTER_S
-            if (now - self._rest_since) < wait:
-                return
-            if any(key[0] == 0 for key in self._new_seen) and (now - self._landed_at) < _PENDING_WAIT_S:
-                return  # A box landing in the RECEIVE pocket: wait to see it is a piece
+        elif not self._pockets[1] and not exit_ and (now - self._rest_since) < _FLUSH_AFTER_S:
+            return  # The feeder may add a piece: it gets its chance first
         if not chute_on:
             return  # Not identified yet, or the chute is not on it yet
         self._cycle_start_pos = int(stepper.position)

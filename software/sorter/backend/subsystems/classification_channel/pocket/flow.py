@@ -132,7 +132,10 @@ _UNSEEN_DROP_S = 0.7
 _FLUSH_AFTER_S = 6.0
 # One turn a piece: with pieces on the channel and none in the RECEIVE pocket,
 # the feeder gets this long to land one before the turn goes without it.
-_FILL_WAIT_S = 2.5
+_FILL_WAIT_S = 3.5
+# Then the feeder is no longer asked, and a piece already on its way gets this
+# long to land and be seen before the turn.
+_CLOSE_S = 1.0
 # A piece C3 pushes off lands within this: the turn waits for it.
 _C3_FALLING_S = 0.8
 # The fins within this of the rest pose are at rest; further off, the rotor is
@@ -239,6 +242,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._serial = 0
         self._move_cmd_at = 0.0
         self._rest_since = 0.0
+        # One turn a piece: when the feeder stopped being asked for a piece
+        # before a turn without one (monotonic), else None.
+        self._closed_at: Optional[float] = None
         self._rest_wall = 0.0
         self._last_state_ts = -1.0
         self._new_seen: dict[tuple[int, int], int] = {}
@@ -497,7 +503,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         and (unless one_turn_a_piece) so is the pocket ahead of it (pieces ride
         an empty pocket apart), and no piece is in the EXIT pocket waiting for
         the turn that sweeps it."""
-        if self._halted or self._pockets[0]:
+        if self._halted or self._pockets[0] or self._closed_at is not None:
             return False
         if not self._oneTurnAPiece() and (self._pockets[1] or self._pockets[-1]):
             return False
@@ -884,15 +890,24 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             # the next one, so this turn takes it in as it drops the one ahead.
             if (now - self._rest_since) < _FILL_WAIT_S:
                 return
-            if any(key[0] == 0 for key in self._new_seen) and (now - self._landed_at) < _PENDING_WAIT_S:
+            # None came: stop asking, and let one already on its way land and
+            # be seen before the rotor moves, or it rides on unseen.
+            if self._closed_at is None:
+                self._closed_at = now
+                return
+            closed = now - self._closed_at
+            if closed < _CLOSE_S:
+                return
+            if any(key[0] == 0 for key in self._new_seen) and closed < _CLOSE_S + _PENDING_WAIT_S:
                 return  # A box landing in the RECEIVE pocket: wait to see it is a piece
             pushed = getattr(self.shared, "c3_pushed_at", None)
-            if pushed is not None and now - pushed < _C3_FALLING_S and (now - self._rest_since) < _FILL_WAIT_S + 2.0:
+            if pushed is not None and now - pushed < _C3_FALLING_S and closed < _CLOSE_S + 2.0:
                 return  # C3 just pushed a piece off: it lands before the rotor moves
         elif not self._pockets[1] and not exit_ and (now - self._rest_since) < _FLUSH_AFTER_S:
             return  # The feeder may add a piece: it gets its chance first
         if not chute_on:
             return  # Not identified yet, or the chute is not on it yet
+        self._closed_at = None
         self._cycle_start_pos = int(stepper.position)
         self._cycle_started_mono = now
         self.noteProgress()
@@ -1650,6 +1665,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
 
     def _toRest(self, now: float) -> None:
         self._rest_since = now
+        self._closed_at = None
         self._rest_wall = time.time()
         self._new_seen = {}
         self._enter(_P.REST)

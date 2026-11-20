@@ -8,7 +8,7 @@
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
-	import { stepperGearRatio } from '$lib/settings/stepper-control';
+	import { channelDriveScale, stepperGearRatio } from '$lib/settings/stepper-control';
 	import { stepperLabels, type StepperKey } from '$lib/settings/stations';
 
 	const manager = getMachinesContext();
@@ -21,6 +21,8 @@
 		cycles: number;
 		speed: number;
 		acceleration: number;
+		// The drive the three values above are for: channelDriveScale.
+		scale: number;
 	};
 
 	const DEFAULTS: JitterSettings = {
@@ -28,7 +30,8 @@
 		amplitudeDeg: 6,
 		cycles: 12,
 		speed: 5000,
-		acceleration: 100000
+		acceleration: 100000,
+		scale: 1
 	};
 
 	type JitterPreset = {
@@ -40,6 +43,8 @@
 		acceleration: number;
 	};
 
+	// As tuned on the geared C-channels: PRESETS_HERE scales them for the chosen
+	// motor's drive, and those are the values shown, filled in and sent.
 	// Amplitude is per-stroke MOTOR degrees (before gear reduction); the big gear
 	// ratio means even "medium" motor amplitudes are a small rotor swing. Speeds
 	// in µsteps/s (firmware caps at 60000); accel in µsteps/s². "Heavy Stuck"
@@ -63,7 +68,9 @@
 		{ name: 'Strong & long', blurb: 'Strong and persistent', amplitudeDeg: 8, cycles: 30, speed: 6000, acceleration: 140000 }
 	];
 
-	const STORAGE_KEY = 'jitter-test:settings';
+	// "for-drive": the values kept are this machine's motor values (before, the
+	// machine scaled speeds itself and swung a direct channel 11 times too far).
+	const STORAGE_KEY = 'jitter-test:settings:for-drive';
 
 	function loadSettings(): JitterSettings {
 		try {
@@ -110,6 +117,38 @@
 			() => {}
 		);
 	});
+	// The presets for the chosen motor on this machine: a channel motor on
+	// another drive gets the angle, speed and acceleration that move its channel
+	// as the geared one moved.
+	const driveScale = $derived(gearRatio === null ? null : channelDriveScale(settings.stepper, gearRatio));
+	const PRESETS_HERE = $derived(
+		PRESETS.map((p) => {
+			const scale = driveScale ?? 1;
+			return scale === 1
+				? p
+				: {
+						...p,
+						amplitudeDeg: Math.round(p.amplitudeDeg * scale * 100) / 100,
+						speed: Math.max(1, Math.round(p.speed * scale)),
+						acceleration: Math.max(1, Math.round(p.acceleration * scale))
+					};
+		})
+	);
+	// The values in the fields are for one drive (settings.scale: 1 is the geared
+	// channels, which the built-in ones are for). When the chosen motor's drive
+	// is another, they are scaled to move its channel the same.
+	$effect(() => {
+		if (driveScale === null || settings.scale === driveScale) return;
+		const by = driveScale / (settings.scale > 0 ? settings.scale : 1);
+		settings = {
+			...settings,
+			amplitudeDeg: Math.round(settings.amplitudeDeg * by * 100) / 100,
+			speed: Math.max(1, Math.round(settings.speed * by)),
+			acceleration: Math.max(1, Math.round(settings.acceleration * by)),
+			scale: driveScale
+		};
+	});
+
 	const amplitudeHelp = $derived(
 		gearRatio === null
 			? undefined
@@ -178,7 +217,8 @@
 			amplitudeDeg: p.amplitudeDeg,
 			cycles: p.cycles,
 			speed: p.speed,
-			acceleration: p.acceleration
+			acceleration: p.acceleration,
+			scale: driveScale ?? settings.scale
 		};
 	}
 </script>
@@ -204,13 +244,15 @@
 	title="Presets"
 	description={gearRatio === null
 		? 'A preset fills in the settings below; then press Jitter. Amplitudes are at the motor.'
-		: `A preset fills in the settings below; then press Jitter. Amplitudes are at the motor: the rotor moves about ${gearRatio.toFixed(1)} times less.`}
+		: gearRatio === 1
+			? 'A preset fills in the settings below; then press Jitter. This motor turns its channel directly, so the values are the channel\'s own.'
+			: `A preset fills in the settings below; then press Jitter. Amplitudes are at the motor: the rotor moves about ${gearRatio.toFixed(1)} times less.`}
 	flush
 >
 	<div
 		class="grid grid-cols-1 gap-px border-t border-line bg-line sm:grid-cols-3 sm:[&>:last-child:nth-child(3n+1)]:col-span-3 sm:[&>:last-child:nth-child(3n+2)]:col-span-2"
 	>
-		{#each PRESETS as p (p.name)}
+		{#each PRESETS_HERE as p (p.name)}
 			{@const selected =
 				settings.amplitudeDeg === p.amplitudeDeg &&
 				settings.cycles === p.cycles &&
@@ -226,7 +268,9 @@
 					<span class="text-sm font-medium {selected ? 'text-primary-ink' : 'text-ink'}">{p.name}</span>
 					<span class="text-sm text-ink-muted">{p.blurb}</span>
 					<span class="num text-sm text-ink-muted">
-						±{p.amplitudeDeg}°, {p.cycles} cycles, {p.speed} µsteps/s, {(p.acceleration / 1000).toFixed(0)}k
+						±{p.amplitudeDeg}°, {p.cycles} cycles, {p.speed} µsteps/s, {p.acceleration >= 20000
+							? `${(p.acceleration / 1000).toFixed(0)}k`
+							: `${(p.acceleration / 1000).toFixed(1)}k`}
 					</span>
 				</span>
 			</button>

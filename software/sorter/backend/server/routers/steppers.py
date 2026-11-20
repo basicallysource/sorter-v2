@@ -471,14 +471,30 @@ def resume() -> CommandResponse:
     return CommandResponse(success=True)
 
 
+# A motor turned by hand with no speed named: this, tuned on the geared
+# C-channels, for a channel motor the speed that turns its channel as fast.
+HAND_SPEED_USTEPS_PER_S = 800
+
+
+def _hand_speed(stepper: str, speed: int | None) -> int:
+    if speed is not None:
+        return speed
+    if stepper == "carousel" or stepper.startswith("c_channel") or stepper.startswith("classification"):
+        from hardware_settings.feeder import feederDrive
+
+        return feederDrive().motorRate(HAND_SPEED_USTEPS_PER_S)
+    return HAND_SPEED_USTEPS_PER_S
+
+
 @router.post("/stepper/pulse", response_model=StepperPulseResponse)
 def pulse_stepper(
     stepper: str,
     direction: str,
     duration_s: float = 0.25,
-    speed: int = 800,
+    speed: int | None = None,
 ) -> StepperPulseResponse:
     _ensure_manual_motion_allowed("pulse a stepper")
+    speed = _hand_speed(stepper, speed)
     if duration_s <= 0 or duration_s > MAX_STEPPER_PULSE_DURATION_S:
         raise HTTPException(
             status_code=400,
@@ -531,11 +547,12 @@ def _stop_run_at_limit(name: str, stepper: Any, ended: threading.Event) -> None:
 
 
 @router.post("/stepper/run", response_model=StepperRunResponse)
-def run_stepper(stepper: str, direction: str, speed: int = 800) -> StepperRunResponse:
+def run_stepper(stepper: str, direction: str, speed: int | None = None) -> StepperRunResponse:
     """Set a stepper turning until it is stopped (POST /stepper/stop), for
     STEPPER_RUN_LIMIT_S at the most. Asked again while it turns, it takes the
     new direction and speed."""
     _ensure_manual_motion_allowed("run a stepper")
+    speed = _hand_speed(stepper, speed)
     if speed <= 0:
         raise HTTPException(status_code=400, detail="speed must be > 0")
     if direction not in ("cw", "ccw"):
@@ -593,7 +610,10 @@ def jitter_stepper(
     """Run a short, sharp back-and-forth oscillation to break static friction.
 
     `amplitude_deg` is the per-stroke amplitude in motor-shaft degrees (before
-    any output gear reduction). The motion is symmetric and returns to start.
+    any output gear reduction), and the speed and acceleration are the motor's
+    own: all three are applied as asked. The jitter page scales its presets for
+    the machine's drive before it asks. The motion is symmetric and returns to
+    start.
     """
     _ensure_manual_motion_allowed("jitter a stepper")
     if cycles <= 0 or cycles > 5000:
@@ -603,16 +623,6 @@ def jitter_stepper(
     if acceleration <= 0:
         raise HTTPException(status_code=400, detail="acceleration must be > 0")
 
-    if stepper == "carousel" or stepper.startswith("c_channel") or stepper.startswith("classification"):
-        # The speeds and accelerations asked for are motor-level ones tuned on
-        # the geared C-channels. A channel motor on another drive gets the ones
-        # that move its channel the same: asked for as they are, a motor that
-        # turns its channel directly cannot follow them and does not move.
-        from hardware_settings.feeder import feederDrive
-
-        drive = feederDrive()
-        speed = drive.motorRate(speed)
-        acceleration = drive.motorRate(acceleration)
     target = _resolve_stepper(stepper)
     amplitude_steps = target.microsteps_for_degrees(abs(amplitude_deg))
     if amplitude_steps <= 0:
@@ -692,11 +702,12 @@ def jitter_stepper(
 def move_stepper_degrees(
     stepper: str,
     degrees: float,
-    speed: int = 800,
+    speed: int | None = None,
     min_speed: int | None = None,
     acceleration: int | None = None,
 ) -> StepperMoveDegreesResponse:
     _ensure_manual_motion_allowed("move a stepper")
+    speed = _hand_speed(stepper, speed)
     """Blocking-style move to a relative position.
 
     When ``min_speed`` and ``acceleration`` are both supplied, the firmware

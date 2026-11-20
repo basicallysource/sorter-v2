@@ -18,7 +18,8 @@
 		isFeederStepper,
 		stepperGearRatio,
 		loadStoredStepperPulseSetting,
-		persistStoredStepperPulseSetting
+		persistStoredStepperPulseSetting,
+		pulseSpeedForDrive
 	} from '$lib/settings/stepper-control';
 	import Alert from '$lib/components/ui/Alert.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -119,6 +120,9 @@
 	$effect(() => {
 		if (pulseSettingsLoadedFor !== stepperKey) return;
 		persistStoredStepperPulseSetting(stepperKey, 'pulseSpeed', pulseSpeed);
+		if (feederGearRatio !== null) {
+			persistStoredStepperPulseSetting(stepperKey, 'pulseSpeedGearRatio', feederGearRatio);
+		}
 	});
 	$effect(() => {
 		if (pulseSettingsLoadedFor !== stepperKey) return;
@@ -330,6 +334,8 @@
 			}
 			if (isFeederStepper(stepperKey)) {
 				feederGearRatio = await stepperGearRatio(currentBackendBaseUrl(), stepperKey);
+				// A speed kept for another drive, or the untouched default: this drive's.
+				pulseSpeed = pulseSpeedForDrive(stepperKey, feederGearRatio);
 			}
 			await loadStepperDirection();
 		} catch (e: any) {

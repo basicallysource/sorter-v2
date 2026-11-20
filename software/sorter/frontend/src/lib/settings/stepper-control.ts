@@ -31,6 +31,38 @@ export function isFeederStepper(stepperKey: StepperKey): stepperKey is CChannelS
 	return stepperKey !== 'chute';
 }
 
+// The gear the channel motors' hand speeds, shakes and presets were tuned on
+// (motor turns per channel turn, the geared feeder). On another drive the same
+// channel motion takes motor values scaled by the machine's own ratio over this.
+export const TUNED_CHANNEL_GEAR_RATIO = 130 / 12;
+const TUNED_PULSE_SPEED = 800;
+
+// How a channel motor's angles, speeds and accelerations tuned on the geared
+// channels scale on a machine whose channels are geared `gearRatio`: 1 on the
+// geared feeder, about 0.09 on a direct drive. The chute's values are its own.
+export function channelDriveScale(stepperKey: StepperKey, gearRatio: number): number {
+	return isFeederStepper(stepperKey) ? gearRatio / TUNED_CHANNEL_GEAR_RATIO : 1;
+}
+
+// The hand speed kept for a motor, for a machine whose channels are geared
+// `gearRatio`. A speed kept for another drive is scaled to turn the channel as
+// fast here; the untouched default becomes this drive's default.
+export function pulseSpeedForDrive(stepperKey: StepperKey, gearRatio: number): number {
+	const stored = loadStoredStepperPulseSetting<number>(stepperKey, 'pulseSpeed', TUNED_PULSE_SPEED);
+	if (!isFeederStepper(stepperKey)) return stored;
+	const keptFor = loadStoredStepperPulseSetting<number>(stepperKey, 'pulseSpeedGearRatio', 0);
+	if (keptFor > 0 && Math.abs(keptFor - gearRatio) < 1e-6) return stored;
+	let speed = stored;
+	if (keptFor > 0) {
+		speed = Math.max(1, Math.round((stored * gearRatio) / keptFor));
+	} else if (stored === TUNED_PULSE_SPEED) {
+		speed = Math.max(1, Math.round(TUNED_PULSE_SPEED * channelDriveScale(stepperKey, gearRatio)));
+	}
+	persistStoredStepperPulseSetting(stepperKey, 'pulseSpeed', speed);
+	persistStoredStepperPulseSetting(stepperKey, 'pulseSpeedGearRatio', gearRatio);
+	return speed;
+}
+
 export async function stepperGearRatio(baseUrl: string, stepperKey: StepperKey): Promise<number> {
 	if (stepperKey === 'chute') {
 		return checkedRatio(Number((await getChute(baseUrl)).gear_ratio), "the chute's");
@@ -114,9 +146,10 @@ export async function triggerStoredStepperPulse(
 	}
 ): Promise<string> {
 	const settings = loadStoredStepperPulseSettings(stepperKey);
+	const gearRatio = options?.gearRatio ?? (await stepperGearRatio(baseUrl, stepperKey));
+	settings.pulseSpeed = pulseSpeedForDrive(stepperKey, gearRatio);
 
 	if (settings.pulseMode === 'degrees') {
-		const gearRatio = options?.gearRatio ?? (await stepperGearRatio(baseUrl, stepperKey));
 		const motorDegrees =
 			settings.pulseDegrees * gearRatio * (direction === 'ccw' ? -1 : 1);
 		const params = new URLSearchParams({

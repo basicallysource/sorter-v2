@@ -6,6 +6,7 @@
 		DIRECTION_WORDS,
 		stepperGearRatio,
 		loadStoredStepperPulseSetting,
+		pulseSpeedForDrive,
 		persistStoredStepperPulseSetting
 	} from '$lib/settings/stepper-control';
 	import type { StepperKey } from '$lib/settings/stations';
@@ -66,7 +67,7 @@
 		errorMessage = null;
 		try {
 			const gear_ratio = await stepperGearRatio(currentBackendBaseUrl(), stepperKey);
-			const speed = loadStoredStepperPulseSetting<number>(stepperKey, 'pulseSpeed', 800);
+			const speed = pulseSpeedForDrive(stepperKey, gear_ratio);
 			const params = new URLSearchParams({
 				stepper: stepperKey,
 				degrees: String(output_degrees * gear_ratio),

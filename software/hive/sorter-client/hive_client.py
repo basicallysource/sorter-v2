@@ -103,6 +103,18 @@ class HiveClient:
             timeout=(2, 8),
         )
 
+    def match_sets(self, inventory: list[dict], **options: Any) -> dict:
+        """POST /api/machine/sets/match -- the LEGO sets a lot could be (partly)
+        built from, likeliest first, or none when nothing really matches.
+        ``inventory`` is ``[{"part_id", "color_id", "quantity"}]`` in BrickLink
+        ids; ``options`` are the request's other fields (``limit``,
+        ``missing_limit`` and the thresholds). Raises HiveError 503
+        ``SET_INDEX_BUILDING`` while Hive builds its index after a start: ask
+        again in a few seconds."""
+        return self._request(
+            "POST", "/api/machine/sets/match", json={"inventory": inventory, **options}, timeout=(2, 20)
+        )
+
     # --- Sorting profiles ---------------------------------------------------
     # What this client runs, named to Hive so it leaves out profiles that need
     # more: the compiled program (not only the flat part map), sorting leftover

@@ -53,6 +53,11 @@ in [`agent-docs/`](agent-docs/):
 - [`agent-docs/query-plans.md`](agent-docs/query-plans.md) — how that rule is
   enforced: a production-sized seeded database and a test that EXPLAINs every
   list and count the API serves, and what to do when it fails.
+- [`agent-docs/set-match.md`](agent-docs/set-match.md) — which LEGO sets a
+  sorter's lot could be built from (`POST /api/machine/sets/match`): what a
+  set needs, the distinctive-line scoring, the thresholds that keep it quiet
+  and what they were measured on, the in-memory index, and what the catalog
+  lacks.
 
 > **⚠️ These docs are only useful if they match the code.**
 > If you change anything the docs describe — auth flows, credential types,

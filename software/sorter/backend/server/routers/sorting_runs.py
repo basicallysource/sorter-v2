@@ -5,6 +5,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+import lot_summary
 import sorting_runs
 
 router = APIRouter()
@@ -36,6 +37,13 @@ class RunPatch(BaseModel):
     adds_to_lot: Optional[bool] = None
 
 
+class NowIn(BaseModel):
+    # None: sorting without a lot.
+    lot_id: Optional[str] = None
+    # False: the lot's pieces are being put through again, not counted again.
+    adds_to_lot: bool = True
+
+
 def _call(fn, *args, **kwargs) -> Any:
     try:
         return fn(*args, **kwargs)
@@ -61,6 +69,19 @@ def start_run(body: RunIn) -> dict[str, Any]:
     )
 
 
+@router.get("/api/sorting-runs/now")
+def sorting_now() -> dict[str, Any]:
+    return sorting_runs.sortingNow()
+
+
+@router.post("/api/sorting-runs/now")
+def set_sorting_now(body: NowIn) -> dict[str, Any]:
+    """What is being sorted from now on: a lot (adding to it, or putting its
+    pieces through again) or none. Answers as GET does, so the menu redraws."""
+    _call(sorting_runs.setNow, body.lot_id, body.adds_to_lot)
+    return sorting_runs.sortingNow()
+
+
 @router.patch("/api/sorting-runs/{run_id}")
 def update_run(run_id: str, body: RunPatch) -> dict[str, Any]:
     fields = body.model_dump(exclude_unset=True)
@@ -80,3 +101,8 @@ def update_lot(lot_id: str, body: LotPatch) -> dict[str, Any]:
 @router.get("/api/lots/{lot_id}/parts")
 def lot_parts(lot_id: str) -> dict[str, Any]:
     return _call(sorting_runs.lotParts, lot_id)
+
+
+@router.get("/api/lots/{lot_id}/summary")
+def lot_summary_route(lot_id: str) -> dict[str, Any]:
+    return _call(lot_summary.lotSummary, lot_id)

@@ -151,6 +151,31 @@ def put_cached_part_prices(rows: list[tuple[str | None, Any, float | None]]) -> 
         conn.commit()
 
 
+def get_cached_bricklink_categories(part_nums: list[str]) -> dict[str, str]:
+    """The BrickLink category ("Plate, Modified") of each of these parts that
+    has a full entry in the cache; the others are left out."""
+    out: dict[str, str] = {}
+    with _connection() as conn:
+        for start in range(0, len(part_nums), 500):
+            chunk = part_nums[start : start + 500]
+            # One entry per part, whichever color it was cached in.
+            rows = conn.execute(
+                "SELECT part_num, payload_json FROM hive_part_metadata_cache "
+                f"WHERE payload_json IS NOT NULL AND part_num IN ({', '.join('?' for _ in chunk)}) "
+                "GROUP BY part_num",
+                chunk,
+            ).fetchall()
+            for row in rows:
+                try:
+                    bricklink = json.loads(str(row["payload_json"])).get("bricklink")
+                except (TypeError, ValueError, AttributeError):
+                    continue
+                category = bricklink.get("category") if isinstance(bricklink, dict) else None
+                if isinstance(category, str) and category.strip():
+                    out[row["part_num"]] = category.strip()
+    return out
+
+
 def get_cached_palette() -> list[dict[str, Any]] | None:
     """The palette last saved by put_cached_palette, or None."""
     with _connection() as conn:

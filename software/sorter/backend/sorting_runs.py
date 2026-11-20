@@ -54,6 +54,8 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "created_at REAL NOT NULL"
         ")"
     )
+    # 1 for a run setNow named itself; it may rename it while it has no pieces.
+    db.add_columns(conn, "sorting_runs", {"auto_named": "INTEGER NOT NULL DEFAULT 0"})
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_sorting_runs_started_at "
         "ON sorting_runs(started_at)"
@@ -149,6 +151,7 @@ def startRun(
     adds_to_lot: bool = True,
     note: Optional[str] = None,
     started_at: Optional[float] = None,
+    auto_named: bool = False,
 ) -> dict[str, Any]:
     """Start a run now, ending the current one. `started_at` in the past records
     a run for sorting already done: it takes the pieces from then until the next
@@ -170,8 +173,9 @@ def startRun(
         if conn.execute("SELECT 1 FROM sorting_runs WHERE started_at = ?", (start,)).fetchone():
             raise RunError("Another run starts at that exact time.")
         conn.execute(
-            "INSERT INTO sorting_runs (id, name, note, lot_id, adds_to_lot, started_at, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO sorting_runs "
+            "(id, name, note, lot_id, adds_to_lot, started_at, created_at, auto_named) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 run_id,
                 _clean_name(name, "run"),
@@ -180,10 +184,77 @@ def startRun(
                 1 if adds_to_lot else 0,
                 start,
                 now,
+                1 if auto_named else 0,
             ),
         )
         conn.commit()
     return getRun(run_id)
+
+
+def _autoName(
+    conn: sqlite3.Connection, lot_id: Optional[str], adds: bool, at: float, skip_run: Optional[str] = None
+) -> str:
+    """A name for a run nobody named: "Goodwill box 3" for the lot's third run that
+    adds to it, "Goodwill box re-sort 2" for its second pass, "No lot, Nov 20 2:14 pm"
+    without one. `skip_run` is the run being renamed."""
+    if lot_id is None:
+        t = time.localtime(at)
+        return (
+            f"No lot, {time.strftime('%b', t)} {t.tm_mday} "
+            f"{t.tm_hour % 12 or 12}:{t.tm_min:02d} {'am' if t.tm_hour < 12 else 'pm'}"
+        )
+    lot = conn.execute("SELECT name FROM lots WHERE id = ?", (lot_id,)).fetchone()["name"]
+    others = conn.execute(
+        "SELECT name, adds_to_lot FROM sorting_runs WHERE lot_id = ? AND id IS NOT ?", (lot_id, skip_run)
+    ).fetchall()
+    taken = {row["name"] for row in others}
+    n = sum(1 for row in others if bool(row["adds_to_lot"]) == adds) + 1
+    while True:
+        name = f"{lot} {n}" if adds else f"{lot} re-sort {n}"
+        if name not in taken:
+            return name
+        n += 1
+
+
+def setNow(lot_id: Optional[str], adds_to_lot: bool = True) -> None:
+    """Make what is sorted from now on belong to `lot_id` (None: no lot),
+    adding to it or putting its pieces through again. The current run is left
+    alone when it already says so, changed in place while it has no pieces
+    (so choosing back and forth leaves no empty runs), and otherwise ended by
+    a new run that names itself. No lot before the first run does nothing."""
+    adds = lot_id is None or bool(adds_to_lot)
+    now = time.time()
+    with _connection() as conn:
+        _check_lot(conn, lot_id)
+        current = conn.execute(
+            "SELECT * FROM sorting_runs WHERE started_at <= ? ORDER BY started_at DESC LIMIT 1", (now,)
+        ).fetchone()
+        if current is None:
+            if lot_id is None:
+                return
+        elif current["lot_id"] == lot_id and (lot_id is None or bool(current["adds_to_lot"]) == adds):
+            return
+        elif not (
+            conn.execute(
+                "SELECT 1 FROM piece_records WHERE seen_at >= ? LIMIT 1", (current["started_at"],)
+            ).fetchone()
+            or conn.execute(
+                "SELECT 1 FROM sorting_run_folds WHERE run_id = ? AND pieces > 0", (current["id"],)
+            ).fetchone()
+        ):
+            name = (
+                _autoName(conn, lot_id, adds, current["started_at"], current["id"])
+                if current["auto_named"]
+                else current["name"]
+            )
+            conn.execute(
+                "UPDATE sorting_runs SET lot_id = ?, adds_to_lot = ?, name = ? WHERE id = ?",
+                (lot_id, 1 if adds else 0, name, current["id"]),
+            )
+            conn.commit()
+            return
+        name = _autoName(conn, lot_id, adds, now)
+    startRun(name, lot_id=lot_id, adds_to_lot=adds, started_at=now, auto_named=True)
 
 
 _UNSET: Any = object()
@@ -201,7 +272,11 @@ def updateRun(
         if conn.execute("SELECT 1 FROM sorting_runs WHERE id = ?", (run_id,)).fetchone() is None:
             raise RunError(f"No run {run_id}.")
         if name is not None:
-            conn.execute("UPDATE sorting_runs SET name = ? WHERE id = ?", (_clean_name(name, "run"), run_id))
+            clean = _clean_name(name, "run")
+            conn.execute(
+                "UPDATE sorting_runs SET auto_named = (auto_named AND name = ?), name = ? WHERE id = ?",
+                (clean, clean, run_id),
+            )
         if note is not None:
             conn.execute("UPDATE sorting_runs SET note = ? WHERE id = ?", (note.strip() or None, run_id))
         if lot_id is not _UNSET:
@@ -337,9 +412,10 @@ def seenRanges(
     return [(float(r["started_at"]), None if r["ended_at"] is None else float(r["ended_at"])) for r in rows]
 
 
-def _lotTotals(conn: sqlite3.Connection) -> dict[str, dict[str, int]]:
+def _lots(conn: sqlite3.Connection, runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every lot, newest first, with its totals from `runs` (all of them)."""
     totals: dict[str, dict[str, int]] = {}
-    for run in _runs(conn):
+    for run in runs:
         if run["lot_id"] is None:
             continue
         t = totals.setdefault(run["lot_id"], {"pieces": 0, "runs": 0, "passes": 0})
@@ -348,17 +424,80 @@ def _lotTotals(conn: sqlite3.Connection) -> dict[str, dict[str, int]]:
             t["runs"] += 1
         else:
             t["passes"] += 1
-    return totals
-
-
-def listLots() -> list[dict[str, Any]]:
-    with _connection() as conn:
-        totals = _lotTotals(conn)
-        rows = conn.execute("SELECT * FROM lots ORDER BY created_at DESC").fetchall()
+    rows = conn.execute("SELECT * FROM lots ORDER BY created_at DESC").fetchall()
     return [
         {**_lotRow(row), **totals.get(row["id"], {"pieces": 0, "runs": 0, "passes": 0})}
         for row in rows
     ]
+
+
+def listLots() -> list[dict[str, Any]]:
+    with _connection() as conn:
+        return _lots(conn, _runs(conn))
+
+
+def sortingNow() -> dict[str, Any]:
+    """The current run (None before the first) and every lot, newest first:
+    what the top bar's lot menu draws."""
+    with _connection() as conn:
+        runs = _runs(conn)
+        lots = _lots(conn, runs)
+    return {"run": next((run for run in runs if run["is_current"]), None), "lots": lots}
+
+
+# A run's identified pieces, by part and colour: the live records, then the
+# ones retention folded.
+_PART_ROWS_SQL = (
+    "SELECT part_id, COALESCE(color_corrected_id, color_id) AS color, "
+    "MAX(part_name) AS part_name, MAX(color_name) AS color_name, COUNT(*) AS n "
+    "FROM piece_records WHERE seen_at >= ? AND (? IS NULL OR seen_at < ?) "
+    "AND classification_status = 'classified' AND dead = 0 "
+    "AND COALESCE(part_correct, 1) != 0 AND part_id IS NOT NULL "
+    "GROUP BY part_id, color"
+)
+_PART_FOLDS_SQL = (
+    "SELECT part_id, color, part_name, color_name, n FROM sorting_run_part_folds WHERE run_id = ?"
+)
+
+
+def _partRows(conn: sqlite3.Connection, run: dict[str, Any]) -> list[sqlite3.Row]:
+    return [
+        *conn.execute(_PART_ROWS_SQL, (run["started_at"], run["ended_at"], run["ended_at"])),
+        *conn.execute(_PART_FOLDS_SQL, (run["id"],)),
+    ]
+
+
+def lotAddingRuns(lot_id: str) -> tuple[str, list[dict[str, Any]]]:
+    """The lot's name and the runs that add to it, oldest first, each with its
+    stretch (id, started_at, ended_at): read without counting anything."""
+    with _connection() as conn:
+        lot = conn.execute("SELECT name FROM lots WHERE id = ?", (lot_id,)).fetchone()
+        if lot is None:
+            raise RunError(f"No lot {lot_id}.")
+        rows = conn.execute(
+            f"SELECT id, started_at, ended_at FROM ({_SPANS_SQL}) "
+            "WHERE lot_id = ? AND adds_to_lot = 1 ORDER BY started_at",
+            (lot_id,),
+        ).fetchall()
+    return lot["name"], [dict(row) for row in rows]
+
+
+def runCounts(run: dict[str, Any]) -> tuple[int, list[tuple[str, str, Optional[str], Optional[str], int]]]:
+    """A run's pieces, as its `pieces` counts them, and its identified ones as
+    (part_id, color id or '', part_name, color_name, n), as lotParts counts
+    them. `run` is one of lotAddingRuns'."""
+    with _connection() as conn:
+        pieces = conn.execute(
+            "SELECT (SELECT COUNT(*) FROM piece_records WHERE seen_at >= ? "
+            "AND (? IS NULL OR seen_at < ?) AND dead = 0) "
+            "+ COALESCE((SELECT pieces FROM sorting_run_folds WHERE run_id = ?), 0)",
+            (run["started_at"], run["ended_at"], run["ended_at"], run["id"]),
+        ).fetchone()[0]
+        parts = [
+            (row["part_id"], str(row["color"] or ""), row["part_name"], row["color_name"], int(row["n"]))
+            for row in _partRows(conn, run)
+        ]
+    return int(pieces), parts
 
 
 def getLot(lot_id: str) -> dict[str, Any]:
@@ -378,21 +517,7 @@ def lotParts(lot_id: str) -> dict[str, Any]:
         )
         parts: dict[tuple[str, str], dict[str, Any]] = {}
         for run in runs:
-            rows = conn.execute(
-                "SELECT part_id, COALESCE(color_corrected_id, color_id) AS color, "
-                "MAX(part_name) AS part_name, MAX(color_name) AS color_name, COUNT(*) AS n "
-                "FROM piece_records WHERE seen_at >= ? AND (? IS NULL OR seen_at < ?) "
-                "AND classification_status = 'classified' AND dead = 0 "
-                "AND COALESCE(part_correct, 1) != 0 AND part_id IS NOT NULL "
-                "GROUP BY part_id, color",
-                (run["started_at"], run["ended_at"], run["ended_at"]),
-            ).fetchall()
-            folded = conn.execute(
-                "SELECT part_id, color, part_name, color_name, n FROM sorting_run_part_folds "
-                "WHERE run_id = ?",
-                (run["id"],),
-            ).fetchall()
-            for row in [*rows, *folded]:
+            for row in _partRows(conn, run):
                 key = (row["part_id"], str(row["color"]) if row["color"] is not None else "")
                 part = parts.setdefault(
                     key,

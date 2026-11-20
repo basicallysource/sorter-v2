@@ -9,6 +9,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import { requestBackendRestart } from '$lib/backend';
 	import SortingProfileDropdown from '$lib/components/SortingProfileDropdown.svelte';
+	import LotDropdown from '$lib/components/LotDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import {
 		homeSelectedMachine,
@@ -261,7 +262,7 @@
 
 <TopBar
 	{sticky}
-	collapse="lg"
+	collapse="xl"
 	items={[
 		{ href: '/', label: 'Dashboard' },
 		{ href: '/bins', label: 'Bins' },
@@ -287,6 +288,7 @@
 			{/if}
 		</div>
 		<div class="hidden sm:block"><SortingProfileDropdown /></div>
+		<div class="hidden lg:block"><LotDropdown /></div>
 		{#if hardwareState === 'ready' || hardwareState === 'initialized'}
 			{@const resuming = machineState === 'paused' || hardwareState === 'initialized'}
 			<Button

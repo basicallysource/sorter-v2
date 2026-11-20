@@ -136,7 +136,7 @@
 		<div class="divide-y divide-line">
 			<SettingRow
 				label="Training mode"
-				help="While it is on, the dashboard shows the training run in place of Recent pieces. Turning it off ends the run."
+				help="While it is on, the dashboard shows the training run in place of the Pieces pane. Turning it off ends the run."
 			>
 				<Switch
 					checked={training.config.enabled}

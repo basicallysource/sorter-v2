@@ -18,6 +18,9 @@
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import CollapsibleSection from '$lib/components/CollapsibleSection.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
+	import LotSummary from '$lib/components/LotSummary.svelte';
+	import Tabs from '$lib/components/ui/Tabs.svelte';
+	import { userConfig, type PiecesTab } from '$lib/stores/userConfig.svelte';
 	import TrainingPanel from '$lib/components/training/TrainingPanel.svelte';
 	import { getTraining, type TrainingState } from '$lib/training/api';
 	import RuntimeStats, { RUNTIME_SPANS, type RuntimeSpan } from '$lib/components/RuntimeStats.svelte';
@@ -32,7 +35,13 @@
 	let startSystemError = $state<string | null>(null);
 	let startSystemPending = $state(false);
 	let runtimeSpan = $state<RuntimeSpan>('1h');
-	// Training mode, polled: while it is on, its panel takes Recent pieces' place.
+	// The pieces pane's tab, remembered per browser.
+	let piecesTab = $state<PiecesTab>(userConfig.piecesTab);
+	const PIECES_TABS: { value: PiecesTab; label: string }[] = [
+		{ value: 'recent', label: 'Recent' },
+		{ value: 'lot', label: 'Lot' }
+	];
+	// Training mode, polled: while it is on, its panel takes the Pieces pane's place.
 	let training = $state<TrainingState | null>(null);
 	let trainingFor = '';
 
@@ -100,7 +109,7 @@
 			const next = await getTraining(baseUrl);
 			if (baseUrl === trainingFor) training = next;
 		} catch {
-			// keep what is shown; a machine without training mode stays on Recent pieces
+			// keep what is shown; a machine without training mode stays on Pieces
 		}
 	}
 
@@ -287,8 +296,22 @@
 							/>
 						</CollapsibleSection>
 					{:else}
-						<CollapsibleSection title="Recent pieces" storageKey="recent" grow>
-							<RecentObjects />
+						<CollapsibleSection title="Pieces" storageKey="recent" grow>
+							<div class="flex h-full flex-col">
+								<Tabs
+									bind:value={piecesTab}
+									items={PIECES_TABS}
+									label="Pieces"
+									onchange={(tab) => userConfig.setPiecesTab(tab)}
+								/>
+								<div class="min-h-0 flex-1">
+									{#if piecesTab === 'lot'}
+										<LotSummary />
+									{:else}
+										<RecentObjects />
+									{/if}
+								</div>
+							</div>
 						</CollapsibleSection>
 					{/if}
 				</div>

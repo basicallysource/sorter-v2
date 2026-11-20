@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { untrack } from 'svelte';
+	import { sortingNow } from '$lib/stores/sortingNow.svelte';
 	import Play from '@lucide/svelte/icons/play';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -75,7 +76,16 @@
 		}
 	}
 
-	onMount(load);
+	// Loaded at first, and again whenever the current run changes: the top
+	// bar's lot menu starts and changes runs too.
+	const nowRun = $derived.by(() => {
+		const run = sortingNow.for(endpointBase)?.run;
+		return run ? `${run.id} ${run.lot_id} ${run.adds_to_lot} ${run.name}` : '';
+	});
+	$effect(() => {
+		void nowRun;
+		untrack(() => void load());
+	});
 
 	function openStart() {
 		editing = null;
@@ -126,6 +136,7 @@
 			else await send('/api/sorting-runs', 'POST', body);
 			formOpen = false;
 			await load();
+			void sortingNow.refresh(endpointBase).catch(() => {});
 		} catch (e) {
 			formError = e instanceof Error ? e.message : String(e);
 		} finally {

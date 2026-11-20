@@ -1,5 +1,5 @@
 <!--
-	The dashboard's Training data section, in place of Recent pieces while
+	The dashboard's Training data section, in place of the Pieces pane while
 	training mode is on. A bar that stays at the top: the color being fed (a
 	pick saves at once and, mid-run, starts a new segment), the run's state,
 	Start run or End run, and All runs. Under it the fixed bin, when one is

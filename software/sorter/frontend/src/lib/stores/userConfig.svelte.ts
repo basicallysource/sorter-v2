@@ -5,8 +5,8 @@
  * on every load and would rather show immediately from disk, then reconcile
  * with the backend once connected. Right now that's the user-chosen theme color
  * and the machine name (so the top bar paints correctly before the WebSocket
- * identity arrives), and whether the storage layers page shows its advanced
- * settings.
+ * identity arrives), whether the storage layers page shows its advanced
+ * settings, and which tab the dashboard's pieces pane is on.
  *
  * Hydration is synchronous at import (reads localStorage once) so consumers can
  * read the cached value before the first paint. Every setter is equality-guarded
@@ -15,16 +15,20 @@
 
 const STORAGE_KEY = 'sorter.userConfig';
 
+export type PiecesTab = 'recent' | 'lot';
+
 export interface UserConfigData {
 	machineName: string | null;
 	colorId: string | null;
 	servoAdvanced: boolean;
+	piecesTab: PiecesTab;
 }
 
 const DEFAULTS: UserConfigData = {
 	machineName: null,
 	colorId: null,
-	servoAdvanced: false
+	servoAdvanced: false,
+	piecesTab: 'recent'
 };
 
 function readStored(): UserConfigData {
@@ -36,7 +40,8 @@ function readStored(): UserConfigData {
 		return {
 			machineName: typeof parsed.machineName === 'string' ? parsed.machineName : null,
 			colorId: typeof parsed.colorId === 'string' ? parsed.colorId : null,
-			servoAdvanced: parsed.servoAdvanced === true
+			servoAdvanced: parsed.servoAdvanced === true,
+			piecesTab: parsed.piecesTab === 'lot' ? 'lot' : 'recent'
 		};
 	} catch {
 		return { ...DEFAULTS };
@@ -64,6 +69,9 @@ export const userConfig = {
 	get servoAdvanced(): boolean {
 		return data.servoAdvanced;
 	},
+	get piecesTab(): PiecesTab {
+		return data.piecesTab;
+	},
 
 	setMachineName(name: string | null): void {
 		if (data.machineName === name) return;
@@ -80,6 +88,12 @@ export const userConfig = {
 	setServoAdvanced(on: boolean): void {
 		if (data.servoAdvanced === on) return;
 		data.servoAdvanced = on;
+		persist();
+	},
+
+	setPiecesTab(tab: PiecesTab): void {
+		if (data.piecesTab === tab) return;
+		data.piecesTab = tab;
 		persist();
 	}
 };

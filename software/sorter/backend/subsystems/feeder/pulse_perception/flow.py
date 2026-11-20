@@ -426,9 +426,18 @@ class PulsePerceptionFeeding(BaseState):
             # zone is occupied.
             stepper = self.irl.c_channel_1_rotor_stepper
             wants = c1Action(c2) == Action.ADVANCE and self._hasRoom(2, c2, cfg.ch2_max_pieces)
-            if self._unjam is not None and self._unjam.step(now_mono, wants, cfg):
-                # The bucket is being shaken or turned: no pulse of C1's own.
-                return
+            if self._unjam is not None:
+                try:
+                    taken = self._unjam.step(now_mono, wants, cfg)
+                except Exception as exc:
+                    # Freeing the bucket must never stop the feeder: it is
+                    # switched off until the backend starts again.
+                    self.gc.logger.error(f"PulsePerception: freeing the bucket failed and is off: {exc!r}")
+                    self._unjam = None
+                    taken = False
+                if taken:
+                    # The bucket is being shaken or turned: no pulse of C1's own.
+                    return
             if wants and not self._busy(stepper):
                 self._move(
                     "ch1",

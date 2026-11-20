@@ -422,11 +422,11 @@
 					label="Bins in this section"
 					size="sm"
 					value={String(binsInTestSection)}
-					options={['3', '4', '5', '6'].map((n) => ({ value: n, label: n }))}
+					options={['2', '3', '4', '5', '6'].map((n) => ({ value: n, label: n }))}
 					onchange={(n) => (binsInTestSection = Number(n))}
 				/>
 				<p class="max-w-52 text-sm text-ink-muted">
-					How many bins the section you are measuring has. More is more accurate; 3 or 5 is best.
+					Use the actual bin count in this section: 2 for half bins or 3 for third bins, not the total per layer.
 				</p>
 			</div>
 		{/if}
@@ -584,9 +584,9 @@
 					{#if step2Locked}
 						Home the chute first.
 					{:else}
-						Pick any layer, and a section you can see whole with more than 2 bins; 3 or 5 is best,
-						and more bins is more accurate. Set its bin count, then jog until the chute points
-						straight into the first bin, and capture.
+						Pick any layer and use the first section clockwise from home, with at least 2 bins.
+						Set the actual number of bins in that section. Jog until the chute points at the
+						middle of its first bin, then capture. Measure the last bin in this same section.
 					{/if}
 				</p>
 				{@render jogPad(activeStep === 2, true)}

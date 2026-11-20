@@ -71,17 +71,18 @@ _LOOK_S = 0.3
 _LOOK_FRAMES = 3
 # A piece that is still on the channel after its pocket crossed the opening
 # stuck to the rotor (a tire's rubber grips it): it rides round into the
-# RECEIVE pocket as the piece it is, and is shaken harder on its next pass.
+# RECEIVE pocket as the piece it is, and is taken across the opening again.
 # After this many passes the channel stops for the stall watchdog, which
 # clears the whole channel with shakes or asks for help.
 _CARRY_MAX = 4
 # Every turn that drops a piece first turns only as far as it takes that piece
 # this far into the opening, then looks whether it fell. A piece still there is
 # turned _PUSH_DEG further and looked at again, as deep as the opening goes
-# (short of its far edge by _FAR_MARGIN_DEG) and the piece behind allows; only
-# there is it shaken, up to _CHECK_SHAKES times (more for one that rode round
-# before), before the turn is finished. A piece the turn ends before taking that
-# deep is left for the next turn, not shaken. The rotor never turns back.
+# (short of its far edge by _FAR_MARGIN_DEG) and the piece behind allows. There
+# it is never shaken: still on there, the turn goes on and it rides round for
+# another pass. When the piece behind stops it short of that, it still goes on
+# (_pushFurther), and the piece behind drops with it. A piece the turn ends
+# before taking that deep is left for the next turn. The rotor never turns back.
 _FALL_IN_DEG = 30.0
 _PUSH_DEG = 10.0
 _FAR_MARGIN_DEG = 8.0
@@ -90,7 +91,6 @@ _OPENING_DEG = 58.0
 # The next piece is kept at least this far short of the opening while the one
 # ahead of it is taken in.
 _NEXT_MARGIN_DEG = 8.0
-_CHECK_SHAKES = 3
 # Most pieces fall while the rotor is still turning them in: this many frames in
 # a row taken after the move with nothing where the piece should be, and it fell.
 _GONE_FRAMES = 3
@@ -130,6 +130,10 @@ _SAME_PIECE_DEG = 8.0
 _UNSEEN_DROP_S = 0.7
 # With no new piece for this long, the pieces already on the channel move on.
 _FLUSH_AFTER_S = 6.0
+# With pieces on the channel, the turn waits this long for the feeder to land
+# the next one, so that one turn both takes it in and drops the piece at the
+# exit: one turn a piece, not two.
+_NEXT_PIECE_WAIT_S = 3.0
 # The fins within this of the rest pose are at rest; further off, the rotor is
 # turned to it (steps were lost, or it was moved by hand).
 _ALIGN_TOL_DEG = 2.0
@@ -224,8 +228,6 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._check_room = 0.0
         self._check_turn_ends = False
         self._opening_deg = _OPENING_DEG
-        self._check_shakes = 0
-        self._check_shakes_max = _CHECK_SHAKES
         self._check_from = 0.0
         self._check_wall = 0.0
         self._check_frames = 0
@@ -251,10 +253,8 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._look_wall = 0.0
         self._look_frames = 0
         self._carry_frames = 0
-        # A sweep made in parts: what is left of it ("shake", or microsteps to turn).
+        # A sweep made in parts: what is left of it ("aim", "check", or microsteps to turn).
         self._sweep_steps: list = []
-        self._shaking = False
-        self._shake_cycles = _SHAKE_CYCLES
         self._aim_target: Optional[_TrackedPiece] = None
         self._after_aim_us = 0
         self._after_aim_back = False
@@ -526,7 +526,6 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         self._targets = []
         self._planning = False
         self._check_tp = None
-        self._shaking = False
         if not self._started:
             self._started = True
             self._paused_mid_cycle = False
@@ -873,8 +872,14 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                         "labelled.",
                     )
                     self._recordDoubt(tp, "merged")
-        elif not ahead and not exit_ and (now - self._rest_since) < _FLUSH_AFTER_S:
-            return  # The feeder may add a piece: it gets its chance first
+        else:
+            # The feeder may add a piece: it gets its chance first, so the turn
+            # that takes the pieces on also takes it in, one turn a piece.
+            wait = _NEXT_PIECE_WAIT_S if any(self._pockets[1:]) else _FLUSH_AFTER_S
+            if (now - self._rest_since) < wait:
+                return
+            if any(key[0] == 0 for key in self._new_seen) and (now - self._landed_at) < _PENDING_WAIT_S:
+                return  # A box landing in the RECEIVE pocket: wait to see it is a piece
         if not chute_on:
             return  # Not identified yet, or the chute is not on it yet
         self._cycle_start_pos = int(stepper.position)
@@ -937,8 +942,6 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._check_gap = gap - need
             self._check_room = max(0.0, furthest - need)
             self._check_turn_ends = gap + deepest > left + 0.5
-            self._check_shakes_max = _CHECK_SHAKES + getattr(lead, "carried", 0)
-            self._check_shakes = 0
             self._turned_deg += need
             self._sweep_steps = ["aim"] + ([need_us] if need_us > 0 else []) + ["check"]
             return
@@ -968,30 +971,9 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
 
     # --------------------------------------------------------------- TURN, LOOK
 
-    def _startShake(self, stepper, now: float) -> None:
-        cfg = self.ctx.config
-        amplitude = max(1, int(round(_SHAKE_ROTOR_DEG * self._per_deg)))
-        self.logger.info(f"{LOG_TAG} shake: {_SHAKE_ROTOR_DEG:g}° at the rotor, {self._shake_cycles} times")
-        try:
-            stepper.jitter(
-                amplitude, self._shake_cycles, int(cfg.jitter_speed_usteps_per_s), int(cfg.jitter_accel_usteps_per_s2)
-            )
-        except Exception as exc:
-            self.logger.warning(f"{LOG_TAG} shake failed: {exc}")
-        self._shaking = True
-        self._needs_verify = True
-        self._move_cmd_at = now
-
     def _turn(self, state, perception_service, stepper, now: float, moving: bool) -> None:
         if moving:
             return
-        if self._shaking:
-            try:
-                if bool(stepper.is_jittering()):
-                    return
-            except Exception:
-                pass
-            self._shaking = False
         if not self._sweep_steps and self._planning:
             self._planNext()
         if self._sweep_steps and self._sweep_steps[0] == "aim":
@@ -1002,9 +984,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self._sweep_steps.pop(0)
         if self._sweep_steps:
             step = self._sweep_steps.pop(0)
-            if step == "shake":
-                self._startShake(stepper, now)
-            elif step == "check":
+            if step == "check":
                 self._startCheck(now)
             else:
                 self._move(stepper, int(step), self.ctx.config.rotate_speed_usteps_per_s, now, "turn")
@@ -1045,15 +1025,6 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
         in the opening: did it fall? Still there, it is shaken where it is;
         gone, it is counted as dropped into the bin the chute stands at."""
         if moving:
-            return
-        if self._shaking:
-            try:
-                if bool(stepper.is_jittering()):
-                    return
-            except Exception:
-                pass
-            self._shaking = False
-            self._startCheck(now)
             return
         if self._fresh(state, self._check_wall):
             # On the channel, or hanging past its rim over the opening (the exit
@@ -1121,30 +1092,24 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
             self.logger.info(
                 f"{LOG_TAG} track={tp.track_id if tp else '?'} still on at the end of the turn: the next turn takes it further"
             )
+        elif self._check_seen >= 2 and self._pushFurther(tp, "still on at the opening"):
+            return
         elif self._check_seen >= 2:
-            if self._check_shakes < self._check_shakes_max:
-                self._check_shakes += 1
-                self._shake_cycles = _SHAKE_CYCLES
-                self.logger.warning(
-                    f"{LOG_TAG} track={tp.track_id if tp else '?'} did not fall at the opening: shaking it there "
-                    f"({self._check_shakes} of {self._check_shakes_max})"
-                )
-                self._startShake(stepper, now)
-                return
-            self.logger.warning(f"{LOG_TAG} track={tp.track_id if tp else '?'} still did not fall: finishing the turn")
+            # At the far edge and still on: it is not shaken. The turn goes on,
+            # and it rides round for another pass (the stall watchdog takes one
+            # that keeps riding round).
+            self.logger.warning(
+                f"{LOG_TAG} track={tp.track_id if tp else '?'} still on at the far edge of the opening: finishing the turn"
+            )
         elif (gone or self._check_frames >= 2) and tp is not None and any(tp in pocket for pocket in self._pockets):
             # It rode round before, or was missed here twice: out of sight is no
             # proof it fell, so it is shaken where it is anyway. Missed once is
             # most often a piece that slid back in its pocket and was looked
             # for in the wrong place: the turn just takes it on.
             carried = int(getattr(tp, "carried", 0)) + max(0, int(getattr(tp, "missed", 0)) - 1)
-            if carried and self._check_shakes < min(carried, self._check_shakes_max):
-                self._check_shakes += 1
-                self._shake_cycles = _SHAKE_CYCLES
-                self.logger.warning(
-                    f"{LOG_TAG} track={tp.track_id} went round before and is out of sight at the opening: shaking it there anyway"
-                )
-                self._startShake(stepper, now)
+            if carried and not self._check_turn_ends and self._pushFurther(
+                tp, "went round before and is out of sight at the opening", whole=True
+            ):
                 return
             group = [m for m in (self._check_group or [tp]) if any(m in pocket for pocket in self._pockets)]
             later = any(any(g[0] in pocket for pocket in self._pockets) for g in self._targets)
@@ -1184,6 +1149,58 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
                     pass
         self._check_tp = None
         self._enter(_P.TURN)
+
+    def _pushFurther(self, tp: Optional[_TrackedPiece], why: str, whole: bool = False) -> bool:
+        """A piece that has not fallen goes further into the opening before it
+        is ever shaken: _PUSH_DEG at a time (all the way, ``whole``), up to the
+        opening's far edge and no further than the turn. A piece behind that
+        comes into the opening with it drops with it: both go to the discard,
+        unless both were going there. False when there is no room left."""
+        depth = -float(self._check_gap)
+        free = min(self._opening_deg - _FAR_MARGIN_DEG - depth, self._pitch_deg - self._turned_deg)
+        if free < 1.0:
+            return False
+        push = free if whole else min(_PUSH_DEG, free)
+        group = list(self._check_group or ([tp] if tp is not None else []))
+        follower = None
+        for pocket in self._pockets:
+            for other in pocket:
+                if other in group or other.gap_to_exit is None:
+                    continue
+                if float(other.gap_to_exit) - (self._turned_deg + push) < 0.0 and (
+                    follower is None or float(other.gap_to_exit) < float(follower.gap_to_exit)
+                ):
+                    follower = other
+        reaim = False
+        if follower is not None:
+            members = [m for m in group if m is not None] + [follower]
+            if not all(m.double_feed for m in members):
+                self._multi_drop_seq += 1
+                for m in members:
+                    self._toDiscard(
+                        m,
+                        "together",
+                        "It would not fall at the classification channel's exit until it was turned so far in "
+                        "that the piece behind it came in too; both went to the discard.",
+                        group=self._multi_drop_seq,
+                    )
+                reaim = True
+            group.append(follower)
+            self._check_group = group
+            for g in self._targets:
+                if follower in g:
+                    g.remove(follower)
+            self._targets = [g for g in self._targets if g]
+        push_us = int(round(push * self._per_deg))
+        self._check_gap -= push
+        self._turned_deg += push
+        self.logger.info(
+            f"{LOG_TAG} track={tp.track_id if tp else '?'} {why}: turning it {push:.1f}° further in"
+            + (f", with track={follower.track_id} behind it" if follower is not None else "")
+        )
+        self._sweep_steps = (["aim"] if reaim else []) + ([push_us] if push_us > 0 else []) + ["check"]
+        self._enter(_P.TURN)
+        return True
 
     def _look(self, state, perception_service, stepper, now: float, moving: bool) -> None:
         """At rest after a turn. The EXIT pocket it swept across the opening: is
@@ -1384,7 +1401,7 @@ class PocketClassificationChannel(TwoPieceClassificationChannel):
     def _carriedRound(self, now: float) -> None:
         """The swept pocket's piece is still on the channel: it stuck to the
         rotor and rode round into the RECEIVE pocket. It goes on as the piece
-        it is, and is shaken harder at the opening on its next pass."""
+        it is, and goes across the opening again on its next pass."""
         swept, self._swept = self._swept, []
         for tp in swept:
             tp.fell_pending = False

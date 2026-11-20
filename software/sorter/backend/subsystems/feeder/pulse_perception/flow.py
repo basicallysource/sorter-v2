@@ -60,6 +60,10 @@ _CONFIG_TTL_S = 1.0
 EXIT_TRIES_CALM_S = 5.0
 # The smallest move that carries a lead on into the exit while C4 is busy.
 _STAGE_MIN_DEG = 4.0
+# A piece carried toward C3's exit can start to fall once its center is this
+# close to where pieces fall (11/20, clean: the furthest back a piece stood
+# before the push that dropped it was 14 degrees).
+_EARLIEST_FALL_DEG = 15.0
 
 
 class PulsePerceptionFeeding(BaseState):
@@ -226,6 +230,28 @@ class PulsePerceptionFeeding(BaseState):
             return True
         return bool(self.shared.classification_ready)
 
+    def _c4ReadyInTime(self, cfg: PulsePerceptionConfig, c3, now_mono: float) -> bool:
+        """Whether C3's lead may be pushed while the classification channel is
+        still on the turn that leaves it room: only when the piece cannot land
+        before the channel says it will be at rest (c4_ready_at). It lands no
+        sooner than C3 takes to carry it to where pieces start to fall, plus
+        the shortest fall (ch3_early_push_fall_s; 0 = never push early)."""
+        fall_s = float(getattr(cfg, "ch3_early_push_fall_s", 0.0) or 0.0)
+        ready_at = getattr(self.shared, "c4_ready_at", None)
+        if fall_s <= 0 or ready_at is None or not cfg.gate_ch3_on_classification_ready:
+            return False
+        pieces = getattr(c3, "pieces", ()) or ()
+        if not pieces or pieces[0].com_forward_to_exit_deg is None:
+            return False
+        travel = max(0.0, float(pieces[0].com_forward_to_exit_deg) - _EARLIEST_FALL_DEG)
+        try:
+            # The first part of a longer move is covered sooner than a move of
+            # just that length, which also brakes: about 0.7 of its time.
+            reach_s = 0.7 * self.irl.c_channel_3_rotor_stepper.estimateMoveDegreesMs(travel, cfg.ch3_move_speed_usteps_per_s) / 1000.0
+        except Exception:
+            return False
+        return now_mono + reach_s + fall_s >= float(ready_at)
+
     def _gate(self, channel: int, cfg: PulsePerceptionConfig) -> DispenseGate:
         gate = self._gates[channel]
         gate.vanish_confirm_s = max(0, cfg.dispense_vanish_confirm_ms) / 1000.0
@@ -328,7 +354,10 @@ class PulsePerceptionFeeding(BaseState):
                 if self._fall3.count >= 2:
                     self.gc.logger.info(f"PulsePerception: {self._fall3.count} pieces fell off C3 together")
                     self._recordFallCount(3, self._fall3)
-            clear3 = {"ready": self._classification_ready(cfg), "gate": gate3.exitAllowed(now_mono)}
+            clear3 = {
+                "ready": self._classification_ready(cfg) or self._c4ReadyInTime(cfg, c3, now_mono),
+                "gate": gate3.exitAllowed(now_mono),
+            }
             self._recordHold(3, c3, clear3)
             action = feederChannelAction(
                 c3,

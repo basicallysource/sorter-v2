@@ -56,6 +56,10 @@ class SharedVariables:
         self.c1_fed_at: Optional[float] = None
         # When C3 last pushed at its exit (monotonic): a piece may be falling.
         self.c3_pushed_at: Optional[float] = None
+        # When the classification channel expects to be at rest with room for a
+        # piece (monotonic), told while the turn that ends so is under way; None
+        # otherwise. Written by a finned classification channel.
+        self.c4_ready_at: Optional[float] = None
 
     @property
     def classification_ready(self) -> bool:

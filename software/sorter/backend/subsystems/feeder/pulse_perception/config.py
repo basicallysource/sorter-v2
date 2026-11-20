@@ -89,6 +89,11 @@ class PulsePerceptionConfig:
     # so that when C4 asks, one short push drops it. 0 = off: the lead waits
     # at the exit's near edge.
     ch3_stage_short_deg: float = 0.0
+    # The shortest time a piece pushed off C3 takes to land on the
+    # classification channel. Above 0, C3 pushes its lead while a finned
+    # classification channel is still on the turn that leaves it room, when the
+    # piece cannot land before that turn ends. 0 = off: C3 waits to be asked.
+    ch3_early_push_fall_s: float = 0.0
     # After a piece was last seen in a channel's exit, the channel makes no
     # free advance for this long: a piece at the exit that the camera misses
     # for a frame must not be pushed off by a long advance meant for an empty
@@ -171,6 +176,7 @@ FIELD_META: list[dict] = [
     {"section": "Hand-off", "key": "ch3_max_pieces", "label": "Most pieces on C3", "type": "int", "default": _DEFAULTS.ch3_max_pieces, "description": "C2 hands C3 no new piece while C3 holds this many. Crowded pieces on C3 sit touching, and C3's exit then drops two at once onto the classification channel. 0 = no limit."},
     {"section": "Hand-off", "key": "ch2_max_pieces", "label": "Most pieces on C2", "type": "int", "default": _DEFAULTS.ch2_max_pieces, "description": "C1 adds nothing to C2 while C2 holds this many, so a heavy pour from the hopper does not flood C2 and pack C3 behind it. 0 = no limit."},
     {"section": "Hand-off", "key": "ch3_busy_standoff_deg", "label": "C3 stand-off while C4 is busy (output deg)", "type": "float", "default": _DEFAULTS.ch3_busy_standoff_deg, "description": "While the classification channel is turning or has a piece in its drop zone, C3 advances its lead piece only to this far short of the exit, so nothing waits at the lip to fall onto C4 mid-turn. 0 = advance right up to the exit edge."},
+    {"section": "Hand-off", "key": "ch3_early_push_fall_s", "label": "C3 pushes ahead of the ask: shortest fall (s)", "type": "float", "default": _DEFAULTS.ch3_early_push_fall_s, "description": "The shortest time a piece pushed off C3 takes to land. Above 0, C3 starts pushing its lead while a finned classification channel is still on the turn that leaves it room, whenever the piece cannot land before that turn ends. 0 = off: C3 waits until the channel asks."},
     {"section": "Hand-off", "key": "ch3_stage_short_deg", "label": "C3 waits this close to the drop (output deg)", "type": "float", "default": _DEFAULTS.ch3_stage_short_deg, "description": "While the classification channel is busy, C3 carries its lead piece on into the exit until the piece's center is this far short of where pieces fall, never letting the piece behind it reach the exit. When the classification channel asks, one short push drops it. 0 = off: the lead waits at the exit's near edge."},
     {"section": "Hand-off", "key": "pause_after_no_feed_min", "label": "Pause when nothing comes from C1 for (min)", "type": "float", "default": _DEFAULTS.pause_after_no_feed_min, "description": "Sorting pauses once no piece has come off C1 onto C2 for this long: the hopper is empty or C1 is stuck. 0 = never."},
     {"section": "Hand-off", "key": "exit_latch_ms", "label": "No free advance after a piece at the exit (ms)", "type": "int", "default": _DEFAULTS.exit_latch_ms, "description": "After a piece was last seen in a channel's exit, the channel makes no free advance for this long, so a piece the camera misses for a frame is not pushed off by a long advance. 0 = off."},

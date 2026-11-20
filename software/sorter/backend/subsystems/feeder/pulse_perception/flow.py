@@ -99,6 +99,7 @@ class PulsePerceptionFeeding(BaseState):
         self._shake_owed: dict[int, float] = {}
         self._push_only = machineGeneration().feeder_push_only
         self._fall3 = FallCount()
+        self._fall2 = FallCount()
         # Back-offs and shakes at each channel's exit in a row (none more than
         # EXIT_TRIES_CALM_S apart), and when the last was. Counted for the exit,
         # not one piece: a piece the camera draws as several boxes changes its
@@ -317,8 +318,11 @@ class PulsePerceptionFeeding(BaseState):
             # so we never pulse a C2 piece off the edge into a busy C3; and once
             # a piece falls, nothing more goes for a while, so C3 sees it land.
             gate2 = self._gate(2, cfg)
-            if gate2.observe(c2, now_mono):
+            fell2 = gate2.observe(c2, now_mono)
+            if fell2:
                 self._noteFall(2, gate2)
+            if self._fall2.observe(c2, now_mono, gate2.fell_track_id, fell2) and self._fall2.count == 2:
+                self.gc.logger.info("PulsePerception: 2 pieces fell off C2 together")
             action = feederChannelAction(
                 c2,
                 downstream_clear=(not c3.in_drop)

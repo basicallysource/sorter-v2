@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.services.profile_engine.compiler import (
+    FEATURE_BIN_SORT_BY,
     FEATURE_COLOR_FALLBACK,
     CatalogIndex,
     Router,
@@ -281,6 +282,25 @@ class TestFallback:
         assert router.route("3001", None) == ("misc", "default")
         assert compiled.requires == [FEATURE_COLOR_FALLBACK]
         assert compiled.artifact["categories"]["color_5"]["name"] == "Red"
+
+
+class TestBinSortBy:
+    def test_a_profile_says_what_its_bins_are_named_by(self, index):
+        compiled = compile_document({**_doc(fallback={"bricklink_categories": True}), "bin_sort_by": ["color", "part"]}, index)
+        assert compiled.artifact["bin_sort_by"] == ["part", "color"]
+        assert compiled.requires == [FEATURE_BIN_SORT_BY]
+
+    def test_naming_by_category_alone_is_the_default_and_leaves_no_trace(self, index):
+        plain = compile_document(_doc(fallback={"by_color": True}), index)
+        named = compile_document({**_doc(fallback={"by_color": True}), "bin_sort_by": ["category"]}, index)
+        assert "bin_sort_by" not in named.artifact
+        assert named.artifact["artifact_hash"] == plain.artifact["artifact_hash"]
+        assert FEATURE_BIN_SORT_BY not in named.requires
+
+    def test_unknown_names_are_dropped(self, index):
+        compiled = compile_document({**_doc(), "bin_sort_by": ["size", "COLOR"]}, index)
+        assert compiled.artifact["bin_sort_by"] == ["color"]
+        assert "bin_sort_by" not in compile_document({**_doc(), "bin_sort_by": "color"}, index).artifact
 
 
 class TestKits:

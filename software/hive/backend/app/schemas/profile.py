@@ -103,6 +103,8 @@ class SortingProfileVersionResponse(SortingProfileVersionSummaryResponse):
     default_category_id: str
     rules: list[SortingProfileRuleResponse]
     fallback_mode: SortingProfileFallbackModeResponse
+    # What a machine names its bins by under this version; empty for by category.
+    bin_sort_by: list[str] = Field(default_factory=list)
     compiled_stats: dict[str, Any] | None = None
     # Each bin the profile fills: name, picture, its conditions in words, how
     # many parts it takes and a few of them. category_order is the order to
@@ -152,6 +154,9 @@ class SortingProfileCreateRequest(BaseModel):
     rules: list["SortingProfileRuleResponse"] = Field(default_factory=list)
     fallback_mode: "SortingProfileFallbackModeResponse | None" = None
     default_category_id: str = "misc"
+    # What a machine names its bins by: "category", "part", "color" (see the
+    # compiler's normalize_bin_sort_by). Empty is the default, by category.
+    bin_sort_by: list[str] = Field(default_factory=list)
     change_note: str | None = None
 
 
@@ -168,6 +173,7 @@ class SortingProfileVersionCreateRequest(BaseModel):
     default_category_id: str = "misc"
     rules: list[SortingProfileRuleResponse] = Field(default_factory=list)
     fallback_mode: SortingProfileFallbackModeResponse = Field(default_factory=SortingProfileFallbackModeResponse)
+    bin_sort_by: list[str] = Field(default_factory=list)
     change_note: str | None = None
     label: str | None = None
     publish: bool = False
@@ -188,6 +194,7 @@ class SortingProfilePreviewRequest(BaseModel):
     default_category_id: str = "misc"
     rules: list[SortingProfileRuleResponse] = Field(default_factory=list)
     fallback_mode: SortingProfileFallbackModeResponse = Field(default_factory=SortingProfileFallbackModeResponse)
+    bin_sort_by: list[str] = Field(default_factory=list)
 
 
 class SortingProfileForkRequest(BaseModel):

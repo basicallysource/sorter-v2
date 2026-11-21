@@ -453,6 +453,23 @@ _PRICE_CACHE: dict[tuple[Optional[str], Optional[str]], Optional[float]] = {}
 _PRICE_CACHE_LOCK = threading.Lock()
 
 
+def partNames(part_ids: list[str]) -> dict[str, str]:
+    """A recorded name for each of these parts (the alphabetically last one, if
+    a part was recorded under several); parts never named are left out."""
+    wanted = sorted({str(part_id) for part_id in part_ids if part_id})
+    if not wanted:
+        return {}
+    marks = ",".join("?" for _ in wanted)
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT part_id, MAX(part_name) AS part_name FROM piece_history "
+            f"WHERE part_id IN ({marks}) AND part_name IS NOT NULL AND part_name != '' "
+            "GROUP BY part_id",
+            wanted,
+        ).fetchall()
+    return {str(row["part_id"]): str(row["part_name"]) for row in rows}
+
+
 def peekCachedPrice(part_id: Optional[str], color_id: Optional[str]) -> tuple[bool, Optional[float]]:
     key = (part_id, color_id)
     with _PRICE_CACHE_LOCK:

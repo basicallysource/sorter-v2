@@ -13,7 +13,7 @@
 # the work directory. Guest ports 80 (status page, then UI), 8000 (backend)
 # and 22 are forwarded to HTTP_PORT, API_PORT and SSH_PORT on this host.
 #
-#   ./boot.sh out/sorteros-v4.1.0-2026-09-23.img          # starts in the background
+#   ./boot.sh out/sorteros-v4.1.2-rc-2026-09-23.img       # starts in the background
 #   ./check.py boot                                        # watch it and check it
 #   kill "$(cat work/qemu.pid)"                            # stop it
 #

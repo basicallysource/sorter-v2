@@ -7,8 +7,8 @@ the VM runs at native speed.
 ```bash
 sudo apt-get install qemu-system-arm qemu-utils     # or on a Mac: brew install qemu
 
-sudo ./check.py image ../build/out/sorteros-v4.1.0-<date>.img   # seconds
-./boot.sh ../build/out/sorteros-v4.1.0-<date>.img               # starts a VM in the background
+sudo ./check.py image ../build/out/sorteros-v<version>-<date>.img   # seconds
+./boot.sh ../build/out/sorteros-v<version>-<date>.img               # starts a VM in the background
 ./check.py boot --expect-default-model                           # follows first boot, then checks it
 ./check.py wifi                                                   # simulated Wi-Fi scenarios in the same VM
 kill "$(cat work/qemu.pid)"

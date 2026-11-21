@@ -462,6 +462,11 @@ def main() -> None:
     gc.lifetime_stats = LifetimeStatsTracker()
     setGlobalConfig(gc)
     setCommandQueue(server_to_main_queue)
+    # Tells the supervisor's boot record what the sorter is doing and its
+    # newest warning lines, and warns after a restart nobody asked for. First,
+    # so a start that fails further down still leaves its last words.
+    import boot_record
+    boot_record.start(gc)
     startup_total_start = time.time()
 
     irl_config = mkIRLConfig()

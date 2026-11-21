@@ -11,7 +11,8 @@ Most kinds hold the machine until they are dealt with. A kind with
 shows beside any incident, and it goes when its condition ends (the
 computer's health, computer_health.py, and the stepper drivers',
 driver_watch.py, raise these) or, where its card has a button, when the
-operator presses it.
+operator presses it. The boot record (boot_record.py) raises one after a
+restart nobody asked for; it stays until the operator has read it.
 """
 
 from __future__ import annotations
@@ -91,6 +92,27 @@ def _computerWarnings() -> tuple[IncidentKind, ...]:
             title="Supply voltage low",
             todo="{detail} It can make the computer slow down or restart. Use the machine's own power supply and cable.",
             actions=(), holds=False, link=link,
+        ),
+    )
+
+
+def _restartWarnings() -> tuple[IncidentKind, ...]:
+    # A restart nobody asked for (boot_record.py). {detail} says when the
+    # machine was last alive, what it was doing and what is known about why.
+    todo = "{detail} Press Done once you have read this."
+    return (
+        IncidentKind(
+            "computer_restarted",
+            title="The computer restarted by itself",
+            todo=todo,
+            actions=("restart_seen",), holds=False,
+            link=("/settings/computer", "Computer health"),
+        ),
+        IncidentKind(
+            "backend_restarted",
+            title="The machine's software restarted by itself",
+            todo=todo,
+            actions=("restart_seen",), holds=False,
         ),
     )
 
@@ -217,6 +239,7 @@ KINDS: dict[str, IncidentKind] = {
             off_label="Leave it to the hardware alert",
         ),
         *_computerWarnings(),
+        *_restartWarnings(),
         *_driverKinds(),
         IncidentKind(
             "distribution_door_blocked",

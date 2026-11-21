@@ -1,4 +1,6 @@
+from collections import deque
 from datetime import datetime
+import itertools
 import queue
 import threading
 import atexit
@@ -28,6 +30,12 @@ class Logger:
         # the right trade vs. freezing the sorter.
         self._queue: "queue.Queue[Optional[str]]" = queue.Queue(maxsize=20000)
         self._dropped = 0
+        # The newest warning and error lines as (count, line), kept here as
+        # they are logged, whether or not the writer gets to them. The boot
+        # record (boot_record.py) puts them on the disk: after a hard stop
+        # they are the machine's last words.
+        self.problems: "deque[tuple[int, str]]" = deque(maxlen=200)
+        self._problem_count = itertools.count(1)
         self._writer = threading.Thread(
             target=self._drain, name="logger-writer", daemon=True
         )
@@ -66,6 +74,8 @@ class Logger:
 
     def _log(self, level: str, msg: str) -> None:
         line = f"[{self._timestamp()}] [{level}] {msg}"
+        if level == "ERROR" or level == "WARN":
+            self.problems.append((next(self._problem_count), line[:300]))
         try:
             self._queue.put_nowait(line)
         except queue.Full:

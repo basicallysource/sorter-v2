@@ -22,6 +22,18 @@ def _closeWarning(gc: Any, incident: dict[str, Any]) -> None:
     )
 
 
+def _restartSeen(gc: Any, incident: dict[str, Any]) -> None:
+    # The operator has read why the machine restarted: the card stays away
+    # for that restart, also after the next start.
+    import boot_record
+
+    try:
+        boot_record.markSeen(str(incident.get("kind")), incident.get("record_id"))
+    except OSError as exc:
+        gc.logger.warning(f"boot record: seeing the restart was not saved: {exc}")
+    _closeWarning(gc, incident)
+
+
 def _stopRecovery(gc: Any, incident: dict[str, Any]) -> None:
     import recovery
 
@@ -72,6 +84,7 @@ def _passThrough(gc: Any, incident: dict[str, Any]) -> None:
 ACTIONS: dict[str, Action] = {
     "done": Action("Done", _done),
     "close_warning": Action("Done", _closeWarning),
+    "restart_seen": Action("Done", _restartSeen),
     "stop_recovery": Action("Stop", _stopRecovery),
     "clear_c4": Action("Turn to clear", _clearC4),
     "clear_stall": Action("Done", _clearStall),

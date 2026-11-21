@@ -7,9 +7,10 @@ import signal
 import threading
 from typing import Callable, Dict, Any, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
+import boot_record
 import server.shared_state as shared_state
 from hardware.fault import HardwareFault, NotHomed
 
@@ -19,7 +20,22 @@ router = APIRouter()
 @router.get("/api/system/status")
 def get_system_status() -> Dict[str, Any]:
     with shared_state.hardware_lifecycle_lock:
-        return shared_state.systemStatusData()
+        status = shared_state.systemStatusData()
+    # The newest boot record in short: when the machine last started, and why.
+    status["last_restart"] = boot_record.lastRestart()
+    return status
+
+
+@router.get("/api/system/boot-history")
+def get_boot_history(limit: int = Query(20, ge=1, le=boot_record.HISTORY_KEEP)) -> Dict[str, Any]:
+    """The newest boot records, newest first (boot_record.py): for each start,
+    when the machine was last alive, how long it was dark, what it was doing
+    and what is known about why it stopped."""
+    return {
+        "heartbeat_s": boot_record.heartbeatSeconds(),
+        "folder": str(boot_record.directory()),
+        "records": boot_record.history()[-limit:][::-1],
+    }
 
 
 @router.post("/api/system/reset")
@@ -218,6 +234,7 @@ def restart_system() -> Dict[str, Any]:
         time.sleep(0.5)
         os.kill(os.getpid(), signal.SIGTERM)
 
+    boot_record.announceStop(boot_record.RESTART_ASKED)
     threading.Thread(target=_deferred_exit, daemon=True).start()
     return {"ok": True, "message": "Backend is restarting..."}
 
@@ -259,6 +276,7 @@ def shutdown_machine() -> Dict[str, Any]:
         if logger is not None:
             logger.error("All shutdown commands failed; machine did not power down.")
 
+    boot_record.announceStop(boot_record.SHUTDOWN_ASKED, computer=True)
     threading.Thread(target=_deferred_shutdown, daemon=True).start()
     return {"ok": True, "message": "Machine is powering down..."}
 
@@ -301,6 +319,7 @@ def reboot_machine() -> Dict[str, Any]:
         if logger is not None:
             logger.error("All reboot commands failed; machine did not restart.")
 
+    boot_record.announceStop(boot_record.REBOOT_ASKED, computer=True)
     threading.Thread(target=_deferred_reboot, daemon=True).start()
     return {"ok": True, "message": "Machine is restarting..."}
 

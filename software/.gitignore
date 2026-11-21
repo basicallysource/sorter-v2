@@ -113,6 +113,7 @@ sorter/backend/local_state.sqlite
 sorter/backend/local_state.sqlite-shm
 sorter/backend/local_state.sqlite-wal
 sorter/backend/piece_images/
+sorter/backend/boot_record/
 sorter/backend/.secret_seed
 
 # Model weight files (too large for git)

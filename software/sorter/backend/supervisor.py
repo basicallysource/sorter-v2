@@ -1,5 +1,7 @@
 """Runs the backend (main.py) and restarts it when it exits, and serves the
-UI's static build, so the page loads even while the backend restarts."""
+UI's static build, so the page loads even while the backend restarts. It also
+keeps the boot record (boot_record.py): a heartbeat on the disk, and at every
+start what the last run left and why it ended."""
 
 from __future__ import annotations
 
@@ -22,6 +24,8 @@ from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from dotenv import load_dotenv
+
+import boot_record
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
@@ -47,7 +51,8 @@ class BackendSupervisor:
     The backend inherits the supervisor's stdout and stderr (the journal), and
     is told how many times it was started (SORTER_BACKEND_STARTS) and how many
     of the runs before ended on their own (SORTER_BACKEND_UNEXPECTED_EXITS),
-    which the Computer settings page shows."""
+    which the Computer settings page shows. Each backend gets a pipe to the
+    boot record, and every exit the supervisor outlives goes into its history."""
 
     def __init__(
         self,
@@ -58,6 +63,7 @@ class BackendSupervisor:
         restart_backoff_s: float,
         stop_timeout_s: float,
         fast_crash_window_s: float = DEFAULT_FAST_CRASH_WINDOW_S,
+        record: boot_record.Recorder | None = None,
     ) -> None:
         self._command = list(command)
         self._cwd = cwd
@@ -65,6 +71,7 @@ class BackendSupervisor:
         self._restart_backoff_s = restart_backoff_s
         self._stop_timeout_s = stop_timeout_s
         self._fast_crash_window_s = fast_crash_window_s
+        self._record = record or boot_record.Recorder(interval_s=0)
         self._lock = threading.RLock()
         self._shutdown = threading.Event()
         self._restart_requested = False
@@ -78,6 +85,10 @@ class BackendSupervisor:
 
     def start(self) -> None:
         self._start_backend()
+
+    def stopping(self) -> None:
+        """From here on a backend that exits is not started again."""
+        self._shutdown.set()
 
     def shutdown(self) -> None:
         self._shutdown.set()
@@ -108,18 +119,29 @@ class BackendSupervisor:
             if process is not None and process.poll() is None:
                 return
             self._starts += 1
-            child = subprocess.Popen(
-                self._command,
-                cwd=str(self._cwd),
-                env={
-                    **self._environment,
-                    "SORTER_BACKEND_STARTS": str(self._starts),
-                    "SORTER_BACKEND_UNEXPECTED_EXITS": str(self._unexpected_exits),
-                },
-                start_new_session=True,
-            )
+            environment = {
+                **self._environment,
+                "SORTER_BACKEND_STARTS": str(self._starts),
+                "SORTER_BACKEND_UNEXPECTED_EXITS": str(self._unexpected_exits),
+            }
+            # The backend's end of the pipe it reports to the boot record through.
+            report_fd = self._record.channel()
+            if report_fd is not None:
+                environment[boot_record.REPORT_FD_ENV] = str(report_fd)
+            try:
+                child = subprocess.Popen(
+                    self._command,
+                    cwd=str(self._cwd),
+                    env=environment,
+                    start_new_session=True,
+                    pass_fds=() if report_fd is None else (report_fd,),
+                )
+            finally:
+                if report_fd is not None:
+                    os.close(report_fd)
             self._process = child
             self._process_started_at = time.time()
+            self._record.backendStarted(child.pid)
         threading.Thread(target=self._watch_process, args=(child,), daemon=True).start()
 
     def _clear_bytecode_caches(self) -> int:
@@ -149,9 +171,19 @@ class BackendSupervisor:
                 return
             started_at = self._process_started_at
             self._process = None
-            if self._shutdown.is_set() or self._restart_requested:
+            if self._shutdown.is_set():
                 return
-            self._unexpected_exits += 1
+            # Why it ended, when that was asked for: here, or as the backend
+            # said before it went (a restart from the UI, an update).
+            asked = self._record.backendExited(
+                child.returncode,
+                time.time() - started_at if started_at is not None else None,
+                boot_record.RESTART_ASKED if self._restart_requested else None,
+            )
+            if self._restart_requested:
+                return
+            if asked is None:
+                self._unexpected_exits += 1
             if started_at is not None and time.time() - started_at < self._fast_crash_window_s:
                 self._consecutive_fast_crashes += 1
             else:
@@ -365,22 +397,34 @@ def main() -> None:
         # Where the UI is, for the backend: its heartbeat reports it, and its
         # origin check lets that page call the API.
         environment["SORTER_SUPERVISOR_UI_PORT"] = str(args.ui_port)
+    record = boot_record.Recorder()
     supervisor = BackendSupervisor(
         command=args.backend_command,
         cwd=Path(__file__).resolve().parent,
         environment=environment,
         restart_backoff_s=args.restart_backoff,
         stop_timeout_s=args.stop_timeout,
+        record=record,
     )
     stop = threading.Event()
-    signal.signal(signal.SIGINT, lambda *_: stop.set())
-    signal.signal(signal.SIGTERM, lambda *_: stop.set())
+    stopped_by: list[int] = []
+
+    def _stop(signum: int, _frame: Any) -> None:
+        stopped_by.append(signum)
+        stop.set()
+
+    signal.signal(signal.SIGINT, _stop)
+    signal.signal(signal.SIGTERM, _stop)
 
     print(f"[supervisor] command={' '.join(args.backend_command)}", flush=True)
+    record.begin()
     supervisor.start()
     if args.ui_port:
         threading.Thread(target=_serve_ui, args=(supervisor, args.ui_port), daemon=True).start()
     stop.wait()
+    supervisor.stopping()
+    # The stop mark goes to the disk first: systemd may not wait for the rest.
+    record.stopping(boot_record.TERMINAL_STOP if stopped_by[:1] == [signal.SIGINT] else boot_record.SERVICE_STOP)
     # Stop the backend before exiting, so it never outlives the supervisor.
     supervisor.shutdown()
 

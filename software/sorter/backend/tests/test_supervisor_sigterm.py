@@ -36,6 +36,8 @@ def test_sigterm_stops_the_supervisor_and_its_backend(tmp_path):
         [sys.executable, "supervisor.py", "--ui-port", str(port),
          "--", "sh", "-c", f"echo $$ > {pid_file}; exec sleep 60"],
         cwd=BACKEND_DIR,
+        # No boot record: it would be written beside this checkout's data.
+        env={**os.environ, "SORTER_HEARTBEAT_S": "0"},
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )

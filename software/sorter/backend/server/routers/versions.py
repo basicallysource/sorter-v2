@@ -297,6 +297,9 @@ def _deferredRestart() -> None:
         time.sleep(0.5)
         os.kill(os.getpid(), signal.SIGTERM)
 
+    import boot_record
+
+    boot_record.announceStop(boot_record.UPDATE_RESTART)
     threading.Thread(target=_exit, daemon=True).start()
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import sorting_runs
 
@@ -34,6 +34,18 @@ class RunPatch(BaseModel):
     note: Optional[str] = None
     lot_id: Optional[str] = None
     adds_to_lot: Optional[bool] = None
+
+
+class BinIn(BaseModel):
+    layer_index: int = Field(ge=0)
+    section_index: int = Field(ge=0)
+    bin_index: int = Field(ge=0)
+
+
+class SendBackIn(BaseModel):
+    bins: list[BinIn] = Field(min_length=1)
+    # Why, e.g. "emptied into the hopper to be sorted again".
+    note: Optional[str] = None
 
 
 def _call(fn, *args, **kwargs) -> Any:
@@ -80,3 +92,11 @@ def update_lot(lot_id: str, body: LotPatch) -> dict[str, Any]:
 @router.get("/api/lots/{lot_id}/parts")
 def lot_parts(lot_id: str) -> dict[str, Any]:
     return _call(sorting_runs.lotParts, lot_id)
+
+
+@router.post("/api/lots/{lot_id}/send-back")
+def send_back(lot_id: str, body: SendBackIn) -> dict[str, Any]:
+    """The lot's pieces in these bins went back in the hopper to be sorted
+    again (sorting_runs.sendBack)."""
+    bins = [(b.layer_index, b.section_index, b.bin_index) for b in body.bins]
+    return _call(sorting_runs.sendBack, lot_id, bins, body.note)

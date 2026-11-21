@@ -136,6 +136,19 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_piece_rejection_reasons_reason "
         "ON piece_rejection_reasons(reason)"
     )
+    # Pieces sent back to be sorted again (sorting_runs.sendBack): a bin's
+    # pieces went back in the hopper. Their record stays, but no run or lot
+    # counts it; the piece's next sighting is the one that counts. A row never
+    # changes, so it syncs by id.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS sent_back_pieces ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "piece_uuid TEXT NOT NULL UNIQUE, "
+        "lot_id TEXT, "
+        "sent_back_at REAL NOT NULL, "
+        "note TEXT"
+        ")"
+    )
     # Whether an image is ready to sync depends on its piece's record, so the
     # image tables are part of this schema; a record's training label reads
     # the piece's predictions, so theirs are too.
@@ -224,6 +237,12 @@ def _createTables(conn: sqlite3.Connection) -> None:
 
 def _connection():
     return db.connect(_createTables)
+
+
+def notSentBack(record: str) -> str:
+    """SQL that holds for a record (`record` is its table's name or alias in
+    the query) whose piece was not sent back: what runs and lots count."""
+    return f"NOT EXISTS (SELECT 1 FROM sent_back_pieces s WHERE s.piece_uuid = {record}.uuid)"
 
 
 def _finite(value: Any) -> Optional[float]:
@@ -725,8 +744,10 @@ def _buildFilters(
         clauses.append("(bin_x = ? AND bin_y = ? AND bin_z = ?)")
         params.extend(bin_ref)
     if seen_ranges is not None:
-        # The stretches of time of a sorting run, or of a lot's runs. None is no
+        # The stretches of time of a sorting run, or of a lot's runs, less the
+        # pieces sent back, as the run and the lot count them. None is no
         # filter; an empty list is a filter that nothing passes.
+        clauses.append(notSentBack("piece_records"))
         if not seen_ranges:
             clauses.append("0")
         else:
@@ -959,6 +980,22 @@ def countRecordsAfter(seq_cursor: int) -> int:
             "SELECT COUNT(*) AS n FROM piece_records WHERE sync_seq > ?", (int(seq_cursor),)
         ).fetchone()
     return int(row["n"] or 0)
+
+
+def listSentBackAfter(after_id: int, limit: int) -> list[dict[str, Any]]:
+    """Pieces sent back, in id order, for the Hive sync worker."""
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT id, piece_uuid, lot_id, sent_back_at, note FROM sent_back_pieces "
+            "WHERE id > ? ORDER BY id LIMIT ?",
+            (int(after_id), int(limit)),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def maxSentBackId() -> int:
+    with _connection() as conn:
+        return int(conn.execute("SELECT COALESCE(MAX(id), 0) FROM sent_back_pieces").fetchone()[0])
 
 
 # --- Brickognize corrections -------------------------------------------------

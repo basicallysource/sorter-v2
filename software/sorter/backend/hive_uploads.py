@@ -163,6 +163,9 @@ class HiveUploads:
         version it now keeps."""
         return self._pushRows("/api/machine/sync/sorting-runs", "piece_records", sorting_set)
 
+    def pushSentBackPieces(self, rows: list[dict[str, Any]]) -> int:
+        return self._pushRows("/api/machine/sync/sent-back-pieces", "piece_records", {"records": rows})
+
     def pushPiecePredictions(self, records: list[dict[str, Any]]) -> int:
         return self._pushRows("/api/machine/sync/piece-predictions", "piece_records", {"records": records})
 

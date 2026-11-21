@@ -2,8 +2,9 @@
 
 Each kind of data is a leg with a cursor (see sync_seq.py for the one rule):
 piece records, piece images and training runs, which change after they are
-written, go by sync_seq; telemetry records, piece predictions, channel crops,
-control-data segments and training samples, which never change, go by id.
+written, go by sync_seq; telemetry records, piece predictions, pieces sent
+back, channel crops, control-data segments and training samples, which never
+change, go by id.
 Hive keeps the highest value it accepted per data type ("what's the max
 local_id you already have for me?"), and the worker sends only what is above
 it, in cursor order, so months of backlog sync without re-uploads, and because
@@ -80,6 +81,8 @@ DATA_TYPE_TRAINING_RUNS = "training_runs"
 # Lots and sorting runs: sent whole when they change; Hive keeps the set's
 # version as this type's state.
 DATA_TYPE_SORTING_RUNS = "sorting_runs"
+# Pieces sent back to be sorted again, which no lot counts (sorting_runs.sendBack).
+DATA_TYPE_SENT_BACK = "sent_back_pieces"
 DATA_TYPE_TELEMETRY = "telemetry"
 # Leg order. Samples (a few a minute) go before crops, which can hold a backlog
 # of tens of thousands.
@@ -88,6 +91,7 @@ DATA_TYPES = (
     DATA_TYPE_PREDICTIONS,
     DATA_TYPE_TRAINING_RUNS,
     DATA_TYPE_SORTING_RUNS,
+    DATA_TYPE_SENT_BACK,
     DATA_TYPE_TELEMETRY,
     DATA_TYPE_IMAGES,
     DATA_TYPE_SAMPLES,
@@ -101,6 +105,7 @@ STREAM = {
     DATA_TYPE_PREDICTIONS: "piece_records",
     DATA_TYPE_TRAINING_RUNS: "piece_records",
     DATA_TYPE_SORTING_RUNS: "piece_records",
+    DATA_TYPE_SENT_BACK: "piece_records",
     DATA_TYPE_TELEMETRY: "machine_telemetry",
     DATA_TYPE_IMAGES: "piece_images",
     DATA_TYPE_SAMPLES: "camera_frames",
@@ -113,6 +118,7 @@ STATS_KIND = {
     DATA_TYPE_PREDICTIONS: upload_stats.KIND_PIECE_RECORDS,
     DATA_TYPE_TRAINING_RUNS: upload_stats.KIND_PIECE_RECORDS,
     DATA_TYPE_SORTING_RUNS: upload_stats.KIND_PIECE_RECORDS,
+    DATA_TYPE_SENT_BACK: upload_stats.KIND_PIECE_RECORDS,
     DATA_TYPE_TELEMETRY: upload_stats.KIND_TELEMETRY,
     DATA_TYPE_IMAGES: upload_stats.KIND_PIECE_IMAGES,
     DATA_TYPE_SAMPLES: upload_stats.KIND_SAMPLES,
@@ -248,6 +254,16 @@ def _recordToPayload(row: dict[str, Any]) -> dict[str, Any]:
         "training_label_source": row["training_label_source"],
         "training_excluded": bool(row["training_excluded"]),
         "training_updated_at": row["training_updated_at"],
+    }
+
+
+def _sentBackToPayload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "local_id": row["id"],
+        "piece_uuid": row["piece_uuid"],
+        "lot_id": row["lot_id"],
+        "sent_back_at": row["sent_back_at"],
+        "note": row["note"],
     }
 
 
@@ -549,6 +565,7 @@ class _TargetSyncer:
             DATA_TYPE_RECORDS: count(DATA_TYPE_RECORDS, piece_records.countRecordsAfter),
             DATA_TYPE_PREDICTIONS: count(DATA_TYPE_PREDICTIONS, lambda wm: piece_predictions.getMaxId() - wm),
             DATA_TYPE_TRAINING_RUNS: count(DATA_TYPE_TRAINING_RUNS, training_runs.countRunsAfter),
+            DATA_TYPE_SENT_BACK: count(DATA_TYPE_SENT_BACK, lambda wm: piece_records.maxSentBackId() - wm),
             DATA_TYPE_TELEMETRY: count(DATA_TYPE_TELEMETRY, lambda wm: telemetry_store.maxId() - wm),
             DATA_TYPE_IMAGES: count(DATA_TYPE_IMAGES, piece_image_store.countImagesAfter),
             DATA_TYPE_CROPS: count(DATA_TYPE_CROPS, lambda wm: channel_crop_store.getMaxCropId() - wm),
@@ -617,6 +634,7 @@ class _TargetSyncer:
             (DATA_TYPE_PREDICTIONS, self._drainPredictions),
             (DATA_TYPE_TRAINING_RUNS, self._drainTrainingRuns),
             (DATA_TYPE_SORTING_RUNS, self._drainSortingRuns),
+            (DATA_TYPE_SENT_BACK, self._drainSentBack),
             (DATA_TYPE_TELEMETRY, self._drainTelemetry),
             (DATA_TYPE_IMAGES, self._drainImages),
             (DATA_TYPE_SAMPLES, self._drainSamples),
@@ -762,6 +780,13 @@ class _TargetSyncer:
         self._wm[DATA_TYPE_SORTING_RUNS] = kept
         self._sent(DATA_TYPE_SORTING_RUNS, 1, self._bodyBytes())
         return True
+
+    def _drainSentBack(self) -> bool:
+        rows = piece_records.listSentBackAfter(int(self._wm[DATA_TYPE_SENT_BACK] or 0), ROWS_BATCH)
+        return self._drainRows(
+            DATA_TYPE_SENT_BACK, rows, lambda batch: self._client.pushSentBackPieces([_sentBackToPayload(r) for r in batch]),
+            "id",
+        )
 
     def _drainImages(self) -> bool:
         rows = piece_image_store.listImagesAfter(int(self._wm[DATA_TYPE_IMAGES] or 0), FILES_PER_PASS)

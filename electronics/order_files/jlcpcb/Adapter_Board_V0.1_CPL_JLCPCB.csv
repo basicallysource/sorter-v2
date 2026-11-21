@@ -1,0 +1,8 @@
+Designator,Val,Package,Mid X,Mid Y,Rotation,Layer
+C1,100uF,CAP-SMD_BD6.3-L6.6-W6.6-LS7.4-FD,81.082,71.85,0,Top
+C2,1uF,C_0603,81.5,62.45,0,Top
+C3,100nF,C_0603,81.5,65.7,0,Top
+J3,Conn_02x08_Odd_Even,IDC-Header_2x08_P2.54mm_Vertical,93.38,68.09,90.0,Top
+J4,Conn_02x08_Odd_Even,IDC-Header_2x08_P2.54mm_Vertical,93.32,84.14,90.0,Top
+J5,Conn_01x03,PinHeader_1x03_P2.54mm_Horizontal,81.25,83.345,180.0,Top
+R1,0Ω,R_0603,85.05,83.35,180.0,Top

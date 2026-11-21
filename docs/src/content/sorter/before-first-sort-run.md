@@ -16,7 +16,7 @@ warning: >-
   names in step 3 have not been checked against the list a real machine shows.
 ---
 
-Five things stand between a set-up machine and a first sort run. All of them are in the UI and none of them takes long. Four are checks; the one you have to do is step 4, deploying a profile.
+Five things stand between a set-up machine and a first sort run. All of them are in the UI and none of them takes long. Four are checks; the one that may need doing is step 4, a sorting profile (a machine linked to Hive already has one).
 
 ## Before you start
 
@@ -50,15 +50,16 @@ Three things about this page:
 - **The page lets you activate a model on a channel it was not trained for.** It marks the row with a note and does not stop you.
 - **The change takes effect in a second or two.** Nothing needs restarting.
 
-## 4. Deploy a sorting profile
+## 4. Check the sorting profile
 
-Open **Profiles**, then press **activate** on **Presort**. Presort has eight categories and a catch-all, so nothing falls through on a first run.
+Open **Profiles**. No profile ships on the machine, and the machine has one only once it is linked to Hive.
 
-Activating asks how the bins should start. **Pre-assign from rules** fills the bins in order: the first category goes to the first bin of the first section of the first layer, the second category to the next bin, and so on. Read that order off the screen and put your bins where the machine expects them. **Reset bins** empties them instead and assigns each category to a bin the first time a piece needs one.
+- **A machine linked to Hive** (step 8 of first setup, or **Settings** &rarr; **Hive**) with no profile starts on Hive's first default profile, **BrickLink categories**, with one bin for each BrickLink category. The page shows it under **On this machine**. To use another of Hive's defaults, press **Activate** on its card under **Profiles from Hive**. Activating a different profile asks you to empty the bins first, and bins are assigned again as pieces are sorted.
+- **A machine that is not linked to Hive** has no profile, so every piece would end up in the discard bin. Link it, or press **Upload** and choose a profile file. Activating an uploaded profile asks how the bins should start. **Pre-assign from the rules** fills the bins in order: the first rule goes to the first bin of the first section of the first layer, the next rule to the next bin, and so on. Read that order off the screen and put your bins where the machine expects them. **Reset the bins** empties them instead and assigns each box to a bin the first time a piece needs one.
 
-Presort is the profile that ships with the machine. When you want your own boxes, [build your first sorting profile]({{ '/hive/first-profile/' | relative_url }}) walks through making one in Hive and getting it onto this machine.
+When you want your own boxes, [build your first sorting profile]({{ '/hive/first-profile/' | relative_url }}) walks through making one in Hive and getting it onto this machine. [Decide your boxes]({{ '/hive/first-profile/decide-your-boxes/' | relative_url }}) describes the three defaults.
 
-No bin is kept for pieces that match nothing. Those drop out of the bottom of the tower, so put a box or a tray under it before you start.
+No bin is kept for pieces that no box takes, unless the profile sorts them by category or color. Those drop out of the bottom of the tower, so put a box or a tray under it before you start. A profile with more boxes than the machine has bins stops on **No bin for this piece** when a box finds none free. [Send it to your machine]({{ '/hive/first-profile/send-it-to-your-machine/#when-a-category-has-no-bin-free' | relative_url }}) has the details.
 
 ## 5. Check the machine is on the internet
 
@@ -72,9 +73,9 @@ The aiming is saved. The homing is not. Home the chute from **Settings** &rarr; 
 
 ## The finished result
 
-A profile active, its categories assigned to bins, and the chute homed.
+A profile active and the chute homed.
 
-<div class="img-placeholder">Screenshot of the dashboard with the Presort profile active and the machine reading READY.</div>
+<div class="img-placeholder">Screenshot of the dashboard with a profile active and the machine reading READY.</div>
 
 ## Next
 

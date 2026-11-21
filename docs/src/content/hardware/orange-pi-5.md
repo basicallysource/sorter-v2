@@ -38,12 +38,14 @@ No other single-board computer at this price point sustains that inference throu
 
 ## Orange Pi 5 or 5 Pro
 
-Both have the same RK3588S chip and NPU. The 5 Pro is a smaller board with a different mounting hole pattern, so each has its own printed housing (one [housing page]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) covers both). Print the set for your board. Either way you need 8 GB of memory.
+**Build with the Orange Pi 5.** It is the default and the supported board. The Orange Pi 5 Pro, Max and Ultra are variants that are not supported for now.
+
+They have the same RK3588S chip and NPU, but the 5 Pro is a smaller board with a different mounting hole pattern, so it needs its own printed housing (the [housing page]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) covers both). The differences if you go that way anyway:
 
 - **Orange Pi 5.** The [SorterOS image]({{ '/sorter/installation/sorter-os/' | relative_url }}) is built for it: flash the card and set up WiFi from your phone. It has no WiFi or Bluetooth on the board, so you add an M.2 module (see below), a USB adapter, or use Ethernet.
-- **Orange Pi 5 Pro, Max or Ultra.** WiFi and Bluetooth are on the board, so there is no module to buy or fit. There is no SorterOS image for it yet. Flash Orange Pi's own Ubuntu image for the board and run the [generic installer]({{ '/sorter/installation/linux-generic/' | relative_url }}). The Pro housing holds one antenna instead of two. The Max and Ultra fit has not been checked on a build.
+- **Orange Pi 5 Pro, Max or Ultra.** WiFi and Bluetooth are on the board. There is no SorterOS image for it. You flash Orange Pi's own Ubuntu image and run the [generic installer]({{ '/sorter/installation/linux-generic/' | relative_url }}), and the project does not support that setup. The Pro housing holds one antenna instead of two. The Max and Ultra fit has not been checked on a build.
 
-WiFi is optional on both: a cable to your router works. Sorter does not use Bluetooth.
+Either board needs 8 GB of memory. WiFi is optional on both: a cable to your router works. Sorter does not use Bluetooth.
 
 Prices move often. Compare the board and any WiFi module in the [parts calculator](https://parts-calculator.basically.website) rather than from this page.
 

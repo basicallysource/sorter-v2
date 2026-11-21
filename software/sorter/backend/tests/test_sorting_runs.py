@@ -133,3 +133,80 @@ def test_lots_and_runs_go_to_hive_whole_when_they_change() -> None:
     assert syncer._drainSortingRuns()
     assert client.sets[-1]["runs"][0]["lot_id"] is None
     assert client.sets[-1]["version"] != sent["version"]
+
+
+def _binned(uuid: str, seen_at: float, place: tuple[int, int, int], part_id: str = "3001") -> None:
+    piece_records.recordPiece(
+        {
+            "uuid": uuid,
+            "classification_status": "classified",
+            "created_at": seen_at,
+            "part_id": part_id,
+            "color_id": "5",
+            "destination_bin": list(place),
+        }
+    )
+
+
+def test_pieces_sent_back_leave_their_lot_and_count_again_when_seen_next() -> None:
+    now = time.time()
+    lot = sorting_runs.createLot("Second-hand box")
+    run = sorting_runs.startRun("Second-hand box", lot_id=lot["id"], started_at=now - 1000)
+    _binned("a", now - 900, (0, 1, 0))
+    _binned("b", now - 890, (0, 1, 2))
+    _binned("c", now - 880, (0, 1, 3), part_id="3003")
+    _binned("d", now - 870, (1, 1, 0), part_id="3003")
+    sorting_runs.startRun("finer pass", lot_id=lot["id"], adds_to_lot=False, started_at=now - 500)
+    _binned("e", now - 400, (0, 1, 0))
+    assert sorting_runs.getLot(lot["id"])["pieces"] == 4
+
+    answer = sorting_runs.sendBack(lot["id"], [(0, 1, 0), (0, 1, 1), (0, 1, 2)], " being sorted again ")
+    assert answer["sent_back"] == 2
+    assert answer["lot"]["pieces"] == 2
+    assert (sorting_runs.getRun(run["id"])["pieces"], sorting_runs.getRun(run["id"])["distributed_pieces"]) == (2, 2)
+    [brick] = [p for p in sorting_runs.lotParts(lot["id"])["parts"] if p["part_id"] == "3001"]
+    assert brick["in_lot"] == 0
+    # The records stay; a listing of the lot leaves them out, as its count does.
+    assert len(piece_records.listPieces(None)["items"]) == 5
+    lot_ranges = sorting_runs.seenRanges(lot_id=lot["id"])
+    assert sorted(p["uuid"] for p in piece_records.listPieces(None, seen_ranges=lot_ranges)["items"]) == ["c", "d"]
+    with piece_records._connection() as conn:
+        rows = conn.execute("SELECT piece_uuid, lot_id, note FROM sent_back_pieces ORDER BY id").fetchall()
+    assert [tuple(r) for r in rows] == [("a", lot["id"], "being sorted again"), ("b", lot["id"], "being sorted again")]
+
+    # Nothing is sent back twice, and the pass's piece in the same bin was never the lot's.
+    assert sorting_runs.sendBack(lot["id"], [(0, 1, 0)])["sent_back"] == 0
+    # Sorted again in an adding run: they count once more.
+    sorting_runs.startRun("Second-hand box 2", lot_id=lot["id"], started_at=now - 100)
+    _binned("a2", now - 50, (2, 0, 0))
+    _binned("b2", now - 40, (0, 1, 2))
+    assert sorting_runs.getLot(lot["id"])["pieces"] == 4
+
+    with pytest.raises(sorting_runs.RunError):
+        sorting_runs.sendBack("missing", [(0, 1, 0)])
+    with pytest.raises(sorting_runs.RunError):
+        sorting_runs.sendBack(lot["id"], [])
+
+
+class _FakeSentBackHive:
+    def __init__(self) -> None:
+        self.rows: list[dict] = []
+
+    def pushSentBackPieces(self, rows: list[dict]) -> int:
+        self.rows.extend(rows)
+        return max(r["local_id"] for r in rows)
+
+
+def test_pieces_sent_back_go_to_hive_once() -> None:
+    now = time.time()
+    lot = sorting_runs.createLot("Big box")
+    sorting_runs.startRun("Big box", lot_id=lot["id"], started_at=now - 100)
+    _binned("a", now - 50, (0, 0, 0))
+    client = _FakeSentBackHive()
+    syncer = _syncer(client)
+    assert not syncer._drainSentBack()
+    sorting_runs.sendBack(lot["id"], [(0, 0, 0)], "back in the hopper")
+    assert syncer._drainSentBack()
+    [row] = client.rows
+    assert (row["piece_uuid"], row["lot_id"], row["note"], row["local_id"]) == ("a", lot["id"], "back in the hopper", 1)
+    assert not syncer._drainSentBack()

@@ -21,6 +21,7 @@ a natural key, so a re-send never duplicates.
 | `piece_corrections` | `POST /api/machine/sync/piece-corrections` | `machine_pieces` verdict columns | machine, piece_uuid | `local_id` |
 | `training_runs` | `POST /api/machine/sync/training-runs` (JSON batch) | `machine_training_runs` | machine, run_uuid | `sync_seq` |
 | `sorting_runs` | `POST /api/machine/sync/sorting-runs` (the whole set) | `machine_lots`, `machine_sorting_runs` | machine, lot_id / run_id | the set's `version` |
+| `sent_back_pieces` | `POST /api/machine/sync/sent-back-pieces` (JSON batch) | `machine_sent_back_pieces` | machine, piece_uuid | `local_id` |
 | `telemetry` | `POST /api/machine/sync/telemetry` (JSON batch) | `machine_telemetry` ([telemetry.md](telemetry.md)) | machine, local_id | `local_id` |
 
 **Lots and sorting runs** go whole: a lot is pieces that came in together, a
@@ -31,8 +32,14 @@ the machine's lots and runs, and its state is not a cursor but the set's
 `version`, a number the sorter derives from the set's content
 (`sorting_runs.syncSet`); the sorter sends when its version differs. A lot's
 pieces are those whose `seen_at` falls in the stretches of its runs that add
-to it; `GET /api/records/machines/{id}/sorting-runs` gives each run's
-`ends_at`.
+to it, less the pieces it sent back; `GET /api/records/machines/{id}/sorting-runs`
+gives each run's `ends_at`.
+
+**Pieces sent back** (`sent_back_pieces`): a bin's pieces went back in the
+hopper to be sorted again (`sorting_runs.sendBack`). Their records stay, but no
+run or lot counts them; each piece's next sighting is a new record, which
+does. `GET /api/records/machines/{id}/pieces` gives each piece's `sent_back`
+(when, from which lot, why), null for the rest.
 
 **The cursor rule.** A row that never changes on the sorter syncs by its id
 (`local_id`). A row that changes (a piece record gets its bin, a verdict, a

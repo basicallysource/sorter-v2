@@ -61,6 +61,7 @@ HISTORY = frozenset(
         "machine_piece_rejection_reasons",
         "machine_control_data_segments",
         "machine_training_runs",
+        "machine_sent_back_pieces",
         "piece_model_colors",
         "labeling_queue",
     }

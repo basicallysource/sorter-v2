@@ -48,6 +48,7 @@ from app.models.machine_control_data_segment import MachineControlDataSegment  #
 from app.models.machine_sync_state import MachineSyncState  # noqa: E402, F401
 from app.models.machine_training_run import MachineTrainingRun  # noqa: E402, F401
 from app.models.machine_sorting_run import MachineLot, MachineSortingRun  # noqa: E402, F401
+from app.models.machine_sent_back_piece import MachineSentBackPiece  # noqa: E402, F401
 from app.models.machine_stats_cache import MachineStatsCache  # noqa: E402, F401
 from app.models.machine_daily_stats import MachineDailyStats  # noqa: E402, F401
 from app.models.machine_piece_day import (  # noqa: E402, F401

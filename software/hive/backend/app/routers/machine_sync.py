@@ -27,6 +27,7 @@ from app.models.machine_control_data_segment import MachineControlDataSegment
 from app.models.machine_sync_state import MachineSyncState
 from app.models.machine_telemetry import MachineTelemetryRecord
 from app.models.machine_sorting_run import MachineLot, MachineSortingRun
+from app.models.machine_sent_back_piece import MachineSentBackPiece
 from app.models.machine_training_run import MachineTrainingRun
 from app.models.sample import Sample
 from app.rate_limiting import machine_limiter
@@ -76,6 +77,7 @@ DATA_TYPE_TRAINING_RUNS = "training_runs"
 # Lots and sorting runs, sent whole when they change; its state is the
 # version of the last set kept, not a cursor.
 DATA_TYPE_SORTING_RUNS = "sorting_runs"
+DATA_TYPE_SENT_BACK_PIECES = "sent_back_pieces"
 DATA_TYPE_TELEMETRY = "telemetry"
 DATA_TYPES = (
     DATA_TYPE_PIECE_RECORDS,
@@ -87,6 +89,7 @@ DATA_TYPES = (
     DATA_TYPE_SAMPLES,
     DATA_TYPE_TRAINING_RUNS,
     DATA_TYPE_SORTING_RUNS,
+    DATA_TYPE_SENT_BACK_PIECES,
     DATA_TYPE_TELEMETRY,
 )
 
@@ -512,6 +515,16 @@ class SortingRunsIn(BaseModel):
     runs: list[SortingRunIn] = Field(default_factory=list, max_length=10000)
 
 
+class SentBackPieceIn(BaseModel):
+    """A piece the machine sent back to be sorted again (MachineSentBackPiece)."""
+
+    local_id: int
+    piece_uuid: str = Field(min_length=1, max_length=64)
+    lot_id: str | None = Field(default=None, max_length=64)
+    sent_back_at: float
+    note: str | None = Field(default=None, max_length=2000)
+
+
 class PieceImageMeta(BaseModel):
     piece_uuid: str
     seq: int
@@ -863,6 +876,49 @@ def sync_sorting_runs(
     mark_machine_seen(machine, now)
     db.commit()
     return {"max_local_id": payload.version, "lots": len(lots), "runs": len(runs)}
+
+
+@router.post("/sent-back-pieces")
+@limiter.limit("60/minute")
+def sync_sent_back_pieces(
+    request: Request,
+    payload: SyncBatch,
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, int]:
+    """The pieces the machine sent back to be sorted again, upserted by
+    (machine, piece_uuid): their records stay, and no run or lot counts them."""
+    rows, skipped, key_max = _validate_rows(SentBackPieceIn, payload.records, machine, DATA_TYPE_SENT_BACK_PIECES)
+    if not payload.records:
+        return {"max_local_id": _watermark(db, machine.id, DATA_TYPE_SENT_BACK_PIECES), "upserted": 0, "skipped": 0}
+
+    now = _now()
+    machine_id = machine.id
+    rows = _latest_per_key(rows, key=lambda r: r.piece_uuid, order=lambda r: r.local_id)
+
+    def write(batch: list[SentBackPieceIn]) -> None:
+        _upsert(
+            db, MachineSentBackPiece,
+            [
+                {
+                    "machine_id": machine_id,
+                    "piece_uuid": r.piece_uuid,
+                    "local_id": r.local_id,
+                    "lot_id": r.lot_id,
+                    "sent_back_at": _ts(r.sent_back_at),
+                    "note": r.note,
+                    "received_at": now,
+                }
+                for r in batch
+            ],
+            ["machine_id", "piece_uuid"], ("local_id", "lot_id", "sent_back_at", "note", "received_at"),
+        )
+
+    skipped += _write_rows(db, write, rows, machine, DATA_TYPE_SENT_BACK_PIECES)
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_SENT_BACK_PIECES, key_max)
+    mark_machine_seen(machine, now)
+    db.commit()
+    return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}
 
 
 @router.post("/piece-corrections")

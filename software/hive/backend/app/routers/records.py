@@ -36,6 +36,7 @@ from app.errors import APIError
 from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_prediction import SOURCE_LIVE, MachinePiecePrediction
+from app.models.machine_sent_back_piece import MachineSentBackPiece
 from app.models.machine_sorting_run import MachineLot, MachineSortingRun
 from app.models.piece_color_label import PieceColorLabel
 from app.models.piece_model_output import PieceModelColor
@@ -180,7 +181,9 @@ def machine_pieces(
     current_user: User = READ,
 ):
     """Each piece the machine sorted, newest first, a page at a time: pass
-    next_cursor back as cursor for the next page, until it is null.
+    next_cursor back as cursor for the next page, until it is null. A piece
+    the machine sent back to be sorted again (``sent_back``) counts in no run
+    or lot; its next sighting is another piece.
 
     With ``since_days`` a page looks at PIECES_WINDOW pieces at most, so it can
     come back short with a next_cursor; the list ends at the first stretch
@@ -211,11 +214,19 @@ def machine_pieces(
         next_cursor = end.local_id
     else:
         next_cursor = None
-    labels, predictions = _colors(db, machine, [piece.piece_uuid for piece in pieces])
+    uuids = [piece.piece_uuid for piece in pieces]
+    labels, predictions = _colors(db, machine, uuids)
+    sent_back = _sent_back(db, machine, uuids)
     return {
         "machine": {"id": str(machine.id), "name": machine.name},
         "items": [
-            _piece(piece, labels.get(piece.piece_uuid, []), predictions.get(piece.piece_uuid, [])) for piece in pieces
+            _piece(
+                piece,
+                labels.get(piece.piece_uuid, []),
+                predictions.get(piece.piece_uuid, []),
+                sent_back.get(piece.piece_uuid),
+            )
+            for piece in pieces
         ],
         "next_cursor": next_cursor,
     }
@@ -323,10 +334,24 @@ def _colors(
     return labels, predictions
 
 
+def _sent_back(db: Session, machine: Machine, piece_uuids: list[str]) -> dict[str, dict[str, Any]]:
+    """For a page of a machine's pieces: those it sent back to be sorted again,
+    when, from which lot and why."""
+    if not piece_uuids:
+        return {}
+    return {
+        row.piece_uuid: {"at": _iso(row.sent_back_at), "lot_id": row.lot_id, "note": row.note}
+        for row in db.query(MachineSentBackPiece).filter(
+            MachineSentBackPiece.machine_id == machine.id, MachineSentBackPiece.piece_uuid.in_(piece_uuids)
+        )
+    }
+
+
 def _piece(
     piece: MachinePiece,
     color_labels: list[dict[str, Any]] | None = None,
     color_predictions: list[dict[str, Any]] | None = None,
+    sent_back: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "piece_uuid": piece.piece_uuid,
@@ -349,6 +374,7 @@ def _piece(
         "correction_updated_at": _iso(piece.correction_updated_at),
         "color_labels": color_labels or [],
         "color_predictions": color_predictions or [],
+        "sent_back": sent_back,
     }
 
 
@@ -357,8 +383,9 @@ def machine_sorting_runs(machine_id: UUID, db: Session = Depends(get_db), curren
     """The machine's lots and sorting runs, as it keeps them. A run lasts from
     started_at until the next run starts (ends_at; null for the newest), and a
     piece belongs to the run whose stretch holds its seen_at. A lot's pieces
-    are those of its runs that add to it; a run naming the lot that does not
-    add to it is another pass over pieces the lot already counted."""
+    are those of its runs that add to it, less those sent back (a piece's
+    ``sent_back``); a run naming the lot that does not add to it is another
+    pass over pieces the lot already counted."""
     machine = _own_machine(db, current_user, machine_id)
     lots = db.query(MachineLot).filter(MachineLot.machine_id == machine.id).order_by(MachineLot.created_at).all()
     runs = (

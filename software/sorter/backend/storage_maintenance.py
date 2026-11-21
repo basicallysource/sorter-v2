@@ -3,13 +3,13 @@
 One thread, hourly (the first pass a few minutes after start):
 
 - Piece history: a piece (its record, predictions, rejection reasons, images
-  and their files, link-model guesses) older than PIECE_HISTORY_DAYS goes once
-  every enabled Hive target has all of it, or by age alone when no target is
-  configured. A target that does not take a kind of data (its telemetry field
-  is off) does not hold it back; a target whose state is unknown does. What the
-  totals count from a record is folded into rollups first (piece_records.
-  foldIntoRollup, sorting_runs.foldPieces), so overview numbers, charts, value,
-  runs and lots stay the same.
+  and their files, link-model guesses, its being sent back) older than
+  PIECE_HISTORY_DAYS goes once every enabled Hive target has all of it, or by
+  age alone when no target is configured. A target that does not take a kind
+  of data (its telemetry field is off) does not hold it back; a target whose
+  state is unknown does. What the totals count from a record is folded into
+  rollups first (piece_records.foldIntoRollup, sorting_runs.foldPieces), so
+  overview numbers, charts, value, runs and lots stay the same.
 - Rows that never had a record: predictions (their answers, then requests
   left with none) and images of pieces that were never recorded (torn down
   mid-classification), by age, once sent.
@@ -94,7 +94,8 @@ def prunePieceHistory(cutoff: float, confirmed: Optional[dict[str, Optional[int]
     records_wm = _limit(confirmed, hive_sync.DATA_TYPE_RECORDS)
     images_wm = _limit(confirmed, hive_sync.DATA_TYPE_IMAGES)
     predictions_wm = _limit(confirmed, hive_sync.DATA_TYPE_PREDICTIONS)
-    if records_wm is None or images_wm is None or predictions_wm is None:
+    sent_back_wm = _limit(confirmed, hive_sync.DATA_TYPE_SENT_BACK)
+    if records_wm is None or images_wm is None or predictions_wm is None or sent_back_wm is None:
         return 0
     removed = 0
     while True:
@@ -103,8 +104,9 @@ def prunePieceHistory(cutoff: float, confirmed: Optional[dict[str, Optional[int]
                 "SELECT r.id, r.uuid FROM piece_records r WHERE r.seen_at < ? AND r.sync_seq <= ? "
                 "AND NOT EXISTS (SELECT 1 FROM piece_images i WHERE i.piece_uuid = r.uuid AND i.sync_seq > ?) "
                 "AND NOT EXISTS (SELECT 1 FROM piece_predictions p WHERE p.piece_uuid = r.uuid AND p.id > ?) "
+                "AND NOT EXISTS (SELECT 1 FROM sent_back_pieces s WHERE s.piece_uuid = r.uuid AND s.id > ?) "
                 "ORDER BY r.seen_at LIMIT ?",
-                (cutoff, records_wm, images_wm, predictions_wm, BATCH),
+                (cutoff, records_wm, images_wm, predictions_wm, sent_back_wm, BATCH),
             ).fetchall()
             if not rows:
                 return removed
@@ -147,7 +149,7 @@ def prunePieceHistory(cutoff: float, confirmed: Optional[dict[str, Optional[int]
                 piece_records.foldIntoRollup(conn, ids)
                 for table in (
                     "piece_rejection_reasons", "piece_predictions", "piece_prediction_requests",
-                    "piece_images", "piece_link_images",
+                    "piece_images", "piece_link_images", "sent_back_pieces",
                 ):
                     conn.execute(f"DELETE FROM {table} WHERE piece_uuid IN ({_placeholders(gone)})", gone)
                 conn.execute(f"DELETE FROM piece_records WHERE id IN ({_placeholders(ids)})", ids)

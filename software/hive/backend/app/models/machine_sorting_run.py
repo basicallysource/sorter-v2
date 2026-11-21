@@ -28,7 +28,7 @@ class MachineSortingRun(Base):
     the run whose stretch holds its seen_at. A run can name a lot and either
     add its pieces to it (a first pass) or not (another pass over pieces the
     lot already counted), so a lot's pieces are those seen in the stretches of
-    its runs that add to it.
+    its runs that add to it, less those it sent back (MachineSentBackPiece).
 
     Not machine_pieces.run_id, which is one backend process on the machine."""
 

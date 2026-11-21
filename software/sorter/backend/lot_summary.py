@@ -120,6 +120,13 @@ def _build(lot_id: str, now: float) -> dict[str, Any]:
     }
 
 
+def forget() -> None:
+    """Drop every answer kept: pieces were sent back, so lots count less."""
+    with _lock:
+        _summaries.clear()
+        _ended_runs.clear()
+
+
 def lotSummary(lot_id: str) -> dict[str, Any]:
     """The lot's summary, at most a few seconds old. Raises
     sorting_runs.RunError for an unknown lot."""

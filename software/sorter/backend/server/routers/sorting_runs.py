@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import lot_summary
 import sorting_runs
@@ -42,6 +42,18 @@ class NowIn(BaseModel):
     lot_id: Optional[str] = None
     # False: the lot's pieces are being put through again, not counted again.
     adds_to_lot: bool = True
+
+
+class BinIn(BaseModel):
+    layer_index: int = Field(ge=0)
+    section_index: int = Field(ge=0)
+    bin_index: int = Field(ge=0)
+
+
+class SendBackIn(BaseModel):
+    bins: list[BinIn] = Field(min_length=1)
+    # Why, e.g. "emptied into the hopper to be sorted again".
+    note: Optional[str] = None
 
 
 def _call(fn, *args, **kwargs) -> Any:
@@ -106,3 +118,13 @@ def lot_parts(lot_id: str) -> dict[str, Any]:
 @router.get("/api/lots/{lot_id}/summary")
 def lot_summary_route(lot_id: str) -> dict[str, Any]:
     return _call(lot_summary.lotSummary, lot_id)
+
+
+@router.post("/api/lots/{lot_id}/send-back")
+def send_back(lot_id: str, body: SendBackIn) -> dict[str, Any]:
+    """The lot's pieces in these bins went back in the hopper to be sorted
+    again (sorting_runs.sendBack)."""
+    bins = [(b.layer_index, b.section_index, b.bin_index) for b in body.bins]
+    answer = _call(sorting_runs.sendBack, lot_id, bins, body.note)
+    lot_summary.forget()
+    return answer

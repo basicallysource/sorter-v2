@@ -762,6 +762,7 @@ class RetentionTests(_DbTestCase):
             hive_sync.DATA_TYPE_RECORDS: records_wm,
             hive_sync.DATA_TYPE_IMAGES: 10**9,
             hive_sync.DATA_TYPE_PREDICTIONS: 10**9,
+            hive_sync.DATA_TYPE_SENT_BACK: 10**9,
         }
 
     def test_old_synced_pieces_go_and_every_total_stays(self) -> None:
@@ -801,6 +802,27 @@ class RetentionTests(_DbTestCase):
         with piece_records._connection() as conn:
             left = sorted(r[0] for r in conn.execute("SELECT uuid FROM piece_records"))
         self.assertEqual(["new", "old-a"], left)
+
+    def test_a_piece_sent_back_goes_once_hive_has_that_too_and_stays_out_of_its_lot(self) -> None:
+        self._seed()
+        lot = sorting_runs.listLots()[0]
+        self.assertEqual(4, sorting_runs.sendBack(lot["id"], [(0, 0, 1)], "sorted again")["sent_back"])
+        before = self._totals()
+        confirmed = self._confirmed(10**9)
+        confirmed[hive_sync.DATA_TYPE_SENT_BACK] = 0
+        storage_maintenance.prunePieceHistory(self.cutoff, confirmed)
+        with piece_records._connection() as conn:
+            left = sorted(r[0] for r in conn.execute("SELECT uuid FROM piece_records"))
+        self.assertEqual(["new", "old-a", "old-b", "old-unsent"], left)
+
+        storage_maintenance.prunePieceHistory(self.cutoff, self._confirmed(10**9))
+        with piece_records._connection() as conn:
+            left = sorted(r[0] for r in conn.execute("SELECT uuid FROM piece_records"))
+            sent_back = [r[0] for r in conn.execute("SELECT piece_uuid FROM sent_back_pieces")]
+        self.assertEqual(["new"], left)
+        self.assertEqual(["new"], sent_back)
+        piece_records._aggregates_memo.clear()
+        self.assertEqual(before, self._totals())
 
     def test_leftovers_of_unrecorded_pieces_go_by_age(self) -> None:
         old = self.now - 300 * DAY

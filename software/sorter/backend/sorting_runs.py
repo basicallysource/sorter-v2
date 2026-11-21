@@ -23,6 +23,10 @@ import piece_records
 # pieces through again (a finer sort of some of its bins) names the lot without
 # adding to it, so the lot still counts each piece once.
 #
+# A lot's pieces can also be sent back (sendBack): a bin's pieces go back in
+# the hopper to be sorted again. Their records stay, but no run or lot counts
+# them; their next sighting is what counts.
+#
 # These are not piece_records.run_id (one backend process) nor bin_contents'
 # sorting_sessions (what the bins hold since a profile was applied).
 #
@@ -297,17 +301,20 @@ _SPANS_SQL = (
     "FROM sorting_runs r"
 )
 
+# What a run counts of the records seen in it: not those sent back.
+_KEPT = piece_records.notSentBack("p")
+
 # Each run with its stretch and the pieces seen in it (not those reaped as
-# stuck), folded ones included.
+# stuck, nor those sent back), folded ones included.
 _RUNS_SQL = (
     f"WITH spans AS ({_SPANS_SQL}) "
     "SELECT spans.*, lots.name AS lot_name, "
     "  (SELECT COUNT(*) FROM piece_records p WHERE p.seen_at >= spans.started_at "
-    "     AND (spans.ended_at IS NULL OR p.seen_at < spans.ended_at) AND p.dead = 0) "
+    f"     AND (spans.ended_at IS NULL OR p.seen_at < spans.ended_at) AND p.dead = 0 AND {_KEPT}) "
     "  + COALESCE(f.pieces, 0) AS pieces, "
     "  (SELECT COUNT(*) FROM piece_records p WHERE p.seen_at >= spans.started_at "
     "     AND (spans.ended_at IS NULL OR p.seen_at < spans.ended_at) "
-    "     AND p.bin_x IS NOT NULL) "
+    f"     AND p.bin_x IS NOT NULL AND {_KEPT}) "
     "  + COALESCE(f.distributed_pieces, 0) AS distributed_pieces "
     "FROM spans LEFT JOIN lots ON lots.id = spans.lot_id "
     "LEFT JOIN sorting_run_folds f ON f.run_id = spans.id"
@@ -445,14 +452,14 @@ def sortingNow() -> dict[str, Any]:
     return {"run": next((run for run in runs if run["is_current"]), None), "lots": lots}
 
 
-# A run's identified pieces, by part and colour: the live records, then the
-# ones retention folded.
+# A run's identified pieces, by part and colour: the live records it counts,
+# then the ones retention folded.
 _PART_ROWS_SQL = (
     "SELECT part_id, COALESCE(color_corrected_id, color_id) AS color, "
     "MAX(part_name) AS part_name, MAX(color_name) AS color_name, COUNT(*) AS n "
-    "FROM piece_records WHERE seen_at >= ? AND (? IS NULL OR seen_at < ?) "
+    "FROM piece_records p WHERE seen_at >= ? AND (? IS NULL OR seen_at < ?) "
     "AND classification_status = 'classified' AND dead = 0 "
-    "AND COALESCE(part_correct, 1) != 0 AND part_id IS NOT NULL "
+    f"AND COALESCE(part_correct, 1) != 0 AND part_id IS NOT NULL AND {_KEPT} "
     "GROUP BY part_id, color"
 )
 _PART_FOLDS_SQL = (
@@ -488,8 +495,8 @@ def runCounts(run: dict[str, Any]) -> tuple[int, list[tuple[str, str, Optional[s
     them. `run` is one of lotAddingRuns'."""
     with _connection() as conn:
         pieces = conn.execute(
-            "SELECT (SELECT COUNT(*) FROM piece_records WHERE seen_at >= ? "
-            "AND (? IS NULL OR seen_at < ?) AND dead = 0) "
+            "SELECT (SELECT COUNT(*) FROM piece_records p WHERE seen_at >= ? "
+            f"AND (? IS NULL OR seen_at < ?) AND dead = 0 AND {_KEPT}) "
             "+ COALESCE((SELECT pieces FROM sorting_run_folds WHERE run_id = ?), 0)",
             (run["started_at"], run["ended_at"], run["ended_at"], run["id"]),
         ).fetchone()[0]
@@ -543,6 +550,35 @@ def lotParts(lot_id: str) -> dict[str, Any]:
     }
 
 
+def sendBack(lot_id: str, bins: list[tuple[int, int, int]], note: Optional[str] = None) -> dict[str, Any]:
+    """Send back what the lot's runs that add to it have put in `bins` (layer,
+    section, bin, numbered as the bins API numbers them): those pieces went
+    back in the hopper to be sorted again. Their records stay, but the lot and
+    its runs no longer count them; each counts again when the machine next sees
+    it. Answers how many pieces were sent back (none twice) and the lot as it
+    now counts."""
+    if not bins:
+        raise RunError("Name the bins whose pieces go back.")
+    placed = " OR ".join("(p.bin_x = ? AND p.bin_y = ? AND p.bin_z = ?)" for _ in bins)
+    with _connection() as conn:
+        _check_lot(conn, lot_id)
+        sent = conn.execute(
+            "INSERT OR IGNORE INTO sent_back_pieces (piece_uuid, lot_id, sent_back_at, note) "
+            f"SELECT p.uuid, ?, ?, ? FROM piece_records p JOIN ({_SPANS_SQL}) spans "
+            "ON p.seen_at >= spans.started_at AND (spans.ended_at IS NULL OR p.seen_at < spans.ended_at) "
+            f"WHERE spans.lot_id = ? AND spans.adds_to_lot = 1 AND p.uuid IS NOT NULL AND ({placed})",
+            (
+                lot_id,
+                time.time(),
+                (note or "").strip() or None,
+                lot_id,
+                *(int(n) for place in bins for n in place),
+            ),
+        ).rowcount
+        conn.commit()
+    return {"sent_back": int(sent), "lot": getLot(lot_id)}
+
+
 def foldPieces(conn: sqlite3.Connection, record_ids: list[int]) -> None:
     """Count the piece_records rows about to be removed into their runs'
     folded counts, in the caller's transaction (see the note at the top)."""
@@ -552,14 +588,14 @@ def foldPieces(conn: sqlite3.Connection, record_ids: list[int]) -> None:
     pieces = (
         f"WITH spans AS ({_SPANS_SQL}), "
         "folded AS ("
-        "  SELECT spans.id AS run_id, p.* FROM piece_records p JOIN spans "
+        f"  SELECT spans.id AS run_id, p.*, {_KEPT} AS kept FROM piece_records p JOIN spans "
         "  ON p.seen_at >= spans.started_at AND (spans.ended_at IS NULL OR p.seen_at < spans.ended_at) "
         f"  WHERE p.id IN ({placeholders})"
         ") "
     )
     conn.execute(
         "INSERT INTO sorting_run_folds (run_id, pieces, distributed_pieces) "
-        f"{pieces}SELECT run_id, SUM(dead = 0), SUM(bin_x IS NOT NULL) FROM folded "
+        f"{pieces}SELECT run_id, SUM(dead = 0 AND kept), SUM(bin_x IS NOT NULL AND kept) FROM folded "
         "WHERE true GROUP BY run_id "
         "ON CONFLICT(run_id) DO UPDATE SET "
         "pieces = pieces + excluded.pieces, "
@@ -572,7 +608,7 @@ def foldPieces(conn: sqlite3.Connection, record_ids: list[int]) -> None:
         f"{pieces}SELECT run_id, part_id, COALESCE(color_corrected_id, color_id, '') AS color, "
         "MAX(part_name), MAX(color_name), COUNT(*) FROM folded "
         "WHERE classification_status = 'classified' AND dead = 0 "
-        "AND COALESCE(part_correct, 1) != 0 AND part_id IS NOT NULL "
+        "AND COALESCE(part_correct, 1) != 0 AND part_id IS NOT NULL AND kept "
         "GROUP BY run_id, part_id, color "
         "ON CONFLICT(run_id, part_id, color) DO UPDATE SET n = n + excluded.n, "
         "part_name = COALESCE(excluded.part_name, part_name), "

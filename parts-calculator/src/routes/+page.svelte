@@ -58,6 +58,7 @@
 	import RequiredColorBadge from '$lib/components/RequiredColorBadge.svelte';
 	import SupportBadge from '$lib/components/SupportBadge.svelte';
 	import PrintOrientationBadge from '$lib/components/PrintOrientationBadge.svelte';
+	import NoVersionIdBadge from '$lib/components/NoVersionIdBadge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import MissingImage from '$lib/components/MissingImage.svelte';
 	import { Download, Package, ZoomIn, Loader, Info, RotateCcw, Clock, Layers3, AlertTriangle, History, ChevronRight, ChevronDown, ArrowUpRight, FlaskConical } from 'lucide-svelte';
@@ -605,6 +606,7 @@
 					<OptionalBadge value={p.optional} />
 					<RequiredColorBadge part={p} {sectionId} />
 					<PrintOrientationBadge part={p} />
+					<NoVersionIdBadge part={p} />
 					<SupportBadge part={p} />
 						{#if platesForPart(p.id).length}<button type="button" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" onclick={() => openPlatesModal(p.id)} use:tip={'Show plates with this part'}><Layers3 size={11} /> {platesForPart(p.id).length} plate{platesForPart(p.id).length === 1 ? '' : 's'}</button>{/if}{#if os.version}<a href={os.version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Open the exact OnShape version this STL came from'}>OnShape</a>{/if}{#if p.info}<Popover width="16rem" label="About {p.name}" text={p.info} />{/if}<ChangeStatus kind="parts" id={p.id} name={p.name} />{#if p.low_tolerance}<Popover width="18rem" label="Fit notes for {p.name}">{#snippet trigger({ toggle, props })}<Badge as="button" variant="warning" onclick={toggle} {...props}><AlertTriangle size={11} /> Tight fit</Badge>{/snippet}<b class="text-text">Low tolerance.</b> This part has little room for dimensional error, so a test print is worth doing before you commit to the full set.{#if p.low_tolerance_note}<span class="mt-2 block border-t border-border pt-2 text-text">{p.low_tolerance_note}</span>{/if}</Popover>{/if}{#each pillAttributes(p) as a}<span class="border border-border bg-[var(--color-bg)] px-1 text-xs text-text-muted" use:tip={a.label}>{a.label}: <span class="text-text">{a.value}</span></span>{/each}{#if p.versions && p.versions.length > 1}<Popover width="20rem" label="Version history for {p.name}">{#snippet trigger({ toggle, props })}<button type="button" onclick={toggle} {...props} class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Version history'}><History size={11} /> v{p.version} · {p.versions?.length ?? 0} versions</button>{/snippet}<b class="text-text">Version history</b><ul class="mt-1 space-y-2">{#each [...(p.versions ?? [])].reverse() as v}<li class="border-t border-border pt-2 first:border-t-0 first:pt-0"><div class="flex items-center gap-1.5 text-text"><b>v{v.version}</b><span class="text-text-muted">· {fmtDate(v.date)}</span>{#if commitUrl(v.commit)}<a href={commitUrl(v.commit)} target="_blank" rel="noopener" class="ml-auto inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">{v.commit}</a>{:else}<span class="ml-auto italic text-text-muted/70">uncommitted</span>{/if}</div><div class="mt-0.5">{v.message}</div>{#if v.onshape_version}<div class="mt-1"><a href={v.onshape_version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">OnShape</a></div>{/if}</li>{/each}</ul></Popover>{/if}
 				</span>
@@ -744,6 +746,7 @@
 												<OptionalBadge value={p.optional} />
 												<RequiredColorBadge part={p} />
 												<PrintOrientationBadge part={p} />
+												<NoVersionIdBadge part={p} />
 												<SupportBadge part={p} />
 												<ChangeStatus kind="parts" id={p.id} name={p.name} />
 											</span>

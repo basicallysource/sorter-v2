@@ -403,15 +403,23 @@ def getBinAssignmentConfig() -> dict[str, Any]:
     """Bin-assignment behavior. When allow_multiple_categories_per_bin is True,
     once every bin already has an assignment the distributor keeps sorting new
     categories by combining them into existing bins (picking the least-loaded
-    one) instead of falling through to the misc/discard passthrough."""
+    one) instead of falling through to the misc/discard passthrough. When
+    dynamic_color_split is True, every part also splits by its recognized
+    color: each (part, color) pair becomes its own category and claims a bin
+    like any new category would."""
     config = machine_toml.read()
     section = config.get("bins")
     allow_multiple = False
-    if isinstance(section, dict) and isinstance(
-        section.get("allow_multiple_categories_per_bin"), bool
-    ):
-        allow_multiple = section["allow_multiple_categories_per_bin"]
-    return {"allow_multiple_categories_per_bin": allow_multiple}
+    dynamic_split = False
+    if isinstance(section, dict):
+        if isinstance(section.get("allow_multiple_categories_per_bin"), bool):
+            allow_multiple = section["allow_multiple_categories_per_bin"]
+        if isinstance(section.get("dynamic_color_split"), bool):
+            dynamic_split = section["dynamic_color_split"]
+    return {
+        "allow_multiple_categories_per_bin": allow_multiple,
+        "dynamic_color_split": dynamic_split,
+    }
 
 
 def setBinAssignmentConfig(updates: dict[str, Any]) -> dict[str, Any]:
@@ -422,6 +430,8 @@ def setBinAssignmentConfig(updates: dict[str, Any]) -> dict[str, Any]:
             base["allow_multiple_categories_per_bin"] = bool(
                 updates["allow_multiple_categories_per_bin"]
             )
+        if "dynamic_color_split" in updates:
+            base["dynamic_color_split"] = bool(updates["dynamic_color_split"])
         config["bins"] = base
     return getBinAssignmentConfig()
 

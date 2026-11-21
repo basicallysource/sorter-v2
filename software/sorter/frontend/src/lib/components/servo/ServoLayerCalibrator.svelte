@@ -12,6 +12,7 @@
 	import ChuteFlapDiagram from './ChuteFlapDiagram.svelte';
 	import FlapOpenIcon from './FlapOpenIcon.svelte';
 	import FlapClosedIcon from './FlapClosedIcon.svelte';
+	import PartVolumesEditor from '$lib/components/bins/PartVolumesEditor.svelte';
 	import { userConfig } from '$lib/stores/userConfig.svelte';
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
@@ -40,6 +41,7 @@
 		invert: boolean;
 		binCount: string;
 		maxPiecesPerBin: string;
+		maxFillUnits: string;
 		openAngle: number | null;
 		closedAngle: number | null;
 		currentAngle: number | null;
@@ -75,7 +77,14 @@
 	let savedSignature = $state('');
 	function layerSignature(list: LayerDraft[]): string {
 		return JSON.stringify(
-			list.map((l) => [l.enabled, l.channel, l.invert, l.binCount, l.maxPiecesPerBin.trim()])
+			list.map((l) => [
+				l.enabled,
+				l.channel,
+				l.invert,
+				l.binCount,
+				l.maxPiecesPerBin.trim(),
+				l.maxFillUnits.trim()
+			])
 		);
 	}
 	let dirty = $derived(layerSignature(layers) !== savedSignature);
@@ -184,6 +193,10 @@
 					maxPiecesPerBin:
 						typeof sl.max_pieces_per_bin === 'number' && sl.max_pieces_per_bin > 0
 							? String(sl.max_pieces_per_bin)
+							: '',
+					maxFillUnits:
+						typeof sl.max_fill_units === 'number' && sl.max_fill_units > 0
+							? String(sl.max_fill_units)
 							: '',
 					openAngle: typeof sl.servo_open_angle === 'number' ? sl.servo_open_angle : null,
 					closedAngle: typeof sl.servo_closed_angle === 'number' ? sl.servo_closed_angle : null,
@@ -356,12 +369,22 @@
 					}
 					maxPieces = parsed;
 				}
+				const fillTrimmed = layer.maxFillUnits.trim();
+				let maxFill: number | null = null;
+				if (fillTrimmed.length > 0) {
+					const parsed = Number(fillTrimmed);
+					if (!Number.isFinite(parsed) || parsed <= 0) {
+						throw new Error(`${layer.label}'s fill limit must be a number above 0.`);
+					}
+					maxFill = parsed;
+				}
 				return {
 					bin_count: Number(layer.binCount),
 					enabled: layer.enabled,
 					servo_open_angle: layer.openAngle,
 					servo_closed_angle: layer.closedAngle,
-					max_pieces_per_bin: maxPieces
+					max_pieces_per_bin: maxPieces,
+					max_fill_units: maxFill
 				};
 			});
 
@@ -430,6 +453,7 @@
 				invert: false,
 				binCount: String(allowedCounts[0] ?? 12),
 				maxPiecesPerBin: '',
+				maxFillUnits: '',
 				openAngle: null,
 				closedAngle: null,
 				currentAngle: null,
@@ -646,27 +670,48 @@
 								/>
 							</div>
 						</Field>
-						<Field
-							label="Bin limit"
-							for="layer-{layer.layerIndex}-max"
-							info="The most pieces one bin on this layer takes. When a bin reaches it, the machine counts that bin full and sends the category's next pieces to another bin. Leave it empty for no limit."
-						>
-							<Input
-								id="layer-{layer.layerIndex}-max"
-								type="number"
-								size="sm"
-								min={1}
-								step={1}
-								placeholder="∞"
-								value={layer.maxPiecesPerBin}
-								disabled={loading || saving}
-								oninput={(e) =>
-									setLayer(layer.layerIndex, {
-										maxPiecesPerBin: (e.currentTarget as HTMLInputElement).value
-									})}
-								class="w-24"
-							/>
-						</Field>
+					<Field
+						label="Bin limit"
+						for="layer-{layer.layerIndex}-max"
+						info="The most pieces one bin on this layer takes. When a bin reaches it, the machine counts that bin full and sends the category's next pieces to another bin. Leave it empty for no limit."
+					>
+						<Input
+							id="layer-{layer.layerIndex}-max"
+							type="number"
+							size="sm"
+							min={1}
+							step={1}
+							placeholder="∞"
+							value={layer.maxPiecesPerBin}
+							disabled={loading || saving}
+							oninput={(e) =>
+								setLayer(layer.layerIndex, {
+									maxPiecesPerBin: (e.currentTarget as HTMLInputElement).value
+								})}
+							class="w-24"
+						/>
+					</Field>
+					<Field
+						label="Fill limit"
+						for="layer-{layer.layerIndex}-fill"
+						info="The same limit by volume instead of piece count, in fill units (a 2x4 brick is 1) — so big parts fill a bin sooner than small ones. A bin is full when either limit is reached. Set per-part values under Piece volumes below. Leave it empty for no limit."
+					>
+						<Input
+							id="layer-{layer.layerIndex}-fill"
+							type="number"
+							size="sm"
+							min={0.1}
+							step={0.1}
+							placeholder="∞"
+							value={layer.maxFillUnits}
+							disabled={loading || saving}
+							oninput={(e) =>
+								setLayer(layer.layerIndex, {
+									maxFillUnits: (e.currentTarget as HTMLInputElement).value
+								})}
+							class="w-24"
+						/>
+					</Field>
 						{#if advanced}
 							<Field
 								label="Channel"
@@ -807,6 +852,8 @@
 			</div>
 		{/snippet}
 	</Panel>
+
+	<PartVolumesEditor />
 
 	{#if advanced}
 		<ServoSpeedSettings

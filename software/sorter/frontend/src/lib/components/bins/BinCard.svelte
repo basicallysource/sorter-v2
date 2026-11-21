@@ -21,6 +21,7 @@
 		bin,
 		layerEnabled,
 		maxPiecesPerBin,
+		maxFillUnits,
 		isCurrent,
 		isMoving,
 		isClearing,
@@ -43,6 +44,7 @@
 		bin: BinInfo;
 		layerEnabled: boolean;
 		maxPiecesPerBin: number | null;
+		maxFillUnits: number | null;
 		isCurrent: boolean;
 		isMoving: boolean;
 		isClearing: boolean;
@@ -177,7 +179,22 @@
 			</Menu>
 		</div>
 	</div>
-	{#if maxPiecesPerBin && maxPiecesPerBin > 0}
+	{#if maxFillUnits && maxFillUnits > 0}
+		{@const fill = contents?.fill_units ?? 0}
+		{@const isFull = fill >= maxFillUnits}
+		{@const isNearFull = fill / maxFillUnits >= 0.85 && !isFull}
+		<div class="flex items-center gap-2">
+			<div class="min-w-0 flex-1">
+				<ProgressBar
+					value={fill}
+					max={maxFillUnits}
+					label="Fill of the bin"
+					tone={isFull ? 'danger' : isNearFull ? 'warning' : 'primary'}
+				/>
+			</div>
+			<span class="num shrink-0 text-xs text-ink-muted">{fill} / {maxFillUnits}</span>
+		</div>
+	{:else if maxPiecesPerBin && maxPiecesPerBin > 0}
 		{@const fillCount = contents?.piece_count ?? 0}
 		{@const isFull = fillCount >= maxPiecesPerBin}
 		{@const isNearFull = fillCount / maxPiecesPerBin >= 0.85 && !isFull}

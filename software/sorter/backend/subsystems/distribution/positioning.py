@@ -822,9 +822,10 @@ class Positioning(BaseState):
         # everyone else routes only among the normal bins. The two pools never
         # mix. Within the not-in-inventory pool, overlap (multi-category) is
         # always allowed as the last resort ("if we run out, overlap them").
-        from bin_contents import get_current_bin_piece_counts
+        from bin_contents import get_current_bin_fill_units, get_current_bin_piece_counts
 
         piece_counts = get_current_bin_piece_counts()
+        fill_units = get_current_bin_fill_units()
         # A category may be assigned to more than one bin (the same category_id
         # appears in several bins' category_ids). When that happens we spread the
         # load by picking uniformly at random among every reachable, non-full bin
@@ -859,6 +860,7 @@ class Positioning(BaseState):
 
             has_usable_layers = True
             max_per_bin = getattr(layer, "max_pieces_per_bin", None)
+            max_fill = getattr(layer, "max_fill_units", None)
             for section_idx, section in enumerate(layer.sections):
                 if not getattr(section, "enabled", True):
                     skipped.append(f"layer{layer_idx}.section{section_idx}=disabled")
@@ -871,7 +873,16 @@ class Positioning(BaseState):
                         unreachable_bins += 1
                         continue
                     count = piece_counts.get((layer_idx, section_idx, bin_idx), 0)
-                    is_full = max_per_bin is not None and count >= max_per_bin
+                    # A bin is full when either limit is reached. Both share the
+                    # piece-count semantics: the bin may overshoot by one piece
+                    # (a 2-unit part arriving at 9.9/10 units lands anyway), the
+                    # limit just stops further assignments.
+                    bin_fill = fill_units.get((layer_idx, section_idx, bin_idx), 0.0)
+                    is_full = (
+                        max_per_bin is not None and count >= max_per_bin
+                    ) or (
+                        max_fill is not None and bin_fill >= max_fill
+                    )
                     if (
                         category_id != MISC_CATEGORY
                         and category_id in b.category_ids

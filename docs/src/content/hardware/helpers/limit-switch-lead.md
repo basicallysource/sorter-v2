@@ -30,6 +30,8 @@ parts_needed:
 tools_needed: ["Side cutters, to cut the wire to length", "A ruler or tape measure, to measure 610 mm (24 in)", "Wire strippers that take 22 AWG (0.33 mm²) wire", "Insulated-terminal crimping pliers with a die marked for 22 to 18 AWG (0.33 to 0.82 mm²), for the two #187 receptacles", "Crimping pliers for open-barrel contacts, with a die for 22 AWG (0.33 mm²) wire, for the two Dupont contacts", "Multimeter, to check the finished lead and the switch", "Optional, for the sleeving: scissors and tape, or a hot knife"]
 ---
 
+**Board v1.3 shown.** On a v1.4.1 board `J5` is a 2-pin latching Dupont socket printed `LIMIT SWITCH`, and a 3-pin housing does not fit it: use a 2-pin housing with both positions filled, ground and signal.
+
 This is the chute limit switch lead (`LIM1`) on the [harness drawings]({{ '/hardware/parts/harness-order/#limit-switch' | relative_url }}). It runs from `J5` on the control board to the roller-lever switch on the chute. **One per machine.**
 
 Nothing on this lead is soldered. The switch end pushes on, and the board end is two crimps into a housing. The parts list has four receptacles and four contacts, two more of each than the lead uses: the first crimps on a new part are easy to spoil. General help with crimping is at [Crimping connectors]({{ '/hardware/helpers/crimping/' | relative_url }}).

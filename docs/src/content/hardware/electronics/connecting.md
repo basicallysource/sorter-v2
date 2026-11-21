@@ -345,6 +345,11 @@ The switch tells the machine where the chute is. Its cable (`LIM1`) ends in a 3-
 
 At the switch end, push the two #187 tabs onto the switch's `COM` and `NC` terminals. The switch has three tabs and one stays empty. Wired this way the circuit is closed while the lever is free and opens when the chute presses it, which is what the machine expects. If homing runs the wrong way round later, the setting is in the software, not the wiring.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Board v1.4.1: the switch socket is different.</b> <code>J5</code> is a 2-pin latching Dupont socket printed <code>LIMIT SWITCH</code>, and there is no <code>J6</code> and no <code>3.3V</code> pin. The 3-pin housing on <code>LIM1</code> does not fit it. The limit switch lead page has the 2-pin version.</p>
+</div>
+
 {% include step.html n="4" title="Plug in the three camera lamps" %}
 
 The board has four LED ports. The fan in the housing lid is already on one of them, so the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three: `LED2` and `LED2a` on C2, `LED3` and `LED3a` on C3, and `LED4` and `LED4a` on the classification channel (C4). Any lamp can go on any of the three ports. Each lamp comes with a [prepared LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) and a board cable (`LED2a` to `LED4a`) of about 920 mm (36 in) of 22 AWG (0.33 mm²) with the Dupont housing on one end. The barrel plug on the strip's pigtail (`LED2` to `LED4`) and the matching socket on the cable's other end are optional but recommended: they make maintenance easier, because the lamp's power can be disconnected close to the lamp. Without them the cable runs straight to the strip.
@@ -361,9 +366,14 @@ The board has four LED ports. The fan in the housing lid is already on one of th
 
 The board prints `+V` beside the pin on the square pad of each port and `GND` beside the round one. The red wire goes to `+V`. The Dupont housing has no key and fits either way up, but the arrow moulded on it always marks the black (ground) wire on every lead here, so push it on with the arrow end over `GND`.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Board v1.4.1 has three LED and fan ports, not four.</b> They are <code>J8</code> to <code>J10</code>, printed <code>LED_0_1</code>, <code>LED_0_2</code> and <code>LED_1_1</code>. Each has a JST XA socket beside it wired to the same output (<code>J11</code>, <code>J15</code>, <code>J14</code>), which is an alternative plug for that port, not a fourth output. The three lamps and the fan need four.</p>
+</div>
+
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>
-  <p><b>Four ports, two switches.</b> <code>J8</code> and <code>J9</code> turn on and off together, and so do <code>J10</code> and <code>J11</code>. So one lamp always comes on with the fan. Which lamp is on which output is picked in the software later, on the LED button for each channel.</p>
+  <p><b>Four ports, two switches (v1.3).</b> <code>J8</code> and <code>J9</code> turn on and off together, and so do <code>J10</code> and <code>J11</code>. So one lamp always comes on with the fan. Which lamp is on which output is picked in the software later, on the LED button for each channel.</p>
 </div>
 
 On a v1.3 board, the solder jumper beside each of these three ports should already be bridged, from [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 4. If you skipped it, do it before the lamps go on: the 180 Ω resistor in each port is there for a bare LED board and only dims a strip. Boards from v1.4 have no resistor and no jumper.

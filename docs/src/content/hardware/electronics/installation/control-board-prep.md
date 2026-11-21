@@ -20,7 +20,14 @@ parts_needed:
     qty: 1
   - part: jumper-cap-254
     qty: 10
+    optional: true
+    note: v1.3 boards only. Skip on v1.4 or later.
 ---
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Check your board's version first.</b> It is printed on the board as <code>REV 1.3</code>, <code>REV 1.4.1</code> and so on. <b>Steps 3 and 4 are for v1.3 boards only.</b> From v1.4 the driver addresses are fixed on the board and the LED ports have no resistor, so there are no address header pins or bypass pads to fit: skip both steps. Steps 1 and 2 apply to every version.</p>
+</div>
 
 Do this with the board loose, before the [housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}).
 
@@ -76,7 +83,9 @@ Into the two long sockets down the middle, USB end towards the edge of the board
   </figure>
 </div>
 
-{% include step.html n="3" title="Set the address jumpers" %}
+{% include step.html n="3" title="Set the address jumpers (v1.3 boards only)" %}
+
+**Board v1.4 or later: skip this step.** The addresses are fixed on the board and there are no MS1/MS2 header pins.
 
 The five drivers share a UART bus, so each needs its own address. You set it by bridging the MS1 and MS2 header pins: 1-2 bridged reads 3V3 (HIGH); 2-3 bridged reads GND (LOW). MS1 is the low bit of the two-bit address. Two pins allow four addresses, one short of five steppers, so the board runs a second bus for the fifth driver. Ten jumpers in total, two per driver; tweezers or needle-nose pliers make placing the small 2.54 mm (0.1 in) jumper caps much easier.
 
@@ -109,7 +118,9 @@ The two connectors in each pair are the JST-PH socket and the row of 2.54 mm (0.
   <p>Read the 1 2 3 printed beside every header. The fifth driver's block is mirrored, which is why the board prints <b>!Double check!</b> next to it, and a wrong address fails silently: that driver never answers and its stepper stays unconfigured.</p>
 </div>
 
-{% include step.html n="4" title="Bridge the bypass jumpers on the LED ports" %}
+{% include step.html n="4" title="Bridge the bypass jumpers on the LED ports (v1.3 boards only)" %}
+
+**Board v1.4 or later: skip this step.** The LED and fan ports are wired straight to 24 V and have no bypass pads.
 
 The board has four LED ports, and each one feeds +24&nbsp;V through a 180 Ω resistor: `R21` on `J8`, `R22` on `J9`, `R27` on `J10`, `R28` on `J11`. That resistor is there for a bare LED board, which has no current limiting of its own. Nothing this machine plugs into those ports wants it: the [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) run LED strip, which limits its own current, so the resistor only costs brightness, and brightness is set with PWM in the software instead.
 
@@ -129,7 +140,7 @@ The board has four LED ports, and each one feeds +24&nbsp;V through a 180 Ω res
 
 ## The finished result
 
-This is a correctly jumpered board.
+This is a correctly jumpered v1.3 board. A v1.4 or later board has no jumpers to fit.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-prep-all-jumpers-fitted-w1600-f470f24a8913.jpg" alt="Top-down view of the fully populated control board, with five TMC2209 drivers, the Raspberry Pi Pico, and ten yellow jumpers fitted across the MS1 and MS2 headers">

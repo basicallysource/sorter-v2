@@ -86,12 +86,12 @@ The five stepper motors run on the 24 V rail, each through its own TMC2209 drive
 
 The board has four LED ports, `J8` to `J11`. Each is the 24 V rail through a 180 Ω resistor on its +24 V pin, and a MOSFET (AO3400A, an electronic switch) on its ground pin that the Pico controls. So a lamp or fan always has 24 V on one side, and the board **switches the ground side** on and off. For brightness it does this very fast (PWM), and the share of time it is on sets how bright the lamp is. Two ports share each of the Pico's two PWM outputs, `J8` with `J9` and `J10` with `J11`, so dimming one dims its partner.
 
-The 180 Ω resistor is there for a bare LED board that does not limit its own current. The camera lamps use an LED strip that does limit its own current, so the resistor would only make them dimmer. Each port has a solder jumper (a spot you can bridge with solder) across its resistor, and the build bridges all four. The same bridge is what lets the 24 V fan run at full voltage from a port.
+The 180 Ω resistor is there for a bare LED board that does not limit its own current. The camera lamps use an LED strip that does limit its own current, so the resistor would only make them dimmer. On a v1.3 board each port has a solder jumper (a spot you can bridge with solder) across its resistor, and the build bridges all four; v1.4 and later have no resistor. The same bridge is what lets the 24 V fan run at full voltage from a port.
 
 The three lamps each use about 920 mm of strip at roughly 10 W per metre, so about 9 W each. The housing fan is a 40 mm, 24 V fan on the fourth port. The Orange Pi's own heatsink fan is 5 V and plugs into the Orange Pi's FAN socket instead.
 
 <ul class="bulleted-list">
-  <li>Bridging the resistor jumpers: <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">Preparing the control board</a></li>
+  <li>Bridging the resistor jumpers (v1.3 boards only): <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">Preparing the control board</a></li>
   <li>Which lamp or fan is on which port: <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a></li>
   <li>The strip and its cables: <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strip</a>, and the lamp itself: <a href="{{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}">Camera lamp</a></li>
 </ul>

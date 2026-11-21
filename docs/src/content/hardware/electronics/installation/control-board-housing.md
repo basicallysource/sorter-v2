@@ -37,7 +37,7 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Prepare the control board before you start.</strong> The five stepper drivers, the Pico and the ten jumpers all go in while the board is loose. <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">Preparing the control board</a> does that; step 2 here screws the finished board down.</p>
+    <p><strong>Prepare the control board before you start.</strong> The five stepper drivers and the Pico (and, on a v1.3 board, the ten jumpers) all go in while the board is loose. <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">Preparing the control board</a> does that; step 2 here screws the finished board down.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-prep-all-jumpers-fitted-w1600-f470f24a8913.jpg" alt="Top-down view of the fully populated control board, with five TMC2209 drivers, the Raspberry Pi Pico, and ten yellow jumpers fitted across the MS1 and MS2 headers">
@@ -123,7 +123,7 @@ The fan runs off one of the board's four LED ports. The red wire goes to `+V`.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Double check the port's bypass jumper is bridged.</b> Each port feeds +V through a 180 Ω resistor meant for a bare LED board, and with it still in circuit the fan will barely turn, if it turns at all, because most of the 24 V drops across the resistor instead of reaching the fan. All four are bridged in <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">preparing the control board</a>, step 4; look for solder across the two pads marked <b>Bypass R21</b>, <b>R22</b>, <b>R27</b> or <b>R28</b> beside the port you used, and do it now if it is missing, before the board goes in.</p>
+  <p><b>Board v1.3 only: double check the port's bypass jumper is bridged.</b> Boards from v1.4 have no bypass pads and need nothing here. Each port feeds +V through a 180 Ω resistor meant for a bare LED board, and with it still in circuit the fan will barely turn, if it turns at all, because most of the 24 V drops across the resistor instead of reaching the fan. All four are bridged in <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">preparing the control board</a>, step 4; look for solder across the two pads marked <b>Bypass R21</b>, <b>R22</b>, <b>R27</b> or <b>R28</b> beside the port you used, and do it now if it is missing, before the board goes in.</p>
 </div>
 
 {% include step.html n="6" title="Close the housing" %}

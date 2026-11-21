@@ -7468,9 +7468,9 @@
       },
       "name": "2.54 mm jumper cap",
       "category": "Electronics",
-      "description": "Shunt for the control board's MS1/MS2 headers, which set each TMC2209's address on its UART bus. 10 per machine, two per driver.",
+      "description": "Shunt for the control board's MS1/MS2 headers, which set each TMC2209's address on its UART bus. Control board v1.3 only: boards from v1.4 have the addresses fixed and no headers, so do not buy these for them. 10 per v1.3 machine, two per driver.",
       "created_at": "2026-08-23",
-      "updated_at": "2026-10-02",
+      "updated_at": "2026-11-21",
       "image_url": "https://assets.basically.website/sorter-parts/jumper-cap-full-1ffebeb4f956.png",
       "attributes": [
         {

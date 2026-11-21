@@ -115,6 +115,27 @@ def test_a_machine_sends_its_lots_and_runs_whole_and_a_reader_sees_them(client, 
     assert [r["id"] for r in body["runs"]] == ["run-1", "run-2"]
 
 
+def test_pieces_a_machine_sent_back_show_on_their_records(client, db, test_machine, machine_token) -> None:
+    machine_id = UUID(test_machine["id"])
+    _piece(db, machine_id, "a", 1, bin_x=0, bin_y=1, bin_z=0)
+    _piece(db, machine_id, "b", 2, bin_x=0, bin_y=1, bin_z=3)
+    db.commit()
+    at = (NOW + timedelta(hours=2)).timestamp()
+    row = {"local_id": 1, "piece_uuid": "a", "lot_id": "lot-1", "sent_back_at": at, "note": "sorted again"}
+    sent = {"records": [row, {"local_id": 2, "piece_uuid": "x"}]}
+    response = client.post("/api/machine/sync/sent-back-pieces", json=sent, headers=_bearer(machine_token))
+    assert response.status_code == 200, response.text
+    # A bad row is skipped and still moves the watermark; a resend changes nothing.
+    assert response.json() == {"max_local_id": 2, "upserted": 1, "skipped": 1}
+    assert client.post("/api/machine/sync/sent-back-pieces", json={"records": [row]}, headers=_bearer(machine_token)).json()["max_local_id"] == 2
+    assert client.get("/api/machine/sync/state", headers=_bearer(machine_token)).json()["sent_back_pieces"] == {"max_local_id": 2}
+
+    body = client.get(f"/api/records/machines/{machine_id}/pieces", headers=_key(client, ["records:read"])).json()
+    b, a = body["items"]
+    assert a["sent_back"] == {"at": datetime.fromtimestamp(at, timezone.utc).isoformat(), "lot_id": "lot-1", "note": "sorted again"}
+    assert b["sent_back"] is None
+
+
 def test_only_an_admin_adds_a_runs_predictions(client, db, test_user, test_machine, monkeypatch) -> None:
     monkeypatch.setattr(color_model_runs, "_palette", lambda: {85: {"id": 85, "name": "Dark Bluish Gray"}})
     machine_id = UUID(test_machine["id"])

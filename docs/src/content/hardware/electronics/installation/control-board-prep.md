@@ -20,6 +20,8 @@ parts_needed:
     qty: 1
   - part: jumper-cap-254
     qty: 10
+    optional: true
+    note: v1.3 boards only. Skip on v1.4 or later.
 ---
 
 <div class="callout callout-warning">

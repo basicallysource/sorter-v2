@@ -48,11 +48,11 @@ Where to look first. Each line points to the page that has the fix.
 
 <ul class="bulleted-list">
   <li><strong>The setup wizard finds no controller (<code>No MCU buses found</code>).</strong> A new Pico has no firmware yet, which is normal. Flash it first: <a href="{{ '/sorter/' | relative_url }}#flash-the-control-board-before-the-wizard">Flashing the control board</a>. If it still does not appear, check the two USB cables, <code>USB6</code> (Pico to hub) and <code>USB5</code> (hub to Orange Pi).</li>
-  <li><strong>One motor never moves and the others do.</strong> Check the address jumpers of its driver. A wrong or missing jumper fails silently. <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">Preparing the control board</a>, step 3.</li>
+  <li><strong>One motor never moves and the others do.</strong> On a v1.3 board, check the address jumpers of its driver (v1.4 and later have none). A wrong or missing jumper fails silently. <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">Preparing the control board</a>, step 3.</li>
   <li><strong>A motor stops and the machine reports a stepper stall.</strong> Something is blocking that motor. Look at the machine. <a href="{{ '/lab/motors/' | relative_url }}">The motors</a> explains what the machine does.</li>
   <li><strong>The chute does not find its home position.</strong> Check that the limit switch lead (<code>LIM1</code>) is in the socket the board prints <code>HALL_SW_0</code>. <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">Connecting the components</a>.</li>
   <li><strong>The doors open on the wrong layer, or not at all.</strong> Check that every ribbon cable runs from <code>J4</code> of one layer board to <code>J3</code> of the next, never the other way round. <a href="{{ '/lab/servos/' | relative_url }}">The servos and the layer adapter boards</a>.</li>
-  <li><strong>A lamp is dim.</strong> Check that the solder jumper beside its port is bridged. <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">Preparing the control board</a>, step 4.</li>
+  <li><strong>A lamp is dim.</strong> On a v1.3 board, check that the solder jumper beside its port is bridged (v1.4 and later have none). <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">Preparing the control board</a>, step 4.</li>
 </ul>
 
 ## What happens at start-up

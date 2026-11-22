@@ -36,6 +36,19 @@ Measured running three sustained NPU inference workers in parallel, one per came
 
 No other single-board computer at this price point sustains that inference throughput with the NPU required by the detection pipeline.
 
+## Orange Pi 5 or 5 Pro
+
+**Build with the Orange Pi 5.** It is the default and the supported board. The Orange Pi 5 Pro, Max and Ultra are variants that are not supported for now.
+
+They have the same RK3588S chip and NPU, but the 5 Pro is a smaller board with a different mounting hole pattern, so it needs its own printed housing (the [housing page]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) covers both). The differences if you go that way anyway:
+
+- **Orange Pi 5.** The [SorterOS image]({{ '/sorter/installation/sorter-os/' | relative_url }}) is built for it: flash the card and set up WiFi from your phone. It has no WiFi or Bluetooth on the board, so you add an M.2 module (see below), a USB adapter, or use Ethernet.
+- **Orange Pi 5 Pro, Max or Ultra.** WiFi and Bluetooth are on the board. There is no released SorterOS image for it. A Pro image has been developed ([pull request #1028](https://github.com/basicallysource/sorter-v2/pull/1028), tracked in [issue #840](https://github.com/basicallysource/sorter-v2/issues/840)), but it is not supported at this time. Otherwise you flash Orange Pi's own Ubuntu image and run the [generic installer]({{ '/sorter/installation/linux-generic/' | relative_url }}), and the project does not support that setup either. The Pro housing holds one antenna instead of two. The Max and Ultra fit has not been checked on a build.
+
+Either board needs 8 GB of memory. WiFi is optional on both: a cable to your router works. Sorter does not use Bluetooth.
+
+Prices move often. Compare the board and any WiFi module in the [parts calculator](https://parts-calculator.basically.website) rather than from this page.
+
 ## Recommended configuration
 
 | Component | Requirement |

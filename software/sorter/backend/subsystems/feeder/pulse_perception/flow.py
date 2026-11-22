@@ -93,7 +93,11 @@ class PulsePerceptionFeeding(BaseState):
         self._odometer: dict[int, float] = {1: 0.0, 2: 0.0, 3: 0.0}
         self._blind: dict[int, BlindArc] = {2: BlindArc(), 3: BlindArc()}
         # Pieces their own channel cannot move (held.py).
-        self._held = HeldPieces(gc, landing_edge=machineGeneration().held_at_landing_edge)
+        self._held = HeldPieces(
+            gc,
+            landing_edge=machineGeneration().held_at_landing_edge,
+            keeps_trying=machineGeneration().held_keeps_trying,
+        )
         # Per-channel monotonic timestamp of the last frame that reported a piece
         # in the drop zone. Drives the C2/C3 drop-zone occupancy latch.
         self._drop_seen_at: dict[int, float] = {}
@@ -122,6 +126,7 @@ class PulsePerceptionFeeding(BaseState):
         self._fall3 = FallCount()
         self._fall2 = FallCount()
         self._c2_in_drop = False
+        self._c1_asked_tick = time.monotonic()
         # Back-offs and shakes at each channel's exit in a row (none more than
         # EXIT_TRIES_CALM_S apart), and when the last was. Counted for the exit,
         # not one piece: a piece the camera draws as several boxes changes its
@@ -419,6 +424,7 @@ class PulsePerceptionFeeding(BaseState):
         # A piece came off C1: C2's landing zone filled.
         if c2.in_drop and not self._c2_in_drop:
             self.shared.c1_fed_at = now_mono
+            self.shared.c1_asked_s = 0.0
         self._c2_in_drop = bool(c2.in_drop)
 
         if cfg.enable_ch1:
@@ -426,6 +432,14 @@ class PulsePerceptionFeeding(BaseState):
             # zone is occupied.
             stepper = self.irl.c_channel_1_rotor_stepper
             wants = c1Action(c2) == Action.ADVANCE and self._hasRoom(2, c2, cfg.ch2_max_pieces)
+            # For the pause when nothing comes off C1 (sorter_controller.py): how
+            # long C1 has been asked since a piece last came off it, and while
+            # it is not asked, which channel its pieces wait on.
+            if wants:
+                self.shared.c1_asked_s += min(1.0, max(0.0, now_mono - self._c1_asked_tick))
+            else:
+                self.shared.feed_waits_on = "C3" if c3.in_drop else "C2"
+            self._c1_asked_tick = now_mono
             if self._unjam is not None:
                 try:
                     taken = self._unjam.step(now_mono, wants, cfg)
@@ -486,6 +500,7 @@ class PulsePerceptionFeeding(BaseState):
                     "above": self._recoveryMotor(held.channel - 1, cfg),
                 },
                 judge=pieceGoneFrom(self.gc.perception_service, held.channel, held.box),
+                first_move=held.tries,
             )
         return True
 

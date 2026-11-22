@@ -17,6 +17,16 @@ picture and stays put at its edge (clean, November 21, 2026: a piece off C1's
 lip sat at the top of C2's picture for nine minutes while C2 turned under it,
 and nothing was tried).
 
+A recovery can end while the piece still hangs there (its judge sees the box
+move when the channel above nudges the piece, and takes that for freed: clean,
+November 22, 2026, a piece off C2's lip lay in C3's landing area for nine
+minutes after a 3 degree nudge was judged to have freed it, nothing came down
+behind it, and the machine paused blaming C1). On a machine whose generation
+has ``held_keeps_trying``, the watch is the judge: a piece that has still not
+moved once its channel has turned HELD_AFTER_DEG again after its incident ended
+is handed over again, and its recovery starts at the next move, so each try
+pushes harder; when every move has been tried the card stays for the operator.
+
 Each piece found held, each turn and how it ended go to the control-data log,
 so the record says how often it happens and whether the turns free it.
 """
@@ -43,6 +53,8 @@ LANDING_HELD_S = 4.0
 FREE_TURN_DEG = {3: 8.0}
 FREE_SETTLE_S = 1.0
 FREE_TURNS = 3
+# A piece is handed to its incident at most this many times.
+HANDOVERS_MAX = 12
 
 _DROP_ZONE = 1
 _EXIT_ZONE = 2
@@ -58,6 +70,8 @@ class _Watch:
     turned_at: Optional[float] = None
     given_up: bool = False
     zone: str = ""
+    # Times it was handed to its incident where pieces land.
+    handovers: int = 0
 
 
 @dataclass(frozen=True)
@@ -65,6 +79,9 @@ class HeldAtLanding:
     channel: int  # the channel the piece is on
     track_id: int
     box: tuple[float, float, float, float]
+    # How many times it was handed over before: its recovery starts that many
+    # moves in.
+    tries: int = 0
 
 
 @dataclass(frozen=True)
@@ -76,9 +93,10 @@ class FreeTurn:
 
 
 class HeldPieces:
-    def __init__(self, gc: Any, landing_edge: bool = False) -> None:
+    def __init__(self, gc: Any, landing_edge: bool = False, keeps_trying: bool = False) -> None:
         self.gc = gc
         self._landing_edge = landing_edge
+        self._keeps_trying = keeps_trying
         self._watch: dict[tuple[int, int], _Watch] = {}
 
     def reset(self) -> None:
@@ -123,12 +141,19 @@ class HeldPieces:
             zone = int(getattr(p, "zone_code", 0) or 0)
             if zone == _DROP_ZONE:
                 watch.zone = "landing"
+                if watch.given_up and self._keeps_trying and watch.handovers < HANDOVERS_MAX:
+                    # This runs only while no incident is open, so its incident
+                    # has ended and it has not moved since: watched again from here.
+                    watch.given_up = False
+                    watch.odometer = odometer
+                    continue
                 if not watch.given_up and now - watch.since >= LANDING_HELD_S:
                     watch.given_up = True
                     self._log("held where pieces land", channel, int(tid), watch, now)
                     if wanted is None or isinstance(wanted, FreeTurn):
                         box = getattr(p, "bbox", None) or (0, 0, 0, 0)
-                        wanted = HeldAtLanding(channel, int(tid), tuple(float(v) for v in box))
+                        wanted = HeldAtLanding(channel, int(tid), tuple(float(v) for v in box), watch.handovers)
+                        watch.handovers += 1
                 continue
             if zone not in (_EXIT_ZONE, _PRECISE_ZONE):
                 continue

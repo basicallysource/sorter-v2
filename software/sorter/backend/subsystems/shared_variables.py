@@ -54,6 +54,10 @@ class SharedVariables:
         self.c3_fall: Optional[tuple[float, int]] = None
         # When a piece last came off C1 onto C2 (monotonic).
         self.c1_fed_at: Optional[float] = None
+        # Seconds C1 has been asked to feed since a piece last came off it, and
+        # the channel its pieces last waited on while it was not asked.
+        self.c1_asked_s: float = 0.0
+        self.feed_waits_on: Optional[str] = None
         # When C3 last pushed at its exit (monotonic): a piece may be falling.
         self.c3_pushed_at: Optional[float] = None
         # When the classification channel expects to be at rest with room for a

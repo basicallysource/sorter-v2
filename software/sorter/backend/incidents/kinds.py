@@ -186,6 +186,15 @@ KINDS: dict[str, IncidentKind] = {
             holds=False,
         ),
         IncidentKind(
+            # Nothing came off C1, but C1 was hardly asked: {where} is the
+            # channel its pieces wait on (sorter_controller.py).
+            "feed_blocked",
+            title="Pieces are not moving on",
+            todo="No piece has come off C1 in {minutes} minutes, but C1 was hardly asked for any: {where} is not passing its pieces on, so sorting paused. Look at {where}, then press Resume.",
+            actions=(),
+            holds=False,
+        ),
+        IncidentKind(
             # The feeder's bucket_unjam.py. {doing}: what it is trying to free
             # the bucket, or once it has given up, to check the bucket.
             "potentially_bucket_empty",

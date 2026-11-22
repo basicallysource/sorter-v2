@@ -81,10 +81,18 @@ class Generation:
     # for being held too: a piece hanging off the channel above reaches in from
     # outside the picture (subsystems/feeder/pulse_perception/held.py).
     held_at_landing_edge: bool = False
-    # A piece held where pieces land never holds the machine past its recovery:
-    # when every step has been tried, its incident closes as if Done had been
-    # pressed and sorting goes on (recovery/__init__.py).
+    # A piece that did not ride the classification channel never holds the
+    # machine past its recovery: when every step has been tried, its incident
+    # closes as if Done had been pressed (recovery/__init__.py).
     held_gives_up_goes_on: bool = False
+    # A piece on C2 or C3 that still does not ride after its recovery ended is
+    # taken up again, each time one move further into the recovery
+    # (subsystems/feeder/pulse_perception/held.py).
+    held_keeps_trying: bool = False
+    # When nothing has come off C1 for long and C1 was hardly asked for pieces,
+    # the pause says which channel below is not passing pieces on instead of
+    # blaming C1 (sorter_controller.py).
+    feed_pause_says_why: bool = False
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -131,6 +139,8 @@ GENERATIONS: dict[str, Generation] = {
         bucket_unjam=True,
         held_at_landing_edge=True,
         held_gives_up_goes_on=True,
+        held_keeps_trying=True,
+        feed_pause_says_why=True,
         driver_watch=True,
         # Quarter bins take up to a 3x3 plate, thirds a 4x4, halves a 6x6; a
         # full bin takes anything.

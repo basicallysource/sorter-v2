@@ -35,6 +35,7 @@ class Recovery:
         exit_turn: Callable[[], Optional[float]] | None = None,
         clock: Callable[[], float] = time.monotonic,
         wall: Callable[[], float] = time.time,
+        first_move: int = 0,
     ) -> None:
         self.procedure = procedure
         self.motors = motors
@@ -42,7 +43,7 @@ class Recovery:
         self.exit_turn = exit_turn
         self._clock = clock
         self._wall = wall
-        self.index = 0
+        self.index = first_move
         self.state = RUNNING
         self.restoring = False
         self._motions: list[tuple[str, str, float | str]] = []
@@ -50,7 +51,7 @@ class Recovery:
         self._wait_until = 0.0
         self._settled_at: Optional[float] = None
         self._net_turn = 0.0
-        self._begin(procedure.moves[0])
+        self._begin(procedure.moves[first_move])
 
     @property
     def names(self) -> dict[str, str]:

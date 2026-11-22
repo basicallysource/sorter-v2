@@ -6,8 +6,10 @@ A subsystem that finds a stuck piece opens its incident and, when that kind is
 handled automatically, ``start``s a procedure. The coordinator ``step``s it on
 every tick while the incident is open. Freed, the incident closes itself; given
 up, the card asks the operator. On a machine whose generation has
-``held_gives_up_goes_on``, a piece held where pieces land never holds the
-machine past its recovery: given up, its incident closes too and sorting goes on.
+``held_gives_up_goes_on``, a piece that did not ride the classification channel
+(GOES_ON_KINDS) never holds the machine past its recovery: that recovery moves
+only C3 and cannot tell whether the piece rides, so given up, its incident
+closes too and the channel's next turn tells.
 """
 
 from __future__ import annotations
@@ -36,8 +38,8 @@ class _Run:
 
 _run: Optional[_Run] = None
 
-# A piece that does not ride its channel where pieces land (incidents/kinds.py).
-HELD_KINDS = ("piece_held", "piece_held_c4")
+# The kinds whose incident closes when their recovery gives up (see above).
+GOES_ON_KINDS = ("piece_held_c4",)
 
 
 def running() -> bool:
@@ -56,15 +58,20 @@ def start(
     motors: dict[str, ChannelMotor],
     judge: Judge,
     exit_turn: Callable[[], Optional[float]] | None = None,
+    first_move: int = 0,
 ) -> bool:
-    """Start ``procedure`` for the open ``kind`` incident. False when another
-    recovery is running or the incident is not open."""
+    """Start ``procedure`` for the open ``kind`` incident, ``first_move`` moves
+    in (the earlier ones were tried on this piece before). False when another
+    recovery is running, the incident is not open, or no move is left: the
+    card then asks the operator."""
     global _run
     import incidents
 
     if _run is not None or incidents.openIncident(gc, kind) is None:
         return False
-    _run = _Run(Recovery(PROCEDURES[procedure], motors, judge, exit_turn), kind)
+    if first_move >= len(PROCEDURES[procedure].moves):
+        return False
+    _run = _Run(Recovery(PROCEDURES[procedure], motors, judge, exit_turn, first_move=max(0, first_move)), kind)
     _publish(gc, _run)
     return True
 
@@ -89,10 +96,7 @@ def step(gc: Any) -> None:
         if run.recovery.state == FREED:
             gc.runtime_stats.clearActiveIncident(kind=run.kind, resolved_by="recovery")
         elif run.recovery.state == GAVE_UP and _goesOnAfterGivingUp(run.kind):
-            # The same as the operator's Done: on clean on November 22, 2026
-            # every such card was closed without anyone touching the piece and
-            # sorting went on, after one of them had held the machine for five
-            # hours overnight.
+            # The same as the operator's Done.
             try:
                 gc.logger.warning(f"Recovery {run.recovery.procedure.key}: gave up on {run.kind}; sorting goes on")
             except Exception:
@@ -101,11 +105,11 @@ def step(gc: Any) -> None:
 
 
 def _goesOnAfterGivingUp(kind: str) -> bool:
-    """Whether this machine sorts on when the recovery of a piece held where
-    pieces land has tried every step (its generation's choice)."""
+    """Whether this machine sorts on when this kind's recovery has tried every
+    step (its generation's choice)."""
     from hardware_settings.generation import machineGeneration
 
-    return kind in HELD_KINDS and machineGeneration().held_gives_up_goes_on
+    return kind in GOES_ON_KINDS and machineGeneration().held_gives_up_goes_on
 
 
 def stop(gc: Any) -> bool:

@@ -36,6 +36,7 @@ class Recovery:
         clock: Callable[[], float] = time.monotonic,
         wall: Callable[[], float] = time.time,
         first_move: int = 0,
+        one_move: bool = False,
     ) -> None:
         self.procedure = procedure
         self.motors = motors
@@ -44,6 +45,8 @@ class Recovery:
         self._clock = clock
         self._wall = wall
         self.index = first_move
+        # The last move this run makes (all of them unless it is to make one).
+        self._last = first_move if one_move else len(procedure.moves) - 1
         self.state = RUNNING
         self.restoring = False
         self._motions: list[tuple[str, str, float | str]] = []
@@ -117,10 +120,10 @@ class Recovery:
         if verdict:
             self._finish(FREED)
             return
-        self.index += 1
-        if self.index >= len(self.procedure.moves):
+        if self.index >= self._last:
             self._finish(GAVE_UP)
             return
+        self.index += 1
         self._begin(self.procedure.moves[self.index])
 
     def _begin(self, move: Move) -> None:

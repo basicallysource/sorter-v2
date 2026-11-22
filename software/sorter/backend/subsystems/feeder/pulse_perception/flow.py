@@ -92,12 +92,6 @@ class PulsePerceptionFeeding(BaseState):
         # it carries through the part of its ring its camera cannot see.
         self._odometer: dict[int, float] = {1: 0.0, 2: 0.0, 3: 0.0}
         self._blind: dict[int, BlindArc] = {2: BlindArc(), 3: BlindArc()}
-        # Pieces their own channel cannot move (held.py).
-        self._held = HeldPieces(
-            gc,
-            landing_edge=machineGeneration().held_at_landing_edge,
-            keeps_trying=machineGeneration().held_keeps_trying,
-        )
         # Per-channel monotonic timestamp of the last frame that reported a piece
         # in the drop zone. Drives the C2/C3 drop-zone occupancy latch.
         self._drop_seen_at: dict[int, float] = {}
@@ -111,6 +105,15 @@ class PulsePerceptionFeeding(BaseState):
         self._shake_owed: dict[int, float] = {}
         generation = machineGeneration()
         self._push_only = generation.feeder_push_only
+        # Pieces their own channel cannot move (held.py).
+        from recovery.procedures import PROCEDURES
+
+        self._held = HeldPieces(
+            gc,
+            landing_edge=generation.held_at_landing_edge,
+            keeps_trying=generation.held_keeps_trying,
+            moves=len(PROCEDURES[self._heldProcedure()].moves),
+        )
         # C1 shaken and turned when the bucket gives no pieces (bucket_unjam.py).
         self._unjam = (
             BucketUnjam(
@@ -493,7 +496,7 @@ class PulsePerceptionFeeding(BaseState):
         if mode == incidents.AUTOMATIC:
             recovery.start(
                 self.gc,
-                "landing_held_still" if self._push_only else "landing_held",
+                self._heldProcedure(),
                 kind="piece_held",
                 motors={
                     "this": self._recoveryMotor(held.channel, cfg),
@@ -501,8 +504,13 @@ class PulsePerceptionFeeding(BaseState):
                 },
                 judge=pieceGoneFrom(self.gc.perception_service, held.channel, held.box),
                 first_move=held.tries,
+                one_move=self._held.keeps_trying,
             )
         return True
+
+    def _heldProcedure(self) -> str:
+        """The recovery of a piece held where pieces land on this machine."""
+        return "landing_held_still" if self._push_only else "landing_held"
 
     def _recoveryMotor(self, channel: int, cfg: PulsePerceptionConfig):
         from recovery.motors import ChannelMotor, gearedMicrosteps

@@ -22,10 +22,17 @@ move when the channel above nudges the piece, and takes that for freed: clean,
 November 22, 2026, a piece off C2's lip lay in C3's landing area for nine
 minutes after a 3 degree nudge was judged to have freed it, nothing came down
 behind it, and the machine paused blaming C1). On a machine whose generation
-has ``held_keeps_trying``, the watch is the judge: a piece that has still not
-moved once its channel has turned HELD_AFTER_DEG again after its incident ended
-is handed over again, and its recovery starts at the next move, so each try
-pushes harder; when every move has been tried the card stays for the operator.
+has ``held_keeps_trying``, the watch is the judge. Each time the piece is
+handed over, its recovery makes one move, the next of its procedure, and the
+machine sorts on; if the piece has still not moved once its channel has turned
+HELD_AFTER_DEG again, it is handed over again, so each try pushes the channel
+above harder. That is for a piece whose box touches the picture's edge, the one
+that can hang off the channel above. A piece whole in the picture lies on its
+own channel without riding (a flat piece slipping on the floor): no move of
+the channel above frees it and none is made, and it creeps on as its channel
+turns. Either kind is the operator's only when it has still not moved STUCK_S
+after the last thing tried: it is then handed over with no move left, and its
+card stays (again every STUCK_S while it lies there).
 
 Each piece found held, each turn and how it ended go to the control-data log,
 so the record says how often it happens and whether the turns free it.
@@ -53,8 +60,9 @@ LANDING_HELD_S = 4.0
 FREE_TURN_DEG = {3: 8.0}
 FREE_SETTLE_S = 1.0
 FREE_TURNS = 3
-# A piece is handed to its incident at most this many times.
-HANDOVERS_MAX = 12
+# With every move of its recovery made, a piece that has still not moved this
+# long after the last one is the operator's.
+STUCK_S = 120.0
 
 _DROP_ZONE = 1
 _EXIT_ZONE = 2
@@ -70,8 +78,9 @@ class _Watch:
     turned_at: Optional[float] = None
     given_up: bool = False
     zone: str = ""
-    # Times it was handed to its incident where pieces land.
+    # Times it was handed to its incident where pieces land, and when last.
     handovers: int = 0
+    handed_at: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -93,10 +102,13 @@ class FreeTurn:
 
 
 class HeldPieces:
-    def __init__(self, gc: Any, landing_edge: bool = False, keeps_trying: bool = False) -> None:
+    def __init__(self, gc: Any, landing_edge: bool = False, keeps_trying: bool = False, moves: int = 0) -> None:
         self.gc = gc
         self._landing_edge = landing_edge
-        self._keeps_trying = keeps_trying
+        # ``moves``: how many moves the recovery of a piece held where pieces
+        # land has.
+        self.keeps_trying = keeps_trying
+        self._moves = moves
         self._watch: dict[tuple[int, int], _Watch] = {}
 
     def reset(self) -> None:
@@ -141,19 +153,37 @@ class HeldPieces:
             zone = int(getattr(p, "zone_code", 0) or 0)
             if zone == _DROP_ZONE:
                 watch.zone = "landing"
-                if watch.given_up and self._keeps_trying and watch.handovers < HANDOVERS_MAX:
+                if watch.given_up and self.keeps_trying:
                     # This runs only while no incident is open, so its incident
-                    # has ended and it has not moved since: watched again from here.
-                    watch.given_up = False
-                    watch.odometer = odometer
-                    continue
+                    # has ended and it has not moved since.
+                    if watch.handovers < self._moves:
+                        watch.given_up = False  # watched again from here, for the next move
+                        watch.odometer = odometer
+                        continue
+                    if now - watch.handed_at < STUCK_S:
+                        continue
+                    watch.given_up = False  # every move made and still here: the operator's
                 if not watch.given_up and now - watch.since >= LANDING_HELD_S:
-                    watch.given_up = True
-                    self._log("held where pieces land", channel, int(tid), watch, now)
-                    if wanted is None or isinstance(wanted, FreeTurn):
-                        box = getattr(p, "bbox", None) or (0, 0, 0, 0)
-                        wanted = HeldAtLanding(channel, int(tid), tuple(float(v) for v in box), watch.handovers)
+                    box = getattr(p, "bbox", None)
+                    if self.keeps_trying and watch.handovers == 0 and frame_size and not _atEdge(box, frame_size):
+                        # Whole in the picture: it lies on this channel, it does
+                        # not hang off the one above, and no move of that one
+                        # frees it. It is left to move on as the channel turns.
+                        watch.given_up = True
+                        watch.handovers = self._moves
+                        watch.handed_at = now
+                        self._log("lies where pieces land without riding", channel, int(tid), watch, now)
+                        continue
+                    taken = wanted is None or isinstance(wanted, FreeTurn)
+                    if taken or not self.keeps_trying:
+                        watch.given_up = True
+                        self._log("held where pieces land", channel, int(tid), watch, now)
+                    if taken:
+                        wanted = HeldAtLanding(
+                            channel, int(tid), tuple(float(v) for v in (box or (0, 0, 0, 0))), watch.handovers
+                        )
                         watch.handovers += 1
+                        watch.handed_at = now
                 continue
             if zone not in (_EXIT_ZONE, _PRECISE_ZONE):
                 continue

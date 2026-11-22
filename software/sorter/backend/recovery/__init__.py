@@ -6,10 +6,12 @@ A subsystem that finds a stuck piece opens its incident and, when that kind is
 handled automatically, ``start``s a procedure. The coordinator ``step``s it on
 every tick while the incident is open. Freed, the incident closes itself; given
 up, the card asks the operator. On a machine whose generation has
-``held_gives_up_goes_on``, a piece that did not ride the classification channel
-(GOES_ON_KINDS) never holds the machine past its recovery: that recovery moves
-only C3 and cannot tell whether the piece rides, so given up, its incident
-closes too and the channel's next turn tells.
+``held_gives_up_goes_on``, a piece that does not ride where pieces land never
+holds the machine past its recovery: given up, its incident closes too and
+sorting goes on. Whether the piece rides is then told by its channel turning:
+the feeder's held-piece watch hands a piece on C2 or C3 over again, one move at
+a time, and calls the operator itself once nothing is left to try
+(subsystems/feeder/pulse_perception/held.py).
 """
 
 from __future__ import annotations
@@ -39,7 +41,7 @@ class _Run:
 _run: Optional[_Run] = None
 
 # The kinds whose incident closes when their recovery gives up (see above).
-GOES_ON_KINDS = ("piece_held_c4",)
+GOES_ON_KINDS = ("piece_held", "piece_held_c4")
 
 
 def running() -> bool:
@@ -59,11 +61,12 @@ def start(
     judge: Judge,
     exit_turn: Callable[[], Optional[float]] | None = None,
     first_move: int = 0,
+    one_move: bool = False,
 ) -> bool:
     """Start ``procedure`` for the open ``kind`` incident, ``first_move`` moves
-    in (the earlier ones were tried on this piece before). False when another
-    recovery is running, the incident is not open, or no move is left: the
-    card then asks the operator."""
+    in (the earlier ones were tried on this piece before), for that one move
+    only when ``one_move``. False when another recovery is running, the
+    incident is not open, or no move is left: the card then asks the operator."""
     global _run
     import incidents
 
@@ -71,7 +74,10 @@ def start(
         return False
     if first_move >= len(PROCEDURES[procedure].moves):
         return False
-    _run = _Run(Recovery(PROCEDURES[procedure], motors, judge, exit_turn, first_move=max(0, first_move)), kind)
+    _run = _Run(
+        Recovery(PROCEDURES[procedure], motors, judge, exit_turn, first_move=max(0, first_move), one_move=one_move),
+        kind,
+    )
     _publish(gc, _run)
     return True
 

@@ -81,12 +81,13 @@ class Generation:
     # for being held too: a piece hanging off the channel above reaches in from
     # outside the picture (subsystems/feeder/pulse_perception/held.py).
     held_at_landing_edge: bool = False
-    # A piece that did not ride the classification channel never holds the
-    # machine past its recovery: when every step has been tried, its incident
-    # closes as if Done had been pressed (recovery/__init__.py).
+    # A piece that does not ride where pieces land never holds the machine
+    # past its recovery: when that has given up, its incident closes as if Done
+    # had been pressed (recovery/__init__.py).
     held_gives_up_goes_on: bool = False
-    # A piece on C2 or C3 that still does not ride after its recovery ended is
-    # taken up again, each time one move further into the recovery
+    # A piece on C2 or C3 that does not ride is freed one move of its recovery
+    # at a time, the machine sorting on in between, and the operator is called
+    # only once every move is made and it still has not moved
     # (subsystems/feeder/pulse_perception/held.py).
     held_keeps_trying: bool = False
     # When nothing has come off C1 for long and C1 was hardly asked for pieces,

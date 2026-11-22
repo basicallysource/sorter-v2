@@ -3,8 +3,8 @@
 Each kind of data is a leg with a cursor (see sync_seq.py for the one rule):
 piece records, piece images and training runs, which change after they are
 written, go by sync_seq; telemetry records, piece predictions, pieces sent
-back, channel crops, control-data segments and training samples, which never
-change, go by id.
+back, bin emptyings, the layouts the machine ran, channel crops, control-data
+segments and training samples, which never change, go by id.
 Hive keeps the highest value it accepted per data type ("what's the max
 local_id you already have for me?"), and the worker sends only what is above
 it, in cursor order, so months of backlog sync without re-uploads, and because
@@ -54,6 +54,8 @@ from typing import Any, Callable, Iterator
 
 import requests
 
+import bin_contents
+import bin_layout_store
 import channel_crop_store
 import hive_limits
 import piece_image_store
@@ -83,6 +85,11 @@ DATA_TYPE_TRAINING_RUNS = "training_runs"
 DATA_TYPE_SORTING_RUNS = "sorting_runs"
 # Pieces sent back to be sorted again, which no lot counts (sorting_runs.sendBack).
 DATA_TYPE_SENT_BACK = "sent_back_pieces"
+# Each emptying of a bin (bin_contents: a clear's bin_snapshot_layers row), and
+# every layout the machine ran (bin_layout_store's history): which pieces were
+# in a bin, from which run, until when, and what it was assigned.
+DATA_TYPE_BIN_EMPTYINGS = "bin_emptyings"
+DATA_TYPE_BIN_LAYOUTS = "bin_layouts"
 DATA_TYPE_TELEMETRY = "telemetry"
 # Leg order. Samples (a few a minute) go before crops, which can hold a backlog
 # of tens of thousands.
@@ -92,6 +99,8 @@ DATA_TYPES = (
     DATA_TYPE_TRAINING_RUNS,
     DATA_TYPE_SORTING_RUNS,
     DATA_TYPE_SENT_BACK,
+    DATA_TYPE_BIN_EMPTYINGS,
+    DATA_TYPE_BIN_LAYOUTS,
     DATA_TYPE_TELEMETRY,
     DATA_TYPE_IMAGES,
     DATA_TYPE_SAMPLES,
@@ -106,6 +115,8 @@ STREAM = {
     DATA_TYPE_TRAINING_RUNS: "piece_records",
     DATA_TYPE_SORTING_RUNS: "piece_records",
     DATA_TYPE_SENT_BACK: "piece_records",
+    DATA_TYPE_BIN_EMPTYINGS: "piece_records",
+    DATA_TYPE_BIN_LAYOUTS: "piece_records",
     DATA_TYPE_TELEMETRY: "machine_telemetry",
     DATA_TYPE_IMAGES: "piece_images",
     DATA_TYPE_SAMPLES: "camera_frames",
@@ -119,6 +130,8 @@ STATS_KIND = {
     DATA_TYPE_TRAINING_RUNS: upload_stats.KIND_PIECE_RECORDS,
     DATA_TYPE_SORTING_RUNS: upload_stats.KIND_PIECE_RECORDS,
     DATA_TYPE_SENT_BACK: upload_stats.KIND_PIECE_RECORDS,
+    DATA_TYPE_BIN_EMPTYINGS: upload_stats.KIND_PIECE_RECORDS,
+    DATA_TYPE_BIN_LAYOUTS: upload_stats.KIND_PIECE_RECORDS,
     DATA_TYPE_TELEMETRY: upload_stats.KIND_TELEMETRY,
     DATA_TYPE_IMAGES: upload_stats.KIND_PIECE_IMAGES,
     DATA_TYPE_SAMPLES: upload_stats.KIND_SAMPLES,
@@ -128,6 +141,8 @@ STATS_KIND = {
 
 # Table rows per request.
 ROWS_BATCH = 500
+# Layouts per request (each is a few kilobytes).
+LAYOUTS_BATCH = 50
 # Files a file leg sends per pass before the next leg gets its turn.
 FILES_PER_PASS = 20
 # Channel crops go to a Hive that takes them in batches: up to CROP_BATCH_MAX
@@ -265,6 +280,27 @@ def _sentBackToPayload(row: dict[str, Any]) -> dict[str, Any]:
         "sent_back_at": row["sent_back_at"],
         "note": row["note"],
     }
+
+
+def _emptyingToPayload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "local_id": row["id"],
+        "snapshot_id": row["snapshot_id"],
+        "layer": row["layer_index"],
+        "section": row["section_index"],
+        "bin": row["bin_index"],
+        "epoch": row["bin_epoch"],
+        "emptied_at": row["flushed_at"],
+        "piece_count": row["piece_count"],
+        "category_ids": row["category_ids"],
+        "scope": row["flush_scope"],
+        "profile_id": row["profile_id"],
+        "profile_name": row["profile_name"],
+    }
+
+
+def _layoutToPayload(row: dict[str, Any]) -> dict[str, Any]:
+    return {"local_id": row["id"], "changed_at": row["changed_at"], "layout": row["layout"]}
 
 
 def _predictionToPayload(row: dict[str, Any]) -> dict[str, Any]:
@@ -566,6 +602,8 @@ class _TargetSyncer:
             DATA_TYPE_PREDICTIONS: count(DATA_TYPE_PREDICTIONS, lambda wm: piece_predictions.getMaxId() - wm),
             DATA_TYPE_TRAINING_RUNS: count(DATA_TYPE_TRAINING_RUNS, training_runs.countRunsAfter),
             DATA_TYPE_SENT_BACK: count(DATA_TYPE_SENT_BACK, lambda wm: piece_records.maxSentBackId() - wm),
+            DATA_TYPE_BIN_EMPTYINGS: count(DATA_TYPE_BIN_EMPTYINGS, lambda wm: bin_contents.maxEmptyingId() - wm),
+            DATA_TYPE_BIN_LAYOUTS: count(DATA_TYPE_BIN_LAYOUTS, lambda wm: bin_layout_store.maxHistoryId() - wm),
             DATA_TYPE_TELEMETRY: count(DATA_TYPE_TELEMETRY, telemetry_store.countAfter),
             DATA_TYPE_IMAGES: count(DATA_TYPE_IMAGES, piece_image_store.countImagesAfter),
             DATA_TYPE_CROPS: count(DATA_TYPE_CROPS, lambda wm: channel_crop_store.getMaxCropId() - wm),
@@ -635,6 +673,8 @@ class _TargetSyncer:
             (DATA_TYPE_TRAINING_RUNS, self._drainTrainingRuns),
             (DATA_TYPE_SORTING_RUNS, self._drainSortingRuns),
             (DATA_TYPE_SENT_BACK, self._drainSentBack),
+            (DATA_TYPE_BIN_EMPTYINGS, self._drainBinEmptyings),
+            (DATA_TYPE_BIN_LAYOUTS, self._drainBinLayouts),
             (DATA_TYPE_TELEMETRY, self._drainTelemetry),
             (DATA_TYPE_IMAGES, self._drainImages),
             (DATA_TYPE_SAMPLES, self._drainSamples),
@@ -786,6 +826,21 @@ class _TargetSyncer:
         return self._drainRows(
             DATA_TYPE_SENT_BACK, rows, lambda batch: self._client.pushSentBackPieces([_sentBackToPayload(r) for r in batch]),
             "id",
+        )
+
+    def _drainBinEmptyings(self) -> bool:
+        rows = bin_contents.listEmptyingsAfter(int(self._wm[DATA_TYPE_BIN_EMPTYINGS] or 0), ROWS_BATCH)
+        return self._drainRows(
+            DATA_TYPE_BIN_EMPTYINGS, rows,
+            lambda batch: self._client.pushBinEmptyings([_emptyingToPayload(r) for r in batch]), "id",
+        )
+
+    def _drainBinLayouts(self) -> bool:
+        # A layout is a few kilobytes: a smaller batch keeps a request small.
+        rows = bin_layout_store.listHistoryAfter(int(self._wm[DATA_TYPE_BIN_LAYOUTS] or 0), LAYOUTS_BATCH)
+        return self._drainRows(
+            DATA_TYPE_BIN_LAYOUTS, rows,
+            lambda batch: self._client.pushBinLayouts([_layoutToPayload(r) for r in batch]), "id",
         )
 
     def _drainImages(self) -> bool:

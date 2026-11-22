@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import time
@@ -8,6 +9,7 @@ from typing import Any
 
 import db
 import local_state
+from sorting_profile import profileSummary
 
 # The bin layout the machine runs, and the layouts saved to switch between.
 # The live layout is three key/value state entries: the layers (geometry,
@@ -16,11 +18,21 @@ import local_state
 # snapshot of all three, tied to a sorting profile. Servo calibration is kept
 # per PWM channel ({channel_id: {"open": int, "closed": int}}), not per layer,
 # so switching or editing layouts never touches it.
+#
+# Every layout the machine ran is kept in bin_layout_history: a row each time
+# the live layout or the profile it sorts by changes, with what the profile
+# called each category then. So what a bin was assigned at any moment (in any
+# sorting run) can be told after the layout moved on. Rows never change; they
+# sync to Hive by id (data type bin_layouts).
 
 _STATE_KEY_BIN_LAYOUT = "bin_layout"
 _STATE_KEY_BIN_CATEGORIES = "bin_categories"
 _STATE_KEY_NOT_IN_INVENTORY_BINS = "not_in_inventory_bins"
 _STATE_KEY_SERVO_CHANNEL_CALIBRATION = "servo_channel_calibration"
+# The entries a layout is made of: writing one of them is a new layout.
+_LAYOUT_KEYS = (_STATE_KEY_BIN_LAYOUT, _STATE_KEY_BIN_CATEGORIES, _STATE_KEY_NOT_IN_INVENTORY_BINS)
+# What a history row says of the profile, from its sync state.
+_PROFILE_FIELDS = ("profile_id", "profile_name", "version_number", "version_label", "artifact_hash")
 
 _BIN_LAYOUT_COLUMNS = (
     "id, name, profile_id, profile_source, layout_json, created_at, updated_at, is_active"
@@ -41,7 +53,18 @@ def _createTables(conn: sqlite3.Connection) -> None:
         "is_active INTEGER NOT NULL DEFAULT 0"
         ")"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS bin_layout_history ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "changed_at REAL NOT NULL, "
+        # sha256 of layout_json: a write that changes nothing adds no row.
+        "content_hash TEXT NOT NULL, "
+        "layout_json TEXT NOT NULL"
+        ")"
+    )
     _migrate_servo_channels_and_bin_layouts(conn)
+    # The layout running when this table first appears is its first row.
+    _record_history(conn)
 
 
 def _connection(op: str | None = None):
@@ -56,7 +79,91 @@ def _read(key: str) -> Any | None:
 def _write(key: str, value: Any | None) -> None:
     with _connection(f"bin_layout_store._write({key})") as conn:
         local_state.write_entry(conn, key, value)
+        if key in _LAYOUT_KEYS:
+            _record_history(conn)
         conn.commit()
+
+
+def _category_ids(categories: Any) -> set[str]:
+    return {
+        str(category_id)
+        for layer in (categories if isinstance(categories, list) else [])
+        if isinstance(layer, list)
+        for section in layer
+        if isinstance(section, list)
+        for bin_categories in section
+        if isinstance(bin_categories, list)
+        for category_id in bin_categories
+    }
+
+
+def _category_names(categories: Any) -> dict[str, str]:
+    """What the active sorting profile calls each category the layout assigns,
+    as the Bins page names them; nothing for a category it does not name, or
+    when no profile is loaded. The profile's summary is cached per file, and
+    the runtime's own parse fills it, so this reads no file on the hot path."""
+    ids = _category_ids(categories)
+    if not ids:
+        return {}
+    from server import shared_state
+
+    path = getattr(shared_state.gc_ref, "sorting_profile_path", None)
+    if not path:
+        return {}
+    try:
+        meta = profileSummary(path).get("categories") or {}
+    except (OSError, ValueError):
+        return {}
+    names: dict[str, str] = {}
+    for category_id in sorted(ids):
+        entry = meta.get(category_id) if isinstance(meta, dict) else None
+        name = entry.get("name") if isinstance(entry, dict) else None
+        if isinstance(name, str) and name.strip():
+            names[category_id] = name.strip()
+    return names
+
+
+def _record_history(conn: sqlite3.Connection) -> None:
+    """Add the live layout to bin_layout_history, in the caller's transaction,
+    unless the last row already is this layout."""
+    bin_layout = local_state.read_entry(conn, _STATE_KEY_BIN_LAYOUT)
+    layers = bin_layout.get("layers") if isinstance(bin_layout, dict) else None
+    if not isinstance(layers, list):
+        return
+    categories = local_state.read_entry(conn, _STATE_KEY_BIN_CATEGORIES)
+    sync = local_state.read_entry(conn, local_state.STATE_KEY_SORTING_PROFILE_SYNC)
+    sync = sync if isinstance(sync, dict) else {}
+    entry = _layout_snapshot(layers, categories, local_state.read_entry(conn, _STATE_KEY_NOT_IN_INVENTORY_BINS))
+    entry["profile"] = {field: sync.get(field) for field in _PROFILE_FIELDS}
+    entry["category_names"] = _category_names(categories)
+    content = json.dumps(entry, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(content.encode()).hexdigest()
+    last = conn.execute("SELECT content_hash FROM bin_layout_history ORDER BY id DESC LIMIT 1").fetchone()
+    if last is not None and last["content_hash"] == digest:
+        return
+    conn.execute(
+        "INSERT INTO bin_layout_history (changed_at, content_hash, layout_json) VALUES (?, ?, ?)",
+        (time.time(), digest, content),
+    )
+
+
+def listHistoryAfter(after_id: int, limit: int) -> list[dict[str, Any]]:
+    """The layouts the machine ran after the row `after_id`, oldest first:
+    {id, changed_at, layout}, where layout is a saved layout's snapshot (layers,
+    bin_categories, not_in_inventory_bins) with the profile it sorted by and
+    category_names."""
+    with _connection("bin_layout_store.listHistoryAfter") as conn:
+        rows = conn.execute(
+            "SELECT id, changed_at, layout_json FROM bin_layout_history WHERE id > ? ORDER BY id LIMIT ?",
+            (int(after_id), int(limit)),
+        ).fetchall()
+    return [{"id": row["id"], "changed_at": row["changed_at"], "layout": json.loads(row["layout_json"])} for row in rows]
+
+
+def maxHistoryId() -> int:
+    with _connection("bin_layout_store.maxHistoryId") as conn:
+        row = conn.execute("SELECT COALESCE(MAX(id), 0) AS n FROM bin_layout_history").fetchone()
+    return int(row["n"])
 
 
 def _layout_snapshot(layers: Any, bin_categories: Any, not_in_inventory_bins: Any) -> dict[str, Any]:
@@ -149,6 +256,7 @@ def set_bin_layout(layout: dict[str, Any] | None) -> None:
     with _connection("bin_layout_store.set_bin_layout") as conn:
         local_state.write_entry(conn, _STATE_KEY_BIN_LAYOUT, dict(layout) if layout is not None else None)
         _migrate_servo_channels_and_bin_layouts(conn)
+        _record_history(conn)
         conn.commit()
 
 

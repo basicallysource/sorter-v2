@@ -21,6 +21,7 @@ import numpy as np
 import requests
 
 import bin_contents
+import bin_layout_store
 import db
 import piece_image_store
 import piece_predictions
@@ -592,6 +593,8 @@ class _FakeClient:
         self.records: list[dict] = []
         self.predictions: list[dict] = []
         self.images: list[dict] = []
+        self.emptyings: list[dict] = []
+        self.layouts: list[dict] = []
         self.records_error: Exception | None = None
 
     def getSyncState(self) -> dict:
@@ -610,6 +613,14 @@ class _FakeClient:
     def pushPieceImage(self, meta: dict, file_path: Path | None) -> int:
         self.images.append(meta)
         return int(meta["sync_seq"])
+
+    def pushBinEmptyings(self, rows: list[dict]) -> int:
+        self.emptyings.extend(rows)
+        return max(r["local_id"] for r in rows)
+
+    def pushBinLayouts(self, rows: list[dict]) -> int:
+        self.layouts.extend(rows)
+        return max(r["local_id"] for r in rows)
 
 
 class SyncLoopTests(_DbTestCase):
@@ -706,6 +717,33 @@ class SyncLoopTests(_DbTestCase):
         self.assertEqual([], client.images)
         self.assertGreater(syncer._budget_wait_s, 30.0)
         self.assertFalse(self._pass(syncer, files_per_minute=1))
+
+    def test_each_bin_emptying_and_each_layout_go_once_by_id(self) -> None:
+        bin_layout_store.set_bin_layout({"layers": [{"sections": [["small", "small"]]}]})
+        bin_layout_store.set_bin_categories([[[["bl_5"], ["bl_26"]]]])
+        now = time.time()
+        for i, bin_index in enumerate((0, 0, 1)):
+            bin_contents.record_piece_distribution({
+                "uuid": f"p{i}", "destination_bin": [0, 0, bin_index], "distributed_at": now + i,
+                "part_id": "3001", "color_id": "5", "category_id": "bl_5",
+            })
+        bin_contents.clear_current_session_bins(
+            scope="all", bin_categories=bin_layout_store.get_bin_categories()
+        )
+        client = _FakeClient()
+        syncer = self._syncer(client)
+        self.assertTrue(self._pass(syncer))
+        self.assertEqual(
+            [(0, 0, 0, 2, ["bl_5"], "all", 0), (0, 0, 1, 1, ["bl_26"], "all", 0)],
+            [(e["layer"], e["section"], e["bin"], e["piece_count"], e["category_ids"], e["scope"], e["epoch"])
+             for e in client.emptyings],
+        )
+        self.assertEqual([1, 2], [e["local_id"] for e in client.emptyings])
+        self.assertEqual([1, 2], [r["local_id"] for r in client.layouts])
+        self.assertEqual([[[["bl_5"], ["bl_26"]]]], client.layouts[-1]["layout"]["bin_categories"])
+        self.assertEqual(2, syncer._wm[hive_sync.DATA_TYPE_BIN_EMPTYINGS])
+        self.assertEqual(0, syncer.waiting()[hive_sync.DATA_TYPE_BIN_LAYOUTS])
+        self.assertFalse(self._pass(syncer))  # nothing left
 
     def test_retention_watermarks_ignore_a_type_a_target_does_not_take(self) -> None:
         syncer = self._syncer(_FakeClient())

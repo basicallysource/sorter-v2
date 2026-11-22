@@ -150,6 +150,21 @@ def resolveIncident(
         conn.commit()
 
 
+def closeLeftOpen() -> int:
+    """Close every incident still open in the record: called once as the
+    backend starts, when nothing can be open. An incident or warning open as
+    the backend last stopped was never closed, and stayed open in the record
+    for good. Each ends when it was last written to. Returns how many."""
+    with _connection() as conn:
+        cur = conn.execute(
+            "UPDATE incidents SET status = 'resolved', resolved_at = COALESCE(updated_at, triggered_at), "
+            "resolved_by = 'restart', duration_s = MAX(0.0, COALESCE(updated_at, triggered_at) - triggered_at) "
+            "WHERE status = 'active'"
+        )
+        conn.commit()
+        return int(cur.rowcount or 0)
+
+
 _LIST_COLUMNS = (
     "id, kind, source, source_kind, severity, scope, channel, role, channel_label, "
     "piece_uuid, track_id, reason, operator_message, status, triggered_at, resolved_at, "

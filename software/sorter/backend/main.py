@@ -458,6 +458,15 @@ def main() -> None:
 
     gc = mkGlobalConfig()
     db.configure(gc.logger)
+    # Nothing is open yet: whatever the record still shows open is left over
+    # from the last run.
+    import incident_records
+    try:
+        left_open = incident_records.closeLeftOpen()
+        if left_open:
+            gc.logger.info(f"incidents: closed {left_open} left open in the record by the last run")
+    except Exception as exc:
+        gc.logger.warning(f"incidents: closing the ones left open failed: {exc}")
     gc.run_recorder = RunRecorder(gc)
     gc.lifetime_stats = LifetimeStatsTracker()
     setGlobalConfig(gc)

@@ -170,13 +170,15 @@
 	let apiKeyJustCreated = $state<{ name: string; token: string } | null>(null);
 	let apiKeyShown = $state(false);
 
-	// The scopes a key can have. Anyone can make a key with the first three
-	// (an assistant working on their own profiles, kits and records); the rest
-	// reach fleet-wide or server data and stay with admins.
+	// The scopes a key can have. Anyone can make a key with the first four
+	// (an assistant working on their own profiles, kits and records, or an
+	// inventory app reading what their machines hold); the rest reach
+	// fleet-wide or server data and stay with admins.
 	const API_KEY_SCOPES: { scope: string; label: string; everyone?: boolean }[] = [
 		{ scope: 'profiles:read', label: 'Read your sorting profiles and kits', everyone: true },
 		{ scope: 'profiles:write', label: 'Change your sorting profiles and kits', everyone: true },
 		{ scope: 'records:read', label: 'Read what your machines sorted', everyone: true },
+		{ scope: 'inventory:read', label: "Read what your machines' lots and bins hold", everyone: true },
 		{ scope: 'predictions:write', label: "Add model runs' predictions for your machines' pieces" },
 		{ scope: 'models:read', label: 'Read models' },
 		{ scope: 'models:write', label: 'Write models' },

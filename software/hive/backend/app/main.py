@@ -37,6 +37,7 @@ from app.routers import (
     control_data,
     devices,
     installs,
+    inventory,
     jobs,
     leaderboard,
     link_models,
@@ -119,6 +120,7 @@ app.include_router(machine_sync.router)
 app.include_router(profiles.router)
 app.include_router(kits.router)
 app.include_router(records.router)
+app.include_router(inventory.router)
 app.include_router(agent.router)
 app.include_router(upload.router)
 app.include_router(samples.router)

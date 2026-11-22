@@ -62,6 +62,8 @@ HISTORY = frozenset(
         "machine_control_data_segments",
         "machine_training_runs",
         "machine_sent_back_pieces",
+        "machine_bin_emptyings",
+        "machine_bin_layouts",
         "piece_model_colors",
         "labeling_queue",
     }
@@ -110,6 +112,15 @@ CROP_RANK = (
 )
 DAY_OF_PIECES = "counts the last day of the fleet's pieces through (machine_id, seen_at): a day, not history"
 PARTS_WINDOW = "the parts summary reads a machine's newest 20,000 pieces at most"
+INVENTORY = 50_001  # services/inventory.WINDOW, and the one more that says an answer would read more
+INVENTORY_WHY = (
+    "an inventory reads the pieces of the lot, run, bin or emptying it was asked for, through an index that "
+    "leads with the machine and the bin or the time, 50,000 at most; more is refused, never cut short"
+)
+INVENTORY_EMPTYINGS = (
+    "a machine's emptyings are read through (machine, bin, emptied_at) to find each bin's last one: tens of "
+    "thousands of rows for a machine emptied every few days, rows a person's clears make, not the pieces"
+)
 
 S = "/api/samples?limit=60"  # the Channel samples grid asks for 60 at a time
 P = "/api/labeling/pieces?limit=60&with_candidates=true"  # the Piece samples grid
@@ -356,6 +367,32 @@ CASES: list[Case] = [
         "/api/records/machines/{busy}/pieces?limit=200&since_days=1",
         budget=6_000,
         why="a page of the pieces list looks at its newest 5,000 pieces at most",
+    ),
+    # --- Inventory API (an inventory app keeping what a person's machines hold) ----
+    Case("inventory: my machines", "/api/inventory/v1/machines"),
+    Case("inventory: a machine's lots", "/api/inventory/v1/machines/{busy}/lots"),
+    Case("inventory: a lot", "/api/inventory/v1/machines/{busy}/lots/lot-1-2", budget=INVENTORY, max_sorted=INVENTORY, why=INVENTORY_WHY),
+    Case("inventory: a machine's runs", "/api/inventory/v1/machines/{busy}/runs"),
+    Case("inventory: a run", "/api/inventory/v1/machines/{busy}/runs/run-1-2-1", budget=INVENTORY, max_sorted=INVENTORY, why=INVENTORY_WHY),
+    Case("inventory: the bins", "/api/inventory/v1/machines/{busy}/bins", max_sorted=20_000, why=INVENTORY_EMPTYINGS),
+    Case("inventory: the bins during a run", "/api/inventory/v1/machines/{busy}/bins?run=run-1-2-0", max_sorted=20_000, why=INVENTORY_EMPTYINGS),
+    Case("inventory: what the bins hold", "/api/inventory/v1/machines/{busy}/contents", budget=INVENTORY, max_sorted=INVENTORY, why=INVENTORY_WHY),
+    Case(
+        "inventory: what two bins hold",
+        "/api/inventory/v1/machines/{busy}/contents?bins=L2-S1-B1,L2-S1-B2",
+        budget=INVENTORY,
+        max_sorted=INVENTORY,
+        why=INVENTORY_WHY,
+    ),
+    Case("inventory: what a run put in the bins", "/api/inventory/v1/machines/{busy}/contents?run=run-1-2-0", budget=INVENTORY, max_sorted=INVENTORY, why=INVENTORY_WHY),
+    Case("inventory: what an emptying took", "/api/inventory/v1/machines/{busy}/contents?emptying=1000", budget=INVENTORY, max_sorted=INVENTORY, why=INVENTORY_WHY),
+    Case(
+        "inventory: emptyings with their pieces",
+        "/api/inventory/v1/machines/{busy}/emptyings?limit=20",
+        pages=2,
+        budget=INVENTORY,
+        max_sorted=INVENTORY,
+        why=INVENTORY_WHY,
     ),
 ]
 

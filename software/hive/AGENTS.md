@@ -27,6 +27,10 @@ in [`agent-docs/`](agent-docs/):
 - [`agent-docs/piece-data.md`](agent-docs/piece-data.md) — piece data from
   sorters: the sync endpoints and their cursor rule, where each kind lands,
   whose verdict lives where, and the views and tables to train from.
+- [`agent-docs/inventory.md`](agent-docs/inventory.md) — the inventory API
+  (`/api/inventory/v1`, `inventory:read`): what a person's machines hold, by
+  lot, run, bin and emptying, for any inventory app; the counting rules, the
+  endpoints, keeping a copy, and its limits.
 - [`agent-docs/machine-defaults.md`](agent-docs/machine-defaults.md) — the
   defaults every sorter starts from: the block Hive holds, how a machine
   fetches it, and changing a default in code or live.

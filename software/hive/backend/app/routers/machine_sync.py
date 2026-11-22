@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.deps import get_current_machine, get_db
 from app.errors import APIError
 from app.models.machine import Machine
+from app.models.machine_bin import MachineBinEmptying, MachineBinLayout
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
 from app.models.machine_piece_prediction import SOURCE_LIVE, MachinePiecePrediction
@@ -78,6 +79,9 @@ DATA_TYPE_TRAINING_RUNS = "training_runs"
 # version of the last set kept, not a cursor.
 DATA_TYPE_SORTING_RUNS = "sorting_runs"
 DATA_TYPE_SENT_BACK_PIECES = "sent_back_pieces"
+# Each emptying of a bin, and every layout the machine ran; neither changes.
+DATA_TYPE_BIN_EMPTYINGS = "bin_emptyings"
+DATA_TYPE_BIN_LAYOUTS = "bin_layouts"
 DATA_TYPE_TELEMETRY = "telemetry"
 DATA_TYPES = (
     DATA_TYPE_PIECE_RECORDS,
@@ -90,6 +94,8 @@ DATA_TYPES = (
     DATA_TYPE_TRAINING_RUNS,
     DATA_TYPE_SORTING_RUNS,
     DATA_TYPE_SENT_BACK_PIECES,
+    DATA_TYPE_BIN_EMPTYINGS,
+    DATA_TYPE_BIN_LAYOUTS,
     DATA_TYPE_TELEMETRY,
 )
 
@@ -525,6 +531,61 @@ class SentBackPieceIn(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
+class BinEmptyingIn(BaseModel):
+    """One emptying of one of the machine's bins (MachineBinEmptying)."""
+
+    local_id: int
+    snapshot_id: str | None = Field(default=None, max_length=64)
+    # Numbered from 0, as the machine numbers its bins.
+    layer: int = Field(ge=0, le=99)
+    section: int = Field(ge=0, le=99)
+    bin: int = Field(ge=0, le=99)
+    epoch: int | None = None
+    emptied_at: float
+    piece_count: int = Field(default=0, ge=0)
+    category_ids: list[str] = Field(default_factory=list, max_length=200)
+    scope: str | None = Field(default=None, max_length=16)
+    profile_id: str | None = Field(default=None, max_length=200)
+    profile_name: str | None = Field(default=None, max_length=500)
+
+    @field_validator("emptied_at")
+    @classmethod
+    def _finite(cls, value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError("must be a time")
+        return value
+
+
+# A layout is a few kilobytes (78 bins, their categories and names); one
+# larger than this is not a layout.
+MAX_BIN_LAYOUT_BYTES = 256 * 1024
+
+
+class BinLayoutIn(BaseModel):
+    """A layout the machine ran (MachineBinLayout), from changed_at until the
+    next one."""
+
+    local_id: int
+    changed_at: float
+    layout: dict[str, Any]
+
+    @field_validator("changed_at")
+    @classmethod
+    def _finite(cls, value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError("must be a time")
+        return value
+
+    @field_validator("layout")
+    @classmethod
+    def _small(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(value.get("layers"), list):
+            raise ValueError("must have layers")
+        if len(json.dumps(value, separators=(",", ":"))) > MAX_BIN_LAYOUT_BYTES:
+            raise ValueError(f"is larger than {MAX_BIN_LAYOUT_BYTES} bytes")
+        return value
+
+
 class PieceImageMeta(BaseModel):
     piece_uuid: str
     seq: int
@@ -916,6 +977,101 @@ def sync_sent_back_pieces(
 
     skipped += _write_rows(db, write, rows, machine, DATA_TYPE_SENT_BACK_PIECES)
     new_max = _advance_watermark(db, machine_id, DATA_TYPE_SENT_BACK_PIECES, key_max)
+    mark_machine_seen(machine, now)
+    db.commit()
+    return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}
+
+
+@router.post("/bin-emptyings")
+@limiter.limit("60/minute")
+def sync_bin_emptyings(
+    request: Request,
+    payload: SyncBatch,
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, int]:
+    """Each emptying of each of the machine's bins, upserted by (machine,
+    local_id) into machine_bin_emptyings; the watermark is their local_id."""
+    rows, skipped, key_max = _validate_rows(BinEmptyingIn, payload.records, machine, DATA_TYPE_BIN_EMPTYINGS)
+    if not payload.records:
+        return {"max_local_id": _watermark(db, machine.id, DATA_TYPE_BIN_EMPTYINGS), "upserted": 0, "skipped": 0}
+
+    now = _now()
+    machine_id = machine.id
+    rows = _latest_per_key(rows, key=lambda r: r.local_id, order=lambda r: r.local_id)
+
+    def write(batch: list[BinEmptyingIn]) -> None:
+        _upsert(
+            db, MachineBinEmptying,
+            [
+                {
+                    "machine_id": machine_id,
+                    "local_id": r.local_id,
+                    "snapshot_id": r.snapshot_id,
+                    "layer": r.layer,
+                    "section": r.section,
+                    "bin": r.bin,
+                    "epoch": r.epoch,
+                    "emptied_at": _ts(r.emptied_at),
+                    "piece_count": r.piece_count,
+                    "category_ids": [str(c) for c in r.category_ids],
+                    "scope": r.scope,
+                    "profile_id": r.profile_id,
+                    "profile_name": r.profile_name,
+                    "received_at": now,
+                }
+                for r in batch
+            ],
+            ["machine_id", "local_id"],
+            (
+                "snapshot_id", "layer", "section", "bin", "epoch", "emptied_at", "piece_count",
+                "category_ids", "scope", "profile_id", "profile_name", "received_at",
+            ),
+        )
+
+    skipped += _write_rows(db, write, rows, machine, DATA_TYPE_BIN_EMPTYINGS)
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_BIN_EMPTYINGS, key_max)
+    mark_machine_seen(machine, now)
+    db.commit()
+    return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}
+
+
+@router.post("/bin-layouts")
+@limiter.limit("60/minute")
+def sync_bin_layouts(
+    request: Request,
+    payload: SyncBatch,
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, int]:
+    """Every layout the machine ran, upserted by (machine, local_id) into
+    machine_bin_layouts; the watermark is their local_id."""
+    rows, skipped, key_max = _validate_rows(BinLayoutIn, payload.records, machine, DATA_TYPE_BIN_LAYOUTS)
+    if not payload.records:
+        return {"max_local_id": _watermark(db, machine.id, DATA_TYPE_BIN_LAYOUTS), "upserted": 0, "skipped": 0}
+
+    now = _now()
+    machine_id = machine.id
+    rows = _latest_per_key(rows, key=lambda r: r.local_id, order=lambda r: r.local_id)
+
+    def write(batch: list[BinLayoutIn]) -> None:
+        _upsert(
+            db, MachineBinLayout,
+            [
+                {
+                    "machine_id": machine_id,
+                    "local_id": r.local_id,
+                    "changed_at": _ts(r.changed_at),
+                    "layout": r.layout,
+                    "received_at": now,
+                }
+                for r in batch
+            ],
+            ["machine_id", "local_id"], ("changed_at", "layout", "received_at"),
+        )
+
+    skipped += _write_rows(db, write, rows, machine, DATA_TYPE_BIN_LAYOUTS)
+    new_max = _advance_watermark(db, machine_id, DATA_TYPE_BIN_LAYOUTS, key_max)
     mark_machine_seen(machine, now)
     db.commit()
     return {"max_local_id": new_max, "upserted": len(payload.records) - skipped, "skipped": skipped}

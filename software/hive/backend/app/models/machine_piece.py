@@ -105,6 +105,18 @@ class MachinePiece(Base):
         # and those pieces have to show up in the live counter when they land,
         # not whenever the next hourly pass happens to run.
         Index("ix_machine_pieces_machine_created_at", "machine_id", "created_at"),
+        # What went into one bin and when (the inventory API): a bin's pieces
+        # between two of its emptyings are one range of it.
+        Index(
+            "ix_machine_pieces_bin_recorded_at",
+            "machine_id",
+            "bin_x",
+            "bin_y",
+            "bin_z",
+            "recorded_at",
+            postgresql_where=text("bin_x IS NOT NULL"),
+            sqlite_where=text("bin_x IS NOT NULL"),
+        ),
         # A training run's pieces: what its counts are recounted from. Only the
         # pieces seen in a run, so it stays small.
         Index(

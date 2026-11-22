@@ -93,7 +93,7 @@ class PulsePerceptionFeeding(BaseState):
         self._odometer: dict[int, float] = {1: 0.0, 2: 0.0, 3: 0.0}
         self._blind: dict[int, BlindArc] = {2: BlindArc(), 3: BlindArc()}
         # Pieces their own channel cannot move (held.py).
-        self._held = HeldPieces(gc)
+        self._held = HeldPieces(gc, landing_edge=machineGeneration().held_at_landing_edge)
         # Per-channel monotonic timestamp of the last frame that reported a piece
         # in the drop zone. Drives the C2/C3 drop-zone occupancy latch.
         self._drop_seen_at: dict[int, float] = {}

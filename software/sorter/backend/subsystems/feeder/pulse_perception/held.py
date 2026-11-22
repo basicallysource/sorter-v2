@@ -10,7 +10,12 @@ one a little; if a few such turns do not move it, it gives up on that piece and
 sorting goes on around it. Either way the piece is listed on the Cycle time page.
 
 A box that touches the edge of the picture is not watched: part of the piece is
-out of sight, so its center does not follow it.
+out of sight, so its center does not follow it. On a machine whose generation has
+``held_at_landing_edge`` one is watched where pieces land, where the edge is the
+very case: a piece hanging off the channel above reaches in from outside the
+picture and stays put at its edge (clean, November 21, 2026: a piece off C1's
+lip sat at the top of C2's picture for nine minutes while C2 turned under it,
+and nothing was tried).
 
 Each piece found held, each turn and how it ended go to the control-data log,
 so the record says how often it happens and whether the turns free it.
@@ -71,8 +76,9 @@ class FreeTurn:
 
 
 class HeldPieces:
-    def __init__(self, gc: Any) -> None:
+    def __init__(self, gc: Any, landing_edge: bool = False) -> None:
         self.gc = gc
+        self._landing_edge = landing_edge
         self._watch: dict[tuple[int, int], _Watch] = {}
 
     def reset(self) -> None:
@@ -97,7 +103,10 @@ class HeldPieces:
         for p in getattr(state, "pieces", ()) or ():
             tid = getattr(p, "sv_bt_track_id", None)
             gap = getattr(p, "com_forward_to_exit_deg", None)
-            if tid is None or gap is None or _atEdge(getattr(p, "bbox", None), frame_size):
+            if tid is None or gap is None:
+                continue
+            landing = int(getattr(p, "zone_code", 0) or 0) == _DROP_ZONE
+            if not (self._landing_edge and landing) and _atEdge(getattr(p, "bbox", None), frame_size):
                 continue
             key = (channel, int(tid))
             seen.add(key)

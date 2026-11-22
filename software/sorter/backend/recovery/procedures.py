@@ -70,7 +70,8 @@ LANDING_HELD = Procedure(
     ),
 )
 
-# The same on a machine whose feeder channels never shake (a Sorter V3): turns only.
+# The same on a machine whose feeder channels never shake (a Sorter V3): turns only,
+# and one longer push of the channel above for a piece caught on its lip.
 LANDING_HELD_STILL = Procedure(
     "landing_held_still",
     "Free a piece held where pieces land",
@@ -78,6 +79,7 @@ LANDING_HELD_STILL = Procedure(
         Move("above", turn_deg=3.0, probe_deg=-6.0),
         Move("above", turn_deg=6.0, probe_deg=-6.0),
         Move("above", turn_deg=-6.0, probe_deg=-6.0),
+        Move("above", turn_deg=15.0, probe_deg=-6.0),
         Move("this", turn_deg=-15.0, probe_deg=-6.0),
     ),
 )

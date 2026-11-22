@@ -77,6 +77,10 @@ class Generation:
     # it half round to get the pieces in the bucket moving again before it takes
     # the bucket as empty (subsystems/feeder/pulse_perception/bucket_unjam.py).
     bucket_unjam: bool = False
+    # A piece box touching the edge of the picture where pieces land is watched
+    # for being held too: a piece hanging off the channel above reaches in from
+    # outside the picture (subsystems/feeder/pulse_perception/held.py).
+    held_at_landing_edge: bool = False
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -121,6 +125,7 @@ GENERATIONS: dict[str, Generation] = {
         door_retry=True,
         feeder_push_only=True,
         bucket_unjam=True,
+        held_at_landing_edge=True,
         driver_watch=True,
         # Quarter bins take up to a 3x3 plate, thirds a 4x4, halves a 6x6; a
         # full bin takes anything.

@@ -980,7 +980,7 @@ def clear_stall_incident() -> Dict[str, Any]:
     return {"ok": True, "cleared": cleared, "kind": STEPPER_STALL_INCIDENT_KIND}
 
 
-def rehome_after_stall(resolved_by: str = "operator") -> Dict[str, Any]:
+def rehome_after_stall() -> Dict[str, Any]:
     """Clear stall latches AND re-home the chute in place, then drop the hold.
 
     A chute stall loses the home reference, so 'clear the stall' alone leaves the
@@ -1040,5 +1040,5 @@ def rehome_after_stall(resolved_by: str = "operator") -> Dict[str, Any]:
     active_kind = runtime_stats.activeIncident()
     active_kind = active_kind.get("kind") if isinstance(active_kind, dict) else None
     if active_kind in ours:
-        runtime_stats.clearActiveIncident(kind=active_kind, resolved_by=resolved_by)
+        runtime_stats.clearActiveIncident(kind=active_kind, resolved_by="operator")
     return {"ok": True, "homed": True}

@@ -15,19 +15,11 @@ stepper. Everything else is *derived* from that:
 - The per-stepper UI reads `stepper.stalled` and clears a specific motor's latch.
 
 Clearing therefore happens by clearing the firmware latch (globally or per
-stepper); the incident then resolves itself on the next poll. The latch only clears when
-something explicitly clears it, because a real stall needs hands. A fresh stall
-also invalidates the affected subsystem's home reference (lost steps => unknown
+stepper); the incident then resolves itself on the next poll. There is still NO
+auto-recovery: the latch only clears when something explicitly clears it (an
+operator action), because a real stall needs hands. A fresh stall also
+invalidates the affected subsystem's home reference (lost steps => unknown
 position), forcing a re-home.
-
-One recovery is tried without hands, on a machine whose generation has
-``chute_stall_homes_itself``: a stall of the chute alone, while the machine was
-running, is answered once the pause has landed by what the operator's Home chute
-and Resume buttons do, in that order. On clean on November 22, 2026 the chute
-stalled in a move, the machine waited two and a half minutes for those two
-presses, and the same move then went through. A chute that stalls again within
-SELF_HOME_WINDOW_S of SELF_HOME_ATTEMPTS such recoveries is something in its
-way: the card stays and the operator is asked, as before.
 
 Because a chute stall loses the home reference, clearing the stall latch alone is
 NOT enough to resume sorting: the chute position is untrustworthy. So once the
@@ -43,9 +35,7 @@ latch over, restarts the driver, clears the latch and homes the chute again
 itself, and this monitor leaves the motor out of its stall handling meanwhile.
 """
 
-import threading
 import time
-from collections import deque
 
 import fleet_telemetry
 from global_config import GlobalConfig
@@ -57,12 +47,6 @@ CHUTE_NEEDS_HOMING_INCIDENT_KIND = "chute_needs_homing"
 # round-trips never hitch 30 Hz operation. Each cycle issues one GET_STALL_STATUS
 # per board, so cost scales with board count, not motor count.
 STALL_POLL_INTERVAL_S = 0.25
-
-# A chute stall is homed away by the machine itself this many times in this
-# long; the pause it caused gets this long to land first.
-SELF_HOME_ATTEMPTS = 2
-SELF_HOME_WINDOW_S = 600.0
-SELF_HOME_PAUSE_WAIT_S = 5.0
 
 
 def requestPauseIfRunning(gc: GlobalConfig, why: str) -> None:
@@ -96,10 +80,6 @@ class StepperStallMonitor:
         # Names whose latch is a driver that switched itself off, which the
         # driver watch took over; each stays here until its latch clears.
         self._driver_faults: set[str] = set()
-        # When the machine homed a stalled chute by itself, and whether it is
-        # doing so now.
-        self._self_homes: deque[float] = deque()
-        self._self_homing = False
 
     def run(self) -> None:
         import server.shared_state as shared_state
@@ -158,7 +138,6 @@ class StepperStallMonitor:
             self._gc.logger.error(f"Stepper stall detected on {sorted(newly)}.")
             self._invalidate_home(irl, newly)
             fleet_telemetry.noteStall(sorted(newly))
-            self._maybeHomeItself(irl, now_stalled)
         self._prev_stalled = now_stalled
 
         # A stall is a machine fault, not a soft hold: park the machine. Requesting
@@ -176,64 +155,6 @@ class StepperStallMonitor:
         chute = getattr(irl, "chute", None)
         chute_unhomed = chute is not None and not bool(getattr(chute, "homed", True))
         self._sync_incident(now_stalled, chute_unhomed, self._controller_live())
-
-    def _maybeHomeItself(self, irl, now_stalled: set[str]) -> None:
-        """Start the one recovery tried without hands (see the top of this file)."""
-        from hardware_settings.generation import machineGeneration
-
-        chute_stepper = getattr(getattr(irl, "chute", None), "stepper", None)
-        if (
-            self._self_homing
-            or chute_stepper is None
-            or now_stalled != {getattr(chute_stepper, "name", None)}
-            or not machineGeneration().chute_stall_homes_itself
-            or not self._running()
-        ):
-            return
-        now = time.monotonic()
-        while self._self_homes and now - self._self_homes[0] >= SELF_HOME_WINDOW_S:
-            self._self_homes.popleft()
-        if len(self._self_homes) >= SELF_HOME_ATTEMPTS:
-            self._gc.logger.warning(
-                f"Chute stall: it has stalled again after being homed {SELF_HOME_ATTEMPTS} times in "
-                f"{SELF_HOME_WINDOW_S / 60.0:.0f} minutes; left for the operator."
-            )
-            return
-        self._self_homes.append(now)
-        self._self_homing = True
-        threading.Thread(target=self._homeItself, daemon=True, name="chute-stall-home").start()
-
-    def _homeItself(self) -> None:
-        """Home chute, then Resume, as the operator's two buttons do."""
-        try:
-            # This poll opens the stall's incident and asks for the pause.
-            time.sleep(2 * STALL_POLL_INTERVAL_S)
-            waited = 0.0
-            while self._running() and waited < SELF_HOME_PAUSE_WAIT_S:
-                time.sleep(0.1)
-                waited += 0.1
-            if self._running():
-                self._gc.logger.warning("Chute stall: the machine did not pause; left for the operator.")
-                return
-            from server.routers import stallguard, steppers
-
-            stallguard.rehome_after_stall(resolved_by="self_home")
-            steppers.resume()
-            self._gc.logger.info("Chute stall: homed the chute again and resumed, without the operator.")
-        except Exception as exc:
-            detail = getattr(exc, "detail", None) or exc
-            self._gc.logger.warning(f"Chute stall: homing it again did not work ({detail}); left for the operator.")
-        finally:
-            self._self_homing = False
-
-    def _running(self) -> bool:
-        try:
-            import server.shared_state as shared_state
-
-            controller = shared_state.controller_ref
-            return getattr(getattr(controller, "state", None), "value", None) == "running"
-        except Exception:
-            return False
 
     def _driverFaults(self, now_stalled: set[str], latched: dict[str, object]) -> set[str]:
         """The latched names that are a driver having switched itself off, not a

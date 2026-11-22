@@ -85,10 +85,6 @@ class Generation:
     # when every step has been tried, its incident closes as if Done had been
     # pressed and sorting goes on (recovery/__init__.py).
     held_gives_up_goes_on: bool = False
-    # A stall of the chute alone while the machine runs is answered once by
-    # homing the chute and resuming, as the operator's two buttons do, before
-    # anyone is called (stepper_stall_monitor.py).
-    chute_stall_homes_itself: bool = False
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -135,7 +131,6 @@ GENERATIONS: dict[str, Generation] = {
         bucket_unjam=True,
         held_at_landing_edge=True,
         held_gives_up_goes_on=True,
-        chute_stall_homes_itself=True,
         driver_watch=True,
         # Quarter bins take up to a 3x3 plate, thirds a 4x4, halves a 6x6; a
         # full bin takes anything.

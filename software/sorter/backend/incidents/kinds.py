@@ -186,11 +186,12 @@ KINDS: dict[str, IncidentKind] = {
             holds=False,
         ),
         IncidentKind(
-            # Nothing came off C1, but C1 was hardly asked: {where} is the
-            # channel its pieces wait on (sorter_controller.py).
+            # Nothing moved through the feeder, and not for want of pieces:
+            # {where} is the channel the ones above it wait on
+            # (sorter_controller.py).
             "feed_blocked",
-            title="Pieces are not moving on",
-            todo="No piece has come off C1 in {minutes} minutes, but C1 was hardly asked for any: {where} is not passing its pieces on, so sorting paused. Look at {where}, then press Resume.",
+            title="Pieces stopped moving",
+            todo="Nothing has come past {where} in {minutes} minutes: a piece lies where pieces land on it, and the channel above waits for that to clear. Sorting paused. Look at {where}, then press Resume.",
             actions=(),
             holds=False,
         ),

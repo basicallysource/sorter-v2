@@ -26,13 +26,18 @@ has ``held_keeps_trying``, the watch is the judge. Each time the piece is
 handed over, its recovery makes one move, the next of its procedure, and the
 machine sorts on; if the piece has still not moved once its channel has turned
 HELD_AFTER_DEG again, it is handed over again, so each try pushes the channel
-above harder. That is for a piece whose box touches the picture's edge, the one
-that can hang off the channel above. A piece whole in the picture lies on its
-own channel without riding (a flat piece slipping on the floor): no move of
-the channel above frees it and none is made, and it creeps on as its channel
-turns. Either kind is the operator's only when it has still not moved STUCK_S
-after the last thing tried: it is then handed over with no move left, and its
-card stays (again every STUCK_S while it lies there).
+above harder. Where the piece lies in the picture does not tell a piece hanging
+off the channel above from one slipping on this channel's floor (tried, and
+wrong: a plate off C2's lip showed 158 pixels inside C3's picture), so every
+held piece gets the moves. It is the operator's only when every move has been
+made and it has still not moved STUCK_S later: it is then handed over with no
+move left, and its card stays (again every STUCK_S while it lies there).
+
+A piece hanging in from the channel above is often a sliver the detector misses
+in some frames (15 in 100 for that plate). The watch used to forget a piece the
+moment one frame lacked it, so such a piece never reached LANDING_HELD_S and C3
+turned under it for nine minutes. With ``held_keeps_trying`` a piece is
+forgotten only once it has been unseen for GONE_AFTER_S.
 
 Each piece found held, each turn and how it ended go to the control-data log,
 so the record says how often it happens and whether the turns free it.
@@ -63,6 +68,8 @@ FREE_TURNS = 3
 # With every move of its recovery made, a piece that has still not moved this
 # long after the last one is the operator's.
 STUCK_S = 120.0
+# A watched piece is forgotten once it has not been seen this long.
+GONE_AFTER_S = 1.5
 
 _DROP_ZONE = 1
 _EXIT_ZONE = 2
@@ -81,6 +88,8 @@ class _Watch:
     # Times it was handed to its incident where pieces land, and when last.
     handovers: int = 0
     handed_at: float = 0.0
+    # When it was last in a frame.
+    seen_at: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -144,8 +153,9 @@ class HeldPieces:
             if watch is None or abs(float(gap) - watch.gap) >= MOVED_DEG:
                 if watch is not None:
                     self._end(channel, int(tid), watch, "freed", now)
-                self._watch[key] = _Watch(float(gap), odometer, now)
+                self._watch[key] = _Watch(float(gap), odometer, now, seen_at=now)
                 continue
+            watch.seen_at = now
             if odometer - watch.odometer < HELD_AFTER_DEG:
                 continue
             if watch.turned_at is not None and now - watch.turned_at < FREE_SETTLE_S:
@@ -165,15 +175,6 @@ class HeldPieces:
                     watch.given_up = False  # every move made and still here: the operator's
                 if not watch.given_up and now - watch.since >= LANDING_HELD_S:
                     box = getattr(p, "bbox", None)
-                    if self.keeps_trying and watch.handovers == 0 and frame_size and not _atEdge(box, frame_size):
-                        # Whole in the picture: it lies on this channel, it does
-                        # not hang off the one above, and no move of that one
-                        # frees it. It is left to move on as the channel turns.
-                        watch.given_up = True
-                        watch.handovers = self._moves
-                        watch.handed_at = now
-                        self._log("lies where pieces land without riding", channel, int(tid), watch, now)
-                        continue
                     taken = wanted is None or isinstance(wanted, FreeTurn)
                     if taken or not self.keeps_trying:
                         watch.given_up = True
@@ -204,6 +205,8 @@ class HeldPieces:
                 watch.given_up = True
                 self._log("gave up", channel, int(tid), watch, now)
         for key in [k for k in self._watch if k[0] == channel and k not in seen]:
+            if self.keeps_trying and now - self._watch[key].seen_at < GONE_AFTER_S:
+                continue  # missed in a frame or two: still watched
             self._end(channel, key[1], self._watch.pop(key), "gone", now)
         return wanted
 

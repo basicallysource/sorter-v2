@@ -135,8 +135,8 @@ class SorterController:
 
             if blocked:
                 self.gc.logger.warning(
-                    f"Nothing has come off C1 in {minutes} minutes, and C1 was asked for pieces for only "
-                    f"{asked_s:.0f} s of them: {where} is not passing pieces on; pausing"
+                    f"Nothing has come past {where} in {minutes} minutes (C1 was asked for pieces for only "
+                    f"{asked_s:.0f} s of them): pausing"
                 )
                 incidents.report(self.gc, "feed_blocked", subject=where, minutes=minutes, where=where)
             else:

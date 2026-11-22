@@ -23,12 +23,12 @@ The machine's electronics are the power supply, the control board, and the Orang
 The version is printed on the board: `REV 1.3` or `REV 1.4.1`. These pages and the drawings show v1.3, and every v1.3 step is still here. Same size and mounting holes on both, so the housing, the cover and the layer boards are the same.
 
 <table class="stack-table">
-  <thead><tr><th>What</th><th>v1.3</th><th>v1.4</th><th>v1.4.1</th></tr></thead>
+  <thead><tr><th>What</th><th>v1.3</th><th>v1.4.1</th></tr></thead>
   <tbody>
-    <tr><td data-label="What">Driver addresses</td><td data-label="v1.3">Ten jumpers to fit</td><td data-label="v1.4">Fixed on the board</td><td data-label="v1.4.1">Fixed on the board</td></tr>
-    <tr><td data-label="What">LED port resistors</td><td data-label="v1.3">Four bypass jumpers to solder</td><td data-label="v1.4">No resistor, nothing to solder</td><td data-label="v1.4.1">No resistor, nothing to solder</td></tr>
-    <tr><td data-label="What">LED and fan ports</td><td data-label="v1.3">Four: <code>J8</code> to <code>J11</code></td><td data-label="v1.4">Not checked against the board files</td><td data-label="v1.4.1">Three, <code>J8</code> to <code>J10</code>, each with a JST XA socket beside it (<code>J11</code>, <code>J15</code>, <code>J14</code>)</td></tr>
-    <tr><td data-label="What">Limit switch socket <code>J5</code></td><td data-label="v1.3">3-pin header, plus a second input <code>J6</code></td><td data-label="v1.4">Not checked against the board files</td><td data-label="v1.4.1">2-pin latching Dupont socket, no <code>J6</code></td></tr>
+    <tr><td data-label="What">Driver addresses</td><td data-label="v1.3">Ten jumpers to fit</td><td data-label="v1.4.1">Fixed on the board</td></tr>
+    <tr><td data-label="What">LED port resistors</td><td data-label="v1.3">Four bypass jumpers to solder</td><td data-label="v1.4.1">No resistor, nothing to solder</td></tr>
+    <tr><td data-label="What">LED and fan ports</td><td data-label="v1.3">Four: <code>J8</code> to <code>J11</code></td><td data-label="v1.4.1">Three, <code>J8</code> to <code>J10</code>, each with a JST XA socket beside it (<code>J11</code>, <code>J15</code>, <code>J14</code>)</td></tr>
+    <tr><td data-label="What">Limit switch socket <code>J5</code></td><td data-label="v1.3">3-pin header, plus a second input <code>J6</code></td><td data-label="v1.4.1">2-pin latching Dupont socket, no <code>J6</code></td></tr>
   </tbody>
 </table>
 

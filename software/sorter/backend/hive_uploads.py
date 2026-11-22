@@ -166,6 +166,12 @@ class HiveUploads:
     def pushSentBackPieces(self, rows: list[dict[str, Any]]) -> int:
         return self._pushRows("/api/machine/sync/sent-back-pieces", "piece_records", {"records": rows})
 
+    def pushBinEmptyings(self, rows: list[dict[str, Any]]) -> int:
+        return self._pushRows("/api/machine/sync/bin-emptyings", "piece_records", {"records": rows})
+
+    def pushBinLayouts(self, rows: list[dict[str, Any]]) -> int:
+        return self._pushRows("/api/machine/sync/bin-layouts", "piece_records", {"records": rows})
+
     def pushPiecePredictions(self, records: list[dict[str, Any]]) -> int:
         return self._pushRows("/api/machine/sync/piece-predictions", "piece_records", {"records": records})
 

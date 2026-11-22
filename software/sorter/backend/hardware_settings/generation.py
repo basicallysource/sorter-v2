@@ -81,6 +81,10 @@ class Generation:
     # for being held too: a piece hanging off the channel above reaches in from
     # outside the picture (subsystems/feeder/pulse_perception/held.py).
     held_at_landing_edge: bool = False
+    # A piece held where pieces land never holds the machine past its recovery:
+    # when every step has been tried, its incident closes as if Done had been
+    # pressed and sorting goes on (recovery/__init__.py).
+    held_gives_up_goes_on: bool = False
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -126,6 +130,7 @@ GENERATIONS: dict[str, Generation] = {
         feeder_push_only=True,
         bucket_unjam=True,
         held_at_landing_edge=True,
+        held_gives_up_goes_on=True,
         driver_watch=True,
         # Quarter bins take up to a 3x3 plate, thirds a 4x4, halves a 6x6; a
         # full bin takes anything.

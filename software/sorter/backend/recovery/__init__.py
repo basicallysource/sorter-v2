@@ -5,7 +5,9 @@ on the incident's card which step it is on, and stops if the operator says so.
 A subsystem that finds a stuck piece opens its incident and, when that kind is
 handled automatically, ``start``s a procedure. The coordinator ``step``s it on
 every tick while the incident is open. Freed, the incident closes itself; given
-up, the card asks the operator.
+up, the card asks the operator. On a machine whose generation has
+``held_gives_up_goes_on``, a piece held where pieces land never holds the
+machine past its recovery: given up, its incident closes too and sorting goes on.
 """
 
 from __future__ import annotations
@@ -33,6 +35,9 @@ class _Run:
 
 
 _run: Optional[_Run] = None
+
+# A piece that does not ride its channel where pieces land (incidents/kinds.py).
+HELD_KINDS = ("piece_held", "piece_held_c4")
 
 
 def running() -> bool:
@@ -83,6 +88,24 @@ def step(gc: Any) -> None:
         _run = None
         if run.recovery.state == FREED:
             gc.runtime_stats.clearActiveIncident(kind=run.kind, resolved_by="recovery")
+        elif run.recovery.state == GAVE_UP and _goesOnAfterGivingUp(run.kind):
+            # The same as the operator's Done: on clean on November 22, 2026
+            # every such card was closed without anyone touching the piece and
+            # sorting went on, after one of them had held the machine for five
+            # hours overnight.
+            try:
+                gc.logger.warning(f"Recovery {run.recovery.procedure.key}: gave up on {run.kind}; sorting goes on")
+            except Exception:
+                pass
+            gc.runtime_stats.clearActiveIncident(kind=run.kind, resolved_by="recovery_gave_up")
+
+
+def _goesOnAfterGivingUp(kind: str) -> bool:
+    """Whether this machine sorts on when the recovery of a piece held where
+    pieces land has tried every step (its generation's choice)."""
+    from hardware_settings.generation import machineGeneration
+
+    return kind in HELD_KINDS and machineGeneration().held_gives_up_goes_on
 
 
 def stop(gc: Any) -> bool:

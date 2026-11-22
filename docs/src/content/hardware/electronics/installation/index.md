@@ -16,7 +16,25 @@ warning: >-
   not plug a cable into the IEC inlet until that box is complete and its wiring verified.
 ---
 
-The machine's electronics are the power supply, the control board, and the Orange Pi that runs the machine, each on its own printed part bolted to the same frame. All three are closed in: the supply in a box, the control board and the Orange Pi each in a housing. "The control board" here means basically board v1.3, the basically Embedded Control Board.
+The machine's electronics are the power supply, the control board, and the Orange Pi that runs the machine, each on its own printed part bolted to the same frame. All three are closed in: the supply in a box, the control board and the Orange Pi each in a housing. "The control board" here means the basically Embedded Control Board. Two versions are in circulation, and they differ in a few steps: see [which version you have](#which-control-board-version-you-have).
+
+## Which control board version you have
+
+The version is printed on the board: `REV 1.3` or `REV 1.4.1`. These pages and the drawings show v1.3, and every v1.3 step is still here. Same size and mounting holes on both, so the housing, the cover and the layer boards are the same.
+
+<table class="stack-table">
+  <thead><tr><th>What</th><th>v1.3</th><th>v1.4.1</th></tr></thead>
+  <tbody>
+    <tr><td data-label="What">Driver addresses</td><td data-label="v1.3">Ten jumpers to fit</td><td data-label="v1.4.1">Fixed on the board</td></tr>
+    <tr><td data-label="What">LED port resistors</td><td data-label="v1.3">Four bypass jumpers to solder</td><td data-label="v1.4.1">No resistor, nothing to solder</td></tr>
+    <tr><td data-label="What">LED and fan ports</td><td data-label="v1.3">Four: <code>J8</code> to <code>J11</code></td><td data-label="v1.4.1">Three, <code>J8</code> to <code>J10</code>, each with a JST XA socket beside it (<code>J11</code>, <code>J15</code>, <code>J14</code>)</td></tr>
+    <tr><td data-label="What">Limit switch socket <code>J5</code></td><td data-label="v1.3">3-pin header, plus a second input <code>J6</code></td><td data-label="v1.4.1">2-pin latching Dupont socket, no <code>J6</code></td></tr>
+  </tbody>
+</table>
+
+**Older boards.** A v1.0 board (the first run) is not covered by these pages: its Gerbers are in the repository, but its build steps have not been written down. Everything here that says v1.3 still applies to v1.3 boards; nothing was removed for them.
+
+Where a page depends on the version it says so at that step.
 
 **These pages cover where the hardware sits and what holds it there.** What plugs into what is the other half, and that is [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), with the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page behind it as the reference for the cables themselves.
 

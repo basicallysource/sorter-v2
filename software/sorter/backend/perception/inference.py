@@ -24,6 +24,7 @@ from typing import Any, Callable, Optional
 import numpy as np
 
 from .arcs import (
+    Bbox,
     attributeBboxes,
     bboxArea,
     bboxInsideChannelMask,
@@ -96,6 +97,41 @@ _BBOX_SIZE_LOG_THROTTLE_S = 5.0
 # boxes per zone and would break if merged. Override via env for tuning.
 _CLASSIFICATION_CHANNEL_ID = 4
 _C4_BBOX_MERGE_GAP_PX = float(os.environ.get("SORTER_C4_BBOX_MERGE_GAP_PX", "14"))
+
+# Where the generation has c4_merge_by_colour: two near boxes are one piece only
+# when they also look alike. Near alone fused two pieces lying together in 25 of
+# 35 kept frames on clean (November 22, 2026: a red plate and a white brick, a
+# lime slope against a grey plate); the 10 real splits were the same colour, or
+# a part drawn inside its piece. Colour as the tracker reads it (the middle
+# MERGE_COLOUR_CENTRE of each box), 0 alike to 1 unlike. With these values 9 of
+# the 10 splits still merge and 22 of the 25 pairs stay apart.
+MERGE_COLOUR_CENTRE = 0.6
+MERGE_SAME_COLOUR = 0.21
+# A box this much inside the other is a part of it drawn on its own (a wheel
+# of its axle, a stud of its plate), allowed to look less alike.
+MERGE_INSIDE = 0.95
+MERGE_INSIDE_COLOUR = 0.4
+
+
+def _samePiece(frame_bgr: Any) -> Callable[[Bbox, Bbox], bool]:
+    """Whether two near boxes look like one piece (see MERGE_SAME_COLOUR)."""
+    from .ordered_tracker import _color_dist, _color_feat, _containment
+
+    feats: dict = {}
+
+    def feat(box: Bbox):
+        if box not in feats:
+            feats[box] = _color_feat(frame_bgr, box, MERGE_COLOUR_CENTRE)
+        return feats[box]
+
+    def joins(a: Bbox, b: Bbox) -> bool:
+        fa, fb = feat(a), feat(b)
+        if fa is None or fb is None:
+            return True  # no picture to tell by: near is enough, as before
+        d = _color_dist(fa, fb)
+        return d <= MERGE_SAME_COLOUR or (_containment(a, b) >= MERGE_INSIDE and d <= MERGE_INSIDE_COLOUR)
+
+    return joins
 
 
 def _now_ms() -> float:
@@ -192,6 +228,9 @@ class InferenceWorker:
             name=f"perception-{channel_def.camera_source_id}",
         )
         self._last_frame_ts: float = -1.0
+        from hardware_settings.generation import machineGeneration
+
+        self._merge_by_colour = machineGeneration().c4_merge_by_colour
         self._was_in_exit: bool = False
         self._last_summary_log_ts: float = 0.0
         self._last_size_log_ts: float = 0.0
@@ -642,7 +681,11 @@ class InferenceWorker:
                 merged_multi: list = []
                 merged_groups: tuple = ()
                 if ch_def.channel_id == _CLASSIFICATION_CHANNEL_ID:
-                    clusters = mergeNearbyBboxes(bboxes, _C4_BBOX_MERGE_GAP_PX)
+                    clusters = mergeNearbyBboxes(
+                        bboxes,
+                        _C4_BBOX_MERGE_GAP_PX,
+                        _samePiece(frame.bgr) if self._merge_by_colour else None,
+                    )
                     bboxes = [merged for merged, _members in clusters]
                     merged_multi = [
                         merged for merged, members in clusters if len(members) > 1

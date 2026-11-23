@@ -94,6 +94,9 @@ class Generation:
     # the pause says which channel below is not passing pieces on instead of
     # blaming C1 (sorter_controller.py).
     feed_pause_says_why: bool = False
+    # The classification channel fuses two near boxes into one piece only when
+    # they also look alike (perception/inference.py, MERGE_SAME_COLOUR).
+    c4_merge_by_colour: bool = False
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -142,6 +145,7 @@ GENERATIONS: dict[str, Generation] = {
         held_gives_up_goes_on=True,
         held_keeps_trying=True,
         feed_pause_says_why=True,
+        c4_merge_by_colour=True,
         driver_watch=True,
         # Quarter bins take up to a 3x3 plate, thirds a 4x4, halves a 6x6; a
         # full bin takes anything.

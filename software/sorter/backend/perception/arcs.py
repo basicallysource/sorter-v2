@@ -12,7 +12,7 @@ the legacy ``getBboxSections`` to confirm equivalence at the bbox level.
 
 from __future__ import annotations
 
-from typing import Iterable, Tuple
+from typing import Callable, Iterable, Optional, Tuple
 
 import numpy as np
 
@@ -28,7 +28,7 @@ def bboxCenter(bbox: Bbox) -> tuple[float, float]:
 
 
 def mergeNearbyBboxes(
-    bboxes: Iterable[Bbox], gap_px: float
+    bboxes: Iterable[Bbox], gap_px: float, joins: Optional[Callable[[Bbox, Bbox], bool]] = None
 ) -> list[tuple[Bbox, list[Bbox]]]:
     """Collapse boxes that belong to ONE physical piece into a single box.
 
@@ -38,6 +38,7 @@ def mergeNearbyBboxes(
     This clusters boxes that overlap OR sit within ``gap_px`` of each other
     (transitively, via union-find) and returns, per cluster, the union box plus
     its member boxes. ``gap_px <= 0`` merges only boxes that actually overlap.
+    ``joins``, when given, must also say yes for two near boxes to merge.
 
     Returns ``[(merged_union_bbox, [member_bbox, ...]), ...]``. A lone box comes
     back as a single-member cluster (merged == itself). Order is not guaranteed.
@@ -70,7 +71,7 @@ def mergeNearbyBboxes(
 
     for i in range(n):
         for j in range(i + 1, n):
-            if near(boxes[i], boxes[j]):
+            if near(boxes[i], boxes[j]) and (joins is None or joins(boxes[i], boxes[j])):
                 parent[find(i)] = find(j)
 
     clusters: dict[int, list[Bbox]] = {}

@@ -341,6 +341,19 @@ def listCropsByTimeRange(t_start: float, t_end: float) -> list[dict[str, Any]]:
     return [_rowToDict(r) for r in rows]
 
 
+def listCropsOfChannel(channel: int, t_start: float, t_end: float) -> list[dict[str, Any]]:
+    # One channel's live crops with frame ts in [t_start, t_end], oldest first.
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT id, channel, ts, created_at, track_id, com_forward_to_exit_deg, "
+            "com_section, zone_code, sharpness, bbox_x1, bbox_y1, bbox_x2, bbox_y2, bytes "
+            "FROM channel_crops WHERE channel = ? AND ts >= ? AND ts <= ? AND deleted_at IS NULL "
+            "ORDER BY ts ASC",
+            (int(channel), float(t_start), float(t_end)),
+        ).fetchall()
+    return [_rowToDict(r) for r in rows]
+
+
 def getCropFileById(crop_id: int) -> Optional[Path]:
     with _connection() as conn:
         row = conn.execute(

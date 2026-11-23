@@ -21,6 +21,7 @@
 	let enabled = $state(false);
 	let algorithm = $state('');
 	let minConfidence = $state(0.95);
+	let useForClassification = $state(true);
 	let installed = $state<InstalledLinkModel[]>([]);
 	let metaFeatures = $state('');
 	let loading = $state(true);
@@ -46,6 +47,7 @@
 			enabled = Boolean(data.config?.enabled);
 			algorithm = String(data.config?.algorithm ?? '');
 			minConfidence = Number(data.config?.min_confidence ?? 0.95);
+			useForClassification = Boolean(data.config?.use_for_classification ?? true);
 			installed = data.installed ?? [];
 			metaFeatures = String(data.meta_features ?? '');
 			loaded = true;
@@ -65,13 +67,19 @@
 			const res = await fetch(`${getBackendHttpBase()}/api/tuning/link-matching`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ enabled, algorithm, min_confidence })
+				body: JSON.stringify({
+					enabled,
+					algorithm,
+					min_confidence,
+					use_for_classification: useForClassification
+				})
 			});
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
 			enabled = Boolean(data.config?.enabled);
 			algorithm = String(data.config?.algorithm ?? '');
 			minConfidence = Number(data.config?.min_confidence ?? 0.95);
+			useForClassification = Boolean(data.config?.use_for_classification ?? true);
 			saved = true;
 			setTimeout(() => (saved = false), 3000);
 		} catch (e: any) {
@@ -139,6 +147,15 @@
 						{/if}
 					</p>
 				</div>
+				<div class="px-(--pad-panel) py-(--pad-row)">
+					<Checkbox bind:checked={useForClassification} disabled={!hasModel}>
+						<span class="font-medium">Send the linked crops with the classification request</span>
+					</Checkbox>
+					<p class="mt-1 ml-6.5 text-sm text-ink-muted">
+						Off: the crops are kept with the piece and shown on its page, and the piece is
+						classified from its own pictures alone.
+					</p>
+				</div>
 				<SettingRow
 					label="Minimum confidence"
 					help="Crops scoring at or above this (0 to 1) count as the same piece. Below it they still show on the piece page, unchecked and never fused into the classification. Overrides the cutoff built into the model (0.5 for link-v3)."
@@ -169,7 +186,9 @@
 						...installed.map((m) => ({
 							value: m.local_id,
 							label: m.name ?? m.local_id,
-							help: `Downloaded ${formatDate(m.downloaded_at)}`
+							help: m.downloaded_at
+								? `Downloaded ${formatDate(m.downloaded_at)}`
+								: 'Installed by hand'
 						}))
 					]}
 				/>

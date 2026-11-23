@@ -200,11 +200,11 @@ def invalidateCache() -> None:
         _failed.clear()
 
 
-def resolveActiveModel(gc: Any) -> Optional[LoadedLinkModel]:
-    """The configured piece_link model, or None when disabled/absent.
+def resolveActiveEntry(gc: Any) -> Optional[dict[str, Any]]:
+    """The installed piece_link model the machine is set to use, or None when
+    link matching is off or none is installed.
 
-    Cheap enough to call per piece: the config read is a small TOML parse and
-    the sessions are cached by local_id.
+    Cheap enough to call per piece: the config read is a small TOML parse.
     """
     from toml_config import getLinkMatchingConfig
 
@@ -233,10 +233,26 @@ def resolveActiveModel(gc: Any) -> Optional[LoadedLinkModel]:
     if entry is None:
         entry = installed[0]
 
-    path = entry.get("path")
-    if not path:
-        return None
-    return loadModel(gc, str(entry["local_id"]), Path(path))
+    return entry if entry.get("path") else None
+
+
+def isJourneyEntry(entry: dict[str, Any]) -> bool:
+    # A model that follows pieces through the control data (piece_link/),
+    # rather than comparing crop pictures.
+    from piece_link.model import isJourneyModel
+
+    return isJourneyModel(Path(str(entry["path"])))
+
+
+def syncLive(gc: Any) -> None:
+    """Start or stop the live linker to match the settings. Called at
+    startup and whenever the link matching settings are saved."""
+    try:
+        from piece_link import live
+
+        live.sync(gc, resolveActiveEntry(gc))
+    except Exception as exc:
+        gc.logger.warning(f"[link] live linker not started: {exc}")
 
 
 def matchForPieceLive(
@@ -247,7 +263,15 @@ def matchForPieceLive(
     Takes the anchor from memory and the arrival time from the C4 frame, because
     neither the piece's images nor its record are on disk yet at this point.
     """
-    model = resolveActiveModel(gc)
+    entry = resolveActiveEntry(gc)
+    if entry is None:
+        return None
+    if isJourneyEntry(entry):
+        from piece_link import live
+        from toml_config import getLinkMatchingConfig
+
+        return live.linkPiece(piece_uuid, float(arrival_ts), float(getLinkMatchingConfig()["min_confidence"]))
+    model = loadModel(gc, str(entry["local_id"]), Path(entry["path"]))
     if model is None:
         return None
 

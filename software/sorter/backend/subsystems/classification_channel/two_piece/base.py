@@ -35,10 +35,13 @@ from utils.event import knownObjectToEvent
 from .constants import HOSTED_COLOR_JOIN_BUDGET_S, HOSTED_COLOR_MAX_SIDE_PX, LOG_TAG
 from .context import SimpleStateMachineRev01Context
 
-# Ceiling on link-match crops kept per piece. The model's picks are normally a
-# handful; this only bounds a pathological frame where it matches half the
-# window, so one piece can't dump dozens of JPEGs into the image store.
-MAX_LINK_ATTACH = 8
+# Ceiling on link-match crops kept per piece: eight views from C3 and four from
+# C2 are what a piece is wanted with, and one piece can't dump dozens of JPEGs
+# into the image store.
+MAX_LINK_ATTACH = 12
+# How long a classification that does not send the linked crops waits for them
+# to be attached, once its own requests are back.
+LINK_ATTACH_WAIT_S = 2.0
 # When nothing sent recognizes the piece, up to this many other burst frames
 # are sent once more, each alone and all at once: the ones that look least
 # like what was sent. The burst's best frames are often the same still view
@@ -120,6 +123,15 @@ def _otherViews(
         picked.append(best[0])
         seen.append(best[1])
     return picked
+
+
+def _linkedCropsGoInRequest() -> bool:
+    try:
+        from toml_config import getLinkMatchingConfig
+
+        return bool(getLinkMatchingConfig()["use_for_classification"])
+    except Exception:
+        return True
 
 
 def _imageRefs(obj, images: list[_SendImage]) -> list[dict]:
@@ -387,12 +399,23 @@ class Rev01BaseState(BaseState):
                 # piece-link model. They are fused into the request alongside the
                 # burst, so they must be resolved BEFORE the fan-out — the burst
                 # gives up slots so the total stays under Brickognize's limit.
-                sendable += self._gatherLinkMatches(
-                    piece_uuid,
-                    anchor_bgr,
-                    arrival_ts,
-                    max_inject=MAX_QUERY_IMAGES - len(sendable),
-                )
+                # A machine set to keep them out of the request still gets them
+                # attached to the piece: found beside the request, not before it.
+                link_thread: Optional[threading.Thread] = None
+                if _linkedCropsGoInRequest():
+                    sendable += self._gatherLinkMatches(
+                        piece_uuid,
+                        anchor_bgr,
+                        arrival_ts,
+                        max_inject=MAX_QUERY_IMAGES - len(sendable),
+                    )
+                else:
+                    link_thread = threading.Thread(
+                        target=self._gatherLinkMatches,
+                        args=(piece_uuid, anchor_bgr, arrival_ts, 0),
+                        daemon=True,
+                    )
+                    link_thread.start()
                 # The hosted color provider (when selected) runs alongside the
                 # Brickognize fan-out rather than after it, so choosing it costs
                 # no extra wall-clock unless it is slower than Brickognize.
@@ -404,6 +427,8 @@ class Rev01BaseState(BaseState):
                 for req in requests:
                     req.image_refs = _imageRefs(obj, req.images)
                 self._runClassifyRequests(requests, piece_uuid, hosted_color, spare)
+                if link_thread is not None:
+                    link_thread.join(timeout=LINK_ATTACH_WAIT_S)
             except Exception as exc:
                 with self.ctx.classify_lock:
                     self.ctx.classification_error = str(exc)
@@ -960,10 +985,11 @@ class Rev01BaseState(BaseState):
         Every scored candidate is attached to the KnownObject so the detail page
         can show the whole ranked list; only the top ``max_inject`` picks above
         the model's threshold are returned as sendable and actually fused into
-        the Brickognize request. Best-effort — any failure yields none and
+        the Brickognize request (none of them at ``max_inject`` 0: they are
+        attached and nothing more). Best-effort — any failure yields none and
         classification proceeds on the burst alone.
         """
-        if anchor_bgr is None or max_inject <= 0 or not piece_uuid:
+        if anchor_bgr is None or max_inject < 0 or not piece_uuid:
             return []
         try:
             import link_matcher

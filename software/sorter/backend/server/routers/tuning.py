@@ -213,10 +213,14 @@ def get_link_matching() -> dict[str, Any]:
         for e in hive_models.list_installed_models()
         if e.get("purpose") == hive_models.PURPOSE_PIECE_LINK
     ]
+    from piece_link import live
+
     return {
         "config": getLinkMatchingConfig(),
         "installed": installed,
         "meta_features": link_matcher.META_FEATURES,
+        # The live linker's own account while a model that follows the control data is in use.
+        "live": live.status(),
     }
 
 
@@ -231,4 +235,8 @@ def set_link_matching(body: dict[str, Any]) -> dict[str, Any]:
     # Drop cached sessions so switching models (or re-enabling after a failed
     # load) takes effect without a restart.
     link_matcher.invalidateCache()
+    from server import shared_state
+
+    if shared_state.gc_ref is not None:
+        link_matcher.syncLive(shared_state.gc_ref)
     return {"config": updated}

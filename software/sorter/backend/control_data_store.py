@@ -25,7 +25,7 @@ import sqlite3
 import threading
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import db
 
@@ -40,6 +40,9 @@ _active_meta: dict[str, Any] = {}
 _active_started_at: float = 0.0
 _active_records: int = 0
 _active_bytes: int = 0
+# The open segment's frame sizes, for a tap that starts listening mid-segment.
+_active_frame_info: dict[Any, dict[str, Any]] = {}
+_tap: Optional[Callable[[dict[str, Any]], None]] = None
 
 _stats_lock = threading.Lock()
 _stats = {
@@ -105,9 +108,26 @@ def _connection():
     return db.connect(_createTables)
 
 
+def setTap(tap: Optional[Callable[[dict[str, Any]], None]]) -> None:
+    """Hand every record written from now on to `tap` as well (None stops
+    it). It is called under the write lock, so it must only queue the record.
+    A segment already open is introduced first: its meta, then its frame sizes."""
+    global _tap
+    with _write_lock:
+        _tap = tap
+        if tap is None or _active_file is None:
+            return
+        try:
+            tap({"type": "meta", **_active_meta})
+            for info in _active_frame_info.values():
+                tap(info)
+        except Exception as exc:
+            _log("warning", f"control_data_store: tap failed: {exc}")
+
+
 def beginSegment(meta: dict[str, Any]) -> bool:
     global _active_file, _active_path, _active_meta, _active_started_at
-    global _active_records, _active_bytes
+    global _active_records, _active_bytes, _active_frame_info
     with _write_lock:
         if _active_file is not None:
             return False
@@ -124,6 +144,7 @@ def beginSegment(meta: dict[str, Any]) -> bool:
         _active_started_at = time.time()
         _active_records = 0
         _active_bytes = 0
+        _active_frame_info = {}
         _writeLocked({"type": "meta", **meta})
     _log("info", f"control_data_store: segment started ({path.name})")
     return True
@@ -161,6 +182,14 @@ def _writeLocked(obj: dict[str, Any]) -> None:
         with _stats_lock:
             _stats["write_errors"] += 1
         _log("warning", f"control_data_store: write failed: {exc}")
+    if obj.get("type") == "frame_info":
+        _active_frame_info[obj.get("ch")] = obj
+    tap = _tap
+    if tap is not None:
+        try:
+            tap(obj)
+        except Exception:
+            pass
 
 
 def flush() -> None:

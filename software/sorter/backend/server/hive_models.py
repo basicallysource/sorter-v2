@@ -248,10 +248,20 @@ def _dir_size(path: Path) -> int:
     return size_bytes
 
 
+def _local_link_model(child: Path, payload: dict) -> bool:
+    # A piece_link model put there by hand: run.json names its purpose and its
+    # one onnx file under exports/.
+    if payload.get("purpose") != PURPOSE_PIECE_LINK:
+        return False
+    member = payload.get("member")
+    return isinstance(member, str) and bool(member) and (child / "exports" / member).is_file()
+
+
 def _local_model_entry(child: Path, payload: dict) -> dict | None:
     from vision.detection_registry import LOCAL_ID_PREFIX, local_model_artifact
 
-    found = local_model_artifact(child, payload)
+    link = _local_link_model(child, payload)
+    found = ("onnx", None) if link else local_model_artifact(child, payload)
     if found is None:
         return None
     runtime, _artifact = found
@@ -265,8 +275,8 @@ def _local_model_entry(child: Path, payload: dict) -> dict | None:
         "codename": None,
         "codename_color": None,
         "variant_runtime": runtime,
-        "purpose": DEFAULT_PURPOSE,
-        "inert": False,
+        "purpose": PURPOSE_PIECE_LINK if link else DEFAULT_PURPOSE,
+        "inert": link,
         "sha256": None,
         "downloaded_at": None,
         "source_url": None,
@@ -276,7 +286,9 @@ def _local_model_entry(child: Path, payload: dict) -> dict | None:
         "model_family": payload.get("model_family"),
         "size_bytes": _dir_size(child),
         "path": str(child),
-        "compatible": True,
+        # Nothing to activate against a detection scope: the piece link
+        # settings choose it.
+        "compatible": not link,
     }
 
 

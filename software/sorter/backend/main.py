@@ -217,6 +217,13 @@ def _startPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
     except Exception as exc:
         gc.logger.warning(f"Failed to start control-data collector: {exc}")
 
+    try:
+        import link_matcher
+
+        link_matcher.syncLive(gc)
+    except Exception as exc:
+        gc.logger.warning(f"Failed to start the live piece linker: {exc}")
+
 
 def runServer(gc: GlobalConfig) -> None:
     # Bind to loopback by default. Setting SORTER_API_HOST=0.0.0.0 (or a

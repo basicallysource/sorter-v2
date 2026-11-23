@@ -480,6 +480,9 @@ def getLinkMatchingConfig() -> dict[str, Any]:
         "enabled": bool(section.get("enabled", False)),
         "algorithm": str(section.get("algorithm") or ""),
         "min_confidence": min(max(min_confidence, 0.0), 1.0),
+        # Off: the linked crops are kept with the piece and shown on its page,
+        # and the classification request carries the piece's own burst alone.
+        "use_for_classification": bool(section.get("use_for_classification", True)),
     }
 
 
@@ -489,6 +492,8 @@ def setLinkMatchingConfig(updates: dict[str, Any]) -> dict[str, Any]:
         valid["enabled"] = bool(updates.get("enabled"))
     if "algorithm" in updates:
         valid["algorithm"] = str(updates.get("algorithm") or "")
+    if "use_for_classification" in updates:
+        valid["use_for_classification"] = bool(updates.get("use_for_classification"))
     if "min_confidence" in updates:
         value = float(updates.get("min_confidence"))  # type: ignore[arg-type]
         if not (0.0 <= value <= 1.0):

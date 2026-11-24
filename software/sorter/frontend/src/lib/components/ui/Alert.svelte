@@ -56,6 +56,13 @@
 	</div>
 	{#if actions || onclose}<div class="flex shrink-0 items-center gap-2 self-center">
 			{#if actions}{@render actions()}{/if}
-			{#if onclose}<Button variant="ghost" size="sm" icon={X} label="Close" loading={closing} onclick={onclose} />{/if}
+			{#if onclose}<Button
+					variant="ghost"
+					size="sm"
+					icon={X}
+					label="Close"
+					loading={closing}
+					onclick={onclose}
+				/>{/if}
 		</div>{/if}
 </div>

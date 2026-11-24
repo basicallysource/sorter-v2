@@ -36,7 +36,7 @@
 {#if size === 'sm'}
 	<span class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
 		{#each groups as group (group.channel)}
-			<span class="flex flex-wrap items-center gap-1">
+			<span class="flex flex-wrap items-center gap-1.5">
 				<span class="w-5 shrink-0 font-mono text-xs text-ink-muted">{group.channel}</span>
 				{#each group.frames as frame (frame.key)}
 					<FrameTile {frame} {size} {onZoom} />

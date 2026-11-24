@@ -41,7 +41,7 @@
 			bind:naturalWidth={width}
 			bind:naturalHeight={height}
 			onerror={() => (failed = true)}
-			class="block max-h-full max-w-full object-contain {height > width
+			class="block max-h-full max-w-full shrink-0 object-contain {height > width
 				? 'h-full w-auto'
 				: 'h-auto w-full'} {frame.used ? 'outline-2 outline-primary' : ''}"
 		/>
@@ -60,13 +60,13 @@
 		<button
 			type="button"
 			aria-label={label}
-			class="relative grid shrink-0 place-items-center rounded-item transition-colors hover:bg-hover {place}"
+			class="relative flex shrink-0 items-center justify-center rounded-item transition-colors hover:bg-hover {place}"
 			onclick={() => onZoom(frame.src, label)}
 		>
 			{@render picture()}
 		</button>
 	{:else}
-		<span class="relative grid shrink-0 place-items-center {place}">
+		<span class="relative flex shrink-0 items-center justify-center {place}">
 			{@render picture()}
 		</span>
 	{/if}

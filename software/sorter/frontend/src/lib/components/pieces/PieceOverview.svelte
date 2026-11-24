@@ -4,20 +4,16 @@
 	import PartImage from '$lib/components/ui/PartImage.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import type { PieceSummary } from '$lib/pieces';
-	import FrameStrip from './FrameStrip.svelte';
-	import type { Fact, Frame } from './types';
+	import type { Fact } from './types';
 
-	// The top of a piece's page: what you came to see. Every picture of the
-	// piece from every channel (the ones that produced the result with a stroke
-	// around them) and Brickognize's picture of the part, what the machine
-	// decided about it, and the review (the same compact one the records list
-	// has) at the right. Everything that explains
-	// how it got there is below, in the predictions and the details.
+	// The top of the right column of a piece's page: Brickognize's picture of
+	// the part, its name, what the machine decided as facts (a name over a
+	// value, and under the value who decided it), and the review under them.
+	// The piece's own pictures are beside it, in the left column
+	// (PiecePictures); everything that explains how it got there is below.
 	let {
 		name,
 		partId,
-		frames,
-		framesNote,
 		reference,
 		facts,
 		summary,
@@ -27,8 +23,6 @@
 	}: {
 		name: string;
 		partId: string | null;
-		frames: Frame[];
-		framesNote: string;
 		reference: string | null;
 		facts: Fact[];
 		// The record the review answers about; null when it cannot be reviewed.
@@ -40,39 +34,36 @@
 </script>
 
 <Panel flush>
-	<div class="@container px-(--pad-panel) py-4">
-		<div
-			class="grid grid-cols-[minmax(0,1fr)] items-start gap-x-8 gap-y-4 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @6xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_24rem]"
-		>
-			<!-- The pictures -->
-			<div class="flex min-w-0 flex-col gap-2">
-				<p class="text-sm text-ink-muted">{framesNote}</p>
-				{#if frames.length === 0}
-					<p class="flex h-[4.75rem] items-center text-sm text-ink-muted">
-						No pictures of this piece.
-					</p>
-				{:else}
-					<FrameStrip {frames} {onZoom} />
-				{/if}
-			</div>
-
-			<!-- What the machine decided -->
-			<div class="flex min-w-0 flex-col gap-2">
-				<div class="flex min-w-0 items-baseline gap-2">
-					<h2 class="min-w-0 truncate text-base font-semibold text-ink">{name}</h2>
+	<div class="@container">
+		<div class="flex items-start gap-5 px-(--pad-panel) py-4">
+			{#if reference}
+				<div class="flex shrink-0 flex-col items-center gap-0.5">
+					<ImageZoom src={reference} label="Brickognize's picture of this part">
+						<button
+							type="button"
+							aria-label="Enlarge Brickognize's picture of this part"
+							class="block rounded-item p-1 transition-colors hover:bg-hover"
+							onclick={() => onZoom(reference, `Brickognize: ${name}`)}
+						>
+							<PartImage src={reference} class="size-28" />
+						</button>
+					</ImageZoom>
+					<span class="text-xs text-ink-muted">Brickognize</span>
+				</div>
+			{/if}
+			<div class="flex min-w-0 flex-1 flex-col gap-3">
+				<div class="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1">
+					<h2 class="min-w-0 text-lg leading-tight font-semibold text-ink">{name}</h2>
 					{#if partId}<span class="shrink-0 font-mono text-sm text-ink-muted">{partId}</span>{/if}
 				</div>
-				<div class="flex items-start gap-4">
-					<dl
-						class="grid min-w-0 flex-1 grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm"
-					>
-						{#each facts as fact (fact.label)}
-							<dt class="text-ink-muted">{fact.label}</dt>
+				<dl class="grid grid-cols-2 gap-x-6 gap-y-3 @2xl:grid-cols-3">
+					{#each facts as fact (fact.label)}
+						<div class="flex min-w-0 flex-col gap-0.5" title={fact.title}>
+							<dt class="text-xs text-ink-muted">{fact.label}</dt>
 							<dd
-								class="flex min-w-0 items-center gap-1.5 {fact.mono
+								class="flex min-w-0 items-center gap-1.5 text-sm {fact.mono
 									? 'font-mono'
 									: ''} {fact.valueClass ?? 'text-ink'}"
-								title={fact.title}
 							>
 								{#if fact.swatch}
 									<span
@@ -83,32 +74,18 @@
 								{/if}
 								<span class="truncate">{fact.value}</span>
 							</dd>
-						{/each}
-					</dl>
-					{#if reference}
-						<div class="flex shrink-0 flex-col items-center gap-0.5">
-							<ImageZoom src={reference} label="Brickognize's picture of this part">
-								<button
-									type="button"
-									aria-label="Enlarge Brickognize's picture of this part"
-									class="block rounded-item p-1 transition-colors hover:bg-hover"
-									onclick={() => onZoom(reference, `Brickognize: ${name}`)}
-								>
-									<PartImage src={reference} class="size-20" />
-								</button>
-							</ImageZoom>
-							<span class="text-xs text-ink-muted">Brickognize</span>
+							{#if fact.note}
+								<dd class="truncate text-xs text-ink-muted">{fact.note}</dd>
+							{/if}
 						</div>
-					{/if}
-				</div>
+					{/each}
+				</dl>
 			</div>
-
-			<!-- The review -->
-			{#if summary?.correctable}
-				<div class="@4xl:col-span-2 @6xl:col-span-1">
-					<PieceCorrection layout="compact" piece={summary} {endpointBase} onUpdated={onReviewed} />
-				</div>
-			{/if}
 		</div>
+		{#if summary?.correctable}
+			<div class="border-t border-line px-(--pad-panel) py-4">
+				<PieceCorrection layout="full" piece={summary} {endpointBase} onUpdated={onReviewed} />
+			</div>
+		{/if}
 	</div>
 </Panel>

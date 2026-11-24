@@ -2,52 +2,47 @@
 	import FrameTile from './FrameTile.svelte';
 	import type { Frame } from './types';
 
-	// Every picture of a piece, from every channel, in one row that wraps: the
-	// frames the classification channel took and the views of the same piece
-	// found on the channels before it. A picture that produced the result has a
-	// stroke around it. Each is enlarged under the pointer, where its time, its
-	// probability and its sharpness are said.
-	//
-	// `md` (the piece's page): each picture names its channel in its corner and
-	// opens the full-size viewer when clicked. `sm` (a row of the records list):
-	// small, the pictures of one channel together behind the channel's name.
+	// Pictures of a piece in a grid of tiles whose columns and rows are given,
+	// never counted from the pictures: three pictures or thirty take the same
+	// place. What does not fit is a number in the last tile. Room for a tile's
+	// stroke is the strip's own (its padding), so nothing that holds a strip can
+	// cut a stroke off.
 	let {
 		frames,
-		size = 'md',
+		size,
+		cols,
+		rows = 1,
 		onZoom
 	}: {
 		frames: Frame[];
-		size?: 'sm' | 'md';
+		// A tile's side, in rem.
+		size: number;
+		cols: number;
+		rows?: number;
+		// Opens the full-size viewer when a picture is clicked.
 		onZoom?: (src: string, label: string) => void;
 	} = $props();
 
-	// The channels in the order their first picture comes.
-	const groups = $derived.by(() => {
-		const out: { channel: string; frames: Frame[] }[] = [];
-		for (const frame of frames) {
-			const group = out.find((g) => g.channel === frame.channel);
-			if (group) group.frames.push(frame);
-			else out.push({ channel: frame.channel, frames: [frame] });
-		}
-		return out;
-	});
+	const places = $derived(cols * rows);
+	const side = $derived(`calc(${size}rem * var(--tile-scale, 1))`);
+	const shown = $derived(frames.length > places ? frames.slice(0, places - 1) : frames);
+	const more = $derived(frames.length - shown.length);
 </script>
 
-{#if size === 'sm'}
-	<span class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-		{#each groups as group (group.channel)}
-			<span class="flex flex-wrap items-center gap-1.5">
-				<span class="w-5 shrink-0 font-mono text-xs text-ink-muted">{group.channel}</span>
-				{#each group.frames as frame (frame.key)}
-					<FrameTile {frame} {size} {onZoom} />
-				{/each}
-			</span>
-		{/each}
-	</span>
-{:else}
-	<div class="flex flex-wrap gap-1.5">
-		{#each frames as frame (frame.key)}
-			<FrameTile {frame} {size} {onZoom} />
-		{/each}
-	</div>
-{/if}
+<div
+	class="grid shrink-0 gap-1.5 p-0.5"
+	style:grid-template-columns="repeat({cols}, {side})"
+	style:grid-template-rows="repeat({rows}, {side})"
+>
+	{#each shown as frame (frame.key)}
+		<FrameTile {frame} {size} {onZoom} />
+	{/each}
+	{#if more > 0}
+		<span
+			class="num flex items-center justify-center bg-well text-xs text-ink-muted"
+			title="{more} more pictures, on the piece's page"
+		>
+			+{more}
+		</span>
+	{/if}
+</div>

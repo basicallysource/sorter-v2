@@ -5,6 +5,7 @@
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import PieceCorrection from '$lib/components/PieceCorrection.svelte';
 	import FrameStrip from '$lib/components/pieces/FrameStrip.svelte';
+	import FrameTile from '$lib/components/pieces/FrameTile.svelte';
 	import PieceProblems from '$lib/components/pieces/PieceProblems.svelte';
 	import type { Frame } from '$lib/components/pieces/types';
 	import NoPieceImage from '$lib/components/pieces/NoPieceImage.svelte';
@@ -19,12 +20,14 @@
 	import type { PieceSummary } from '$lib/pieces';
 	import type { DisplayImage, ImageState } from './piece-images';
 
-	// One piece in the records list, a row of a divided list: its pictures, what
-	// the machine did with it (and what went wrong, when anything did), and the
-	// review at the right (the design system's compact PieceReview). The pictures
-	// that produced the result are large; under them, small, is every picture of
-	// the piece from every channel. Everything else about the piece (the
-	// attempts, the predictions) is on its own page, one click away.
+	// One piece in the records list, a row of a divided list, laid out for the
+	// question a reviewer answers: is this the part? The camera's picture and
+	// Brickognize's sit side by side at one size. Beside them is what the
+	// machine did with it (and what went wrong, when anything did) and, small
+	// and on one line, every picture of the piece, each channel always in the
+	// same place. The review is at the right (the design system's compact
+	// PieceReview). Everything else about the piece (the attempts, the
+	// predictions) is on its own page, one click away.
 	let {
 		piece,
 		imgState,
@@ -48,10 +51,15 @@
 		onleave?: () => void;
 	} = $props();
 
-	// The pictures that produced the result get this many places in a row of
-	// their own width, so the columns line up down the list; past them the last
-	// place says how many more there are.
-	const PLACES = 4;
+	// How many tiles each channel has on the line of small pictures, always:
+	// three pictures or thirty take the same place, and the last tile says how
+	// many more there are. The tiles shrink with the row, and a channel that
+	// still has no room is left off whole, so a picture is never cut in half.
+	const LANES = [
+		{ channel: 'C4', places: 5 },
+		{ channel: 'C3', places: 6 },
+		{ channel: 'C2', places: 4 }
+	];
 
 	function formatWhen(ts: number | null | undefined): string | null {
 		if (ts == null) return null;
@@ -111,10 +119,9 @@
 	const sorted = $derived(
 		imgState?.status === 'ok' ? [...imgState.images].sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0)) : []
 	);
-	// Large: the pictures that produced the result.
-	const shown = $derived(sorted.filter((img) => img.used));
-	// Small, under them: every picture of the piece. The classification
-	// channel's first, then the views of it found on C3 and on C2.
+	const usedCount = $derived(sorted.filter((img) => img.used).length);
+	// Every picture of the piece: the classification channel's first, then the
+	// views of it found on C3 and on C2.
 	function channelRank(img: DisplayImage): number {
 		if (img.source === 'c4_burst') return 0;
 		if (img.channel === 3) return 1;
@@ -127,6 +134,7 @@
 			.map((img, i) => ({
 				key: String(i),
 				src: img.src,
+				ts: img.ts ?? null,
 				label: [
 					sourceLabel(img.source, img.channel),
 					img.source === 'link_match' && typeof img.score === 'number'
@@ -144,24 +152,28 @@
 						: null
 			}))
 	);
+	// The camera's picture beside Brickognize's: the first one that produced
+	// the result, else the piece's first picture.
+	const best = $derived(all.find((frame) => frame.used) ?? all[0] ?? null);
+	const loading = $derived(imgState === undefined || imgState.status === 'loading');
+	// The record names Brickognize's picture, so it is there before the piece's own are.
+	const reference = $derived(
+		(imgState?.status === 'ok' ? imgState.stockUrl : null) ?? piece.preview_url ?? null
+	);
 	const lego_color = $derived(findLegoColor(piece.color_id, piece.color_name));
 	const value = $derived(formatEstValue(piece.est_value));
 	const bin = $derived(formatBin(piece.bin));
 	const when = $derived(formatWhen(piece.seen_at));
-	const crops = $derived(shown.length > PLACES ? shown.slice(0, PLACES - 1) : shown);
 	// Never identified (a double feed, a piece lost on the way): no part to show
 	// and nothing to review, so one short row instead of a card. Its pictures are
 	// on its page.
 	const bare = $derived(!piece.part_id && !piece.preview_url && !piece.correctable);
-	const more = $derived(shown.length - crops.length);
-	// The small pictures add nothing when every picture is already shown large.
-	const strip = $derived(sorted.length > crops.length);
-	// Wide: the pictures, the outcome and the review side by side. A little less
+	// Wide: the two pictures, the outcome and the review side by side. A little less
 	// wide: the review goes under them. Narrow: everything in one column.
 	const columns = $derived(
 		piece.correctable
-			? 'grid-cols-[minmax(0,1fr)] @3xl:grid-cols-[27.5rem_minmax(0,1fr)] @6xl:grid-cols-[27.5rem_minmax(0,1fr)_24rem]'
-			: 'grid-cols-[minmax(0,1fr)] @3xl:grid-cols-[27.5rem_minmax(0,1fr)]'
+			? 'grid-cols-[minmax(0,1fr)] @3xl:grid-cols-[13.75rem_minmax(0,1fr)] @6xl:grid-cols-[13.75rem_minmax(0,1fr)_24rem]'
+			: 'grid-cols-[minmax(0,1fr)] @3xl:grid-cols-[13.75rem_minmax(0,1fr)]'
 	);
 </script>
 
@@ -199,147 +211,132 @@
 {:else}
 	<div
 		use:near={{ enter: () => onnear?.(), leave: () => onleave?.() }}
-		class="@container px-(--pad-panel) py-3 [contain-intrinsic-size:auto_8rem] [content-visibility:auto]"
+		class="@container px-(--pad-panel) py-3 [contain-intrinsic-size:auto_9rem] [content-visibility:auto]"
 	>
-		<div class="grid items-start gap-x-5 gap-y-3 {columns}">
-			<!-- The pictures: what the camera saw, and what Brickognize shows for the part. -->
+		<div class="grid items-center gap-x-5 gap-y-3 {columns}">
+			<!-- The two pictures a reviewer looks between: the camera's and Brickognize's. -->
 			<a
 				href={`/tracked/${piece.uuid}`}
 				aria-label="Open the piece"
-				class="-m-1 flex min-h-20 flex-col gap-2 rounded-control p-1 hover:bg-hover"
+				class="-m-1 flex gap-3 rounded-control p-1 hover:bg-hover"
 			>
-				<span class="flex flex-wrap items-start gap-1.5 @3xl:flex-nowrap">
-					{#if imgState === undefined || imgState.status === 'loading'}
-						<span class="flex gap-1.5" aria-busy="true">
-							<Skeleton class="size-20" />
-							<Skeleton class="size-20" />
-						</span>
-					{:else if shown.length === 0 && !imgState.stockUrl}
+				<span class="flex flex-col items-center gap-1">
+					{#if loading}
+						<span aria-busy="true"><Skeleton class="size-[6.5rem]" /></span>
+					{:else if best}
+						<FrameTile frame={best} size={6.5} mark={false} />
+					{:else}
 						<span
-							class="flex h-20 items-center"
+							class="flex size-[6.5rem] items-center justify-center bg-well"
 							title="No stored images for this piece: it was recorded before images were captured, or none were taken."
 						>
 							<NoPieceImage class="h-12 w-auto text-ink-faint" />
 						</span>
-					{:else}
-						<span
-							class="flex max-w-full flex-wrap gap-1.5 @3xl:w-[21.125rem] @3xl:shrink-0 @3xl:flex-nowrap"
-						>
-							{#each crops as img, i (i)}
-								<ImageZoom
-									src={img.src}
-									label="{sourceLabel(img.source, img.channel)}: produced the result"
-									class="shrink-0"
-								>
-									<span class="relative block size-20 shrink-0">
-										<PartImage src={img.src} class="size-20" />
-										<span
-											class="dark num absolute bottom-0.5 left-0.5 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
-										>
-											{channelLabel(img)}
-										</span>
-									</span>
-								</ImageZoom>
-							{/each}
-							{#if more > 0}
-								<span
-									class="num flex size-20 shrink-0 items-center justify-center text-sm text-ink-muted"
-									title="{more} more pictures produced the result: they are on the piece's page"
-								>
-									+{more}
-								</span>
-							{/if}
-							{#if shown.length === 0}
-								<span
-									class="flex h-20 items-center"
-									title="No stored images for this piece: it was recorded before images were captured, or none were taken."
-								>
-									<NoPieceImage class="h-12 w-auto text-ink-faint" />
-								</span>
-							{/if}
-						</span>
-						{#if imgState.stockUrl}
-							<span class="flex shrink-0 flex-col items-center gap-0.5 border-l border-line pl-2.5">
-								<ImageZoom src={imgState.stockUrl} label="Brickognize's picture of this part">
-									<PartImage src={imgState.stockUrl} class="size-20" />
-								</ImageZoom>
-								<span class="text-xs text-ink-muted">Brickognize</span>
-							</span>
-						{/if}
 					{/if}
+					<span class="text-xs text-ink-muted">Camera</span>
 				</span>
-				{#if strip}<FrameStrip frames={all} size="sm" />{/if}
+				<span class="flex flex-col items-center gap-1">
+					<ImageZoom src={reference} label="Brickognize's picture of this part">
+						<PartImage src={reference} class="size-[6.5rem]" />
+					</ImageZoom>
+					<span class="text-xs text-ink-muted">Brickognize</span>
+				</span>
 			</a>
 
-			<!-- The outcome: the part, what the machine decided, and where it went. -->
-			<div class="flex min-w-0 flex-col gap-1">
-				<div class="flex min-w-0 items-center gap-2">
-					<span class="min-w-0 truncate text-sm font-semibold text-ink">
-						{piece.part_name ?? piece.part_id ?? piece.uuid.slice(0, 8)}
-					</span>
-					{#if piece.part_id && piece.part_name}
-						<span class="shrink-0 font-mono text-xs text-ink-muted">{piece.part_id}</span>
-					{/if}
-					<span class="ml-auto flex shrink-0 items-center">
-						{#if imgState?.status === 'ok' && imgState.origin === 'memory' && sorted.length > 0 && onToggleReclassify}
+			<div class="flex min-w-0 flex-col gap-2.5">
+				<!-- The outcome: the part, what the machine decided, and where it went. -->
+				<div class="flex min-w-0 flex-col gap-1">
+					<div class="flex min-w-0 items-center gap-2">
+						<span class="min-w-0 truncate text-sm font-semibold text-ink">
+							{piece.part_name ?? piece.part_id ?? piece.uuid.slice(0, 8)}
+						</span>
+						{#if piece.part_id && piece.part_name}
+							<span class="shrink-0 font-mono text-xs text-ink-muted">{piece.part_id}</span>
+						{/if}
+						<span class="ml-auto flex shrink-0 items-center">
+							{#if imgState?.status === 'ok' && imgState.origin === 'memory' && sorted.length > 0 && onToggleReclassify}
+								<Button
+									size="sm"
+									variant={reclassifyOpen ? 'primary' : 'ghost'}
+									icon={FlaskConical}
+									label="Scratch reclassify: pick crops and re-run Brickognize (not recorded)"
+									onclick={onToggleReclassify}
+								/>
+							{/if}
 							<Button
 								size="sm"
-								variant={reclassifyOpen ? 'primary' : 'ghost'}
-								icon={FlaskConical}
-								label="Scratch reclassify: pick crops and re-run Brickognize (not recorded)"
-								onclick={onToggleReclassify}
+								variant="ghost"
+								icon={ArrowRight}
+								label="Open the piece"
+								href={`/tracked/${piece.uuid}`}
 							/>
+						</span>
+					</div>
+					<div class="flex min-w-0 items-center gap-x-3 overflow-hidden whitespace-nowrap">
+						<span class="flex shrink-0 items-center gap-1.5">
+							<PieceStatusBadge status={piece.classification_status} dead={Boolean(piece.dead)} />
+						</span>
+						{#if lego_color}
+							<ColorChip
+								name={lego_color.name}
+								rgb={lego_color.hex}
+								class="shrink-0 text-sm text-ink"
+							/>
+						{:else if piece.color_name && piece.color_name !== 'Any Color'}
+							<Badge>{piece.color_name}</Badge>
 						{/if}
-						<Button
-							size="sm"
-							variant="ghost"
-							icon={ArrowRight}
-							label="Open the piece"
-							href={`/tracked/${piece.uuid}`}
-						/>
-					</span>
+						{#if typeof piece.confidence === 'number'}
+							<span
+								class="num shrink-0 text-sm font-medium {confidenceClass(piece.confidence)}"
+								title="How sure the identification was"
+							>
+								{Math.round(piece.confidence * 100)}%
+							</span>
+						{/if}
+						{#if value}
+							<span
+								class="num shrink-0 text-sm text-ink"
+								title="BrickLink moving-average price (Hive catalog)"
+							>
+								{value}
+							</span>
+						{/if}
+					</div>
+					<div
+						class="flex min-w-0 items-center gap-x-3 overflow-hidden text-xs whitespace-nowrap text-ink-muted"
+					>
+						{#if bin}<span class="shrink-0 font-mono" title={bin.title}>{bin.text}</span>{/if}
+						{#if when}<span class="num shrink-0">{when}</span>{/if}
+						{#if imgState?.status === 'ok' && sorted.length > 0}
+							<span
+								class="num shrink-0"
+								title="Pictures that produced the result, of all stored for this piece"
+							>
+								{usedCount} of {sorted.length} pictures used
+							</span>
+						{/if}
+					</div>
+					<!-- What went wrong with it, when anything did: the names; the piece's page
+					says what happened. -->
+					<PieceProblems problems={piece.problems} layout="line" />
 				</div>
-				<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-					<span class="flex items-center gap-1.5">
-						<PieceStatusBadge status={piece.classification_status} dead={Boolean(piece.dead)} />
-					</span>
-					{#if lego_color}
-						<ColorChip name={lego_color.name} rgb={lego_color.hex} class="text-sm text-ink" />
-					{:else if piece.color_name && piece.color_name !== 'Any Color'}
-						<Badge>{piece.color_name}</Badge>
-					{/if}
-					{#if typeof piece.confidence === 'number'}
-						<span
-							class="num text-sm font-medium {confidenceClass(piece.confidence)}"
-							title="How sure the identification was"
-						>
-							{Math.round(piece.confidence * 100)}%
+
+				<!-- Every picture of the piece, small: a channel's tiles are always in the
+				same place, and the line keeps its height while the pictures load. -->
+				<div
+					class="flex h-[calc(2rem*var(--tile-scale)+0.25rem)] flex-wrap items-center gap-x-3 overflow-hidden [--tile-scale:0.6] @4xl:[--tile-scale:0.75] @6xl:[--tile-scale:0.6] @7xl:[--tile-scale:0.75] @[84rem]:[--tile-scale:1]"
+				>
+					{#each LANES as lane (lane.channel)}
+						<span class="flex h-full shrink-0 items-center gap-1">
+							<span class="font-mono text-xs text-ink-muted">{lane.channel}</span>
+							<FrameStrip
+								frames={all.filter((frame) => frame.channel === lane.channel)}
+								size={2}
+								cols={lane.places}
+							/>
 						</span>
-					{/if}
-					{#if value}
-						<span
-							class="num text-sm text-ink"
-							title="BrickLink moving-average price (Hive catalog)"
-						>
-							{value}
-						</span>
-					{/if}
+					{/each}
 				</div>
-				<div class="flex flex-wrap items-center gap-x-3 text-xs text-ink-muted">
-					{#if bin}<span class="font-mono" title={bin.title}>{bin.text}</span>{/if}
-					{#if when}<span class="num">{when}</span>{/if}
-					{#if imgState?.status === 'ok' && sorted.length > 0}
-						<span
-							class="num"
-							title="Pictures that produced the result, of all stored for this piece"
-						>
-							{shown.length} of {sorted.length} pictures used
-						</span>
-					{/if}
-				</div>
-				<!-- What went wrong with it, when anything did: the names; the piece's page
-				says what happened. -->
-				<PieceProblems problems={piece.problems} layout="line" />
 			</div>
 
 			<!-- The review, at the right. -->

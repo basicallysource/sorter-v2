@@ -9,6 +9,7 @@
 	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import PieceOverview from '$lib/components/pieces/PieceOverview.svelte';
+	import PiecePictures from '$lib/components/pieces/PiecePictures.svelte';
 	import PiecePredictions from '$lib/components/pieces/PiecePredictions.svelte';
 	import PieceProblems from '$lib/components/pieces/PieceProblems.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
@@ -595,22 +596,24 @@
 	// Mold and color are scored by (potentially) different providers, so each
 	// confidence sits with the source that produced it.
 	function overviewFacts(o: FactSource): Fact[] {
-		const mold = [providerLabel(o.mold_provider), percent(o.confidence)].filter(Boolean);
 		const colorName = o.color_name && o.color_name !== 'Any Color' ? o.color_name : null;
 		const color = findLegoColor(o.color_id, o.color_name);
-		const colorBy = [providerLabel(o.color_provider), percent(o.color_confidence)].filter(Boolean);
 		const facts: Fact[] = [
 			{
 				label: 'Mold',
-				value: mold.join(' · ') || '—',
+				value: percent(o.confidence) ?? '—',
+				note: o.mold_provider ? providerLabel(o.mold_provider) : null,
 				valueClass: `font-medium num ${confidenceClass(o.confidence)}`,
-				title: 'Which service identified the part, and how sure it was'
+				title: 'How sure the identification of the part was, and which service made it'
 			},
 			{
 				label: 'Color',
-				value: colorName ? [colorName, ...colorBy].join(' · ') : '—',
+				value: colorName
+					? [colorName, percent(o.color_confidence)].filter(Boolean).join(' · ')
+					: '—',
+				note: colorName && o.color_provider ? providerLabel(o.color_provider) : null,
 				swatch: color?.hex ?? null,
-				title: 'The color and which service gave it, and how sure it was'
+				title: 'The color, how sure it was, and which service gave it'
 			},
 			{
 				label: 'Category',
@@ -618,7 +621,8 @@
 			},
 			{
 				label: 'Bin',
-				value: o.stage ? `${o.bin_label} · ${o.stage}` : o.bin_label,
+				value: o.bin_label,
+				note: o.stage ?? null,
 				mono: true,
 				title: 'Layer, section and bin the machine put it in (counted from 0)'
 			}
@@ -657,7 +661,7 @@
 		return '—';
 	}
 
-	// Every picture of the piece for the top card, small, in one list: the
+	// Every picture of the piece for the left column (PiecePictures): the
 	// frames the classification channel took first, then the views of the same
 	// piece found on C3 and on C2 (the piece-link model's, oldest first), then
 	// anything else an older record carries. The ones that produced the result
@@ -675,7 +679,7 @@
 	}
 
 	function framesNote(frames: Frame[]): string {
-		if (frames.length === 0) return 'Pictures';
+		if (frames.length === 0) return 'None stored for this piece.';
 		const counts = new Map<string, number>();
 		for (const frame of frames) counts.set(frame.channel, (counts.get(frame.channel) ?? 0) + 1);
 		const from = [...counts]
@@ -694,6 +698,7 @@
 			.map(({ c }) => ({
 				key: cropKey(c),
 				src: c.src,
+				ts: c.ts ?? null,
 				label: frameLabel([
 					formatCropLabel(c),
 					c.role === 'link_match' && channelLabel(c.channel),
@@ -717,6 +722,7 @@
 			.map(({ img, i }) => ({
 				key: String(i),
 				src: img.src,
+				ts: img.ts ?? null,
 				label: frameLabel([
 					sourceLabel(img.source, img.channel),
 					img.source === 'link_match' && formatMatchProbability(img.score),
@@ -827,6 +833,13 @@
 	});
 
 	// Which of the details are open: closed ones draw nothing.
+	// The page's two columns: the pictures at the left, kept in sight (and
+	// scrolling on their own when a piece has more than the window is tall),
+	// and everything else at the right. One column where there is no room.
+	const COLUMNS =
+		'grid grid-cols-[minmax(0,1fr)] items-start gap-(--gap-panels) @5xl:grid-cols-[22.75rem_minmax(0,1fr)]';
+	const PICTURES = '@5xl:sticky @5xl:top-0 @5xl:max-h-[calc(100dvh-5rem)] @5xl:overflow-y-auto';
+
 	let openRequests = $state(false);
 	let openPricing = $state(false);
 	let openTimeline = $state(false);
@@ -882,38 +895,49 @@
 		{#if !piece}
 			{#if _fetchStatus === 'summary_only' && _diskSummary}
 				{@const ds = _diskSummary}
-				<PieceOverview
-					name={ds.part_name ?? ds.part_id ?? unnamed(ds.classification_status)}
-					partId={ds.part_name ? (ds.part_id ?? null) : null}
-					frames={diskFrames}
-					framesNote={framesNote(diskFrames)}
-					reference={ds.preview_url ?? null}
-					facts={diskFacts}
-					summary={_summary}
-					endpointBase={effectiveBase()}
-					{onReviewed}
-					onZoom={(src, label) => (zoomImage = { src, label })}
-				/>
+				<div class="@container">
+					<div class={COLUMNS}>
+						<div class={PICTURES}>
+							<PiecePictures
+								frames={diskFrames}
+								note={framesNote(diskFrames)}
+								onZoom={(src, label) => (zoomImage = { src, label })}
+							/>
+						</div>
+						<div class="flex min-w-0 flex-col gap-(--gap-panels)">
+							<PieceOverview
+								name={ds.part_name ?? ds.part_id ?? unnamed(ds.classification_status)}
+								partId={ds.part_name ? (ds.part_id ?? null) : null}
+								reference={ds.preview_url ?? null}
+								facts={diskFacts}
+								summary={_summary}
+								endpointBase={effectiveBase()}
+								{onReviewed}
+								onZoom={(src, label) => (zoomImage = { src, label })}
+							/>
 
-				<PieceProblems problems={_summary?.problems} />
+							<PieceProblems problems={_summary?.problems} />
 
-				{#if _predictions.length > 0}
-					<PiecePredictions
-						predictions={_predictions}
-						imageSrc={predictionImageSrc}
-						onZoom={(src, label) => (zoomImage = { src, label })}
-					/>
-				{/if}
+							{#if _predictions.length > 0}
+								<PiecePredictions
+									predictions={_predictions}
+									imageSrc={predictionImageSrc}
+									onZoom={(src, label) => (zoomImage = { src, label })}
+								/>
+							{/if}
 
-				<Panel flush>
-					<div class="divide-y divide-line">
-						{#if recordFacts.length > 0}
-							<Disclosure title="Record" help="Run and recording time">
-								<div class="px-(--pad-panel)"><KeyValue items={recordFacts} /></div>
-							</Disclosure>
-						{/if}
+							{#if recordFacts.length > 0}
+								<Panel flush>
+									<div class="divide-y divide-line">
+										<Disclosure title="Record" help="Run and recording time">
+											<div class="px-(--pad-panel)"><KeyValue items={recordFacts} /></div>
+										</Disclosure>
+									</div>
+								</Panel>
+							{/if}
+						</div>
 					</div>
-				</Panel>
+				</div>
 			{:else if _fetchStatus === 'loading' || _fetchStatus === 'idle'}
 				<Panel>
 					<p class="flex items-center gap-2 text-sm text-ink-muted">
@@ -933,341 +957,363 @@
 				</Alert>
 			{/if}
 		{:else}
-			<!-- What you came to see: the pictures, what the machine decided, the review. -->
-			<PieceOverview
-				name={piece.part_name ?? piece.part_id ?? unnamed(piece.classification_status)}
-				partId={piece.part_name ? (piece.part_id ?? null) : null}
-				frames={overviewFrames}
-				framesNote={framesNote(overviewFrames)}
-				reference={refImageSrc}
-				facts={liveFacts}
-				summary={_summary}
-				endpointBase={effectiveBase()}
-				{onReviewed}
-				onZoom={(src, label) => (zoomImage = { src, label })}
-			/>
+			<!-- Two columns: the pictures keep the left one and stay in sight while
+				the right one is read. -->
+			<div class="@container">
+				<div class={COLUMNS}>
+					<div class={PICTURES}>
+						<PiecePictures
+							frames={overviewFrames}
+							note={framesNote(overviewFrames)}
+							onZoom={(src, label) => (zoomImage = { src, label })}
+						/>
+					</div>
+					<div class="flex min-w-0 flex-col gap-(--gap-panels)">
+						<!-- What the machine decided, and the review. -->
+						<PieceOverview
+							name={piece.part_name ?? piece.part_id ?? unnamed(piece.classification_status)}
+							partId={piece.part_name ? (piece.part_id ?? null) : null}
+							reference={refImageSrc}
+							facts={liveFacts}
+							summary={_summary}
+							endpointBase={effectiveBase()}
+							{onReviewed}
+							onZoom={(src, label) => (zoomImage = { src, label })}
+						/>
 
-			<!-- What went wrong with it, when anything did. -->
-			<PieceProblems problems={_summary?.problems} />
+						<!-- What went wrong with it, when anything did. -->
+						<PieceProblems problems={_summary?.problems} />
 
-			<!-- What each service said about it. -->
-			{#if _predictions.length > 0}
-				<PiecePredictions
-					predictions={_predictions}
-					imageSrc={predictionImageSrc}
-					onZoom={(src, label) => (zoomImage = { src, label })}
-				/>
-			{/if}
+						<!-- What each service said about it. -->
+						{#if _predictions.length > 0}
+							<PiecePredictions
+								predictions={_predictions}
+								imageSrc={predictionImageSrc}
+								onZoom={(src, label) => (zoomImage = { src, label })}
+							/>
+						{/if}
 
-			<!-- How it got there: closed until asked for, each with what it says. -->
-			<Panel flush>
-				<div class="divide-y divide-line">
-					{#if attempts.length > 0}
-						<!-- The parallel Brickognize calls (combined and single-image variants).
+						<!-- How it got there: closed until asked for, each with what it says. -->
+						<Panel flush>
+							<div class="divide-y divide-line">
+								{#if attempts.length > 0}
+									<!-- The parallel Brickognize calls (combined and single-image variants).
 						     Each ran concurrently; the highest-confidence "found" call wins and
 						     is marked applied. It shows what every request returned, not just the
 						     winner, so a confused fused set against a clean lone frame is visible
 						     at a glance. -->
-						<Disclosure
-							title="Classification requests"
-							help={requestsHelp}
-							bind:open={openRequests}
-						>
-							{#if openRequests}
-								<ul class="divide-y divide-line">
-									{#each attempts as a, ai (ai)}
-										{@const open = expandedAttempts.has(ai)}
-										{@const sent = attemptImages(a)}
-										<li class={a.applied ? 'bg-primary-soft' : ''}>
-											<button
-												type="button"
-												aria-expanded={open}
-												class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-(--pad-panel) py-2 text-left text-sm transition-colors hover:bg-hover"
-												onclick={() => toggleAttempt(ai)}
-											>
-												{#if open}
-													<ChevronDown size={16} class="shrink-0 text-ink-muted" />
-												{:else}
-													<ChevronRight size={16} class="shrink-0 text-ink-muted" />
-												{/if}
-												<span class="font-medium text-ink">{attemptName(a)}</span>
-												<span class="text-ink-muted">{attemptInputs(a)}</span>
-												<span
-													class="num {a.error
-														? 'text-danger-ink'
-														: a.found
-															? 'font-medium text-ink'
-															: 'text-ink-muted'}"
-												>
-													{attemptOutcome(a)}
-												</span>
-												{#if a.found && a.part_name}<span class="text-ink-muted">{a.part_name}</span
-													>{/if}
-												{#if a.found && a.color_name}<span class="text-ink-muted"
-														>· {a.color_name}</span
-													>{/if}
-												{#if a.error}<span class="text-ink-muted">{a.error}</span>{/if}
-												{#if a.duration_s != null}
-													<span class="num text-ink-muted">{a.duration_s.toFixed(2)}s</span>
-												{/if}
-												{#if a.applied}
-													<span
-														class="ml-auto"
-														title="This request's result was applied to the piece"
-													>
-														<Badge tone="primary">Applied</Badge>
-													</span>
-												{/if}
-											</button>
-											{#if open}
-												<div class="flex flex-wrap gap-6 px-(--pad-panel) pb-3">
-													<!-- What was sent to Brickognize for this request -->
-													<div class="flex flex-col gap-2">
-														<div class="label">Sent ({sent.length})</div>
-														{#if sent.length === 0}
-															<div
-																class="flex size-24 items-center justify-center rounded-control bg-well text-sm text-ink-muted"
+									<Disclosure
+										title="Classification requests"
+										help={requestsHelp}
+										bind:open={openRequests}
+									>
+										{#if openRequests}
+											<ul class="divide-y divide-line">
+												{#each attempts as a, ai (ai)}
+													{@const open = expandedAttempts.has(ai)}
+													{@const sent = attemptImages(a)}
+													<li class={a.applied ? 'bg-primary-soft' : ''}>
+														<button
+															type="button"
+															aria-expanded={open}
+															class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-(--pad-panel) py-2 text-left text-sm transition-colors hover:bg-hover"
+															onclick={() => toggleAttempt(ai)}
+														>
+															{#if open}
+																<ChevronDown size={16} class="shrink-0 text-ink-muted" />
+															{:else}
+																<ChevronRight size={16} class="shrink-0 text-ink-muted" />
+															{/if}
+															<span class="font-medium text-ink">{attemptName(a)}</span>
+															<span class="text-ink-muted">{attemptInputs(a)}</span>
+															<span
+																class="num {a.error
+																	? 'text-danger-ink'
+																	: a.found
+																		? 'font-medium text-ink'
+																		: 'text-ink-muted'}"
 															>
-																Crops aged out
-															</div>
-														{:else}
-															<div class="flex flex-wrap gap-2">
-																{#each sent as crop (cropKey(crop))}
-																	{@render thumbCrop(
-																		crop.src,
-																		crop.role,
-																		formatCropLabel(crop),
-																		() =>
-																			(zoomImage = { src: crop.src, label: formatCropLabel(crop) })
-																	)}
-																{/each}
-															</div>
-														{/if}
-													</div>
-													<!-- What Brickognize returned for this request -->
-													<div class="flex flex-col gap-2">
-														<div class="label">Result</div>
-														{#if a.error}
-															<div
-																class="flex size-24 items-center justify-center rounded-control bg-danger-soft p-2 text-center text-sm text-danger-ink"
-															>
-																{a.error}
-															</div>
-														{:else if a.found}
-															<div class="flex gap-3">
-																{#if a.preview_url}
-																	{@render thumbCrop(
-																		a.preview_url,
-																		'Brickognize reference',
-																		'',
-																		() =>
-																			(zoomImage = {
-																				src: a.preview_url as string,
-																				label: a.part_name ?? a.part_id ?? 'result'
-																			})
-																	)}
-																{/if}
-																<div class="flex flex-col gap-0.5 text-sm">
-																	<span class="num font-medium text-ink">{a.part_id}</span>
-																	{#if a.part_name}<span class="text-ink-muted">{a.part_name}</span
-																		>{/if}
-																	{#if a.confidence != null}
-																		<span class="num text-ink-muted"
-																			>{(a.confidence * 100).toFixed(0)}% match</span
+																{attemptOutcome(a)}
+															</span>
+															{#if a.found && a.part_name}<span class="text-ink-muted"
+																	>{a.part_name}</span
+																>{/if}
+															{#if a.found && a.color_name}<span class="text-ink-muted"
+																	>· {a.color_name}</span
+																>{/if}
+															{#if a.error}<span class="text-ink-muted">{a.error}</span>{/if}
+															{#if a.duration_s != null}
+																<span class="num text-ink-muted">{a.duration_s.toFixed(2)}s</span>
+															{/if}
+															{#if a.applied}
+																<span
+																	class="ml-auto"
+																	title="This request's result was applied to the piece"
+																>
+																	<Badge tone="primary">Applied</Badge>
+																</span>
+															{/if}
+														</button>
+														{#if open}
+															<div class="flex flex-wrap gap-6 px-(--pad-panel) pb-3">
+																<!-- What was sent to Brickognize for this request -->
+																<div class="flex flex-col gap-2">
+																	<div class="label">Sent ({sent.length})</div>
+																	{#if sent.length === 0}
+																		<div
+																			class="flex size-24 items-center justify-center rounded-control bg-well text-sm text-ink-muted"
 																		>
+																			Crops aged out
+																		</div>
+																	{:else}
+																		<div class="flex flex-wrap gap-2">
+																			{#each sent as crop (cropKey(crop))}
+																				{@render thumbCrop(
+																					crop.src,
+																					crop.role,
+																					formatCropLabel(crop),
+																					() =>
+																						(zoomImage = {
+																							src: crop.src,
+																							label: formatCropLabel(crop)
+																						})
+																				)}
+																			{/each}
+																		</div>
 																	{/if}
-																	{#if a.color_name}<span class="text-ink-muted"
-																			>Color: {a.color_name}</span
-																		>{/if}
+																</div>
+																<!-- What Brickognize returned for this request -->
+																<div class="flex flex-col gap-2">
+																	<div class="label">Result</div>
+																	{#if a.error}
+																		<div
+																			class="flex size-24 items-center justify-center rounded-control bg-danger-soft p-2 text-center text-sm text-danger-ink"
+																		>
+																			{a.error}
+																		</div>
+																	{:else if a.found}
+																		<div class="flex gap-3">
+																			{#if a.preview_url}
+																				{@render thumbCrop(
+																					a.preview_url,
+																					'Brickognize reference',
+																					'',
+																					() =>
+																						(zoomImage = {
+																							src: a.preview_url as string,
+																							label: a.part_name ?? a.part_id ?? 'result'
+																						})
+																				)}
+																			{/if}
+																			<div class="flex flex-col gap-0.5 text-sm">
+																				<span class="num font-medium text-ink">{a.part_id}</span>
+																				{#if a.part_name}<span class="text-ink-muted"
+																						>{a.part_name}</span
+																					>{/if}
+																				{#if a.confidence != null}
+																					<span class="num text-ink-muted"
+																						>{(a.confidence * 100).toFixed(0)}% match</span
+																					>
+																				{/if}
+																				{#if a.color_name}<span class="text-ink-muted"
+																						>Color: {a.color_name}</span
+																					>{/if}
+																			</div>
+																		</div>
+																	{:else}
+																		<div
+																			class="flex size-24 items-center justify-center rounded-control bg-well text-sm text-ink-muted"
+																		>
+																			No match
+																		</div>
+																	{/if}
 																</div>
 															</div>
-														{:else}
-															<div
-																class="flex size-24 items-center justify-center rounded-control bg-well text-sm text-ink-muted"
-															>
-																No match
-															</div>
 														{/if}
-													</div>
-												</div>
-											{/if}
-										</li>
-									{/each}
-								</ul>
-							{/if}
-						</Disclosure>
-					{/if}
+													</li>
+												{/each}
+											</ul>
+										{/if}
+									</Disclosure>
+								{/if}
 
-					<!-- Every BrickLink bucket from the Hive catalog. The headline
+								<!-- Every BrickLink bucket from the Hive catalog. The headline
 					     `moving_avg_price` (what routing uses) is the first non-empty of these,
 					     sold-new preferred; the table shows all four so you can see whatever
 					     source actually exists for this part. -->
-					{#if pricing}
-						{@const md = pricing}
-						{@const price = (md.price ?? null) as Record<string, any> | null}
-						{@const bl = (md.bricklink ?? null) as Record<string, any> | null}
-						<Disclosure title="Pricing" help={pricingHelp} bind:open={openPricing}>
-							{#if openPricing}
-								<div class="flex flex-col gap-2 pb-1 text-sm">
-									<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-(--pad-panel)">
-										<span class="text-ink-muted">
-											Moving average, used for routing. From the Hive catalog{md.price_currency
-												? `, BrickLink ${md.price_currency}`
-												: ''}; first available, sold new preferred.
-										</span>
-										{#if md.price_updated_at}
-											<span class="text-xs text-ink-muted"
-												>Synced {String(md.price_updated_at).slice(0, 10)}</span
-											>
-										{/if}
-									</div>
-									{#if md.price_from_base_mold}
-										<div class="px-(--pad-panel)">
-											<Alert tone="warning" title="Approximate">
-												There is no market data for this exact print. This shows the base mold
-												<span class="font-mono">{md.price_from_base_mold}</span
-												>{md.price_from_base_name ? ` (${md.price_from_base_name})` : ''} price instead.
-											</Alert>
-										</div>
-									{/if}
-									{#if price}
-										<div class="overflow-x-auto">
-											<table class="data-table">
-												<thead>
-													<tr>
-														<th>Source</th>
-														<th class="num">Avg</th>
-														<th class="num">Weighted avg</th>
-														<th class="num">Min</th>
-														<th class="num">Max</th>
-														<th class="num">Qty</th>
-														<th class="num">Lots</th>
-													</tr>
-												</thead>
-												<tbody>
-													{#each PRICE_BUCKETS as [key, label]}
-														{@const b = (price[key] ?? {}) as Record<string, any>}
-														<tr>
-															<td>{label}</td>
-															<td class="num">{fmtPrice(b.avg)}</td>
-															<td class="num">{fmtPrice(b.wavg)}</td>
-															<td class="num text-ink-muted">{fmtPrice(b.min)}</td>
-															<td class="num text-ink-muted">{fmtPrice(b.max)}</td>
-															<td class="num text-ink-muted">{b.qty ?? '—'}</td>
-															<td class="num text-ink-muted">{b.lots ?? '—'}</td>
-														</tr>
-													{/each}
-												</tbody>
-											</table>
-										</div>
-									{:else}
-										<p class="px-(--pad-panel) text-ink-muted">
-											No price-guide rows for this part in the Hive catalog.
-										</p>
-									{/if}
-									{#if bl}
-										<div
-											class="flex flex-wrap gap-x-4 gap-y-1 px-(--pad-panel) text-xs text-ink-muted"
-										>
-											{#if bl.item_no}<span>BL item {bl.item_no}</span>{/if}
-											{#if bl.weight_g}<span>{bl.weight_g} g</span>{/if}
-											{#if bl.dim_x_studs && bl.dim_y_studs}<span
-													>{bl.dim_x_studs}×{bl.dim_y_studs} studs</span
-												>{/if}
-											{#if bl.year_released}<span>since {bl.year_released}</span>{/if}
-											{#if bl.is_obsolete}<span>obsolete</span>{/if}
-										</div>
-									{/if}
-								</div>
-							{/if}
-						</Disclosure>
-					{/if}
-
-					<Disclosure title="Lifecycle timeline" help={timelineHelp} bind:open={openTimeline}>
-						{#if openTimeline}
-							<div class="px-(--pad-panel) pb-2">
-								{#if timeline.length === 0}
-									<p class="text-sm text-ink-muted">No lifecycle events recorded yet.</p>
-								{:else}
-									{@const anchor = timeline[0].ts}
-									<ol class="@container grid gap-x-8 gap-y-0.5 text-sm md:grid-cols-2">
-										{#each timeline as ev, idx (idx)}
-											<li class="flex items-baseline gap-3">
-												<span class="min-w-[11rem] text-ink">{ev.label}</span>
-												<span class="num font-mono text-ink-muted">{formatAbsTs(ev.ts)}</span>
-												{#if idx > 0}
-													<span class="num font-mono text-xs text-ink-muted"
-														>{formatRelSec(ev.ts, anchor)}</span
-													>
+								{#if pricing}
+									{@const md = pricing}
+									{@const price = (md.price ?? null) as Record<string, any> | null}
+									{@const bl = (md.bricklink ?? null) as Record<string, any> | null}
+									<Disclosure title="Pricing" help={pricingHelp} bind:open={openPricing}>
+										{#if openPricing}
+											<div class="flex flex-col gap-2 pb-1 text-sm">
+												<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-(--pad-panel)">
+													<span class="text-ink-muted">
+														Moving average, used for routing. From the Hive catalog{md.price_currency
+															? `, BrickLink ${md.price_currency}`
+															: ''}; first available, sold new preferred.
+													</span>
+													{#if md.price_updated_at}
+														<span class="text-xs text-ink-muted"
+															>Synced {String(md.price_updated_at).slice(0, 10)}</span
+														>
+													{/if}
+												</div>
+												{#if md.price_from_base_mold}
+													<div class="px-(--pad-panel)">
+														<Alert tone="warning" title="Approximate">
+															There is no market data for this exact print. This shows the base mold
+															<span class="font-mono">{md.price_from_base_mold}</span
+															>{md.price_from_base_name ? ` (${md.price_from_base_name})` : ''} price
+															instead.
+														</Alert>
+													</div>
 												{/if}
-											</li>
-										{/each}
-									</ol>
+												{#if price}
+													<div class="overflow-x-auto">
+														<table class="data-table">
+															<thead>
+																<tr>
+																	<th>Source</th>
+																	<th class="num">Avg</th>
+																	<th class="num">Weighted avg</th>
+																	<th class="num">Min</th>
+																	<th class="num">Max</th>
+																	<th class="num">Qty</th>
+																	<th class="num">Lots</th>
+																</tr>
+															</thead>
+															<tbody>
+																{#each PRICE_BUCKETS as [key, label]}
+																	{@const b = (price[key] ?? {}) as Record<string, any>}
+																	<tr>
+																		<td>{label}</td>
+																		<td class="num">{fmtPrice(b.avg)}</td>
+																		<td class="num">{fmtPrice(b.wavg)}</td>
+																		<td class="num text-ink-muted">{fmtPrice(b.min)}</td>
+																		<td class="num text-ink-muted">{fmtPrice(b.max)}</td>
+																		<td class="num text-ink-muted">{b.qty ?? '—'}</td>
+																		<td class="num text-ink-muted">{b.lots ?? '—'}</td>
+																	</tr>
+																{/each}
+															</tbody>
+														</table>
+													</div>
+												{:else}
+													<p class="px-(--pad-panel) text-ink-muted">
+														No price-guide rows for this part in the Hive catalog.
+													</p>
+												{/if}
+												{#if bl}
+													<div
+														class="flex flex-wrap gap-x-4 gap-y-1 px-(--pad-panel) text-xs text-ink-muted"
+													>
+														{#if bl.item_no}<span>BL item {bl.item_no}</span>{/if}
+														{#if bl.weight_g}<span>{bl.weight_g} g</span>{/if}
+														{#if bl.dim_x_studs && bl.dim_y_studs}<span
+																>{bl.dim_x_studs}×{bl.dim_y_studs} studs</span
+															>{/if}
+														{#if bl.year_released}<span>since {bl.year_released}</span>{/if}
+														{#if bl.is_obsolete}<span>obsolete</span>{/if}
+													</div>
+												{/if}
+											</div>
+										{/if}
+									</Disclosure>
 								{/if}
-							</div>
-						{/if}
-					</Disclosure>
 
-					{#if recordFacts.length > 0}
-						<Disclosure
-							title="Record"
-							help={recordFacts.map((r) => `${r.label.toLowerCase()} ${r.value}`).join(' · ')}
-						>
-							<div class="px-(--pad-panel)"><KeyValue items={recordFacts} /></div>
-						</Disclosure>
-					{/if}
+								<Disclosure title="Lifecycle timeline" help={timelineHelp} bind:open={openTimeline}>
+									{#if openTimeline}
+										<div class="px-(--pad-panel) pb-2">
+											{#if timeline.length === 0}
+												<p class="text-sm text-ink-muted">No lifecycle events recorded yet.</p>
+											{:else}
+												{@const anchor = timeline[0].ts}
+												<ol class="@container grid gap-x-8 gap-y-0.5 text-sm md:grid-cols-2">
+													{#each timeline as ev, idx (idx)}
+														<li class="flex items-baseline gap-3">
+															<span class="min-w-[11rem] text-ink">{ev.label}</span>
+															<span class="num font-mono text-ink-muted">{formatAbsTs(ev.ts)}</span>
+															{#if idx > 0}
+																<span class="num font-mono text-xs text-ink-muted"
+																	>{formatRelSec(ev.ts, anchor)}</span
+																>
+															{/if}
+														</li>
+													{/each}
+												</ol>
+											{/if}
+										</div>
+									{/if}
+								</Disclosure>
 
-					<!-- Arrival snapshot: the full carousel frame at the instant the piece first
+								{#if recordFacts.length > 0}
+									<Disclosure
+										title="Record"
+										help={recordFacts.map((r) => `${r.label.toLowerCase()} ${r.value}`).join(' · ')}
+									>
+										<div class="px-(--pad-panel)"><KeyValue items={recordFacts} /></div>
+									</Disclosure>
+								{/if}
+
+								<!-- Arrival snapshot: the full carousel frame at the instant the piece first
 					     appeared on C4 (dropping in from C3). -->
-					{#if piece.drop_snapshot}
-						{@const drop_src = dataImageUrl(piece.drop_snapshot) as string}
-						<Disclosure title="Arrival snapshot" help="The carousel frame as the piece dropped in">
-							<div class="px-(--pad-panel)">
-								{@render thumbCrop(
-									drop_src,
-									'arrival snapshot',
-									'At arrival',
-									() => (zoomImage = { src: drop_src, label: 'At arrival' })
-								)}
+								{#if piece.drop_snapshot}
+									{@const drop_src = dataImageUrl(piece.drop_snapshot) as string}
+									<Disclosure
+										title="Arrival snapshot"
+										help="The carousel frame as the piece dropped in"
+									>
+										<div class="px-(--pad-panel)">
+											{@render thumbCrop(
+												drop_src,
+												'arrival snapshot',
+												'At arrival',
+												() => (zoomImage = { src: drop_src, label: 'At arrival' })
+											)}
+										</div>
+									</Disclosure>
+								{/if}
+
+								<!-- Scratch reclassify: pick crops, re-run Brickognize (not recorded) -->
+								{#if crops.length > 0}
+									<Disclosure
+										title="Scratch reclassify"
+										help="Pick crops and run Brickognize again; not recorded"
+										bind:open={openReclassify}
+									>
+										{#if openReclassify}
+											<div class="px-(--pad-panel) pb-2">
+												<ReclassifyPanel
+													endpointBase={effectiveBase()}
+													images={crops.map((c) => ({
+														image: c.src,
+														label: formatCropLabel(c),
+														used: c.used
+													}))}
+												/>
+											</div>
+										{/if}
+									</Disclosure>
+								{/if}
+
+								<!-- Raw JSON -->
+								<Disclosure title="Raw JSON" bind:open={showRawJson}>
+									{#if showRawJson}
+										<pre
+											class="mx-(--pad-panel) max-h-96 overflow-auto rounded-control bg-well p-3 text-xs text-ink-muted">{JSON.stringify(
+												piece,
+												null,
+												2
+											)}</pre>
+									{/if}
+								</Disclosure>
 							</div>
-						</Disclosure>
-					{/if}
-
-					<!-- Scratch reclassify: pick crops, re-run Brickognize (not recorded) -->
-					{#if crops.length > 0}
-						<Disclosure
-							title="Scratch reclassify"
-							help="Pick crops and run Brickognize again; not recorded"
-							bind:open={openReclassify}
-						>
-							{#if openReclassify}
-								<div class="px-(--pad-panel) pb-2">
-									<ReclassifyPanel
-										endpointBase={effectiveBase()}
-										images={crops.map((c) => ({
-											image: c.src,
-											label: formatCropLabel(c),
-											used: c.used
-										}))}
-									/>
-								</div>
-							{/if}
-						</Disclosure>
-					{/if}
-
-					<!-- Raw JSON -->
-					<Disclosure title="Raw JSON" bind:open={showRawJson}>
-						{#if showRawJson}
-							<pre
-								class="mx-(--pad-panel) max-h-96 overflow-auto rounded-control bg-well p-3 text-xs text-ink-muted">{JSON.stringify(
-									piece,
-									null,
-									2
-								)}</pre>
-						{/if}
-					</Disclosure>
+						</Panel>
+					</div>
 				</div>
-			</Panel>
+			</div>
 		{/if}
 	</div>
 </AppShell>

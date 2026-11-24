@@ -2,56 +2,50 @@
 	import ImageZoom from '$lib/components/ui/ImageZoom.svelte';
 	import type { Frame } from './types';
 
-	// One picture of a piece in a FrameStrip. It is shown whole in a square
-	// place, at its own shape, so the stroke around a picture that produced the
-	// result runs around the picture itself and never around bars beside it.
-	// Under the pointer it is enlarged (ImageZoom), and what is said about it
-	// there includes how sharp it is; nothing but the channel is written on it.
+	// One picture of a piece, whole, on a quiet square tile of a fixed size. The
+	// tile never takes its size from the picture, so a row of them is the same
+	// row whatever shapes the pictures have. A picture that produced the result
+	// has a stroke around its tile, with square corners. Under the pointer the
+	// picture is enlarged (ImageZoom), and what is said about it there includes
+	// how sharp it is; nothing is written on the tile.
 	let {
 		frame,
 		size,
+		mark = true,
 		onZoom
 	}: {
 		frame: Frame;
-		size: 'sm' | 'md';
+		// The tile's side, in rem. What holds the tile can scale every tile in
+		// it with --tile-scale (a narrower row, smaller tiles).
+		size: number;
+		// Whether a picture that produced the result gets its stroke.
+		mark?: boolean;
 		// Opens the full-size viewer when the picture is clicked. Without it the
-		// picture is not a button (the records list wraps a whole row in a link).
+		// tile is not a button.
 		onZoom?: (src: string, label: string) => void;
 	} = $props();
 
-	let width = $state(0);
-	let height = $state(0);
 	let failed = $state(false);
 
 	const label = $derived(
 		frame.sharpness ? `${frame.label} · sharpness ${frame.sharpness}` : frame.label
 	);
-	const place = $derived(size === 'sm' ? 'size-9' : 'size-[4.75rem] p-1');
+	const side = $derived(`calc(${size}rem * var(--tile-scale, 1))`);
+	const tile = $derived(
+		`relative block shrink-0 overflow-hidden bg-well ${frame.used && mark ? 'outline-2 outline-primary' : ''}`
+	);
 </script>
 
 {#snippet picture()}
-	{#if failed}
-		<span aria-hidden="true" class="block size-full rounded-item bg-hover"></span>
-	{:else}
+	{#if !failed}
 		<img
 			src={frame.src}
 			alt=""
 			loading="lazy"
 			decoding="async"
-			bind:naturalWidth={width}
-			bind:naturalHeight={height}
 			onerror={() => (failed = true)}
-			class="block max-h-full max-w-full shrink-0 object-contain {height > width
-				? 'h-full w-auto'
-				: 'h-auto w-full'} {frame.used ? 'outline-2 outline-primary' : ''}"
+			class="block size-full object-contain"
 		/>
-	{/if}
-	{#if size === 'md'}
-		<span
-			class="dark absolute bottom-1 left-1 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
-		>
-			{frame.channel}
-		</span>
 	{/if}
 {/snippet}
 
@@ -60,13 +54,15 @@
 		<button
 			type="button"
 			aria-label={label}
-			class="relative flex shrink-0 items-center justify-center rounded-item transition-colors hover:bg-hover {place}"
+			class="{tile} cursor-pointer transition-colors hover:bg-hover"
+			style:width={side}
+			style:height={side}
 			onclick={() => onZoom(frame.src, label)}
 		>
 			{@render picture()}
 		</button>
 	{:else}
-		<span class="relative flex shrink-0 items-center justify-center {place}">
+		<span class={tile} style:width={side} style:height={side}>
 			{@render picture()}
 		</span>
 	{/if}

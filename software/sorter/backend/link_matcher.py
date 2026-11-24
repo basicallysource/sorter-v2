@@ -256,12 +256,19 @@ def syncLive(gc: Any) -> None:
 
 
 def matchForPieceLive(
-    gc: Any, piece_uuid: str, anchor_bgr: Any, arrival_ts: float, limit: int = 40
+    gc: Any,
+    piece_uuid: str,
+    anchor_bgr: Any,
+    arrival_ts: float,
+    limit: int = 40,
+    wait_s: Optional[float] = None,
 ) -> Optional[list[dict[str, Any]]]:
     """Live path, called as a piece finishes classifying.
 
     Takes the anchor from memory and the arrival time from the C4 frame, because
     neither the piece's images nor its record are on disk yet at this point.
+    ``wait_s``: how long a model that follows the control data may take, for a
+    caller nothing waits on.
     """
     entry = resolveActiveEntry(gc)
     if entry is None:
@@ -270,7 +277,10 @@ def matchForPieceLive(
         from piece_link import live
         from toml_config import getLinkMatchingConfig
 
-        return live.linkPiece(piece_uuid, float(arrival_ts), float(getLinkMatchingConfig()["min_confidence"]))
+        min_p = float(getLinkMatchingConfig()["min_confidence"])
+        if wait_s is None:
+            return live.linkPiece(piece_uuid, float(arrival_ts), min_p)
+        return live.linkPiece(piece_uuid, float(arrival_ts), min_p, timeout_s=float(wait_s))
     model = loadModel(gc, str(entry["local_id"]), Path(entry["path"]))
     if model is None:
         return None

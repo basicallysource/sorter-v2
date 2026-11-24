@@ -318,11 +318,13 @@ def sync(gc: Any, entry: Optional[dict[str, Any]]) -> None:
         gc.logger.info(f"[link] live linker started with {model.name}")
 
 
-def linkPiece(piece_uuid: str, arrival_ts: float, min_p: float) -> Optional[list[dict[str, Any]]]:
+def linkPiece(
+    piece_uuid: str, arrival_ts: float, min_p: float, timeout_s: float = LINK_TIMEOUT_S
+) -> Optional[list[dict[str, Any]]]:
     linker = _linker
     if linker is None:
         return None
-    return linker.link(piece_uuid, arrival_ts, min_p)
+    return linker.link(piece_uuid, arrival_ts, min_p, timeout_s)
 
 
 def status() -> Optional[dict[str, Any]]:

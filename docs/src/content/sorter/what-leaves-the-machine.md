@@ -35,7 +35,7 @@ identifier.
 
 Open a piece from [Records]({{ '/sorter/records/' | relative_url }}) to see which crops were sent: the tinted tiles in its picture list produced the result.
 
-<figure><img src="https://assets.basically.website/sorter-docs/sorter-piece-crops-sent-to-brickognize-full-7e7a880e3f6e.png" alt="The picture list of one piece: six small crops from C4, one of them tinted green"><figcaption>The crops of one piece. The tinted crop is the one whose answer Brickognize gave. <cite>Screenshot courtesy of BrickCycleAlice.</cite></figcaption></figure>
+<figure><img src="https://assets.basically.website/sorter-docs/sorter-piece-crops-c4-olive-plate-full-0e35c857be3d.png" alt="The picture list of one piece: fifteen small crops from C4, four of them tinted green"><figcaption>The crops of one piece. The tinted crops are the ones whose answer was used. <cite>Screenshot courtesy of BrickCycleAlice.</cite></figcaption></figure>
 
 ## Status ping — on by default
 

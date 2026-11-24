@@ -4,7 +4,9 @@
 	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import PieceCorrection from '$lib/components/PieceCorrection.svelte';
+	import FrameStrip from '$lib/components/pieces/FrameStrip.svelte';
 	import PieceProblems from '$lib/components/pieces/PieceProblems.svelte';
+	import type { Frame } from '$lib/components/pieces/types';
 	import NoPieceImage from '$lib/components/pieces/NoPieceImage.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -19,9 +21,10 @@
 
 	// One piece in the records list, a row of a divided list: its pictures, what
 	// the machine did with it (and what went wrong, when anything did), and the
-	// review at the right (the design system's compact PieceReview). Everything
-	// else about the piece (every image, the attempts, the predictions) is on its
-	// own page, one click away.
+	// review at the right (the design system's compact PieceReview). The pictures
+	// that produced the result are large; under them, small, is every picture of
+	// the piece from every channel. Everything else about the piece (the
+	// attempts, the predictions) is on its own page, one click away.
 	let {
 		piece,
 		imgState,
@@ -108,9 +111,39 @@
 	const sorted = $derived(
 		imgState?.status === 'ok' ? [...imgState.images].sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0)) : []
 	);
-	// The list shows the pictures that produced the result; the rest are on the
-	// piece's page (unshipped burst frames and link-match candidates are many).
+	// Large: the pictures that produced the result.
 	const shown = $derived(sorted.filter((img) => img.used));
+	// Small, under them: every picture of the piece. The classification
+	// channel's first, then the views of it found on C3 and on C2.
+	function channelRank(img: DisplayImage): number {
+		if (img.source === 'c4_burst') return 0;
+		if (img.channel === 3) return 1;
+		if (img.channel === 2) return 2;
+		return 3;
+	}
+	const all = $derived<Frame[]>(
+		[...sorted]
+			.sort((a, b) => channelRank(a) - channelRank(b))
+			.map((img, i) => ({
+				key: String(i),
+				src: img.src,
+				label: [
+					sourceLabel(img.source, img.channel),
+					img.source === 'link_match' && typeof img.score === 'number'
+						? `${(img.score * 100).toFixed(1)}% match`
+						: null,
+					img.used ? 'produced the result' : null
+				]
+					.filter(Boolean)
+					.join(' · '),
+				used: img.used,
+				channel: channelLabel(img),
+				sharpness:
+					typeof img.sharpness === 'number' && Number.isFinite(img.sharpness)
+						? String(Math.round(img.sharpness))
+						: null
+			}))
+	);
 	const lego_color = $derived(findLegoColor(piece.color_id, piece.color_name));
 	const value = $derived(formatEstValue(piece.est_value));
 	const bin = $derived(formatBin(piece.bin));
@@ -121,6 +154,8 @@
 	// on its page.
 	const bare = $derived(!piece.part_id && !piece.preview_url && !piece.correctable);
 	const more = $derived(shown.length - crops.length);
+	// The small pictures add nothing when every picture is already shown large.
+	const strip = $derived(sorted.length > crops.length);
 	// Wide: the pictures, the outcome and the review side by side. A little less
 	// wide: the review goes under them. Narrow: everything in one column.
 	const columns = $derived(
@@ -171,66 +206,69 @@
 			<a
 				href={`/tracked/${piece.uuid}`}
 				aria-label="Open the piece"
-				class="-m-1 flex min-h-20 flex-wrap items-start gap-1.5 rounded-control p-1 hover:bg-hover @3xl:flex-nowrap"
+				class="-m-1 flex min-h-20 flex-col gap-2 rounded-control p-1 hover:bg-hover"
 			>
-				{#if imgState === undefined || imgState.status === 'loading'}
-					<span class="flex gap-1.5" aria-busy="true">
-						<Skeleton class="size-20" />
-						<Skeleton class="size-20" />
-					</span>
-				{:else if shown.length === 0 && !imgState.stockUrl}
-					<span
-						class="flex h-20 items-center"
-						title="No stored images for this piece: it was recorded before images were captured, or none were taken."
-					>
-						<NoPieceImage class="h-12 w-auto text-ink-faint" />
-					</span>
-				{:else}
-					<span
-						class="flex max-w-full flex-wrap gap-1.5 @3xl:w-[21.125rem] @3xl:shrink-0 @3xl:flex-nowrap"
-					>
-						{#each crops as img, i (i)}
-							<ImageZoom
-								src={img.src}
-								label="{sourceLabel(img.source, img.channel)}: produced the result"
-								class="shrink-0"
-							>
-								<span class="relative block size-20 shrink-0">
-									<PartImage src={img.src} class="size-20" />
-									<span
-										class="dark num absolute bottom-0.5 left-0.5 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
-									>
-										{channelLabel(img)}
-									</span>
-								</span>
-							</ImageZoom>
-						{/each}
-						{#if more > 0}
-							<span
-								class="num flex size-20 shrink-0 items-center justify-center text-sm text-ink-muted"
-								title="{more} more pictures produced the result: they are on the piece's page"
-							>
-								+{more}
-							</span>
-						{/if}
-						{#if shown.length === 0}
-							<span
-								class="flex h-20 items-center"
-								title="No stored images for this piece: it was recorded before images were captured, or none were taken."
-							>
-								<NoPieceImage class="h-12 w-auto text-ink-faint" />
-							</span>
-						{/if}
-					</span>
-					{#if imgState.stockUrl}
-						<span class="flex shrink-0 flex-col items-center gap-0.5 border-l border-line pl-2.5">
-							<ImageZoom src={imgState.stockUrl} label="Brickognize's picture of this part">
-								<PartImage src={imgState.stockUrl} class="size-20" />
-							</ImageZoom>
-							<span class="text-xs text-ink-muted">Brickognize</span>
+				<span class="flex flex-wrap items-start gap-1.5 @3xl:flex-nowrap">
+					{#if imgState === undefined || imgState.status === 'loading'}
+						<span class="flex gap-1.5" aria-busy="true">
+							<Skeleton class="size-20" />
+							<Skeleton class="size-20" />
 						</span>
+					{:else if shown.length === 0 && !imgState.stockUrl}
+						<span
+							class="flex h-20 items-center"
+							title="No stored images for this piece: it was recorded before images were captured, or none were taken."
+						>
+							<NoPieceImage class="h-12 w-auto text-ink-faint" />
+						</span>
+					{:else}
+						<span
+							class="flex max-w-full flex-wrap gap-1.5 @3xl:w-[21.125rem] @3xl:shrink-0 @3xl:flex-nowrap"
+						>
+							{#each crops as img, i (i)}
+								<ImageZoom
+									src={img.src}
+									label="{sourceLabel(img.source, img.channel)}: produced the result"
+									class="shrink-0"
+								>
+									<span class="relative block size-20 shrink-0">
+										<PartImage src={img.src} class="size-20" />
+										<span
+											class="dark num absolute bottom-0.5 left-0.5 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
+										>
+											{channelLabel(img)}
+										</span>
+									</span>
+								</ImageZoom>
+							{/each}
+							{#if more > 0}
+								<span
+									class="num flex size-20 shrink-0 items-center justify-center text-sm text-ink-muted"
+									title="{more} more pictures produced the result: they are on the piece's page"
+								>
+									+{more}
+								</span>
+							{/if}
+							{#if shown.length === 0}
+								<span
+									class="flex h-20 items-center"
+									title="No stored images for this piece: it was recorded before images were captured, or none were taken."
+								>
+									<NoPieceImage class="h-12 w-auto text-ink-faint" />
+								</span>
+							{/if}
+						</span>
+						{#if imgState.stockUrl}
+							<span class="flex shrink-0 flex-col items-center gap-0.5 border-l border-line pl-2.5">
+								<ImageZoom src={imgState.stockUrl} label="Brickognize's picture of this part">
+									<PartImage src={imgState.stockUrl} class="size-20" />
+								</ImageZoom>
+								<span class="text-xs text-ink-muted">Brickognize</span>
+							</span>
+						{/if}
 					{/if}
-				{/if}
+				</span>
+				{#if strip}<FrameStrip frames={all} size="sm" />{/if}
 			</a>
 
 			<!-- The outcome: the part, what the machine decided, and where it went. -->

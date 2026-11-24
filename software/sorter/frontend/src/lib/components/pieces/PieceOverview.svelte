@@ -7,10 +7,11 @@
 	import FrameStrip from './FrameStrip.svelte';
 	import type { Fact, Frame } from './types';
 
-	// The top of a piece's page: what you came to see. The pictures the camera
-	// took (the ones that produced the result tinted) and Brickognize's picture
-	// of the part, what the machine decided about it, and the review (the same
-	// compact one the records list has) at the right. Everything that explains
+	// The top of a piece's page: what you came to see. Every picture of the
+	// piece from every channel (the ones that produced the result with a stroke
+	// around them) and Brickognize's picture of the part, what the machine
+	// decided about it, and the review (the same compact one the records list
+	// has) at the right. Everything that explains
 	// how it got there is below, in the predictions and the details.
 	let {
 		name,
@@ -48,7 +49,7 @@
 				<p class="text-sm text-ink-muted">{framesNote}</p>
 				{#if frames.length === 0}
 					<p class="flex h-[4.75rem] items-center text-sm text-ink-muted">
-						No burst frames for this piece.
+						No pictures of this piece.
 					</p>
 				{:else}
 					<FrameStrip {frames} {onZoom} />

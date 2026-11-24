@@ -21,8 +21,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Panel from '$lib/components/ui/Panel.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import PieceThumbGrid from '$lib/components/pieces/PieceThumbGrid.svelte';
-	import type { Fact, Frame, Thumb } from '$lib/components/pieces/types';
+	import type { Fact, Frame } from '$lib/components/pieces/types';
 	import {
 		diskToDisplay,
 		fetchDiskImages,
@@ -429,7 +428,7 @@
 	// record of what produced the classification.
 	function formatMatchProbability(score: number | null | undefined): string {
 		if (score == null || !Number.isFinite(score)) return '';
-		return `${Math.round(score * 100)}% match`;
+		return `${(score * 100).toFixed(1)}% match`;
 	}
 
 	// Motion-blur / focus measure (Laplacian variance) of a burst crop; higher =
@@ -658,65 +657,49 @@
 		return '—';
 	}
 
-	const diskThumbs = $derived<Thumb<DisplayImage>[]>(
-		_diskImages.map((img, i) => ({
-			key: String(i),
-			src: img.src,
-			alt: img.source,
-			caption: sourceLabel(img.source, img.channel),
-			used: img.used,
-			ref: img
-		}))
-	);
-
-	function toThumb(c: CropEntry): Thumb<CropEntry> {
-		return {
-			key: cropKey(c),
-			src: c.src,
-			alt: c.role,
-			title: c.used ? 'Shipped to Brickognize for classification' : formatCropLabel(c),
-			used: c.used,
-			caption: formatCropLabel(c),
-			captionRight: formatAbsTs(c.ts),
-			ref: c
-		};
-	}
-
-	// The two sources, shown separately: the C4 burst and
-	// the upstream C2/C3 views of the same piece. In both, `used` (a stroke on
-	// the tile) means the image was actually shipped to Brickognize in the
-	// request whose result was applied.
-	const burstThumbs = $derived<Thumb<CropEntry>[]>(
-		crops.filter((c) => c.role === 'recognition_capture').map(toThumb)
-	);
-
-	// Link matches are ranked by the model's probability.
-	const otherChannelThumbs = $derived<Thumb<CropEntry>[]>(
-		crops
-			.filter((c) => c.role !== 'recognition_capture')
-			.slice()
-			.sort((a, b) => {
-				const sa = a.role === 'link_match' ? (a.score ?? -1) : -2;
-				const sb = b.role === 'link_match' ? (b.score ?? -1) : -2;
-				return sb - sa;
-			})
-			.map(toThumb)
-	);
-	const linkMatchCount = $derived(crops.filter((c) => c.role === 'link_match').length);
-
-	// The burst the camera took, for the top card: all of it, small, the frames that
-	// produced the result tinted.
+	// Every picture of the piece for the top card, small, in one list: the
+	// frames the classification channel took first, then the views of the same
+	// piece found on C3 and on C2 (the piece-link model's, oldest first), then
+	// anything else an older record carries. The ones that produced the result
+	// have a stroke around them.
 	function frameLabel(parts: (string | false | null)[]): string {
 		return parts.filter(Boolean).join(' · ');
 	}
 
+	// Which place a picture takes in that list.
+	function channelRank(burst: boolean, channel: number | null | undefined): number {
+		if (burst) return 0;
+		if (channel === 3) return 1;
+		if (channel === 2) return 2;
+		return 3;
+	}
+
+	function framesNote(frames: Frame[]): string {
+		if (frames.length === 0) return 'Pictures';
+		const counts = new Map<string, number>();
+		for (const frame of frames) counts.set(frame.channel, (counts.get(frame.channel) ?? 0) + 1);
+		const from = [...counts]
+			.map(([channel, n]) => `${n} from ${channel === '—' ? 'an unknown channel' : channel}`)
+			.join(', ');
+		const used = frames.some((frame) => frame.used)
+			? ' The ones with a stroke produced the result.'
+			: '';
+		return `${from}.${used}`;
+	}
+
 	const overviewFrames = $derived<Frame[]>(
 		crops
-			.filter((c) => c.role === 'recognition_capture')
-			.map((c) => ({
+			.map((c, i) => ({ c, i, rank: channelRank(c.role === 'recognition_capture', c.channel) }))
+			.sort((a, b) => a.rank - b.rank || (a.rank === 0 ? a.i - b.i : (a.c.ts ?? 0) - (b.c.ts ?? 0)))
+			.map(({ c }) => ({
 				key: cropKey(c),
 				src: c.src,
-				label: frameLabel([formatCropLabel(c), formatAbsTs(c.ts), c.used && 'used for the result']),
+				label: frameLabel([
+					formatCropLabel(c),
+					c.role === 'link_match' && channelLabel(c.channel),
+					formatAbsTs(c.ts),
+					c.used && 'used for the result'
+				]),
 				used: c.used,
 				channel: channelLabel(c.channel),
 				sharpness:
@@ -727,12 +710,17 @@
 	// A piece no longer in memory has its stored images instead.
 	const diskFrames = $derived<Frame[]>(
 		_diskImages
-			.filter((img) => img.source !== 'link_match')
-			.map((img, i) => ({
+			.map((img, i) => ({ img, i, rank: channelRank(img.source === 'c4_burst', img.channel) }))
+			.sort(
+				(a, b) => a.rank - b.rank || (a.rank === 0 ? a.i - b.i : (a.img.ts ?? 0) - (b.img.ts ?? 0))
+			)
+			.map(({ img, i }) => ({
 				key: String(i),
 				src: img.src,
 				label: frameLabel([
 					sourceLabel(img.source, img.channel),
+					img.source === 'link_match' && formatMatchProbability(img.score),
+					formatAbsTs(img.ts),
 					img.used && 'used for the result'
 				]),
 				used: img.used,
@@ -740,7 +728,6 @@
 				sharpness: null
 			}))
 	);
-	const diskOtherThumbs = $derived(diskThumbs.filter((t) => t.ref.source === 'link_match'));
 
 	const liveFacts = $derived<Fact[]>(
 		piece
@@ -841,7 +828,6 @@
 
 	// Which of the details are open: closed ones draw nothing.
 	let openRequests = $state(false);
-	let openChannels = $state(false);
 	let openPricing = $state(false);
 	let openTimeline = $state(false);
 	let openReclassify = $state(false);
@@ -900,7 +886,7 @@
 					name={ds.part_name ?? ds.part_id ?? unnamed(ds.classification_status)}
 					partId={ds.part_name ? (ds.part_id ?? null) : null}
 					frames={diskFrames}
-					framesNote="{diskFrames.length} stored frames. Tinted frames produced the result."
+					framesNote={framesNote(diskFrames)}
 					reference={ds.preview_url ?? null}
 					facts={diskFacts}
 					summary={_summary}
@@ -921,23 +907,6 @@
 
 				<Panel flush>
 					<div class="divide-y divide-line">
-						{#if diskOtherThumbs.length > 0}
-							<Disclosure
-								title="Other channels"
-								help="{diskOtherThumbs.length} views from C2 and C3"
-								bind:open={openChannels}
-							>
-								{#if openChannels}
-									<div class="px-(--pad-panel) pb-2">
-										<PieceThumbGrid
-											items={diskOtherThumbs}
-											minPx={96}
-											onZoom={(t) => (zoomImage = { src: t.src, label: t.ref.source })}
-										/>
-									</div>
-								{/if}
-							</Disclosure>
-						{/if}
 						{#if recordFacts.length > 0}
 							<Disclosure title="Record" help="Run and recording time">
 								<div class="px-(--pad-panel)"><KeyValue items={recordFacts} /></div>
@@ -969,7 +938,7 @@
 				name={piece.part_name ?? piece.part_id ?? unnamed(piece.classification_status)}
 				partId={piece.part_name ? (piece.part_id ?? null) : null}
 				frames={overviewFrames}
-				framesNote="{overviewFrames.length} frames from C4. Tinted frames produced the result."
+				framesNote={framesNote(overviewFrames)}
 				reference={refImageSrc}
 				facts={liveFacts}
 				summary={_summary}
@@ -1128,32 +1097,6 @@
 							{/if}
 						</Disclosure>
 					{/if}
-
-					<!-- The same physical piece as seen upstream, ranked by the piece-link
-					     model. Tinted tiles were fused into the Brickognize request alongside
-					     the burst; the rest are shown for review. -->
-					<Disclosure
-						title="Other channels"
-						help="{otherChannelThumbs.length} views from C2 and C3{linkMatchCount > 0
-							? ', ranked by match probability'
-							: ''}"
-						bind:open={openChannels}
-					>
-						{#if openChannels}
-							<div class="px-(--pad-panel) pb-2">
-								{#if otherChannelThumbs.length === 0}
-									<p class="text-sm text-ink-muted">No upstream views of this piece.</p>
-								{:else}
-									<PieceThumbGrid
-										items={otherChannelThumbs}
-										minPx={96}
-										overlay={cropOverlay}
-										onZoom={(t) => (zoomImage = { src: t.src, label: formatCropLabel(t.ref) })}
-									/>
-								{/if}
-							</div>
-						{/if}
-					</Disclosure>
 
 					<!-- Every BrickLink bucket from the Hive catalog. The headline
 					     `moving_avg_price` (what routing uses) is the first non-empty of these,
@@ -1328,32 +1271,6 @@
 		{/if}
 	</div>
 </AppShell>
-
-{#snippet cropOverlay(item: Thumb<CropEntry>)}
-	<!-- Chips over a picture sit in a dark subtree. -->
-	{#if item.ref.used}
-		<span
-			class="dark absolute top-1 left-1 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
-			title="Shipped to Brickognize for classification"
-		>
-			Used
-		</span>
-	{/if}
-	{#if item.ref.sharpness != null}
-		<span
-			class="dark num absolute top-1 right-1 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
-			title="Sharpness (Laplacian variance): higher is sharper, with less motion blur"
-		>
-			⌖ {formatSharpness(item.ref.sharpness)}
-		</span>
-	{/if}
-	<span
-		class="dark absolute bottom-1 left-1 rounded-badge bg-scrim px-1 text-xs font-medium text-ink"
-		title="Channel this image came from"
-	>
-		{channelLabel(item.ref.channel)}
-	</span>
-{/snippet}
 
 <Modal
 	open={zoomImage !== null}

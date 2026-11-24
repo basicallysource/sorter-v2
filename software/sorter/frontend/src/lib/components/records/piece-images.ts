@@ -20,6 +20,8 @@ export type DisplayImage = {
 	score?: number | null;
 	channel?: number | null;
 	created_at?: number | null;
+	// How sharp it is, when it was measured (higher is sharper).
+	sharpness?: number | null;
 	b64?: string | null;
 };
 
@@ -65,6 +67,7 @@ export function memoryToDisplay(img: RecognitionImage): DisplayImage {
 		score: img.score,
 		channel: img.channel,
 		created_at: img.created_at,
+		sharpness: img.sharpness ?? null,
 		b64: img.image
 	};
 }
@@ -79,7 +82,8 @@ export function diskToDisplay(base: string, uuid: string, img: DiskImage): Displ
 		ts: img.ts,
 		score: img.score,
 		channel: img.channel,
-		created_at: img.created_at
+		created_at: img.created_at,
+		sharpness: img.sharpness
 	};
 }
 

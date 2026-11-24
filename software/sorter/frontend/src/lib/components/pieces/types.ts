@@ -1,6 +1,4 @@
-// Shared shapes for the piece-detail panels. They live in their own module
-// rather than in the components because `PieceThumbGrid` declares a generic,
-// and a `generics` script can't also export types.
+// Shared shapes for the piece-detail panels.
 
 export type InfoRow = {
 	label: string;
@@ -9,31 +7,19 @@ export type InfoRow = {
 	valueClass?: string;
 };
 
-// One tile in a PieceThumbGrid. `ref` keeps the caller's own record so the
-// grid's `overlay` snippet can render badges off the original data.
-export type Thumb<R> = {
-	key: string;
-	src: string;
-	alt?: string;
-	title?: string;
-	used?: boolean;
-	caption?: string;
-	captionRight?: string;
-	ref: R;
-};
-
-// One frame the camera took of a piece, as the piece's page lays them out
-// (FrameStrip): what to show, and what to say about it under the pointer.
+// One picture of a piece, from any channel, as a FrameStrip lays them out:
+// what to show, and what to say about it under the pointer.
 export type Frame = {
 	key: string;
 	src: string;
-	// Under the enlarged picture: which frame, when, and whether it was used.
+	// Under the enlarged picture: which picture, when, and whether it was used.
 	label: string;
-	// It produced the applied result.
+	// It produced the applied result: drawn with a stroke around it.
 	used: boolean;
 	// The channel it came from ("C4"), or "—" when that was never recorded.
 	channel: string;
-	// How sharp it is, when it was measured (higher is sharper).
+	// How sharp it is, when it was measured (higher is sharper). Said under
+	// the enlarged picture only.
 	sharpness: string | null;
 };
 

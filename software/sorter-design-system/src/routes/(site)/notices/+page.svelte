@@ -13,6 +13,7 @@
 	import Input from '$lib/components/Input.svelte';
 
 	let faultOpen = $state(false);
+	let memoryNotice = $state(true);
 	let homing = $state(false);
 
 	function homeAgain() {
@@ -73,6 +74,28 @@
 				{/snippet}
 			</Alert>
 		</div>
+	</Specimen>
+</SiteSection>
+
+<SiteSection
+	title="One that can be closed"
+	lead="A notice about something that lasts can be put away once it has been read. It comes back only when something about it has changed."
+>
+	<Specimen
+		code={`<Alert tone="warning" title="Memory nearly full" onclose={close}>
+	Only 0.4 GB of 6.2 GB of memory is free.
+</Alert>`}
+	>
+		{#if memoryNotice}
+			<Alert tone="warning" title="Memory nearly full" onclose={() => (memoryNotice = false)}>
+				Only 0.4 GB of 6.2 GB of memory is free.
+				{#snippet actions()}
+					<Button size="sm">Computer health</Button>
+				{/snippet}
+			</Alert>
+		{:else}
+			<Button size="sm" onclick={() => (memoryNotice = true)}>Show it again</Button>
+		{/if}
 	</Specimen>
 </SiteSection>
 

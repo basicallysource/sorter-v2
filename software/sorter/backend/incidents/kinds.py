@@ -13,6 +13,11 @@ computer's health, computer_health.py, and the stepper drivers',
 driver_watch.py, raise these) or, where its card has a button, when the
 operator presses it. The boot record (boot_record.py) raises one after a
 restart nobody asked for; it stays until the operator has read it.
+
+A warning with no button of its own can be closed. Its card then stays away
+while its condition lasts, and comes back only when something about it has
+changed: it has become noticeably worse (``worse``), or it ended for a while
+and began again (runtime_stats.openWarning).
 """
 
 from __future__ import annotations
@@ -25,6 +30,34 @@ MANUAL = "manual"
 AUTOMATIC = "automatic"
 
 Actions = Union[tuple[str, ...], Callable[[dict[str, Any]], tuple[str, ...]]]
+# Has a warning become noticeably worse? Given what it read when the operator
+# closed its card, and what it reads now.
+Worse = Callable[[dict[str, Any], dict[str, Any]], bool]
+
+
+def _number(fields: dict[str, Any], name: str) -> float | None:
+    value = fields.get(name)
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
+def _downTo(name: str, share: float) -> Worse:
+    """Worse once this reading is down to ``share`` of what it was."""
+
+    def worse(then: dict[str, Any], now: dict[str, Any]) -> bool:
+        was, reads = _number(then, name), _number(now, name)
+        return was is not None and reads is not None and reads <= was * share
+
+    return worse
+
+
+def _upBy(name: str, step: float) -> Worse:
+    """Worse once this reading is ``step`` over what it was."""
+
+    def worse(then: dict[str, Any], now: dict[str, Any]) -> bool:
+        was, reads = _number(then, name), _number(now, name)
+        return was is not None and reads is not None and reads >= was + step
+
+    return worse
 
 
 @dataclass(frozen=True)
@@ -48,6 +81,8 @@ class IncidentKind:
     holds: bool = True
     # A page that tells more, as (path, button label).
     link: tuple[str, str] | None = None
+    # A warning's card the operator closed comes back when this says so.
+    worse: Worse | None = None
 
     def actionsFor(self, incident: dict[str, Any]) -> tuple[str, ...]:
         return self.actions(incident) if callable(self.actions) else self.actions
@@ -67,13 +102,13 @@ def _computerWarnings() -> tuple[IncidentKind, ...]:
             "computer_hot",
             title="Computer too hot",
             todo="{detail} Check that its fan turns and nothing blocks its vents. Sorting can be slower until it cools.",
-            actions=(), holds=False, link=link,
+            actions=(), holds=False, link=link, worse=_upBy("temp_c", 5.0),
         ),
         IncidentKind(
             "computer_disk_full",
             title="Storage nearly full",
             todo="{detail} When it runs out, the machine can no longer save pieces or pictures. Free up space on it.",
-            actions=(), holds=False, link=link,
+            actions=(), holds=False, link=link, worse=_downTo("free_bytes", 0.5),
         ),
         IncidentKind(
             "computer_read_only",
@@ -85,7 +120,7 @@ def _computerWarnings() -> tuple[IncidentKind, ...]:
             "computer_memory_low",
             title="Memory nearly full",
             todo="{detail} The machine can slow down or stop. If it stays like this, restart the backend from the System menu.",
-            actions=(), holds=False, link=link,
+            actions=(), holds=False, link=link, worse=_downTo("available_bytes", 0.5),
         ),
         IncidentKind(
             "computer_power_low",

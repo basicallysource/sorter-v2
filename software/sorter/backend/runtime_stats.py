@@ -1,7 +1,7 @@
 import inspect
 import time
 from collections import OrderedDict
-from typing import Any
+from typing import Any, Callable
 
 import db
 import incidents
@@ -14,6 +14,11 @@ MAX_KNOWN_OBJECT_LOOKUP_ENTRIES = 1000
 # clear, for the feeder to deliver a piece. Its active time (the denominator of
 # C4's active ppm) is every other state.
 C4_WAITING_FOR_PIECE = "waiting_for_piece"
+
+# A warning whose card the operator closed, and whose condition then ended:
+# gone this long, its return is a new warning and shows its card. Back sooner,
+# it is still the one that was closed.
+WARNING_NEW_AFTER_GONE_S = 15 * 60.0
 
 
 def _timedOutProblem(entry: dict[str, Any], now: float, silent_s: float) -> dict[str, Any]:
@@ -140,6 +145,9 @@ class RuntimeStatsCollector:
         # change, so a reader on another thread always sees a complete dict.
         self._warnings: dict[tuple[str, str], dict[str, Any]] = {}
         self._warning_row_ids: dict[tuple[str, str], int] = {}
+        # Warnings whose card the operator closed: when, what the warning
+        # read then, and when its condition last ended (None while it lasts).
+        self._put_away: dict[tuple[str, str], dict[str, Any]] = {}
         self._perf_ms_samples: dict[str, list[float]] = {}
         # Uncapped cumulative call-count per metric key. The sample lists above
         # are ring buffers (their length saturates), so these are the only
@@ -385,15 +393,33 @@ class RuntimeStatsCollector:
         except Exception:
             return "unknown"
 
-    def openWarning(self, warning: dict[str, Any]) -> None:
+    def openWarning(
+        self,
+        warning: dict[str, Any],
+        worse: Callable[[dict[str, Any], dict[str, Any]], bool] | None = None,
+    ) -> None:
         """Show a warning beside any incident, or refresh the one already open
-        for its kind and subject (it keeps its start time and its record)."""
+        for its kind and subject (it keeps its start time and its record).
+
+        One whose card the operator closed stays without a card, until
+        something about it has changed: it is noticeably worse than when it
+        was closed (``worse``, given what it read then and what it reads
+        now), or its condition had ended for WARNING_NEW_AFTER_GONE_S."""
         key = (str(warning.get("kind")), str(warning.get("subject") or ""))
         previous = self._warnings.get(key)
         payload = dict(warning)
         payload["updated_at"] = float(time.time())
         if previous is not None:
             payload["triggered_at"] = previous.get("triggered_at", payload.get("triggered_at"))
+        put_away = self._put_away.get(key)
+        if put_away is not None:
+            gone_at = put_away["gone_at"]
+            new = gone_at is not None and payload["updated_at"] - gone_at >= WARNING_NEW_AFTER_GONE_S
+            if new or (worse is not None and worse(put_away["read"], payload)):
+                self._put_away = {k: v for k, v in self._put_away.items() if k != key}
+            else:
+                self._put_away = {**self._put_away, key: {**put_away, "gone_at": None}}
+                payload["put_away_at"] = put_away["at"]
         self._warnings = {**self._warnings, key: payload}
         self._last_updated_at = payload["updated_at"]
         try:
@@ -413,6 +439,12 @@ class RuntimeStatsCollector:
             return
         self._warnings = {k: v for k, v in self._warnings.items() if k not in keys}
         self._last_updated_at = time.time()
+        # A closed card's condition ended: should it begin again soon, that is
+        # still the thing the operator closed.
+        self._put_away = {
+            k: ({**v, "gone_at": self._last_updated_at} if k in keys and v["gone_at"] is None else v)
+            for k, v in self._put_away.items()
+        }
         for key in keys:
             row_id = self._warning_row_ids.pop(key, None)
             if row_id is None:
@@ -424,8 +456,30 @@ class RuntimeStatsCollector:
             except Exception as exc:
                 db.report_failure("warning resolve", exc)
 
+    def putAwayWarning(self, kind: str, *, subject: str | None = None) -> None:
+        """The operator closed this warning's card. The warning stays open,
+        and so does its record: its condition still lasts."""
+        now = float(time.time())
+        for key, warning in list(self._warnings.items()):
+            if key[0] != kind or (subject is not None and key[1] != subject) or warning.get("put_away_at"):
+                continue
+            self._put_away = {**self._put_away, key: {"at": now, "read": dict(warning), "gone_at": None}}
+            payload = {**warning, "put_away_at": now}
+            self._warnings = {**self._warnings, key: payload}
+            self._last_updated_at = now
+            row_id = self._warning_row_ids.get(key)
+            if row_id is None:
+                continue
+            try:
+                import incident_records
+
+                incident_records.updateIncident(row_id, payload)
+            except Exception as exc:
+                db.report_failure("warning persist", exc)
+
     def warnings(self) -> list[dict[str, Any]]:
-        """The open warnings, oldest first."""
+        """The open warnings, oldest first, those whose card was closed
+        (``put_away_at``) among them."""
         return sorted((dict(w) for w in self._warnings.values()), key=lambda w: w.get("triggered_at") or 0.0)
 
     def activeIncident(self) -> dict[str, Any] | None:
@@ -916,7 +970,7 @@ class RuntimeStatsCollector:
             ),
             "active_incident": dict(self._active_incident) if self._active_incident else None,
             "incident_card": incidents.describe(self._active_incident),
-            "warning_cards": [incidents.describe(w) for w in self.warnings()],
+            "warning_cards": [incidents.describe(w) for w in self.warnings() if not w.get("put_away_at")],
         }
         if live:
             live_part["state_machines"] = {

@@ -12,7 +12,9 @@ still lives in ``runtime_stats`` until every kind reports through here.
 A kind that does not hold the machine (``holds=False``) is a warning: any
 number can be open beside the incident, one per kind and subject, the machine
 keeps sorting, and each closes when ``clear`` says its condition ended or the
-operator presses a button its card has. They are kept in ``runtime_stats``
+operator presses a button its card has. One with no button can be closed
+(``closable``): the warning stays open, and its card comes back only when
+something about it has changed (kinds.py). They are kept in ``runtime_stats``
 too, and recorded with the incidents.
 """
 
@@ -59,13 +61,21 @@ def openIncident(gc: Any, kind: str | None = None, subject: str | None = None) -
     return active
 
 
-def openWarning(gc: Any, kind: str | None) -> dict[str, Any] | None:
-    """The open warning of this kind, if there is one."""
+def openWarning(gc: Any, kind: str | None, subject: str | None = None) -> dict[str, Any] | None:
+    """The open warning of this kind (and with this subject on its card, if
+    given), if there is one."""
     definition = KINDS.get(kind) if kind else None
     runtime_stats = getattr(gc, "runtime_stats", None)
     if definition is None or definition.holds or runtime_stats is None:
         return None
-    return next((w for w in runtime_stats.warnings() if w.get("kind") == kind), None)
+    return next(
+        (
+            w
+            for w in runtime_stats.warnings()
+            if w.get("kind") == kind and (subject is None or _subject(w) == subject)
+        ),
+        None,
+    )
 
 
 def report(gc: Any, kind: str, *, subject: str, **fields: Any) -> bool:
@@ -80,7 +90,8 @@ def report(gc: Any, kind: str, *, subject: str, **fields: Any) -> bool:
     definition = KINDS.get(kind)
     if definition is not None and not definition.holds:
         runtime_stats.openWarning(
-            {"kind": kind, "subject": subject, "severity": "warning", "triggered_at": time.time(), **fields}
+            {"kind": kind, "subject": subject, "severity": "warning", "triggered_at": time.time(), **fields},
+            worse=definition.worse,
         )
         return True
     active = runtime_stats.activeIncident()
@@ -127,6 +138,8 @@ def describe(incident: dict[str, Any] | None) -> dict[str, Any] | None:
     }
     if kind is not None and kind.link is not None:
         card["link"] = {"href": kind.link[0], "label": kind.link[1]}
+    if kind is not None and not kind.holds and not actions:
+        card["closable"] = True
     progress = incident.get("recovery")
     if isinstance(progress, dict):
         # A recovery procedure is working on it (recovery/): what it is doing,
@@ -139,14 +152,15 @@ def describe(incident: dict[str, Any] | None) -> dict[str, Any] | None:
     return card
 
 
-def act(gc: Any, action: str, kind: str | None = None) -> dict[str, Any]:
-    """Run one of the open incident's buttons, or when ``kind`` names an open
-    warning, one of that warning's."""
-    incident = openWarning(gc, kind) or openIncident(gc)
+def act(gc: Any, action: str, kind: str | None = None, subject: str | None = None) -> dict[str, Any]:
+    """Run one of the open incident's buttons, or when ``kind`` (and the
+    card's ``subject``) name an open warning, one of that warning's."""
+    incident = openWarning(gc, kind, subject) or openIncident(gc)
     if incident is None:
         return {"ok": True, "acted": False}
     card = describe(incident) or {}
-    if action not in {a["key"] for a in card.get("actions", [])}:
+    offered = {a["key"] for a in card.get("actions", [])} | ({"put_away"} if card.get("closable") else set())
+    if action not in offered:
         raise ValueError(f"{card.get('title', 'This incident')} has no action {action!r}.")
     ACTIONS[action].run(gc, incident)
     return {"ok": True, "acted": True, "kind": incident.get("kind")}

@@ -202,6 +202,54 @@ class WarningTests(unittest.TestCase):
     def _heat(self, millidegrees: int) -> None:
         (self.root / "sys/class/thermal/thermal_zone0/temp").write_text(f"{millidegrees}\n")
 
+    def test_closed_warning_comes_back_only_when_something_changed(self) -> None:
+        import time
+
+        import runtime_stats
+
+        now = [time.time()]
+        clock = patch.object(runtime_stats.time, "time", lambda: now[0])
+        clock.start()
+        self.addCleanup(clock.stop)
+        kind = "computer_memory_low"
+
+        def low(gb: float) -> None:
+            incidents.report(self.gc, kind, subject="", detail=f"Only {gb} GB is free.", available_bytes=int(gb * 2**30))
+
+        def cards() -> list[str]:
+            return [c["kind"] for c in self.stats.snapshot(live=True)["warning_cards"]]
+
+        def close() -> None:
+            card = self.stats.snapshot(live=True)["warning_cards"][0]
+            self.assertTrue(card["closable"])
+            incidents.act(self.gc, "put_away", kind, card["subject"])
+
+        low(0.4)
+        close()
+        # Its card is gone; the warning is still open underneath.
+        self.assertEqual(cards(), [])
+        self.assertEqual([w["kind"] for w in self.stats.warnings()], [kind])
+        # A little worse a minute on: still closed.
+        now[0] += 60
+        low(0.3)
+        self.assertEqual(cards(), [])
+        # Down to half of what it was when closed: back.
+        now[0] += 60
+        low(0.2)
+        self.assertEqual(cards(), [kind])
+        # Closed again, it ends and begins again five minutes later: still the one that was closed.
+        close()
+        incidents.clear(self.gc, kind, subject="")
+        self.assertEqual(self.stats.warnings(), [])
+        now[0] += 5 * 60
+        low(0.2)
+        self.assertEqual(cards(), [])
+        # Gone for longer than a quarter of an hour, it is a new warning.
+        incidents.clear(self.gc, kind, subject="")
+        now[0] += 16 * 60
+        low(0.2)
+        self.assertEqual(cards(), [kind])
+
     def test_hot_warning_is_raised_once_and_cleared_after_cooling(self) -> None:
         sampler = ch.ComputerHealth(self.gc, root=self.root, data_path=DATA_PATH, clock=lambda: True, persist=False)
         self.stats.setActiveIncident({"kind": "exit_stuck", "subject": "C4"})

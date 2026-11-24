@@ -236,7 +236,10 @@ list.
 tones: `info`, `success`, `warning`, `danger`. A tint of the tone, its icon, a
 title and a sentence, and `actions` when there is something to do about it.
 No border, and never a stripe down one side. Severity is the tone, never the
-layout; a fifth kind of message is a panel, not a new notice.
+layout; a fifth kind of message is a panel, not a new notice. With `onclose`
+it has a close button after its actions: for a message about something that
+lasts, which its reader has seen and may put away. What was closed comes
+back only when something about it has changed.
 
 - A notice sits next to what it is about: above the panel whose save failed,
   above the list that is empty for a reason.

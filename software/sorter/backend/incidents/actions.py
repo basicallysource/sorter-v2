@@ -22,6 +22,12 @@ def _closeWarning(gc: Any, incident: dict[str, Any]) -> None:
     )
 
 
+def _putAway(gc: Any, incident: dict[str, Any]) -> None:
+    # The operator closed the card of a warning whose condition still lasts:
+    # the warning stays open, without its card.
+    gc.runtime_stats.putAwayWarning(str(incident.get("kind")), subject=str(incident.get("subject") or ""))
+
+
 def _restartSeen(gc: Any, incident: dict[str, Any]) -> None:
     # The operator has read why the machine restarted: the card stays away
     # for that restart, also after the next start.
@@ -84,6 +90,7 @@ def _passThrough(gc: Any, incident: dict[str, Any]) -> None:
 ACTIONS: dict[str, Action] = {
     "done": Action("Done", _done),
     "close_warning": Action("Done", _closeWarning),
+    "put_away": Action("Close", _putAway),
     "restart_seen": Action("Done", _restartSeen),
     "stop_recovery": Action("Stop", _stopRecovery),
     "clear_c4": Action("Turn to clear", _clearC4),

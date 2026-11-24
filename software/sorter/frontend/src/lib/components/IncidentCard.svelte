@@ -3,7 +3,9 @@
 		The open incident, or a warning beside it, as the backend describes it
 		(incidents.describe): what happened, one line of what to do, the buttons
 		that do it, and a page that tells more. Most warnings (the computer's
-		health) have no buttons: they go when their condition ends.
+		health) have no buttons: they go when their condition ends, and can be
+		closed (`closable`). A closed one comes back only when something about
+		it has changed.
 	*/
 	export type IncidentCardData = {
 		kind: string;
@@ -12,6 +14,7 @@
 		todo: string;
 		actions: { key: string; label: string }[];
 		link?: { href: string; label: string };
+		closable?: boolean;
 		// A recovery procedure working on it (backend recovery/): which step of
 		// how many, what that step does, and how it went.
 		recovery?: {
@@ -42,7 +45,7 @@
 			const res = await fetch(`${baseUrl}/api/incidents/action`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action, kind: card.kind })
+				body: JSON.stringify({ action, kind: card.kind, subject: card.subject })
 			});
 			if (!res.ok) {
 				const body = await res.json().catch(() => ({}));
@@ -61,6 +64,8 @@
 	title={card.subject ? `${card.title} · ${card.subject}` : card.title}
 	class="shrink-0 max-lg:order-first"
 	actions={card.actions.length > 0 || card.link ? buttons : undefined}
+	onclose={card.closable ? () => act('put_away') : undefined}
+	closing={pending === 'put_away'}
 >
 	<p>{card.todo}</p>
 	{#if card.recovery}

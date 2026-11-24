@@ -1614,7 +1614,7 @@
         "chute core mount"
       ],
       "description": "The mount that carries the chute's drive gear and the Lazy Susan bearing (top-interface.md steps 6-7); the chute itself bolts to its free ring.",
-      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Top interface chute mount; it is not joined to -1 or -2. Carries 4× M4 inserts, plus 7× M3: 2 for the cable clamp and 5 on the underside that the chute gear screws down into. Counted on the physical part by barthel 2026-08-21 and confirmed against the STL (7 x 4.20 mm bores, ruthex's recommended M3 insert hole, re-measured with the detection thresholds loosened in case any were missed). The previous count of 9 added 2 for the layer connector, which the published model does not have; resolves the docs-merge-2026-08-21 conflict. Re-exported 2026-10-20 at daddyosbricksbill's report, rotated 180 degrees about X so the flange plate lies on the bed (it had no flat contact before, and the slicer built 400 g of support under it); the mesh is otherwise identical.",
+      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Top interface chute mount; it is not joined to -1 or -2. Carries 4× M4 inserts, plus 9× M3: 2 for the cable clamp, 5 on the underside that the chute gear screws down into, and 2 blind pockets in the side walls of the chute throat for the layer connectors. The two side pockets are Ø4.20 mm with the floor 8.4 mm in from the outer wall face (y = ±72.0), at x 13.2, the same x as the connector pockets on the chute core and ls-mount-to-chute. Reported by ameya2 2026-11-24 and measured on the STL. The earlier count of 7 (barthel, physical part, 2026-08-21) and the first STL pass missed them: their axis is horizontal, and that pass only looked at holes parallel to the print axis. Re-exported 2026-10-20 at daddyosbricksbill's report, rotated 180 degrees about X so the flange plate lies on the bed (it had no flat contact before, and the slicer built 400 g of support under it); the mesh is otherwise identical.",
       "version": "1",
       "created_at": "2026-07-03",
       "updated_at": "2026-10-20",
@@ -1636,7 +1636,7 @@
         },
         {
           "part": "hsi-m3",
-          "qty": 7
+          "qty": 9
         }
       ]
     },

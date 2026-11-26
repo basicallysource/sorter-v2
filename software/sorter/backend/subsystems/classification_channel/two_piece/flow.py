@@ -117,7 +117,12 @@ _BUCKET_HOLD_EJECTS = 2
 # piece has come for this long (the feeder ran dry, or stalled), it goes out on
 # its own, to its bin, instead of waiting for the stall watchdog to sweep the
 # channel into the bucket.
-_HEAD_ALONE_AFTER_S = 12.0
+_HEAD_ALONE_AFTER_S = 3.0
+
+# The drop zone reads occupied, but nothing there is being photographed, for
+# example a box the tracker never gave an id. Twelve seconds leaves any capture
+# in progress time to finish.
+_HEAD_ALONE_BLOCKED_AFTER_S = 12.0
 
 # A piece that does not fall off the exit (a tire's rubber grips the platter)
 # rides on around the channel, past the camera, and comes back into the drop
@@ -273,6 +278,7 @@ class _TrackedPiece:
         # Burst capture (drop zone only) has finished -> safe to rotate the piece
         # out of the drop zone.
         self.capture_done = False
+        self.edge_landed = False
         # Classification result has been written onto the KnownObject.
         self.result_applied = False
         # Handed to distribution (chute is aiming / aimed for it).
@@ -570,7 +576,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if not stopped:
             self._turned_at = now
 
-        self._observe(state, now)
+        self._observe(state, now, stopped=stopped)
 
         # The classification channel OWNS the feeder admission gate. Ready only
         # when we are idle between cycles (not mid-rotation) AND the drop zone is
@@ -600,7 +606,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 if self._pushOffLingeringEject(now):
                     return
                 self._aimChuteForHead(now)
-                self._maybeStartRotation()
+                self._maybeStartRotation(state)
         elif self._phase == _Phase.EJECTING:
             self._ejecting(state, stopped, now)
         elif self._phase == _Phase.STAGING:
@@ -644,10 +650,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
 
     # ------------------------------------------------- perception reconciliation
 
-    def _observe(self, state, now: float) -> None:
+    def _observe(self, state, now: float, stopped: Optional[bool] = None) -> None:
         """Match this frame's observations to tracked pieces by track id, create
         pieces for new ids, retire pieces whose id has been gone too long, and
         flag double feeds."""
+        if stopped is None:
+            stepper = getattr(getattr(self, "irl", None), "carousel_stepper", None)
+            stopped = bool(getattr(stepper, "stopped", True))
         created: list[_TrackedPiece] = []
         merged = {
             tuple(int(v) for v in box): tuple(tuple(int(v) for v in b) for b in members)
@@ -662,6 +671,25 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 tp = self._createPiece(tid, now)
                 created.append(tp)
             tp.zone = int(po.zone_code)
+            if (
+                not tp.edge_landed
+                and self._phase == _Phase.WAITING
+                and stopped
+                and getattr(po, "box_in_drop", False)
+                and tp.zone != _ZONE_DROP
+                and not tp.capture_done
+                and not tp.double_feed
+                and tp.created_at >= self._phase_started_at
+            ):
+                tp.edge_landed = True
+                self.logger.info(
+                    f"{LOG_TAG} track={tid} landed on the drop zone edge; photographing it there"
+                )
+            if tp.edge_landed:
+                if self._phase == _Phase.WAITING:
+                    tp.zone = _ZONE_DROP
+                else:
+                    tp.edge_landed = False
             b = po.bbox
             tp.bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
             tp.boxes = merged.get(tp.bbox, (tp.bbox,))
@@ -914,7 +942,14 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         drop = [
             po
             for po in getattr(state, "pieces", ())
-            if int(po.zone_code) == _ZONE_DROP and po.com_forward_to_exit_deg is not None
+            if (
+                int(po.zone_code) == _ZONE_DROP
+                or (
+                    po.sv_bt_track_id in self._pieces
+                    and self._pieces[po.sv_bt_track_id].edge_landed
+                )
+            )
+            and po.com_forward_to_exit_deg is not None
         ]
         pair = _closePair(drop)
         if pair is not None:
@@ -1310,7 +1345,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
 
     # ----------------------------------------------------------------- movement
 
-    def _maybeStartRotation(self) -> None:
+    def _maybeStartRotation(self, state=None) -> None:
         # The ONLY two rotation triggers, both requiring a captured drop piece to
         # bring into the channel:
         #   1. no head on the channel       -> stage the drop piece (no eject)
@@ -1319,7 +1354,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # piece toward the fall-off).
         drop = self._dropPiece()
         if drop is None or not drop.capture_done:
-            self._maybeEjectHeadAlone()
+            self._maybeEjectHeadAlone(state)
             return
         head = self._headPiece()
         if head is None:
@@ -1339,14 +1374,11 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 f"{LOG_TAG} ROTATE: eject track={head.track_id} + stage track={drop.track_id}"
             )
 
-    def _maybeEjectHeadAlone(self) -> None:
-        # Counted from when the feeder was let in, or, while its gate stays shut
-        # with no piece to photograph, from when the channel stopped: a piece
-        # left straddling the drop zone's edge (its centre out, its box in)
-        # reads as an occupied drop zone, so no next piece could ever come and
-        # only the stall watchdog's sweep moved the channel on.
+    def _maybeEjectHeadAlone(self, state=None) -> None:
         since = self._ready_since if self._ready_since is not None else self._phase_started_at
-        if time.monotonic() - since < _HEAD_ALONE_AFTER_S:
+        drop_zone_blocked = getattr(state, "in_drop", False) or self._dropPiece() is not None
+        delay = _HEAD_ALONE_BLOCKED_AFTER_S if drop_zone_blocked else _HEAD_ALONE_AFTER_S
+        if time.monotonic() - since < delay:
             return
         head = self._headPiece()
         if head is None or not self._headReady(head):
@@ -1356,7 +1388,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._enterPhase(_Phase.EJECTING)
         self.logger.info(
             f"{LOG_TAG} ROTATE: eject track={head.track_id} alone "
-            f"(no next piece for {_HEAD_ALONE_AFTER_S:.0f} s)"
+            f"(no next piece for {delay:.0f} s)"
         )
 
     def _ejecting(self, state, stopped: bool, now: float) -> None:

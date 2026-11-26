@@ -24,6 +24,7 @@ from typing import Any, Callable, Optional
 import numpy as np
 
 from .arcs import (
+    attributeBbox,
     attributeBboxes,
     bboxArea,
     bboxInsideChannelMask,
@@ -686,6 +687,7 @@ class InferenceWorker:
                         com_section=sec,
                         zone_code=zone_code,
                         bbox=bbox,
+                        box_in_drop=attributeBbox(bbox, ch_def)[0],
                         sv_bt_track_id=track_id_by_bbox.get(bbox),
                         color=piece_colors.get(bbox),
                     )

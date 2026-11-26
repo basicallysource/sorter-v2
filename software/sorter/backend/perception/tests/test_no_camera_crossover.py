@@ -237,7 +237,9 @@ def test_three_workers_do_not_cross_outputs_when_run_concurrently() -> None:
         assert np.all(frame.bgr == channel_id * 40)
     # Each channel only saw its own runtime's bboxes.
     assert s2.in_drop is True and s2.in_exit is False, s2
+    assert s2.pieces[0].box_in_drop is True
     assert s3.in_drop is False and s3.in_exit is True, s3
+    assert s3.pieces[0].box_in_drop is False
     assert s4.in_drop is False and s4.in_exit is False and s4.n_pieces == 0, s4
 
 

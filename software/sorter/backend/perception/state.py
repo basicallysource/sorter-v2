@@ -39,6 +39,8 @@ class PieceObservation:
     # specific piece in a given zone (e.g. capture the DROP-zone piece while another
     # piece sits in precise), without re-deriving which bbox is which.
     bbox: tuple[int, int, int, int] = (0, 0, 0, 0)
+    # Bbox overlaps a drop section by the nine-point rule used for ChannelState.in_drop.
+    box_in_drop: bool = False
     # Advisory stable identity from the perception ByteTrack tracker: the same
     # physical piece keeps one id frame-to-frame as it slides down the channel,
     # surviving brief detector dropouts. ``None`` when tracking is unavailable or

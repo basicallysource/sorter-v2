@@ -381,7 +381,7 @@ def _mkPositioning(shared, servos, log):
         sorting_profile,  # type: ignore[arg-type]
         queue.Queue(),
     )
-    positioning._findOrAssignBinForCategory = lambda category_id, not_in_inventory=False: (
+    positioning._findOrAssignBinForCategory = lambda category_id, not_in_inventory=False, piece_size_mm=None: (
         BinAddress(1, 0, 0),
         False,
     )

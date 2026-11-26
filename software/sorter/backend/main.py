@@ -707,6 +707,10 @@ def main() -> None:
                         if hasattr(servo, "apply_homing_speed"):
                             servo.apply_homing_speed()
                         servo.open()
+                        # Stagger the openings: several servos pulling inrush
+                        # or stall current at the same moment can brown out
+                        # the servo supply rail and take the PWM board down.
+                        time.sleep(0.4)
                     else:
                         # An uncalibrated servo must never be driven or held. A prior
                         # calibrator jog leaves the channel energized at a stale angle
@@ -805,6 +809,8 @@ def main() -> None:
                     if hasattr(servo, "apply_homing_speed"):
                         servo.apply_homing_speed()
                     servo.open()
+                    # Same staggering as the homing path above.
+                    time.sleep(0.4)
                 except Exception as e:
                     gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
             _checkServoBusHealth(gc, irl)

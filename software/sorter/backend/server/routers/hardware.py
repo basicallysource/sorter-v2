@@ -30,6 +30,7 @@ class StorageLayerPayload(BaseModel):
     servo_open_angle: Optional[int] = None
     servo_closed_angle: Optional[int] = None
     max_pieces_per_bin: Optional[int] = None
+    max_fill_units: Optional[float] = None
     max_dimension_mm: Optional[float] = None
 
 
@@ -70,6 +71,7 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
         # layer's servo_channel_id), not the layer's deprecated angle fields.
         servo_open, servo_closed = calibratedAnglesForLayer(layout, index - 1)
         max_per_bin = getattr(layer, "max_pieces_per_bin", None)
+        max_fill_units = getattr(layer, "max_fill_units", None)
         max_dimension = getattr(layer, "max_dimension_mm", None)
         open_value = servo_open if isinstance(servo_open, int) else None
         closed_value = servo_closed if isinstance(servo_closed, int) else None
@@ -78,6 +80,11 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
         layer_entry["servo_closed_angle"] = closed_value
         layer_entry["calibrated"] = open_value is not None and closed_value is not None
         layer_entry["max_pieces_per_bin"] = max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None
+        layer_entry["max_fill_units"] = (
+            float(max_fill_units)
+            if isinstance(max_fill_units, (int, float)) and not isinstance(max_fill_units, bool) and max_fill_units > 0
+            else None
+        )
         layer_entry["max_dimension_mm"] = (
             float(max_dimension)
             if isinstance(max_dimension, (int, float)) and not isinstance(max_dimension, bool) and max_dimension > 0
@@ -136,6 +143,14 @@ def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
             "max_pieces_per_bin",
             max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
         )
+        max_fill_units = layer.get("max_fill_units")
+        setattr(
+            runtime_layer,
+            "max_fill_units",
+            float(max_fill_units)
+            if isinstance(max_fill_units, (int, float)) and not isinstance(max_fill_units, bool) and max_fill_units > 0
+            else None,
+        )
         max_dimension = layer.get("max_dimension_mm")
         setattr(
             runtime_layer,
@@ -176,6 +191,7 @@ def save_storage_layer_hardware_config(
                 "servo_open_angle": layer.servo_open_angle,
                 "servo_closed_angle": layer.servo_closed_angle,
                 "max_pieces_per_bin": layer.max_pieces_per_bin,
+                "max_fill_units": layer.max_fill_units,
                 "max_dimension_mm": layer.max_dimension_mm,
             }
             for layer in requested_layers
@@ -188,6 +204,7 @@ def save_storage_layer_hardware_config(
                 "servo_open_angle": layer.get("servo_open_angle"),
                 "servo_closed_angle": layer.get("servo_closed_angle"),
                 "max_pieces_per_bin": layer.get("max_pieces_per_bin"),
+                "max_fill_units": layer.get("max_fill_units"),
                 "max_dimension_mm": layer.get("max_dimension_mm"),
             }
             for count, layer in zip(payload.layer_bin_counts, current["layers"])
@@ -236,6 +253,12 @@ def save_storage_layer_hardware_config(
             servo_closed = prior_layer.servo_closed_angle if prior_layer else None
         max_per_bin = layer_update.get("max_pieces_per_bin")
         max_per_bin_value = max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None
+        max_fill = layer_update.get("max_fill_units")
+        max_fill_value = (
+            float(max_fill)
+            if isinstance(max_fill, (int, float)) and not isinstance(max_fill, bool) and max_fill > 0
+            else None
+        )
         max_dim = layer_update.get("max_dimension_mm")
         max_dim_value = (
             float(max_dim)
@@ -257,6 +280,7 @@ def save_storage_layer_hardware_config(
             # itself lives per-channel and is untouched here).
             servo_channel_id=prior_layer.servo_channel_id if prior_layer else None,
             max_pieces_per_bin=max_per_bin_value,
+            max_fill_units=max_fill_value,
             max_dimension_mm=max_dim_value,
             section_enabled=prior_section_enabled,
         ))
@@ -264,6 +288,8 @@ def save_storage_layer_hardware_config(
             layout_changed = layout_changed or count != int(cur_layer["bin_count"])
             enabled_changed = enabled_changed or enabled != bool(cur_layer.get("enabled", True))
             if max_per_bin_value != cur_layer.get("max_pieces_per_bin"):
+                enabled_changed = True
+            if max_fill_value != cur_layer.get("max_fill_units"):
                 enabled_changed = True
             if max_dim_value != cur_layer.get("max_dimension_mm"):
                 enabled_changed = True

@@ -82,7 +82,7 @@ parts_needed:
   - part: cable-idc-2x8-long
     qty: 1
   - part: hsi-m3
-    qty: 16
+    qty: 18
   - part: hsi-m4
     qty: 8
   - part: hsi-m5
@@ -204,12 +204,12 @@ Before assembling anything, press all the heat inserts listed below into their p
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Top interface chute mount:</strong> 4 × M4 and 7 × M3</p>
+    <p><strong>Top interface chute mount:</strong> 4 × M4 and 9 × M3</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-chute-mount-inserts-underside-full-ec67c0262221.png" alt="The underside of the white Top interface chute mount, showing brass M4 and M3 heat inserts around the ring">
-      <figcaption>Underside: the 4 M4 and 5 of the M3. The other 2 M3 sit by the cable-clamp recess on the top face. <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
+      <figcaption>Underside: the 4 M4 and 5 of the M3. 2 more M3 sit by the cable-clamp recess on the top face, and the last 2 are in the side walls of the chute throat, one on each side, for the layer connectors. <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-chute-mount-inserts-underside-grey-w-52b54ffa44db.jpg" alt="A closer grey view of the Top interface chute mount underside, showing two of the M3 inserts on the ring beside the recess for the Limit switch hammer screw">
@@ -518,7 +518,7 @@ Flip the whole assembly and screw all 6 Interface brackets into place with 12 {%
   <figcaption><cite>Video: zed0.</cite></figcaption>
 </figure>
 
-**Heat inserts first:** the Top interface chute mount takes 4 × M4 and 7 × M3 inserts, and the Limit switch hammer takes 1 × M3. Press them in before assembling.
+**Heat inserts first:** the Top interface chute mount takes 4 × M4 and 9 × M3 inserts, and the Limit switch hammer takes 1 × M3. Press them in before assembling.
 
 Slot the Limit switch hammer into the Top interface chute mount, then secure it from below with an {% include fastener.html size="M3" variant="countersunk" length="6" %} screw (into the hammer's M3 insert).
 

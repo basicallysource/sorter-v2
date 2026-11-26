@@ -30,7 +30,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include fastener-legend.html %}
 
-- **How many:** 1 of each per distribution layer, plus 1 of each for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}). For an N-layer machine, that's N + 1 pairs total. **The [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) carries none of its own**: it lands on the pair already standing on the topmost chute.
+- **How many:** 1 of each per distribution layer, plus 1 of each for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}). For an N-layer machine, that's N + 1 pairs total. **The [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) carries no pair of its own**: it lands on the pair already standing on the topmost chute, and takes that pair's upper screws into the 2 M3 inserts in the side walls of its chute mount.
 - **Screws:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per connector, 4 for the pair, in the list above. They go into the inserts of the parts at each end of the joint, not into anything on this page.
 - Both connectors go into M3 heat inserts: one screw into the part they are mounted on, one into the part that slots on above.
 

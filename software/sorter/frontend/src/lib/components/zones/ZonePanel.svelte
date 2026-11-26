@@ -7,6 +7,7 @@
 -->
 <script lang="ts">
 	import Check from '@lucide/svelte/icons/check';
+	import CircleHelp from '@lucide/svelte/icons/circle-help';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import ScanSearch from '@lucide/svelte/icons/scan-search';
 	import X from '@lucide/svelte/icons/x';
@@ -107,6 +108,15 @@
 
 <Panel title="Zones" flush>
 	{#snippet actions()}
+		<a
+			href="https://docs.basically.website/sorter/zones/"
+			target="_blank"
+			rel="noopener noreferrer"
+			class="inline-flex items-center gap-1 text-sm text-primary-ink hover:underline"
+		>
+			<CircleHelp size={14} class="shrink-0" />
+			Help
+		</a>
 		<Button icon={ScanSearch} loading={finding} disabled={saving} onclick={onfind}>Find</Button>
 		{#if editing}
 			<Button variant="ghost" icon={X} onclick={oncancel}>Cancel</Button>

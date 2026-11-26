@@ -1,0 +1,72 @@
+# SorterOS build config — Orange Pi 5 Pro.
+#
+# Run with: sudo python build.py --config config-opi5pro.toml
+#
+# Differs from config.toml (OPi 5) in [base], [overlay] and the partition
+# layout: the Pro image is GPT with a vfat bootfs at p1 (kernel, device tree,
+# orangepiEnv.txt) and the ext4 root at p2.
+
+[base]
+# Orange Pi 5 Pro Ubuntu Jammy server image, kernel 6.1.43. Orange Pi's
+# download (Google Drive folder, often over its download quota):
+# https://drive.google.com/drive/folders/11tj_ivEBwvJx4vdNtK91YQeGOKDC4JNy
+# It ships as .7z: unpack it into cache/ (7z x <archive>), the build checks
+# this sha256 of the .img.
+url = "https://drive.google.com/drive/folders/11tj_ivEBwvJx4vdNtK91YQeGOKDC4JNy"
+filename = "Orangepi5pro_1.0.6_ubuntu_jammy_server_linux6.1.43.img"
+sha256 = "b1a4b27da1b4d530452c1a9b03d5224c3e48acc9ade4190f3592820d9b98f2e7"
+boot_part = 1
+root_part = 2
+
+[output]
+dir = "out"
+name = "sorteros-v{version}-opi5pro-{date}.img"
+
+[chroot]
+# Same package set as the OPi 5 build; chroot_apt.sh does the install.
+packages = [
+    "network-manager",
+    "dnsmasq-base",
+    "python3-pip",
+    "python3-tomli",
+    "libgl1",
+    "libglib2.0-0",
+    "v4l-utils",
+    "avahi-daemon",
+    "libnss-mdns",
+    "cloud-guest-utils",
+    "figlet",
+    "systemd-timesyncd",
+    "qrencode",
+]
+extra_curl_installs = ["node22", "tailscale", "portal-py-deps"]
+
+[source]
+ref = "stable"
+
+[overlay]
+# The Pro's Wi-Fi is the onboard AP6256 on SDIO, described in the board's
+# own device tree: no wifi-ap6275p overlay (that one is the OPi 5's M.2 card).
+wifi_overlay = ""
+
+[display]
+# kuman 3.5" HDMI Display-B, 480x320 dots, V1.0. Its EDID (read off a running
+# Pi 5 Pro) names it MPI3508, prefers 1280x720 and lists nothing below
+# 640x480: the panel scales every input down to its 480x320 dots. Without
+# video= the console runs at 1280x720 and comes out unreadable.
+# 640x480@60 is the smallest mode in the EDID. With the 8x16 font that is 80x30
+# characters, about 6x11 dots each on the panel. A smaller font would make it
+# worse: the kernel has only 8x8 and 8x16 built in (CONFIG_FONTS is off).
+# verbosity 7 prints the full kernel log.
+video = "HDMI-A-1:640x480@60"
+fbcon_font = "VGA8x16"
+verbosity = 7
+
+[npu]
+# The vendor image ships librknnrt 1.4.0 (2022), which cannot run the 2.x models
+# Hive hands out. rknn-toolkit-lite2 2.3.2 and the backend's NPU check both use
+# /usr/lib/librknnrt.so and nothing else, so build.py replaces that file with
+# the runtime of the same release (Rockchip publishes it only on GitHub).
+url = "https://raw.githubusercontent.com/airockchip/rknn-toolkit2/v2.3.2/rknpu2/runtime/Linux/librknn_api/aarch64/librknnrt.so"
+filename = "librknnrt-2.3.2.so"
+sha256 = "d31fc19c85b85f6091b2bd0f6af9d962d5264a4e410bfb536402ec92bac738e8"

@@ -7113,6 +7113,14 @@
             "pack_qty": 1,
             "as_of": "2026-09-26",
             "note": "Board on its own. The 4 A USB-C supply their page recommends is not needed here: the machine feeds the board from the 24 V PSU through the buck converter."
+          },
+          {
+            "region": "UK",
+            "vendor": "AliExpress (Orange Cloud Computing Shenzhen Store)",
+            "url": "https://www.aliexpress.com/item/1005004942293041.html",
+            "pack_qty": 1,
+            "as_of": "2026-11-26",
+            "note": "Choose the 8 GB option. Ships to the UK. The price at checkout depends on your vouchers, so it is not listed here."
           }
         ]
       }

@@ -162,11 +162,16 @@
 								onnudge={(side) => nudge(row.part, side)}
 							/>
 						{/if}
-						<Switch
-							label="Lock the {row.name.toLowerCase()}"
-							checked={isLocked(zones, row.part)}
-							onchange={(locked) => zones && onchange(setLocked(zones, row.part, locked))}
-						/>
+						<span class="flex items-center gap-2">
+							<span id="zone-lock-{row.part}" class="text-sm text-ink-muted">
+								Lock the {row.name.toLowerCase()}
+							</span>
+							<Switch
+								labelledby="zone-lock-{row.part}"
+								checked={isLocked(zones, row.part)}
+								onchange={(locked) => zones && onchange(setLocked(zones, row.part, locked))}
+							/>
+						</span>
 					</div>
 				</div>
 			{/each}

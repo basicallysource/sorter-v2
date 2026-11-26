@@ -20,6 +20,11 @@ import local_state
 # bin_snapshot_layers, bin_snapshot_items), which closes when every bin is
 # cleared. metadata holds the active session's id and the open snapshot's id.
 #
+# A bin_snapshot_layers row is one emptying of one bin: which bin, when, how
+# many pieces the machine counted in it and what it was assigned. Rows never
+# change, so they sync to Hive by id (data type bin_emptyings), where an
+# emptying's pieces are the records put in that bin since its emptying before.
+#
 # No pictures are kept here: the Bins pages show Brickognize's preview image
 # (a URL). Earlier versions stored base64 JPEGs in thumbnail / top_image /
 # bottom_image; clearStoredImages empties those columns on old databases.
@@ -786,6 +791,39 @@ def get_current_bin_contents_version() -> str:
             f"{active_session_id}:{int(row['n'])}:{float(row['max_updated'])}:"
             f"{int(row['epochs'])}:{int(row['pieces'])}"
         )
+
+
+def listEmptyingsAfter(after_id: int, limit: int) -> list[dict[str, Any]]:
+    """The bins emptied after the row `after_id`, oldest first: one row per
+    bin a clear found holding pieces, with the machine's count of them, the
+    categories the bin was assigned, what the clear covered (a bin, a layer or
+    every bin), and the profile its session sorted by."""
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT l.id, l.snapshot_id, l.layer_index, l.section_index, l.bin_index, l.bin_epoch, "
+            "l.piece_count, l.category_ids_json, l.flush_scope, l.flushed_at, "
+            "s.profile_id, s.profile_name "
+            "FROM bin_snapshot_layers l LEFT JOIN sorting_sessions s ON s.id = l.session_id "
+            "WHERE l.id > ? ORDER BY l.id LIMIT ?",
+            (int(after_id), int(limit)),
+        ).fetchall()
+    emptyings: list[dict[str, Any]] = []
+    for row in rows:
+        emptying = dict(row)
+        raw = emptying.pop("category_ids_json")
+        try:
+            parsed = json.loads(raw) if raw else []
+        except (TypeError, ValueError):
+            parsed = []
+        emptying["category_ids"] = [str(c) for c in parsed] if isinstance(parsed, list) else []
+        emptyings.append(emptying)
+    return emptyings
+
+
+def maxEmptyingId() -> int:
+    with _connection() as conn:
+        row = conn.execute("SELECT COALESCE(MAX(id), 0) AS n FROM bin_snapshot_layers").fetchone()
+    return int(row["n"])
 
 
 def list_bin_snapshots() -> list[dict[str, Any]]:

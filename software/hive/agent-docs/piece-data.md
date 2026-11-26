@@ -22,6 +22,8 @@ a natural key, so a re-send never duplicates.
 | `training_runs` | `POST /api/machine/sync/training-runs` (JSON batch) | `machine_training_runs` | machine, run_uuid | `sync_seq` |
 | `sorting_runs` | `POST /api/machine/sync/sorting-runs` (the whole set) | `machine_lots`, `machine_sorting_runs` | machine, lot_id / run_id | the set's `version` |
 | `sent_back_pieces` | `POST /api/machine/sync/sent-back-pieces` (JSON batch) | `machine_sent_back_pieces` | machine, piece_uuid | `local_id` |
+| `bin_emptyings` | `POST /api/machine/sync/bin-emptyings` (JSON batch) | `machine_bin_emptyings` | machine, local_id | `local_id` |
+| `bin_layouts` | `POST /api/machine/sync/bin-layouts` (JSON batch) | `machine_bin_layouts` | machine, local_id | `local_id` |
 | `telemetry` | `POST /api/machine/sync/telemetry` (JSON batch) | `machine_telemetry` ([telemetry.md](telemetry.md)) | machine, local_id | `local_id` |
 
 **Lots and sorting runs** go whole: a lot is pieces that came in together, a
@@ -40,6 +42,19 @@ hopper to be sorted again (`sorting_runs.sendBack`). Their records stay, but no
 run or lot counts them; each piece's next sighting is a new record, which
 does. `GET /api/records/machines/{id}/pieces` gives each piece's `sent_back`
 (when, from which lot, why), null for the rest.
+
+**Bins: emptyings and layouts.** A clear on the machine (one bin, a layer, or
+every bin) records one emptying per bin it found holding pieces
+(`bin_contents.py`, a `bin_snapshot_layers` row): the bin, when, how many
+pieces the machine counted, the categories it was assigned, what the clear
+covered, the profile. The pieces an emptying took are the records put in that
+bin (`bin_x`, `bin_y`, `bin_z`, `recorded_at`) after the bin's emptying before.
+Every layout the machine runs is a `bin_layout_history` row
+(`bin_layout_store.py`), written whenever the layout or the profile changes: the
+layers and their bins, the categories each bin is assigned and what the profile
+calls them, the bins flagged not in inventory, and the profile. Neither ever
+changes, so both go by `local_id`. The inventory API reads them
+([inventory.md](inventory.md)).
 
 **The cursor rule.** A row that never changes on the sorter syncs by its id
 (`local_id`). A row that changes (a piece record gets its bin, a verdict, a

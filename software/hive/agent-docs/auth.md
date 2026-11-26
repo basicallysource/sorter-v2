@@ -29,7 +29,8 @@ Design philosophy: **a key grants exactly what its scopes say, nothing more.**
   `models:read`, `models:write`, `samples:read`, `samples:write`,
   `keys:manage`, `stats:read`, `fleet:read`, `fleet:anon`,
   `contributors:read`, `parts:read`, `parts:prices`, `server_health:read`,
-  `profiles:read`, `profiles:write`, `records:read`, `predictions:write`.
+  `profiles:read`, `profiles:write`, `records:read`, `inventory:read`,
+  `predictions:write`.
   The picker in `frontend/src/routes/settings/+page.svelte` is a hand-kept copy
   of this list — a scope missing there cannot be minted from the UI at all, so
   add it in the same change.
@@ -43,6 +44,7 @@ Design philosophy: **a key grants exactly what its scopes say, nothing more.**
   | `profiles:read` | the caller's sorting profiles and kits, public ones, the parts catalog routes the editor uses, draft previews and piece routing |
   | `profiles:write` | creating and changing profiles, versions and kits; uploading rule pictures |
   | `records:read` | `/api/records`: the pieces the caller's **own** machines sorted (with every colour people and later model runs gave each), their lots and sorting runs, even for an admin, within the key's machine whitelist |
+  | `inventory:read` | `/api/inventory/v1`: what the caller's **own** machines hold, for an inventory app: lots with their parts, runs, bins with what they were assigned, what each bin holds or got in a run, each emptying with its pieces ([inventory.md](inventory.md)); the same machines as `records:read` |
 
   `predictions:write` is admin-only: `POST /api/records/machines/{id}/predictions`
   adds a later model run's predictions for an own machine's pieces, which then

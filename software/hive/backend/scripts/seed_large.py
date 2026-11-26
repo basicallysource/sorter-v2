@@ -44,6 +44,10 @@ What matters for query plans, and so is shaped like production:
   * The three busiest machines ran colour training runs of about an hour
     every few days over the last month, one still collecting; the pieces they
     saw then carry the run's colour labels.
+  * The three busiest machines keep lots and sorting runs: a lot every ten
+    days, sorted by a run that adds to it and passed over again two days
+    before the next; every bin is emptied every three days (one clear of every
+    bin, as a person empties the tower), and a layout runs per lot.
   * Four colour models are registered, the newest active, and every one has
     answered the pieces with the palette near them on the busiest machine and
     a twentieth of the other machines' newest pieces (``piece_model_colors``),
@@ -683,6 +687,67 @@ class Seeder:
             what="training run counts",
         )
 
+    def inventory(self) -> None:
+        """Lots, sorting runs, bin emptyings and layouts on the three busiest
+        machines (the inventory API's data). Bins as the seeded pieces have
+        them: layers 1-4 (``bin_x``), six sections, twelve bins a section."""
+        self.run(
+            """
+            INSERT INTO machine_lots (machine_id, lot_id, name, description, created_at)
+            SELECT m.id, 'lot-' || m.i || '-' || k, 'Lot ' || k, NULL, now() - (k * 10) * interval '1 day'
+            FROM seed_machines m CROSS JOIN generate_series(0, 14) k
+            WHERE m.i <= 3
+            """,
+            what="lots",
+        )
+        self.run(
+            """
+            INSERT INTO machine_sorting_runs (machine_id, run_id, name, note, lot_id, adds_to_lot, started_at, created_at)
+            SELECT m.id, 'run-' || m.i || '-' || k || '-' || pass, CASE WHEN pass = 0 THEN 'Lot ' || k ELSE 'Pass ' || k END,
+                   NULL, 'lot-' || m.i || '-' || k, pass = 0,
+                   now() - (k * 10) * interval '1 day' + pass * interval '8 days', now() - (k * 10) * interval '1 day'
+            FROM seed_machines m CROSS JOIN generate_series(0, 14) k CROSS JOIN generate_series(0, 1) pass
+            WHERE m.i <= 3 AND (k > 0 OR pass = 0)
+            """,
+            what="sorting runs",
+        )
+        self.run(
+            """
+            INSERT INTO machine_bin_emptyings (machine_id, local_id, snapshot_id, layer, section, bin, epoch, emptied_at,
+                piece_count, category_ids, scope, profile_id, profile_name, received_at)
+            SELECT m.id, (49 - e) * 400 + l * 72 + sec * 12 + b + 1, 'snapshot-' || m.i || '-' || e, l, sec, b, 49 - e,
+                   now() - (e * 3) * interval '1 day' - m.i * interval '1 hour', 60,
+                   jsonb_build_array(((l * 72 + sec * 12 + b) %% 60)::text), 'all', 'profile-1', 'Bulk',
+                   now() - (e * 3) * interval '1 day'
+            FROM seed_machines m CROSS JOIN generate_series(0, 49) e CROSS JOIN generate_series(1, 4) l
+            CROSS JOIN generate_series(0, 5) sec CROSS JOIN generate_series(0, 11) b
+            WHERE m.i <= 3
+            """,
+            what="bin emptyings",
+        )
+        self.run(
+            """
+            INSERT INTO machine_bin_layouts (machine_id, local_id, changed_at, layout, received_at)
+            SELECT m.id, 15 - k, now() - (k * 10) * interval '1 day',
+                   jsonb_build_object(
+                       'layers', (SELECT jsonb_agg(jsonb_build_object(
+                                      'sections', (SELECT jsonb_agg((SELECT jsonb_agg('medium') FROM generate_series(1, 12)))
+                                                   FROM generate_series(1, 6)),
+                                      'enabled', l > 0))
+                                  FROM generate_series(0, 4) l),
+                       'bin_categories', (SELECT jsonb_agg((SELECT jsonb_agg((SELECT jsonb_agg(jsonb_build_array(((l * 72 + sec * 12 + b) %% 60)::text))
+                                                                              FROM generate_series(0, 11) b))
+                                                            FROM generate_series(0, 5) sec))
+                                          FROM generate_series(0, 4) l),
+                       'category_names', (SELECT jsonb_object_agg(c::text, 'Category ' || c) FROM generate_series(0, 59) c),
+                       'profile', jsonb_build_object('profile_id', 'profile-1', 'profile_name', 'Bulk')),
+                   now() - (k * 10) * interval '1 day'
+            FROM seed_machines m CROSS JOIN generate_series(0, 14) k
+            WHERE m.i <= 3
+            """,
+            what="bin layouts",
+        )
+
     def color_model_answers(self) -> None:
         """Four colour models, the newest active, and their answers: every
         queued piece of the busiest machine with the palette near it, and one
@@ -916,6 +981,7 @@ def main() -> None:
     seeder.channel_crops()
     seeder.piece_extras()
     seeder.training_runs()
+    seeder.inventory()
     seeder.swatches()
     seeder.worker_passes()
     seeder.color_model_answers()

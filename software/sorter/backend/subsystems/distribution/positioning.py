@@ -11,7 +11,7 @@ from .chute import Chute, BinAddress
 from irl.bin_layout import DistributionLayout, Bin, extractCategories
 from irl.config import IRLInterface
 from global_config import GlobalConfig
-from sorting_profile import SortingProfile, MISC_CATEGORY
+from sorting_profile import SortingProfile, MISC_CATEGORY, applyDynamicColorSplit
 from bin_layout_store import set_bin_categories
 import db
 from defs.events import PauseCommandData, PauseCommandEvent
@@ -26,6 +26,28 @@ DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND = "distribution_no_bin_available"
 # A door still moving refuses a new command, so the doors for the next piece
 # are set only once every flap has stopped; after this long, set them anyway.
 DOORS_STOP_WAIT_S = 2.0
+
+# The dynamic "sort by part and color" toggle, re-checked at most this often —
+# the control loop routes every piece here, and a settings read per piece is a
+# disk hit it should not pay.
+_DYNAMIC_SPLIT_RECHECK_S = 2.0
+_dynamic_split_cache: Optional[tuple[float, bool]] = None
+
+
+def _dynamicColorSplitEnabled() -> bool:
+    global _dynamic_split_cache
+    now = time.monotonic()
+    cached = _dynamic_split_cache
+    if cached is not None and now - cached[0] < _DYNAMIC_SPLIT_RECHECK_S:
+        return cached[1]
+    try:
+        from toml_config import getBinAssignmentConfig
+
+        enabled = bool(getBinAssignmentConfig().get("dynamic_color_split", False))
+    except Exception:
+        enabled = False
+    _dynamic_split_cache = (now, enabled)
+    return enabled
 
 
 def _incidentHandlingOff(kind: str) -> bool:
@@ -152,6 +174,16 @@ class Positioning(BaseState):
                 category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
             else:
                 category_id = MISC_CATEGORY
+            # Dynamic "sort by part and color": when enabled, a piece with a
+            # concrete color routes into a per-color category (see
+            # applyDynamicColorSplit) and claims a bin like any new category.
+            category_id = applyDynamicColorSplit(
+                self.sorting_profile,
+                category_id,
+                piece.part_id,
+                piece.color_id,
+                _dynamicColorSplitEnabled(),
+            )
             # High-value override: a piece whose Hive moving-average price
             # clears the profile's high_value_routing threshold is rerouted into
             # the configured category (e.g. Yellow/Orange Tiles), so it lands in

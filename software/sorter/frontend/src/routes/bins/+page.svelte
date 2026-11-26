@@ -63,6 +63,8 @@
 	let pointingSectionKey = $state<string | null>(null);
 	let allowMultiCategory = $state(false);
 	let savingMultiCategory = $state(false);
+	let dynamicColorSplit = $state(false);
+	let savingDynamicColorSplit = $state(false);
 	let autoAssignBusy = $state(false);
 	let autoAssignResult = $state<string | null>(null);
 	let contentsByKey = $state<Record<string, BinContents>>({});
@@ -142,6 +144,7 @@
 			if (!res.ok) return;
 			const data = await res.json();
 			allowMultiCategory = Boolean(data.allow_multiple_categories_per_bin);
+			dynamicColorSplit = Boolean(data.dynamic_color_split);
 		} catch {
 			// Keep last known setting on transient failures.
 		}
@@ -258,6 +261,34 @@
 			error = e instanceof Error ? e.message : 'Failed to update setting';
 		} finally {
 			savingMultiCategory = false;
+		}
+	}
+
+	async function toggleDynamicColorSplit() {
+		if (savingDynamicColorSplit) return;
+		savingDynamicColorSplit = true;
+		statusMsg = '';
+		error = null;
+		const next = !dynamicColorSplit;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/settings`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ dynamic_color_split: next })
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			dynamicColorSplit = Boolean(data.dynamic_color_split);
+			statusMsg = dynamicColorSplit
+				? 'Parts now split by their recognized color: every new part+color pair claims its own free bin.'
+				: 'Parts sort by the profile only; new colors join their part again.';
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to update setting';
+		} finally {
+			savingDynamicColorSplit = false;
 		}
 	}
 
@@ -817,6 +848,17 @@
 						label="Allow multiple categories per bin"
 						disabled={savingMultiCategory}
 						onchange={() => void toggleMultiCategory()}
+					/>
+				</SettingRow>
+				<SettingRow
+					label="Sort by part and color"
+					help="Splits every part by its recognized color: a blue 3001 and a red 3001 each claim their own free bin, as the colors appear — nothing to configure. Once no bin is free, new color pairs fall through to the discard passthrough like any other new category."
+				>
+					<Switch
+						checked={dynamicColorSplit}
+						label="Sort by part and color"
+						disabled={savingDynamicColorSplit}
+						onchange={() => void toggleDynamicColorSplit()}
 					/>
 				</SettingRow>
 				<SettingRow

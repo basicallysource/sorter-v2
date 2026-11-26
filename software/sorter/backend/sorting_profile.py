@@ -162,6 +162,46 @@ def categoryResolver(data: dict[str, Any]) -> Callable[[str, str], str]:
     return legacy
 
 
+def applyDynamicColorSplit(
+    profile: Any,
+    category_id: str,
+    part_id: Optional[str],
+    color_id: Optional[str],
+    enabled: bool,
+) -> str:
+    """Dynamic "sort by part and color": when enabled, a piece with a concrete
+    color routes into a per-color category derived from its plain category
+    ("3001" -> "3001:15"), so a blue 3001 claims a different bin than a red
+    one — as the colors appear, no configuration per part. Guards:
+
+    * misc never splits (it is the discard passthrough, not a bin category);
+    * a kit/set category never splits — the piece must keep counting toward
+      its set, and the set tracker looks pieces up by their category id;
+    * the split only applies when the profile answers the same for any color,
+      i.e. a plain by-id category. A profile that answers differently with a
+      color (a color rule, a kit rule, a by-color fallback) already sorts
+      finer than the split would; it wins.
+    """
+    if not enabled or not category_id or category_id == MISC_CATEGORY:
+        return category_id
+    if part_id is None:
+        return category_id
+    color = str(color_id or "").strip()
+    if not color or color == ANY_COLOR:
+        return category_id
+    if getattr(profile, "is_set_based", False):
+        inventories = getattr(profile, "set_inventories", None)
+        if isinstance(inventories, dict) and category_id in inventories:
+            return category_id
+    try:
+        any_color_category = profile.getCategoryIdForPart(part_id, ANY_COLOR)
+    except Exception:
+        return category_id
+    if any_color_category != category_id:
+        return category_id
+    return f"{category_id}:{color}"
+
+
 def _fileVersion(path: str) -> tuple[int, int]:
     stat = os.stat(path)
     return stat.st_mtime_ns, stat.st_size

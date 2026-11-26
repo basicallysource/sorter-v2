@@ -243,7 +243,7 @@ The bearing stack is now complete:
 
 {% include step.html n="4" title="Add the two layer connectors" %}
 
-A [Layer connector A and a Layer connector B]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}) go onto the chute mount, one on each side face, into the two M3 inserts pressed in step 1. One {% include fastener.html size="M3" variant="countersunk" length="8" %} each. They are the same pair that joins every chute to the one above it; here they are what the bottommost chute lands on.
+A [Layer connector A and a Layer connector B]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}) go onto the chute mount, one on each side face, into the two M3 inserts pressed in step 1. One {% include fastener.html size="M3" variant="countersunk" length="8" %} each. The two are mirror images, so they are not interchangeable. Fit each with its flat face, the one with the two countersunk holes, facing out, and the round cutout in its top corner towards the front, the opening side. If one will not sit flat over its tab, swap them. They are the same pair that joins every chute to the one above it; here they are what the bottommost chute lands on.
 
 With them on, the bearing stack is complete: chute mount, Lazy Susan, washer and bottom static, plus the connectors that carry the layer above.
 

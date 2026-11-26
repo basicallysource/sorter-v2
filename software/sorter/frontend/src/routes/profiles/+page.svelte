@@ -24,6 +24,7 @@
 		deleteLocalProfile,
 		fetchLocalLibrary,
 		fetchLocalProfileMeta,
+		fetchLocalProfileMetadata,
 		fetchTargetLibrary,
 		fetchProfileDetail,
 		reloadRuntimeProfile as callReloadRuntime,
@@ -31,7 +32,10 @@
 		visibleVersions
 	} from '$lib/sorting-profiles/api';
 	import { newerVersion, ownFirst } from '$lib/sorting-profiles/bins';
-	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
+	import {
+		sortingProfileStore,
+		type SortingProfileMetadata
+	} from '$lib/stores/sortingProfile.svelte';
 	import type {
 		HiveTargetLibrary,
 		LocalSortingProfile,
@@ -83,6 +87,11 @@
 	let metadataLoading = $state(false);
 	let metadataError = $state<string | null>(null);
 	let updating = $state(false);
+	let localDetailsOpen = $state(false);
+	let localDetails = $state<SortingProfileMetadata | null>(null);
+	let localDetailsLoading = $state(false);
+	let localDetailsError = $state<string | null>(null);
+	let localDetailsTitle = $state('Profile details');
 
 	function baseUrl(): string {
 		return (
@@ -384,6 +393,21 @@
 		const latest = newerVersion(profile, sync.version_number);
 		return latest == null ? null : { target, profile, latest, current: sync.version_number ?? 0 };
 	});
+
+	async function openLocalDetails(profile: LocalSortingProfile) {
+		localDetailsOpen = true;
+		localDetailsLoading = true;
+		localDetailsError = null;
+		localDetails = null;
+		localDetailsTitle = profile.name || profile.filename;
+		try {
+			localDetails = await fetchLocalProfileMetadata(baseUrl(), profile.filename);
+		} catch (e: unknown) {
+			localDetailsError = e instanceof Error ? e.message : 'Could not load this profile.';
+		} finally {
+			localDetailsLoading = false;
+		}
+	}
 
 	async function openActiveBins() {
 		binsModalOpen = true;
@@ -883,7 +907,7 @@
 							activating={localApplyingFilename === profile.filename}
 							deleting={deletingFilename === profile.filename}
 							onActivate={() => requestApplyLocal(profile)}
-							onOpenBins={() => void openActiveBins()}
+							onOpen={() => void openLocalDetails(profile)}
 							onDelete={() => {
 								pendingDelete = profile;
 								localDeleteOpen = true;
@@ -995,6 +1019,14 @@
 	metadata={sortingProfileStore.data}
 	loading={metadataLoading}
 	error={metadataError}
+/>
+
+<ActiveProfileBinsModal
+	bind:open={localDetailsOpen}
+	title={localDetailsTitle}
+	metadata={localDetails}
+	loading={localDetailsLoading}
+	error={localDetailsError}
 />
 
 <Modal bind:open={localApplyOpen} title="Activate the local profile">

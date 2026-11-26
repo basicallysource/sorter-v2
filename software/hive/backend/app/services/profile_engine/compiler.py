@@ -56,6 +56,10 @@ ARTIFACT_SCHEMA_VERSION = 2
 FEATURE_PROGRAM = "program"
 FEATURE_COLOR_FALLBACK = "color_fallback"
 FEATURE_KIT_CASCADE = "kit_cascade"
+FEATURE_BIN_SORT_BY = "bin_sort_by"
+# What a bin can be named by, in the order a sorter writes them (the sorter's
+# bin_key.py is the other side of this list).
+BIN_SORT_COMPONENTS = ("category", "part", "color")
 SAMPLE_LIMIT = 6
 KIT_ANY_COLOR_ID = -1
 
@@ -316,6 +320,17 @@ def normalize_fallback(raw: Any) -> str | None:
     return None
 
 
+def normalize_bin_sort_by(raw: Any) -> list[str]:
+    """What the document asks its bins to be named by, in key order: [] for the
+    default (the profile's categories), else a list of "category", "part" and
+    "color". Anything else in `raw` is dropped."""
+    if not isinstance(raw, (list, tuple)):
+        return []
+    wanted = {str(item).strip().lower() for item in raw}
+    chosen = [name for name in BIN_SORT_COMPONENTS if name in wanted]
+    return [] if chosen == ["category"] else chosen
+
+
 def fallback_flags(by: str | None) -> dict[str, bool]:
     return {
         "rebrickable_categories": by == "rb_category",
@@ -375,6 +390,7 @@ def normalize_document(document: dict[str, Any]) -> tuple[dict[str, Any], list[P
         "default_category_id": str(document.get("default_category_id") or "misc").strip() or "misc",
         "fallback_mode": fallback_flags(by),
         "rules": rules,
+        "bin_sort_by": normalize_bin_sort_by(document.get("bin_sort_by")),
     }
     return normalized, problems
 
@@ -1059,6 +1075,10 @@ def compile_document(
     }
     if set_inventories:
         artifact["set_inventories"] = set_inventories
+    if doc["bin_sort_by"]:
+        # Only when asked for, so the hash of every other profile stays put.
+        artifact["bin_sort_by"] = doc["bin_sort_by"]
+        requires.append(FEATURE_BIN_SORT_BY)
     artifact["artifact_hash"] = hashlib.sha256(json.dumps(artifact, sort_keys=True, default=str).encode()).hexdigest()
     return Compiled(artifact=artifact, problems=problems, warnings=warnings)
 

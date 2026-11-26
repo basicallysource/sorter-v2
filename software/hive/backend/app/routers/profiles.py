@@ -86,7 +86,7 @@ from app.services.profile_display import described, display_for
 from app.services.secrets import decrypt_secret
 from app.services.machine_set_progress import summarize_machine_set_progress
 from app.services.profile_catalog import PROFILE_CATALOG_SYNC_TYPES, get_profile_catalog_service
-from app.services.profile_engine.compiler import Router as ProfileRouter, expand_legacy, part_preview
+from app.services.profile_engine.compiler import FEATURE_BIN_SORT_BY, Router as ProfileRouter, expand_legacy, part_preview
 from app.services.profile_engine.fields import FIELD_ALIASES, FIELDS, OP_LABELS
 from app.services.rate_limit import rate_limit
 
@@ -535,6 +535,7 @@ def create_profile(
             default_category_id=payload.default_category_id or "misc",
             rules=payload.rules,
             fallback_mode=payload.fallback_mode.model_dump() if payload.fallback_mode is not None else {},
+            bin_sort_by=payload.bin_sort_by,
             change_note=(payload.change_note or "").strip() or "Initial version",
             publish=False,
         ),
@@ -775,6 +776,7 @@ def fork_profile(
             default_category_id=source_version.default_category_id,
             rules=source_version.rules_json or [],
             fallback_mode=source_version.fallback_mode_json or {},
+            bin_sort_by=_version_bin_sort_by(source_version),
             change_note=f"Forked from {source_profile.name} v{source_version.version_number}",
             label=payload.name,
             publish=False,
@@ -1227,6 +1229,7 @@ def apply_profile_ai_message(
             default_category_id=base_version.default_category_id,
             rules=next_rules,
             fallback_mode=base_version.fallback_mode_json or {},
+            bin_sort_by=_version_bin_sort_by(base_version),
             change_note=change_note,
             label=payload.label,
             publish=payload.publish,
@@ -1746,7 +1749,20 @@ def _document_from_version(version: SortingProfileVersion) -> dict:
         "default_category_id": version.default_category_id,
         "rules": copy.deepcopy(version.rules_json or []),
         "fallback_mode": copy.deepcopy(version.fallback_mode_json or {}),
+        "bin_sort_by": _version_bin_sort_by(version),
     }
+
+
+def _version_bin_sort_by(version: SortingProfileVersion) -> list[str]:
+    """What the version names a machine's bins by. It lives only in the
+    compiled artifact (the document columns predate it), so a copy of a
+    version, or a recompile of it, has to read it from there."""
+    # `requires` is in the cheap stats; the artifact is deferred and big, so it
+    # is read only for a version that names bins.
+    if FEATURE_BIN_SORT_BY not in _version_requires(version):
+        return []
+    artifact = version.compiled_artifact_json if isinstance(version.compiled_artifact_json, dict) else {}
+    return list(artifact.get("bin_sort_by") or [])
 
 
 def _rules_include_kits(rules: list | None) -> bool:
@@ -1925,6 +1941,7 @@ def _serialize_version_detail(version: SortingProfileVersion | None) -> SortingP
             "default_category_id": version.default_category_id,
             "rules": version.rules_json or [],
             "fallback_mode": version.fallback_mode_json or {},
+            "bin_sort_by": _version_bin_sort_by(version),
             # The totals; each bin's own count and examples are in categories.
             "compiled_stats": {
                 key: value

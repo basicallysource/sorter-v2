@@ -223,7 +223,7 @@ class TestDefaultProfiles:
     def test_every_machine_gets_the_defaults_it_can_run(
         self, client: TestClient, auth_headers: dict[str, str], db: Session, machine_token: str, catalog
     ) -> None:
-        assert len(default_profiles.ensure_default_profiles(db)) == 3
+        assert len(default_profiles.ensure_default_profiles(db)) == 6
         # a second start with the same definitions publishes nothing new
         assert default_profiles.ensure_default_profiles(db) == []
         machine = {"Authorization": f"Bearer {machine_token}"}
@@ -235,7 +235,29 @@ class TestDefaultProfiles:
         new_sorter = client.get(
             "/api/machine/profiles/library?features=program,color_fallback,kit_cascade", headers=machine
         ).json()["profiles"]
+        # the profiles that name the bins need a sorter that says it can
         assert [profile["name"] for profile in new_sorter] == ["BrickLink categories", "Colors", "Colors and basic pieces"]
+
+        naming_sorter = client.get(
+            "/api/machine/profiles/library?features=program,color_fallback,kit_cascade,bin_sort_by", headers=machine
+        ).json()["profiles"]
+        assert [profile["name"] for profile in naming_sorter][3:] == [
+            "One bin per part",
+            "One bin per color",
+            "One bin per part and color (LOT)",
+        ]
+        by_part_and_color = naming_sorter[5]["latest_published_version"]["id"]
+        lot = client.get(
+            f"/api/machine/profiles/versions/{by_part_and_color}/artifact?format=program&features=program,bin_sort_by",
+            headers=machine,
+        )
+        assert lot.status_code == 200, lot.text
+        assert lot.json()["artifact"]["bin_sort_by"] == ["part", "color"]
+        refused_lot = client.get(
+            f"/api/machine/profiles/versions/{by_part_and_color}/artifact?format=program&features=program",
+            headers=machine,
+        )
+        assert refused_lot.status_code == 409
 
         colors = next(profile for profile in new_sorter if profile["name"] == "Colors")
         version_id = colors["latest_published_version"]["id"]
@@ -267,6 +289,67 @@ class TestDefaultProfiles:
             headers=machine,
         )
         assert assign.status_code == 200, assign.text
+
+
+class TestNamingTheBins:
+    """`bin_sort_by` has to survive every way a version is made."""
+
+    def test_create_and_save_keep_it_and_leaving_it_out_is_by_category(
+        self, client: TestClient, auth_headers: dict[str, str], catalog
+    ) -> None:
+        key = _key(client, auth_headers, ["profiles:read", "profiles:write"])
+        created = client.post(
+            "/api/profiles", json={"name": "Lots", "bin_sort_by": ["part", "color"]}, headers=key
+        )
+        assert created.status_code == 200, created.text
+        profile = created.json()
+        assert profile["current_version"]["bin_sort_by"] == ["part", "color"]
+
+        saved = client.post(
+            f"/api/profiles/{profile['id']}/versions",
+            json={"name": "Lots", "bin_sort_by": ["color"]},
+            headers=key,
+        )
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["bin_sort_by"] == ["color"]
+
+        dropped = client.post(f"/api/profiles/{profile['id']}/versions", json={"name": "Lots"}, headers=key)
+        assert dropped.status_code == 200, dropped.text
+        assert dropped.json()["bin_sort_by"] == []
+
+        plain = client.post("/api/profiles", json={"name": "Plain"}, headers=key).json()
+        assert plain["current_version"]["bin_sort_by"] == []
+
+    def test_a_fork_of_a_default_keeps_it(
+        self, client: TestClient, auth_headers: dict[str, str], db: Session, catalog
+    ) -> None:
+        default_profiles.ensure_default_profiles(db)
+        defaults = client.get("/api/profiles?scope=defaults", headers=auth_headers).json()
+        items = defaults["items"] if isinstance(defaults, dict) else defaults
+        lot = next(profile for profile in items if profile["name"] == "One bin per part and color (LOT)")
+
+        fork = client.post(f"/api/profiles/{lot['id']}/fork", json={"name": "My lots"}, headers=auth_headers)
+        assert fork.status_code == 200, fork.text
+        version = fork.json()["current_version"]
+        assert version["bin_sort_by"] == ["part", "color"]
+
+        # the fork is a profile of its own: its next version keeps naming bins the same way
+        document = {"name": "My lots", "bin_sort_by": version["bin_sort_by"]}
+        again = client.post(f"/api/profiles/{fork.json()['id']}/versions", json=document, headers=auth_headers)
+        assert again.status_code == 200, again.text
+        assert again.json()["bin_sort_by"] == ["part", "color"]
+
+        category_fork = client.post(
+            f"/api/profiles/{next(p['id'] for p in items if p['name'] == 'BrickLink categories')}/fork",
+            json={"name": "My categories"},
+            headers=auth_headers,
+        )
+        assert category_fork.json()["current_version"]["bin_sort_by"] == []
+
+    def test_the_defaults_say_their_bins_are_only_the_fallback(self, db: Session, catalog) -> None:
+        for definition in default_profiles.DEFINITIONS:
+            if definition.get("bin_sort_by"):
+                assert "only how records file a piece" in definition["description"]
 
 
 class TestRecords:

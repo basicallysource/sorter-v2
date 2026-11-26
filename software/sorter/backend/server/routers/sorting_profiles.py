@@ -13,11 +13,13 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+import bin_key
 from bin_contents import start_new_sorting_session
 from local_state import get_hive_config, get_sorting_profile_sync_state, set_sorting_profile_sync_state
 from server import shared_state
 from server.hive_models import HiveClient, HiveError
 from sorting_profile import profileSummary
+from toml_config import getBinAssignmentConfig, setBinAssignmentConfig
 from server.routers.bins import (
     clear_bin_category_assignments,
     _current_bin_categories,
@@ -145,6 +147,21 @@ def _preassign_bins_from_rules(artifact: dict[str, Any]) -> int:
     if assigned > 0:
         _apply_and_persist_bin_categories(categories)
     return assigned
+
+
+def _apply_bin_sort_by(artifact: dict[str, Any], *, already_cleared: bool) -> list[str]:
+    """Name the bins the way the profile says (its `bin_sort_by`), or by
+    category when it says nothing. Bins assigned under another naming would
+    never match a piece again, so a change of naming clears them (unless the
+    caller just did). Returns the naming now in force."""
+    raw = artifact.get("bin_sort_by") if isinstance(artifact, dict) else None
+    wanted = list(bin_key.parseComponents(raw) or bin_key.DEFAULT_COMPONENTS) if raw else list(bin_key.DEFAULT_COMPONENTS)
+    if getBinAssignmentConfig()["sort_by"] == wanted:
+        return wanted
+    setBinAssignmentConfig({"sort_by": wanted})
+    if not already_cleared:
+        clear_bin_category_assignments(scope="all")
+    return wanted
 
 
 def _atomic_write_json(path: str, data: dict[str, Any]) -> None:
@@ -426,6 +443,36 @@ def get_local_profile_meta(filename: str) -> dict[str, Any]:
     }
 
 
+@router.get("/api/sorting-profiles/local/{filename}/metadata")
+def get_local_profile_metadata(filename: str) -> dict[str, Any]:
+    # What the profile sorts into, in the shape of /sorting-profile/metadata, so
+    # a saved profile can be read before it is activated.
+    path = _safe_local_path(filename)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Local profile not found.")
+    try:
+        data = profileSummary(str(path))
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=f"Profile unreadable: {exc}")
+    stats = data.get("stats") if isinstance(data.get("stats"), dict) else {}
+    return {
+        "id": data.get("id") or path.stem,
+        "name": data.get("name") or path.stem,
+        "description": data.get("description") or "",
+        "created_at": data.get("created_at") or "",
+        "updated_at": data.get("updated_at") or "",
+        "default_category_id": data.get("default_category_id") or "misc",
+        "categories": data.get("categories") or {},
+        "category_order": [str(item) for item in data.get("category_order") or []],
+        "rules": data.get("rules") or [],
+        "fallback_mode": data.get("fallback_mode")
+        or {"rebrickable_categories": False, "bricklink_categories": False, "by_color": False},
+        "stats": {k: v for k, v in stats.items() if k != "samples"} or None,
+        "requires": [str(item) for item in data.get("requires") or []],
+        "bin_sort_by": [str(item) for item in data.get("bin_sort_by") or []],
+    }
+
+
 @router.get("/api/sorting-profiles/targets/{target_id}/library")
 def get_sorting_profile_target_library(target_id: str) -> dict[str, Any]:
     # Single target's Hive fetch. The page calls one of these per enabled
@@ -510,11 +557,13 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
         raise _hive_http_error(exc) from exc
 
     artifact_hash = str(artifact.get("artifact_hash") or "")
+    sort_by = _apply_bin_sort_by(artifact, already_cleared=reset_result is not None)
     _atomic_write_json(shared_state.gc_ref.sorting_profile_path, artifact)
     reloaded = _reload_runtime_profile()
 
     preassigned_count = 0
-    if mode == "rules":
+    # Rule ids are category ids: seeding bins with them only fits bins named by category.
+    if mode == "rules" and list(sort_by) == list(bin_key.DEFAULT_COMPONENTS):
         preassigned_count = _preassign_bins_from_rules(artifact)
 
     sync_state = {
@@ -668,11 +717,13 @@ def apply_local_sorting_profile(payload: ApplyLocalSortingProfilePayload) -> dic
     if mode in ("empty", "rules"):
         reset_result = clear_bin_category_assignments(scope="all")
 
+    sort_by = _apply_bin_sort_by(artifact, already_cleared=reset_result is not None)
     _atomic_write_json(shared_state.gc_ref.sorting_profile_path, artifact)
     reloaded = _reload_runtime_profile()
 
     preassigned_count = 0
-    if mode == "rules":
+    # Rule ids are category ids: seeding bins with them only fits bins named by category.
+    if mode == "rules" and list(sort_by) == list(bin_key.DEFAULT_COMPONENTS):
         preassigned_count = _preassign_bins_from_rules(artifact)
 
     name = str(artifact.get("name") or path.stem)

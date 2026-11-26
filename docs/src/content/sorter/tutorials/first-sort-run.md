@@ -16,13 +16,13 @@ Everything here happens in the browser. If anything stalls, jump to [troubleshoo
 ## Before you start
 
 - The machine is powered on and its UI opens in your browser. On the SorterOS image that is `http://sorter.local/`.
-- [Before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }}) is done: a profile is deployed and the chute is homed.
+- [Before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }}) is done: a profile is active and the chute is homed.
 - 10 to 20 mixed bricks, plates and tiles, picked over as [Preparing LEGO]({{ '/sorter/preparing-lego/' | relative_url }}) describes. Leave stickered and printed parts out of your first run.
 - Empty bins in their slots. Nothing left in the chute, the channels, the carousel or the chamber.
 
 ## 1. Pick a profile
 
-Open the UI → **Profiles** → click **activate** on **Presort**. Presort has eight categories plus a catch-all "Other", so nothing falls through.
+Open the UI → **Profiles**. If the machine is linked to Hive it is already running Hive's default profile **BrickLink categories**, shown under **On this machine**, and you can leave it. Otherwise press **Activate** on a profile under **Profiles from Hive**, or upload one (see [Before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }})). BrickLink categories gives each category its own bin, whatever the color, so a first run of bricks, plates and tiles lands in a bin for each.
 
 ## 2. Confirm the dashboard is ready
 
@@ -63,7 +63,7 @@ Once the first part lands, top up the hopper with the remaining parts. Expect 4 
 
 ## 7. Check a bin
 
-When the dashboard shows no pending work, **Stop run**. Open the Bricks bin — it should contain only bricks. A misroute is a classification accuracy issue, not a machine failure; flag it from **Classification Samples** for later.
+When the dashboard shows no pending work, **Stop run**. Open the Brick bin. It should contain only bricks, in any color. A misroute is a classification accuracy issue, not a machine failure; flag it from **Classification Samples** for later.
 
 ## 8. Shut down clean
 
@@ -83,5 +83,5 @@ The full happy path: profile, start, feed, classify, distribute, check, stop. Ev
 
 ## Next
 
-- Edit a profile: **Profiles → Edit**. Schema: [profile reference]({{ '/sorter/profile-reference/' | relative_url }}).
+- Make your own profile in Hive: [build your first sorting profile]({{ '/hive/first-profile/' | relative_url }}). The file itself: [profile reference]({{ '/sorter/profile-reference/' | relative_url }}).
 - Bookmark [troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}).
